@@ -9,6 +9,7 @@
 
 class QWebSocket;
 class Item;
+class MapData;
 class SpawnShell;
 class ZoneMgr;
 class Player;
@@ -30,6 +31,7 @@ public:
                    SpawnShell* spawnShell,
                    ZoneMgr*    zoneMgr,
                    Player*     player,
+                   MapData*    mapData,
                    QObject*    parent = nullptr);
     ~SessionAdapter() override;
 
@@ -60,6 +62,7 @@ private:
     SpawnShell*                  m_spawnShell = nullptr;
     ZoneMgr*                     m_zoneMgr    = nullptr;
     Player*                      m_player     = nullptr;
+    MapData*                     m_mapData    = nullptr;
 
     bool                         m_subscribed = false;
     bool                         m_liveTailing = false;

@@ -9,6 +9,7 @@
 
 class Item;
 class Spawn;
+class MapData;
 
 namespace seq::encode {
 
@@ -18,5 +19,11 @@ void fillSpawn(seq::v1::Spawn* out, const Item& in);
 
 // Fills a Pos proto from a Spawn's current position + velocity + heading.
 void fillPos(seq::v1::Pos* out, const Spawn& in);
+
+// Flattens every layer of `map` into a MapGeometry (lines + named
+// locations + bounding rect). Safe to call on an unloaded MapData — the
+// output will be empty geometry with zeroed bounds, which callers are
+// expected to treat as "no map available for this zone".
+void fillMapGeometry(seq::v1::MapGeometry* out, const MapData& map);
 
 } // namespace seq::encode

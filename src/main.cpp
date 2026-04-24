@@ -29,17 +29,23 @@ int main(int argc, char** argv)
     QCommandLineOption configDirOpt(QStringList{"c", "config-dir"},
         "Directory holding opcode XML and other shared config. Overrides "
         "PKGDATADIR; convenient for running from the build tree.", "dir");
+    QCommandLineOption mapsDirOpt(QStringList{"m", "maps-dir"},
+        "Directory holding zone .map / .txt files. Defaults to "
+        "~/.showeq/maps (the legacy showeq-c location), falling back to "
+        "$config-dir/maps.", "dir");
 
     parser.addOption(deviceOpt);
     parser.addOption(listenOpt);
     parser.addOption(replayOpt);
     parser.addOption(configDirOpt);
+    parser.addOption(mapsDirOpt);
     parser.process(app);
 
     DaemonApp::Config cfg;
     cfg.device    = parser.value(deviceOpt);
     cfg.replay    = parser.value(replayOpt);
     cfg.configDir = parser.value(configDirOpt);
+    cfg.mapsDir   = parser.value(mapsDirOpt);
 
     // Resolve --config-dir relative to the invocation cwd, not $HOME.
     // Under sudo, $HOME is /root, which would silently send DataLocationMgr
@@ -47,6 +53,9 @@ int main(int argc, char** argv)
     // process cwd, which is what users expect when they type `./conf`.
     if (!cfg.configDir.isEmpty() && QDir::isRelativePath(cfg.configDir)) {
         cfg.configDir = QFileInfo(cfg.configDir).absoluteFilePath();
+    }
+    if (!cfg.mapsDir.isEmpty() && QDir::isRelativePath(cfg.mapsDir)) {
+        cfg.mapsDir = QFileInfo(cfg.mapsDir).absoluteFilePath();
     }
 
     const QString listen = parser.value(listenOpt);

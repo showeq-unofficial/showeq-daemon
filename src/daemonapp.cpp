@@ -1,7 +1,9 @@
 #include "daemonapp.h"
 
+#include <QDir>
 #include <QFileInfo>
 #include <QLoggingCategory>
+#include <QStandardPaths>
 
 #include "main.h"
 
@@ -10,6 +12,7 @@
 #include "eqstr.h"
 #include "filtermgr.h"
 #include "guild.h"
+#include "mapcore.h"
 #include "packet.h"
 #include "packetcommon.h"
 #include "packetinfo.h"
@@ -24,6 +27,7 @@ namespace seq { void initGlobals(const QString& def, const QString& user); }
 DaemonApp::DaemonApp(Config cfg, QObject* parent)
     : QObject(parent)
     , m_cfg(std::move(cfg))
+    , m_mapData(std::make_unique<MapData>())
     , m_ws(std::make_unique<WsServer>(this))
 {
 }
@@ -94,8 +98,23 @@ bool DaemonApp::start()
 
     m_spawnShell = new SpawnShell(*m_filterMgr, m_zoneMgr, m_player, m_guildMgr);
 
+    // Load the initial zone map if we already know the zone (e.g. replay
+    // mode with zone already fixed). Otherwise loadZoneMap fires on the
+    // first zone-resolving signal.
+    if (!shortZoneName.isEmpty()) {
+        loadZoneMap(shortZoneName);
+    }
+    // Camp+login takes the `zonePlayer -> emit zoneBegin` path; inter-zone
+    // transitions take the `zoneChange(DIR_Server) -> emit zoneChanged`
+    // path. Listen to both — loadZoneMap is idempotent if the zone hasn't
+    // changed because clear()+reload yields the same MapData.
+    connect(m_zoneMgr, SIGNAL(zoneBegin(const QString&)),
+            this,      SLOT(loadZoneMap(const QString&)));
+    connect(m_zoneMgr, SIGNAL(zoneChanged(const QString&)),
+            this,      SLOT(loadZoneMap(const QString&)));
+
     // Let the WebSocket server hand these to each SessionAdapter it spawns.
-    m_ws->setState(m_spawnShell, m_zoneMgr, m_player);
+    m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get());
 
     if (m_packet) {
         wireZoneMgr();
@@ -188,6 +207,16 @@ void DaemonApp::wireZoneMgr()
 
     connect(m_zoneMgr, SIGNAL(playerProfile(const charProfileStruct*)),
             m_player,  SLOT(player(const charProfileStruct*)));
+
+    // Player's own per-tick movement. Mirrors showeq-c/src/interface.cpp:1000.
+    // OP_ClientUpdate is overloaded — DIR_Server uses playerSpawnPosStruct
+    // (other players' updates, wired in wireSpawnShell), DIR_Client uses
+    // playerSelfPosStruct (this user's movement). Both feed the Player
+    // object's own changeItem signal.
+    m_packet->connect2("OP_ClientUpdate", SP_Zone, DIR_Server|DIR_Client,
+                       "playerSelfPosStruct", SZC_Match,
+                       m_player,
+                       SLOT(playerUpdateSelf(const uint8_t*, size_t, uint8_t)));
 }
 
 void DaemonApp::wireSpawnShell()
@@ -265,4 +294,97 @@ void DaemonApp::wireSpawnShell()
                        "corpseLocStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(corpseLoc(const uint8_t*)));
+}
+
+static QString legacyShoweqHome()
+{
+    // Under sudo, $HOME (and QDir::homePath) point at /root, not the
+    // invoking user's home — so the legacy ~/.showeq/maps directory the
+    // user actually populated isn't found. SUDO_USER is set by sudo to the
+    // original username, which we use to reconstruct the right path.
+    const QByteArray sudoUser = qgetenv("SUDO_USER");
+    if (!sudoUser.isEmpty() && qgetenv("USER") == "root") {
+        return QStringLiteral("/home/") + QString::fromLocal8Bit(sudoUser);
+    }
+    return QDir::homePath();
+}
+
+static QStringList mapSearchPaths(const QString& override,
+                                  const DataLocationMgr* dlm)
+{
+    // Override wins; otherwise default cascade: legacy showeq-c location,
+    // then whatever DataLocationMgr considers the user + pkg "maps" dir.
+    QStringList paths;
+    if (!override.isEmpty()) {
+        paths.append(override);
+        return paths;
+    }
+    paths.append(legacyShoweqHome() + "/.showeq/maps");
+    if (dlm) {
+        paths.append(dlm->userDataDir("maps").absolutePath());
+        paths.append(dlm->pkgDataDir("maps").absolutePath());
+    }
+    return paths;
+}
+
+static QFileInfo locateMap(const QStringList& dirs, const QString& filename)
+{
+    for (const QString& d : dirs) {
+        QFileInfo fi(d + "/" + filename);
+        if (fi.exists()) return fi;
+    }
+    return QFileInfo();
+}
+
+void DaemonApp::loadZoneMap(const QString& shortZoneName)
+{
+    m_mapData->clear();
+    if (shortZoneName.isEmpty()) {
+        return;
+    }
+
+    const QStringList dirs = mapSearchPaths(m_cfg.mapsDir,
+                                            m_dataLocationMgr.get());
+
+    // Mirrors showeq-c/src/map.cpp:370-423 — locate the base .map/.txt then
+    // any numbered layer files (_1, _2, ...). import=true for layer files so
+    // they accumulate into the same MapData rather than replacing it.
+    const QFileInfo baseMap = locateMap(dirs, shortZoneName + ".map");
+    const QFileInfo baseTxt = locateMap(dirs, shortZoneName + ".txt");
+
+    QString extension;
+    QStringList files;
+    if (baseMap.exists()) {
+        extension = ".map";
+        files.append(baseMap.absoluteFilePath());
+    } else if (baseTxt.exists()) {
+        extension = ".txt";
+        files.append(baseTxt.absoluteFilePath());
+    } else {
+        qInfo("no map file found for zone '%s' (searched: %s)",
+              qUtf8Printable(shortZoneName),
+              qUtf8Printable(dirs.join(", ")));
+        return;
+    }
+
+    for (int i = 1; i < 10; ++i) {
+        const QFileInfo layerFile =
+            locateMap(dirs, shortZoneName + "_" + QString::number(i) + extension);
+        if (layerFile.exists()) {
+            files.append(layerFile.absoluteFilePath());
+        }
+    }
+
+    bool import = false;
+    for (const QString& f : files) {
+        if (extension == ".map") {
+            m_mapData->loadMap(f, import);
+        } else {
+            m_mapData->loadSOEMap(f, import);
+        }
+        import = true;
+    }
+    qInfo("loaded map for zone '%s' (%d layer(s) from %s)",
+          qUtf8Printable(shortZoneName), files.size(),
+          qUtf8Printable(QFileInfo(files.first()).absolutePath()));
 }

@@ -14,6 +14,7 @@ class EQPacket;
 class EQStr;
 class FilterMgr;
 class GuildMgr;
+class MapData;
 class Player;
 class Spells;
 class SpawnShell;
@@ -38,6 +39,9 @@ public:
         // directory. Convenient for running against the in-tree conf/
         // without installing to PKGDATADIR.
         QString      configDir;
+        // Overrides the zone-map search directory. Empty string triggers
+        // the default cascade: ~/.showeq/maps → $configDir/maps.
+        QString      mapsDir;
         QHostAddress listenHost;
         quint16      listenPort = 9090;
     };
@@ -50,6 +54,11 @@ public:
     // unrecoverable setup failure (bad interface, port in use, missing
     // config files).
     bool start();
+
+private slots:
+    // Mirrors showeq-c/src/map.cpp:370 — MapMgr::loadZoneMap. Called on every
+    // ZoneMgr::zoneChanged so SessionAdapter has fresh geometry to stream.
+    void loadZoneMap(const QString& shortZoneName);
 
 private:
     bool startServer();
@@ -69,6 +78,7 @@ private:
     Player*                         m_player        = nullptr;
     FilterMgr*                      m_filterMgr     = nullptr;
     SpawnShell*                     m_spawnShell    = nullptr;
+    std::unique_ptr<MapData>        m_mapData;
 
     std::unique_ptr<WsServer>       m_ws;
 };

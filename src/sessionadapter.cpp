@@ -3,8 +3,11 @@
 #include <QByteArray>
 #include <QDateTime>
 #include <QLoggingCategory>
+#include <QSet>
 #include <QWebSocket>
 
+#include "mapcore.h"
+#include "player.h"
 #include "protoencoder.h"
 #include "spawn.h"
 #include "spawnshell.h"
@@ -16,12 +19,14 @@ SessionAdapter::SessionAdapter(QWebSocket* sock,
                                SpawnShell* spawnShell,
                                ZoneMgr*    zoneMgr,
                                Player*     player,
+                               MapData*    mapData,
                                QObject*    parent)
     : QObject(parent)
     , m_sock(sock)
     , m_spawnShell(spawnShell)
     , m_zoneMgr(zoneMgr)
     , m_player(player)
+    , m_mapData(mapData)
 {
     connect(sock, &QWebSocket::textMessageReceived,
             this, &SessionAdapter::onTextMessage);
@@ -73,6 +78,14 @@ void SessionAdapter::startStreaming()
             this,         &SessionAdapter::onDelItem);
     connect(m_spawnShell, &SpawnShell::changeItem,
             this,         &SessionAdapter::onChangeItem);
+    // Player emits its own changeItem on per-tick position/heading updates
+    // (player.cpp:932 — tSpawnChangedPosition); SpawnShell forwards a few
+    // bigger transitions but not the per-tick movement. Connect both so
+    // the player marker tracks live.
+    if (m_player) {
+        connect(m_player, &Player::changeItem,
+                this,     &SessionAdapter::onChangeItem);
+    }
     // `killSpawn`, `zoneBegin`, `zoneChanged` each have same-name slots on
     // their source classes (SpawnShell::killSpawn(const uint8_t*), etc.),
     // which confuses the compile-time &Class::member form. Fall back to
@@ -109,22 +122,40 @@ void SessionAdapter::sendSnapshot()
         snap->set_zone_short(m_zoneMgr->shortZoneName().toStdString());
         snap->set_zone_long(m_zoneMgr->longZoneName().toStdString());
     }
+    if (m_player) {
+        snap->set_player_id(m_player->getPlayerID());
+    }
+    if (m_mapData && m_mapData->numLayers() > 0) {
+        seq::encode::fillMapGeometry(snap->mutable_geometry(), *m_mapData);
+    }
 
     // SpawnShell maintains separate ItemMaps for spawns, drops, doors, and
     // players; the Phase 1 client renders all of them the same way (as
     // labeled dots), so we collapse them into a single repeated Spawn list.
+    QSet<uint16_t> seenIds;
     auto append = [&](const ItemMap& map) {
         ItemConstIterator it(map);
         while (it.hasNext()) {
             it.next();
             if (const Item* item = it.value()) {
                 seq::encode::fillSpawn(snap->add_spawns(), *item);
+                seenIds.insert(item->id());
             }
         }
     };
     append(m_spawnShell->spawns());
     append(m_spawnShell->drops());
     append(m_spawnShell->doors());
+    append(m_spawnShell->getConstMap(tPlayer));
+
+    // Belt + suspenders: if the player object never made it into
+    // SpawnShell's m_players map (which can happen during early init
+    // before zonePlayer fires), include it directly so the client gets
+    // a marker for `player_id`.
+    if (m_player && m_player->getPlayerID() != 0 &&
+        !seenIds.contains(m_player->getPlayerID())) {
+        seq::encode::fillSpawn(snap->add_spawns(), *m_player);
+    }
 
     emitEnvelope(std::move(env));
 }
@@ -183,6 +214,9 @@ void SessionAdapter::onChangeItem(const Item* item, uint32_t changeType)
         if (changeType & tSpawnChangedName) {
             upd->set_name(sp->name().toStdString());
         }
+        if (changeType & (tSpawnChangedFilter | tSpawnChangedRuntimeFilter)) {
+            upd->set_filter_flags(sp->filterFlags());
+        }
     }
     sendOrBuffer(std::move(env));
 }
@@ -200,7 +234,18 @@ void SessionAdapter::onKillSpawn(const Item* deceased, const Item* killer,
 void SessionAdapter::onZoneBegin(const QString& shortName)
 {
     seq::v1::Envelope env;
-    env.mutable_zone_changed()->set_zone_short(shortName.toStdString());
+    auto* zc = env.mutable_zone_changed();
+    zc->set_zone_short(shortName.toStdString());
+    if (m_zoneMgr) {
+        zc->set_zone_long(m_zoneMgr->longZoneName().toStdString());
+    }
+    // DaemonApp::loadZoneMap is wired to the same zoneChanged signal, so by
+    // the time this slot runs the MapData reflects the new zone. (Qt invokes
+    // direct-connected slots in connection order; loadZoneMap was connected
+    // before SessionAdapter.)
+    if (m_mapData && m_mapData->numLayers() > 0) {
+        seq::encode::fillMapGeometry(zc->mutable_geometry(), *m_mapData);
+    }
     sendOrBuffer(std::move(env));
 }
 

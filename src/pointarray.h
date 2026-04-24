@@ -90,7 +90,7 @@ QRect Point3DArray<_T>::boundingRect() const
   minX = maxX = d->x();
   minY = maxY = d->y();
   
-  uint32_t i;
+  int i;
   for (++d, i = 1;
        i < QVector<Point3D<_T> >::size();
        i++, d++)
