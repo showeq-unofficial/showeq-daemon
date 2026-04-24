@@ -51,6 +51,7 @@ class GroupMgr: public QObject
   const Spawn* memberByID( uint16_t id );
   const Spawn* memberByName( const QString& name );
   const Spawn* memberBySlot( uint16_t slot );
+  QString memberNameBySlot( uint16_t slot ) const;
 
   size_t groupSize() { return m_memberCount; }
   size_t groupMemberCount() { return m_memberCount; }

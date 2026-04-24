@@ -6,7 +6,9 @@
 #include <QSet>
 #include <QWebSocket>
 
+#include "group.h"
 #include "mapcore.h"
+#include "messageshell.h"
 #include "player.h"
 #include "protoencoder.h"
 #include "spawn.h"
@@ -15,18 +17,22 @@
 
 #include "seq/v1/client.pb.h"
 
-SessionAdapter::SessionAdapter(QWebSocket* sock,
-                               SpawnShell* spawnShell,
-                               ZoneMgr*    zoneMgr,
-                               Player*     player,
-                               MapData*    mapData,
-                               QObject*    parent)
+SessionAdapter::SessionAdapter(QWebSocket*   sock,
+                               SpawnShell*   spawnShell,
+                               ZoneMgr*      zoneMgr,
+                               Player*       player,
+                               MapData*      mapData,
+                               MessageShell* messageShell,
+                               GroupMgr*     groupMgr,
+                               QObject*      parent)
     : QObject(parent)
     , m_sock(sock)
     , m_spawnShell(spawnShell)
     , m_zoneMgr(zoneMgr)
     , m_player(player)
     , m_mapData(mapData)
+    , m_messageShell(messageShell)
+    , m_groupMgr(groupMgr)
 {
     connect(sock, &QWebSocket::textMessageReceived,
             this, &SessionAdapter::onTextMessage);
@@ -101,8 +107,67 @@ void SessionAdapter::startStreaming()
                 this,      SLOT(onZoneChanged(const QString&)));
     }
 
+    // Player stat signals — every one of these gets coalesced into a
+    // single PlayerStats envelope via onPlayerStatsChanged. Slot has no
+    // arguments; Qt5 quietly drops the signals' extra args.
+    if (m_player) {
+        connect(m_player, SIGNAL(hpChanged(int16_t, int16_t)),
+                this,     SLOT(onPlayerStatsChanged()));
+        connect(m_player, SIGNAL(manaChanged(uint32_t, uint32_t)),
+                this,     SLOT(onPlayerStatsChanged()));
+        connect(m_player, SIGNAL(statChanged(int, int, int)),
+                this,     SLOT(onPlayerStatsChanged()));
+        connect(m_player, SIGNAL(stamChanged(int, int, int, int)),
+                this,     SLOT(onPlayerStatsChanged()));
+        connect(m_player, SIGNAL(levelChanged(uint8_t)),
+                this,     SLOT(onPlayerStatsChanged()));
+        connect(m_player, SIGNAL(expChangedInt(int, int, int)),
+                this,     SLOT(onPlayerStatsChanged()));
+        connect(m_player, SIGNAL(expAltChangedInt(int, int, int)),
+                this,     SLOT(onPlayerStatsChanged()));
+        connect(m_player, SIGNAL(newPlayer()),
+                this,     SLOT(onPlayerStatsChanged()));
+        // The player's spawn ID changes once at zone-in (from 0 -> real
+        // id). The client tracks `playerId` from the Snapshot's
+        // player_id field, so we resend a fresh snapshot here — that
+        // drops the old player entry and re-establishes player_id
+        // pointing at the new one. Connection happens after SpawnShell's
+        // playerChangedID slot (registered in SpawnShell ctor), so by
+        // the time we run the re-insert into m_players is already done.
+        connect(m_player, SIGNAL(changedID(uint16_t, uint16_t)),
+                this,     SLOT(onPlayerIdChanged()));
+    }
+
+    if (m_messageShell) {
+        connect(m_messageShell,
+                SIGNAL(chatMessage(uint32_t, const QString&,
+                                   const QString&, const QString&)),
+                this,
+                SLOT(onChatMessage(uint32_t, const QString&,
+                                   const QString&, const QString&)));
+    }
+
+    if (m_groupMgr) {
+        connect(m_groupMgr, SIGNAL(added(const QString&, const Spawn*)),
+                this,       SLOT(onGroupChanged()));
+        connect(m_groupMgr, SIGNAL(removed(const QString&, const Spawn*)),
+                this,       SLOT(onGroupChanged()));
+        connect(m_groupMgr, SIGNAL(cleared()),
+                this,       SLOT(onGroupChanged()));
+    }
+
     // STEP 2: iterate current state into a Snapshot and ship it.
     sendSnapshot();
+
+    // Initial PlayerStats so the client has something to render before
+    // the next Player signal fires.
+    if (m_player) {
+        sendPlayerStats();
+    }
+    // Initial GroupUpdate (all 6 slots, may all be empty).
+    if (m_groupMgr) {
+        sendGroupUpdate();
+    }
 
     // STEP 3: drain anything that arrived during the iteration.
     for (auto& env : m_buffered) {
@@ -200,6 +265,22 @@ void SessionAdapter::onDelItem(const Item* item)
 void SessionAdapter::onChangeItem(const Item* item, uint32_t changeType)
 {
     if (!item) return;
+
+    // tSpawnChangedALL is the legacy "full re-render" signal — used by
+    // SpawnShell::changePlayerID, killSpawn-corpse-replace,
+    // updateSpawnInfo, etc. The spawn may not currently exist in the
+    // client (e.g. changePlayerID emits delItem(oldId) then
+    // changeItem(player, ALL) at the new id). Send SpawnAdded so the
+    // client overwrites/creates the entry; SpawnUpdated would be dropped
+    // because there's no existing entry at the new id.
+    if ((changeType & tSpawnChangedALL) == tSpawnChangedALL) {
+        seq::v1::Envelope env;
+        seq::encode::fillSpawn(env.mutable_spawn_added()->mutable_spawn(),
+                               *item);
+        sendOrBuffer(std::move(env));
+        return;
+    }
+
     seq::v1::Envelope env;
     auto* upd = env.mutable_spawn_updated();
     upd->set_id(item->id());
@@ -252,4 +333,50 @@ void SessionAdapter::onZoneBegin(const QString& shortName)
 void SessionAdapter::onZoneChanged(const QString& shortName)
 {
     onZoneBegin(shortName);
+}
+
+void SessionAdapter::onPlayerStatsChanged()
+{
+    if (!m_player) return;
+    sendPlayerStats();
+}
+
+void SessionAdapter::onPlayerIdChanged()
+{
+    if (!m_subscribed) return;
+    sendSnapshot();
+    sendPlayerStats();
+}
+
+void SessionAdapter::onChatMessage(uint32_t channel, const QString& from,
+                                   const QString& target, const QString& text)
+{
+    seq::v1::Envelope env;
+    auto* chat = env.mutable_chat();
+    chat->set_channel(channel);
+    chat->set_from(from.toStdString());
+    chat->set_target(target.toStdString());
+    chat->set_text(text.toStdString());
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onGroupChanged()
+{
+    if (!m_groupMgr) return;
+    sendGroupUpdate();
+}
+
+void SessionAdapter::sendGroupUpdate()
+{
+    if (!m_groupMgr) return;
+    seq::v1::Envelope env;
+    seq::encode::fillGroupUpdate(env.mutable_group(), *m_groupMgr);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::sendPlayerStats()
+{
+    seq::v1::Envelope env;
+    seq::encode::fillPlayerStats(env.mutable_player_stats(), *m_player);
+    sendOrBuffer(std::move(env));
 }

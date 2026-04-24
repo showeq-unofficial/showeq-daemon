@@ -7,7 +7,9 @@
 
 #include "seq/v1/events.pb.h"
 
+class GroupMgr;
 class Item;
+class Player;
 class Spawn;
 class MapData;
 
@@ -25,5 +27,14 @@ void fillPos(seq::v1::Pos* out, const Spawn& in);
 // output will be empty geometry with zeroed bounds, which callers are
 // expected to treat as "no map available for this zone".
 void fillMapGeometry(seq::v1::MapGeometry* out, const MapData& map);
+
+// Fills `out` from current Player state (HP/mana/stamina/exp/level/stats).
+// Always fills every field; fields are 0 before the player profile loads,
+// which the client renders as "—".
+void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p);
+
+// Fills `out` with all 6 group slots from `g`. Slots without a member
+// produce an empty GroupMember (in_zone=false, name="").
+void fillGroupUpdate(seq::v1::GroupUpdate* out, GroupMgr& g);
 
 } // namespace seq::encode

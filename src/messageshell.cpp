@@ -88,12 +88,34 @@ void MessageShell::channelMessage(const uint8_t* data, size_t len, uint8_t dir)
 //-----------------------------------------------------------------------------
 
   // Tells and Group by us happen twice *shrug*. Ignore the client->server one.
-  if (dir == DIR_Client && 
+  if (dir == DIR_Client &&
       (cmsg->chanNum == MT_Tell || cmsg->chanNum == MT_Group || cmsg->chanNum == MT_Guild ||
       cmsg->chanNum == MT_OOC || cmsg->chanNum == MT_Shout || cmsg->chanNum == MT_Auction ||
       cmsg->chanNum == MT_System || cmsg->chanNum == MT_Raid))
   {
     return;
+  }
+
+  // Emit the structured chatMessage signal so the websocket layer can
+  // forward it as seq.v1.ChatMessage. Limit to player-to-player channels;
+  // MT_System and other server-side noise stay confined to the formatted
+  // addMessage() path below.
+  switch (cmsg->chanNum) {
+  case MT_Guild:
+  case MT_Group:
+  case MT_Shout:
+  case MT_Auction:
+  case MT_OOC:
+  case MT_Tell:
+  case MT_Say:
+  case MT_Raid:
+    emit chatMessage(static_cast<uint32_t>(cmsg->chanNum),
+                     QString::fromLatin1(cmsg->sender),
+                     QString::fromLatin1(cmsg->target),
+                     QString::fromLatin1(cmsg->message));
+    break;
+  default:
+    break;
   }
 
   QString tempStr;

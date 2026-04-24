@@ -18,12 +18,15 @@ WsServer::WsServer(QObject* parent)
 
 WsServer::~WsServer() = default;
 
-void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md)
+void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
+                        MessageShell* ms, GroupMgr* gm)
 {
-    m_spawnShell = ss;
-    m_zoneMgr    = zm;
-    m_player     = p;
-    m_mapData    = md;
+    m_spawnShell    = ss;
+    m_zoneMgr       = zm;
+    m_player        = p;
+    m_mapData       = md;
+    m_messageShell  = ms;
+    m_groupMgr      = gm;
 }
 
 bool WsServer::listen(const QHostAddress& host, quint16 port)
@@ -37,7 +40,8 @@ void WsServer::onNewConnection()
         QWebSocket* sock = m_server->nextPendingConnection();
         auto* session = new SessionAdapter(sock, m_spawnShell,
                                            m_zoneMgr, m_player,
-                                           m_mapData, this);
+                                           m_mapData, m_messageShell,
+                                           m_groupMgr, this);
         connect(sock, &QWebSocket::disconnected,
                 this, &WsServer::onSessionDisconnected);
         m_sessions.append(session);

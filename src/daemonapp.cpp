@@ -11,8 +11,12 @@
 #include "datetimemgr.h"
 #include "eqstr.h"
 #include "filtermgr.h"
+#include "group.h"
 #include "guild.h"
 #include "mapcore.h"
+#include "messagefilter.h"
+#include "messages.h"
+#include "messageshell.h"
 #include "packet.h"
 #include "packetcommon.h"
 #include "packetinfo.h"
@@ -98,6 +102,30 @@ bool DaemonApp::start()
 
     m_spawnShell = new SpawnShell(*m_filterMgr, m_zoneMgr, m_player, m_guildMgr);
 
+    // GroupMgr tracks group members. Wiring matches showeq-c/src/
+    // interface.cpp:593-615 — needs the player profile signal, three
+    // group opcode handlers, and the spawn lifecycle slots.
+    m_groupMgr = new GroupMgr(m_spawnShell, m_player, this, "groupMgr");
+    connect(m_zoneMgr,    SIGNAL(playerProfile(const charProfileStruct*)),
+            m_groupMgr,   SLOT(player(const charProfileStruct*)));
+    connect(m_spawnShell, SIGNAL(addItem(const Item*)),
+            m_groupMgr,   SLOT(addItem(const Item*)));
+    connect(m_spawnShell, SIGNAL(delItem(const Item*)),
+            m_groupMgr,   SLOT(delItem(const Item*)));
+    connect(m_spawnShell, SIGNAL(killSpawn(const Item*, const Item*, uint16_t)),
+            m_groupMgr,   SLOT(killSpawn(const Item*)));
+
+    // MessageShell parses chat / system / NPC text packets and emits
+    // structured signals (Phase 3 only consumes chatMessage; the rest of
+    // its slots stay idle until later phases wire their opcodes). Needs
+    // MessageFilters + Messages even though we don't query them today.
+    m_messageFilters = new MessageFilters(this, "messageFilters");
+    m_messages = new Messages(m_dateTimeMgr, m_messageFilters,
+                              this, "messages");
+    m_messageShell = new MessageShell(m_messages, m_eqStrings, m_spells,
+                                      m_zoneMgr, m_spawnShell, m_player,
+                                      this, "messageShell");
+
     // Load the initial zone map if we already know the zone (e.g. replay
     // mode with zone already fixed). Otherwise loadZoneMap fires on the
     // first zone-resolving signal.
@@ -114,7 +142,8 @@ bool DaemonApp::start()
             this,      SLOT(loadZoneMap(const QString&)));
 
     // Let the WebSocket server hand these to each SessionAdapter it spawns.
-    m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get());
+    m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get(),
+                   m_messageShell, m_groupMgr);
 
     if (m_packet) {
         wireZoneMgr();
@@ -294,6 +323,32 @@ void DaemonApp::wireSpawnShell()
                        "corpseLocStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(corpseLoc(const uint8_t*)));
+
+    // Chat — only OP_ChannelMessage for Phase 3; OP_FormattedMessage and
+    // OP_SpecialMesg can be wired to MessageShell later if/when we want
+    // system-text events on the wire.
+    m_packet->connect2("OP_ChannelMessage", SP_Zone, DIR_Client|DIR_Server,
+                       "channelMessageStruct", SZC_None,
+                       m_messageShell,
+                       SLOT(channelMessage(const uint8_t*, size_t, uint8_t)));
+
+    // Group opcodes — mirrors showeq-c/src/interface.cpp:595-606.
+    m_packet->connect2("OP_GroupUpdate", SP_Zone, DIR_Server,
+                       "uint8_t", SZC_None,
+                       m_groupMgr,
+                       SLOT(groupUpdate(const uint8_t*, size_t)));
+    m_packet->connect2("OP_GroupFollow", SP_Zone, DIR_Server,
+                       "groupFollowStruct", SZC_Match,
+                       m_groupMgr,
+                       SLOT(addGroupMember(const uint8_t*)));
+    m_packet->connect2("OP_GroupDisband", SP_Zone, DIR_Server,
+                       "groupDisbandStruct", SZC_Match,
+                       m_groupMgr,
+                       SLOT(removeGroupMember(const uint8_t*)));
+    m_packet->connect2("OP_GroupDisband2", SP_Zone, DIR_Server,
+                       "groupDisbandStruct", SZC_Match,
+                       m_groupMgr,
+                       SLOT(removeGroupMember(const uint8_t*)));
 }
 
 static QString legacyShoweqHome()

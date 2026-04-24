@@ -140,6 +140,9 @@ public:
 
    uint32_t getCurrentExp() { return m_currentExp; }
    uint32_t getMaxExp() { return m_maxExp; }
+   uint32_t getCurrentAltExp() const { return m_currentAltExp; }
+   uint16_t getCurrentAApts() const { return m_currentAApts; }
+   uint16_t getFatigue() const { return m_fatigue; }
    
    const QColor& conColorBase(ColorLevel level);
    void setConColorBase(ColorLevel level, const QColor& color);

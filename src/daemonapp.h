@@ -13,8 +13,12 @@ class DateTimeMgr;
 class EQPacket;
 class EQStr;
 class FilterMgr;
+class GroupMgr;
 class GuildMgr;
 class MapData;
+class MessageFilters;
+class MessageShell;
+class Messages;
 class Player;
 class Spells;
 class SpawnShell;
@@ -78,6 +82,10 @@ private:
     Player*                         m_player        = nullptr;
     FilterMgr*                      m_filterMgr     = nullptr;
     SpawnShell*                     m_spawnShell    = nullptr;
+    GroupMgr*                       m_groupMgr      = nullptr;
+    MessageFilters*                 m_messageFilters = nullptr;
+    Messages*                       m_messages       = nullptr;
+    MessageShell*                   m_messageShell   = nullptr;
     std::unique_ptr<MapData>        m_mapData;
 
     std::unique_ptr<WsServer>       m_ws;

@@ -8,8 +8,10 @@
 #include "seq/v1/events.pb.h"
 
 class QWebSocket;
+class GroupMgr;
 class Item;
 class MapData;
+class MessageShell;
 class SpawnShell;
 class ZoneMgr;
 class Player;
@@ -27,12 +29,14 @@ class Player;
 class SessionAdapter : public QObject {
     Q_OBJECT
 public:
-    SessionAdapter(QWebSocket* sock,
-                   SpawnShell* spawnShell,
-                   ZoneMgr*    zoneMgr,
-                   Player*     player,
-                   MapData*    mapData,
-                   QObject*    parent = nullptr);
+    SessionAdapter(QWebSocket*   sock,
+                   SpawnShell*   spawnShell,
+                   ZoneMgr*      zoneMgr,
+                   Player*       player,
+                   MapData*      mapData,
+                   MessageShell* messageShell,
+                   GroupMgr*     groupMgr,
+                   QObject*      parent = nullptr);
     ~SessionAdapter() override;
 
     QWebSocket* socket() const { return m_sock; }
@@ -51,18 +55,36 @@ private slots:
                      uint16_t killerId);
     void onZoneBegin(const QString& shortName);
     void onZoneChanged(const QString& shortName);
+    // Coalesces the various Player::*Changed signals into a single
+    // PlayerStats envelope. Slot signatures are deliberately broad so we
+    // can connect any Player signal to it without per-signal adapters.
+    void onPlayerStatsChanged();
+    // Re-issues a Snapshot when the player's spawn ID changes. Snapshot
+    // carries player_id, so this is the simplest way to keep the
+    // client's player tracking in sync with the daemon's current view.
+    void onPlayerIdChanged();
+    // Emits a seq.v1.ChatMessage envelope from a MessageShell::chatMessage
+    // signal.
+    void onChatMessage(uint32_t channel, const QString& from,
+                       const QString& target, const QString& text);
+    // Re-emits the full group state on any GroupMgr add/remove/clear.
+    void onGroupChanged();
 
 private:
     void startStreaming();
     void sendSnapshot();
+    void sendPlayerStats();
+    void sendGroupUpdate();
     void emitEnvelope(seq::v1::Envelope&& env);
     void sendOrBuffer(seq::v1::Envelope&& env);
 
-    QWebSocket*                  m_sock       = nullptr;
-    SpawnShell*                  m_spawnShell = nullptr;
-    ZoneMgr*                     m_zoneMgr    = nullptr;
-    Player*                      m_player     = nullptr;
-    MapData*                     m_mapData    = nullptr;
+    QWebSocket*                  m_sock         = nullptr;
+    SpawnShell*                  m_spawnShell   = nullptr;
+    ZoneMgr*                     m_zoneMgr      = nullptr;
+    Player*                      m_player       = nullptr;
+    MapData*                     m_mapData      = nullptr;
+    MessageShell*                m_messageShell = nullptr;
+    GroupMgr*                    m_groupMgr     = nullptr;
 
     bool                         m_subscribed = false;
     bool                         m_liveTailing = false;

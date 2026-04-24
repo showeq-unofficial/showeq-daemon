@@ -436,6 +436,13 @@ const Spawn* GroupMgr::memberBySlot(uint16_t slot )
   return m_members[slot]->m_spawn;
 }
 
+QString GroupMgr::memberNameBySlot(uint16_t slot) const
+{
+  if (slot >= MAX_GROUP_MEMBERS) return QString();
+  if (!m_members[slot]) return QString();
+  return m_members[slot]->m_name;
+}
+
 #ifndef QMAKEBUILD
 #include "group.moc"
 #endif

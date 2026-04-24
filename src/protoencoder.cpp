@@ -2,6 +2,8 @@
 
 #include <QPoint>
 
+#include "everquest.h"
+#include "group.h"
 #include "mapcore.h"
 #include "player.h"
 #include "spawn.h"
@@ -137,6 +139,60 @@ void fillMapGeometry(seq::v1::MapGeometry* out, const MapData& map)
             out_loc->set_z(loc->z());
             out_loc->set_z_valid(loc->heightSet());
             out_loc->set_layer(i);
+        }
+    }
+}
+
+void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
+{
+    // Cast away const because the legacy accessors (HP, maxHP, getMana,
+    // ...) aren't const-qualified. They don't actually mutate.
+    auto& mp = const_cast<Player&>(p);
+
+    out->set_hp_cur(mp.HP());
+    out->set_hp_max(mp.maxHP());
+    out->set_mana_cur(mp.getMana());
+    out->set_mana_max(mp.getMaxMana());
+    out->set_stamina_cur(100u - mp.getFatigue());
+    out->set_stamina_max(100u);
+
+    out->set_level(mp.level());
+    out->set_exp_cur(mp.getCurrentExp());
+    out->set_exp_max(mp.getMaxExp());
+    // 15M is the hardcoded AA cap shared with showeq-c (see player.cpp's
+    // emit setAltExp call). When EQ raises it, both sides update together.
+    out->set_aa_exp_cur(mp.getCurrentAltExp());
+    out->set_aa_exp_max(15'000'000u);
+    out->set_aa_points(mp.getCurrentAApts());
+
+    out->set_name(mp.name().toStdString());
+    out->set_class_(mp.classVal());
+    out->set_race(mp.race());
+
+    out->set_str(mp.getMaxSTR());
+    out->set_sta(mp.getMaxSTA());
+    out->set_agi(mp.getMaxAGI());
+    out->set_dex(mp.getMaxDEX());
+    out->set_wis(mp.getMaxWIS());
+    out->set_int_(mp.getMaxINT());
+    out->set_cha(mp.getMaxCHA());
+}
+
+void fillGroupUpdate(seq::v1::GroupUpdate* out, GroupMgr& g)
+{
+    for (uint16_t slot = 0; slot < MAX_GROUP_MEMBERS; ++slot) {
+        auto* m = out->add_members();
+        m->set_slot(slot);
+        const QString name = g.memberNameBySlot(slot);
+        m->set_name(name.toStdString());
+        const Spawn* sp = g.memberBySlot(slot);
+        if (sp) {
+            m->set_in_zone(true);
+            m->set_spawn_id(sp->id());
+            m->set_level(sp->level());
+            m->set_class_(sp->classVal());
+        } else {
+            m->set_in_zone(false);
         }
     }
 }

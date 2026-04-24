@@ -120,6 +120,15 @@ class MessageShell : public QObject
    void filterMessage(const QString& prefix, MessageType type,
 		      const Item* item);
 
+ signals:
+   // Structured emission of a player-to-player chat message, in addition
+   // to the formatted addMessage() call further down channelMessage().
+   // Non-player message types (system, NPC emote, formatted/special
+   // server messages, etc.) are not emitted here. Phase 3 sessionadapter
+   // listens to this and forwards to clients as seq.v1.ChatMessage.
+   void chatMessage(uint32_t channel, const QString& from,
+                    const QString& target, const QString& text);
+
  protected:
    Messages* m_messages;
    EQStr* m_eqStrings;
