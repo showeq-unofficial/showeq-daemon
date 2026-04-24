@@ -42,6 +42,7 @@ bool DaemonApp::start()
     // opcode XMLs are picked up without an install step.
     if (!m_cfg.configDir.isEmpty()) {
         m_dataLocationMgr = std::make_unique<DataLocationMgr>(m_cfg.configDir);
+        qInfo("config dir: %s", qUtf8Printable(m_cfg.configDir));
     } else {
         m_dataLocationMgr = std::make_unique<DataLocationMgr>(".showeq-daemon");
         m_dataLocationMgr->setupUserDirectory();

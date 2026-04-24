@@ -1,5 +1,7 @@
 #include <QCoreApplication>
 #include <QCommandLineParser>
+#include <QDir>
+#include <QFileInfo>
 #include <QHostAddress>
 #include <QLoggingCategory>
 
@@ -38,6 +40,14 @@ int main(int argc, char** argv)
     cfg.device    = parser.value(deviceOpt);
     cfg.replay    = parser.value(replayOpt);
     cfg.configDir = parser.value(configDirOpt);
+
+    // Resolve --config-dir relative to the invocation cwd, not $HOME.
+    // Under sudo, $HOME is /root, which would silently send DataLocationMgr
+    // off into the wrong directory. QFileInfo::absoluteFilePath() uses the
+    // process cwd, which is what users expect when they type `./conf`.
+    if (!cfg.configDir.isEmpty() && QDir::isRelativePath(cfg.configDir)) {
+        cfg.configDir = QFileInfo(cfg.configDir).absoluteFilePath();
+    }
 
     const QString listen = parser.value(listenOpt);
     const int colon = listen.lastIndexOf(':');
