@@ -48,9 +48,9 @@ foreach(proto ${SEQ_PROTO_FILES})
   add_custom_command(
     OUTPUT "${cc}" "${hh}"
     COMMAND protobuf::protoc
-      --cpp_out="${SEQ_PROTO_GEN_DIR}"
-      --proto_path="${SEQ_PROTO_DIR}"
-      "${proto}"
+            --cpp_out ${SEQ_PROTO_GEN_DIR}
+            --proto_path ${SEQ_PROTO_DIR}
+            ${proto}
     DEPENDS "${proto}" protobuf::protoc
     COMMENT "protoc ${proto_rel}/${proto_name}.proto"
     VERBATIM
@@ -62,6 +62,7 @@ endforeach()
 add_library(seq-proto STATIC ${SEQ_PROTO_SRCS} ${SEQ_PROTO_HDRS})
 target_include_directories(seq-proto PUBLIC "${SEQ_PROTO_GEN_DIR}")
 target_link_libraries(seq-proto PUBLIC protobuf::libprotobuf)
+set_target_properties(seq-proto PROPERTIES AUTOMOC OFF AUTORCC OFF AUTOUIC OFF)
 
 # --- daemon ------------------------------------------------------------------
 # Sources are added incrementally as files are extracted from showeq-c.
