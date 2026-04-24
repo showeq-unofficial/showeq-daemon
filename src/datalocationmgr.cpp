@@ -32,11 +32,16 @@
 
 DataLocationMgr::DataLocationMgr(const QString& homeSubDir)
 {
-  // create package directory object 
+  // create package directory object
   m_pkgData = PKGDATADIR;
 
-  // create the user directory object
-  m_userData = QDir::homePath() + "/" + homeSubDir;
+  // create the user directory object. Absolute paths (used by the daemon's
+  // --config-dir flag) are taken verbatim; bare names are relative to $HOME
+  // as originally in showeq-c.
+  if (QDir::isAbsolutePath(homeSubDir))
+    m_userData = homeSubDir;
+  else
+    m_userData = QDir::homePath() + "/" + homeSubDir;
 }
 
 DataLocationMgr::~DataLocationMgr()
