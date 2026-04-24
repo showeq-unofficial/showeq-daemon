@@ -18,6 +18,13 @@ WsServer::WsServer(QObject* parent)
 
 WsServer::~WsServer() = default;
 
+void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p)
+{
+    m_spawnShell = ss;
+    m_zoneMgr    = zm;
+    m_player     = p;
+}
+
 bool WsServer::listen(const QHostAddress& host, quint16 port)
 {
     return m_server->listen(host, port);
@@ -27,7 +34,8 @@ void WsServer::onNewConnection()
 {
     while (m_server->hasPendingConnections()) {
         QWebSocket* sock = m_server->nextPendingConnection();
-        auto* session = new SessionAdapter(sock, this);
+        auto* session = new SessionAdapter(sock, m_spawnShell,
+                                           m_zoneMgr, m_player, this);
         connect(sock, &QWebSocket::disconnected,
                 this, &WsServer::onSessionDisconnected);
         m_sessions.append(session);
@@ -37,8 +45,6 @@ void WsServer::onNewConnection()
 
 void WsServer::onSessionDisconnected()
 {
-    // Identify which session corresponds to the disconnected socket and
-    // reap it. sender() is the QWebSocket that emitted `disconnected`.
     auto* sock = qobject_cast<QWebSocket*>(sender());
     if (!sock) return;
     for (auto it = m_sessions.begin(); it != m_sessions.end(); ) {

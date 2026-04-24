@@ -87,6 +87,9 @@ bool DaemonApp::start()
 
     m_spawnShell = new SpawnShell(*m_filterMgr, m_zoneMgr, m_player, m_guildMgr);
 
+    // Let the WebSocket server hand these to each SessionAdapter it spawns.
+    m_ws->setState(m_spawnShell, m_zoneMgr, m_player);
+
     wireZoneMgr();
     wireSpawnShell();
 
