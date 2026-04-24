@@ -64,8 +64,14 @@ bool DaemonApp::start()
                               : QString());
     m_eqStrings = new EQStr();
 
-    if (!startCapture()) {
-        return false;
+    // EQPacket's ctor calls pcap_create/pcap_activate, which exit(1)s when
+    // there's no device available. Skip capture setup entirely when the
+    // user passed neither --device nor --replay; the daemon then serves
+    // clients with an empty state — useful for smoke tests and local dev.
+    if (!m_cfg.device.isEmpty() || !m_cfg.replay.isEmpty()) {
+        if (!startCapture()) {
+            return false;
+        }
     }
 
     m_zoneMgr = new ZoneMgr(this, "zonemgr");
@@ -90,13 +96,14 @@ bool DaemonApp::start()
     // Let the WebSocket server hand these to each SessionAdapter it spawns.
     m_ws->setState(m_spawnShell, m_zoneMgr, m_player);
 
-    wireZoneMgr();
-    wireSpawnShell();
-
-    // Start the capture pipeline (opcode loading happened in the EQPacket
-    // constructor; start() kicks the thread + decoder timer).
-    m_packet->start(10);
-    qInfo("capture pipeline running");
+    if (m_packet) {
+        wireZoneMgr();
+        wireSpawnShell();
+        m_packet->start(10);
+        qInfo("capture pipeline running");
+    } else {
+        qInfo("no --device or --replay — capture pipeline idle");
+    }
     return true;
 }
 
