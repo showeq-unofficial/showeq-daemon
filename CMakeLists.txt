@@ -13,7 +13,11 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
-find_package(Qt5 5.14 REQUIRED COMPONENTS Core Network Xml WebSockets)
+# QtCore is the target; Gui/Widgets get linked for value types (QColor,
+# QPen, QBrush, QFont, QSizePolicy, QKeySequence) that extracted headers
+# reference. The daemon only instantiates QCoreApplication, never
+# QGuiApplication or QApplication, so it still runs without a display.
+find_package(Qt5 5.14 REQUIRED COMPONENTS Core Gui Widgets Network Xml WebSockets)
 find_package(Protobuf REQUIRED)
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -65,24 +69,80 @@ target_link_libraries(seq-proto PUBLIC protobuf::libprotobuf)
 set_target_properties(seq-proto PROPERTIES AUTOMOC OFF AUTORCC OFF AUTOUIC OFF)
 
 # --- daemon ------------------------------------------------------------------
-# Sources are added incrementally as files are extracted from showeq-c.
-# Phase 1 starter set below; extend as extraction progresses.
-set(SEQ_DAEMON_SOURCES
+# Sources extracted from showeq-c/src (authoritative list derived from
+# showeq-c/src/Makefile.am's showeq_SOURCES, minus all QWidget-bound files).
+set(SEQ_DAEMON_EXTRACTED_SOURCES
+  src/bazaarlog.cpp
+  src/category.cpp
+  src/datalocationmgr.cpp
+  src/datetimemgr.cpp
+  src/diagnosticmessages.cpp
+  src/eqstr.cpp
+  src/filter.cpp
+  src/filteredspawnlog.cpp
+  src/filtermgr.cpp
+  src/group.cpp
+  src/guild.cpp
+  src/guildshell.cpp
+  src/logger.cpp
+  src/mapcore.cpp
+  src/message.cpp
+  src/messagefilter.cpp
+  src/messages.cpp
+  src/messageshell.cpp
+  src/netstream.cpp
+  src/packet.cpp
+  src/packetcapture.cpp
+  src/packetcaptureprovider.cpp
+  src/packetformat.cpp
+  src/packetfragment.cpp
+  src/packetinfo.cpp
+  src/packetlog.cpp
+  src/packetstream.cpp
+  src/player.cpp
+  src/spawn.cpp
+  src/spawnlog.cpp
+  src/spawnmonitor.cpp
+  src/spawnshell.cpp
+  src/spells.cpp
+  src/spellshell.cpp
+  src/util.cpp
+  src/vpacket.cpp
+  src/xmlconv.cpp
+  src/xmlpreferences.cpp
+  src/zonemgr.cpp
+)
+
+set(SEQ_DAEMON_NEW_SOURCES
   src/main.cpp
   src/daemonapp.cpp
   src/wsserver.cpp
   src/sessionadapter.cpp
   src/protoencoder.cpp
+  src/seq_globals.cpp
 )
 
-add_executable(showeq-daemon ${SEQ_DAEMON_SOURCES})
+add_executable(showeq-daemon
+  ${SEQ_DAEMON_EXTRACTED_SOURCES}
+  ${SEQ_DAEMON_NEW_SOURCES}
+)
+
 target_include_directories(showeq-daemon PRIVATE
   src
   ${PCAP_INCLUDE_DIRS}
 )
+
+# Matches showeq-c's Makefile.am: INCLUDES = ... -DPKGDATADIR="..."
+# The daemon reads opcode XML and default config from this path.
+target_compile_definitions(showeq-daemon PRIVATE
+  PKGDATADIR="${CMAKE_INSTALL_PREFIX}/share/showeq-daemon/"
+)
+
 target_link_libraries(showeq-daemon PRIVATE
   seq-proto
   Qt5::Core
+  Qt5::Gui
+  Qt5::Widgets
   Qt5::Network
   Qt5::Xml
   Qt5::WebSockets
@@ -90,8 +150,13 @@ target_link_libraries(showeq-daemon PRIVATE
   ${ZLIB_LIBRARIES}
   Threads::Threads
 )
+
 target_compile_options(showeq-daemon PRIVATE
-  -Wall -Wextra -Wpedantic
+  -Wall
+  # Extracted code triggers a lot of benign warnings. Re-tighten these
+  # once the legacy files have been cleaned up in a dedicated pass.
+  -Wno-unused-parameter
+  -Wno-deprecated-declarations
 )
 
 # --- tests -------------------------------------------------------------------
