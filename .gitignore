@@ -1,0 +1,14 @@
+build/
+build-*/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.pb.cc
+*.pb.h
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
+.cache/
+.vscode/
+.idea/
