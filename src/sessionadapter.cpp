@@ -6,6 +6,7 @@
 #include <QSet>
 #include <QWebSocket>
 
+#include "category.h"
 #include "combatrouter.h"
 #include "group.h"
 #include "mapcore.h"
@@ -28,6 +29,7 @@ SessionAdapter::SessionAdapter(QWebSocket*   sock,
                                GroupMgr*     groupMgr,
                                SpellShell*   spellShell,
                                CombatRouter* combatRouter,
+                               CategoryMgr*  categoryMgr,
                                QObject*      parent)
     : QObject(parent)
     , m_sock(sock)
@@ -39,6 +41,7 @@ SessionAdapter::SessionAdapter(QWebSocket*   sock,
     , m_groupMgr(groupMgr)
     , m_spellShell(spellShell)
     , m_combatRouter(combatRouter)
+    , m_categoryMgr(categoryMgr)
 {
     connect(sock, &QWebSocket::textMessageReceived,
             this, &SessionAdapter::onTextMessage);
@@ -186,6 +189,19 @@ void SessionAdapter::startStreaming()
                                    uint32_t, const QString&)));
     }
 
+    if (m_categoryMgr) {
+        // CategoryMgr's add/del/cleared/loaded signals all fire on
+        // mutation; coalesce into one slot that resends the full list.
+        connect(m_categoryMgr, SIGNAL(addCategory(const Category*)),
+                this,          SLOT(onCategoriesChanged()));
+        connect(m_categoryMgr, SIGNAL(delCategory(const Category*)),
+                this,          SLOT(onCategoriesChanged()));
+        connect(m_categoryMgr, SIGNAL(clearedCategories()),
+                this,          SLOT(onCategoriesChanged()));
+        connect(m_categoryMgr, SIGNAL(loadedCategories()),
+                this,          SLOT(onCategoriesChanged()));
+    }
+
     // STEP 2: iterate current state into a Snapshot and ship it.
     sendSnapshot();
 
@@ -201,6 +217,10 @@ void SessionAdapter::startStreaming()
     // Initial BuffsUpdate (may be an empty list before login).
     if (m_spellShell) {
         sendBuffsUpdate();
+    }
+    // Initial CategoriesUpdate (loaded from prefs at CategoryMgr ctor).
+    if (m_categoryMgr) {
+        sendCategoriesUpdate();
     }
 
     // STEP 3: drain anything that arrived during the iteration.
@@ -237,7 +257,7 @@ void SessionAdapter::sendSnapshot()
         while (it.hasNext()) {
             it.next();
             if (const Item* item = it.value()) {
-                seq::encode::fillSpawn(snap->add_spawns(), *item);
+                seq::encode::fillSpawn(snap->add_spawns(), *item, m_categoryMgr);
                 seenIds.insert(item->id());
             }
         }
@@ -253,7 +273,7 @@ void SessionAdapter::sendSnapshot()
     // a marker for `player_id`.
     if (m_player && m_player->getPlayerID() != 0 &&
         !seenIds.contains(m_player->getPlayerID())) {
-        seq::encode::fillSpawn(snap->add_spawns(), *m_player);
+        seq::encode::fillSpawn(snap->add_spawns(), *m_player, m_categoryMgr);
     }
 
     emitEnvelope(std::move(env));
@@ -284,7 +304,8 @@ void SessionAdapter::onAddItem(const Item* item)
 {
     if (!item) return;
     seq::v1::Envelope env;
-    seq::encode::fillSpawn(env.mutable_spawn_added()->mutable_spawn(), *item);
+    seq::encode::fillSpawn(env.mutable_spawn_added()->mutable_spawn(), *item,
+                           m_categoryMgr);
     sendOrBuffer(std::move(env));
 }
 
@@ -310,7 +331,7 @@ void SessionAdapter::onChangeItem(const Item* item, uint32_t changeType)
     if ((changeType & tSpawnChangedALL) == tSpawnChangedALL) {
         seq::v1::Envelope env;
         seq::encode::fillSpawn(env.mutable_spawn_added()->mutable_spawn(),
-                               *item);
+                               *item, m_categoryMgr);
         sendOrBuffer(std::move(env));
         return;
     }
@@ -443,6 +464,20 @@ void SessionAdapter::onCombatEvent(uint32_t sourceId, const QString& sourceName,
     ev->set_damage(damage);
     ev->set_spell_id(spellId);
     ev->set_spell_name(spellName.toStdString());
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onCategoriesChanged()
+{
+    if (!m_categoryMgr) return;
+    sendCategoriesUpdate();
+}
+
+void SessionAdapter::sendCategoriesUpdate()
+{
+    if (!m_categoryMgr) return;
+    seq::v1::Envelope env;
+    seq::encode::fillCategoriesUpdate(env.mutable_categories(), *m_categoryMgr);
     sendOrBuffer(std::move(env));
 }
 

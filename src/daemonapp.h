@@ -12,6 +12,7 @@ class DataLocationMgr;
 class DateTimeMgr;
 class EQPacket;
 class EQStr;
+class CategoryMgr;
 class CombatRouter;
 class FilterMgr;
 class GroupMgr;
@@ -86,6 +87,7 @@ private:
     SpawnShell*                     m_spawnShell    = nullptr;
     SpellShell*                     m_spellShell    = nullptr;
     GroupMgr*                       m_groupMgr      = nullptr;
+    CategoryMgr*                    m_categoryMgr   = nullptr;
     MessageFilters*                 m_messageFilters = nullptr;
     Messages*                       m_messages       = nullptr;
     MessageShell*                   m_messageShell   = nullptr;

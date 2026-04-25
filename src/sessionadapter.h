@@ -8,6 +8,7 @@
 #include "seq/v1/events.pb.h"
 
 class QWebSocket;
+class CategoryMgr;
 class CombatRouter;
 class GroupMgr;
 class Item;
@@ -42,6 +43,7 @@ public:
                    GroupMgr*     groupMgr,
                    SpellShell*   spellShell,
                    CombatRouter* combatRouter,
+                   CategoryMgr*  categoryMgr,
                    QObject*      parent = nullptr);
     ~SessionAdapter() override;
 
@@ -82,6 +84,8 @@ private slots:
                        uint32_t targetId, const QString& targetName,
                        uint32_t type, int32_t damage,
                        uint32_t spellId, const QString& spellName);
+    // Re-emits the full category list on any CategoryMgr change.
+    void onCategoriesChanged();
 
 private:
     void startStreaming();
@@ -89,6 +93,7 @@ private:
     void sendPlayerStats();
     void sendGroupUpdate();
     void sendBuffsUpdate();
+    void sendCategoriesUpdate();
     void emitEnvelope(seq::v1::Envelope&& env);
     void sendOrBuffer(seq::v1::Envelope&& env);
 
@@ -101,6 +106,7 @@ private:
     GroupMgr*                    m_groupMgr     = nullptr;
     SpellShell*                  m_spellShell   = nullptr;
     CombatRouter*                m_combatRouter = nullptr;
+    CategoryMgr*                 m_categoryMgr  = nullptr;
 
     bool                         m_subscribed = false;
     bool                         m_liveTailing = false;

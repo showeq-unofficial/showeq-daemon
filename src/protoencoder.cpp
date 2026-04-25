@@ -2,6 +2,7 @@
 
 #include <QPoint>
 
+#include "category.h"
 #include "everquest.h"
 #include "group.h"
 #include "mapcore.h"
@@ -55,14 +56,24 @@ void fillPos(seq::v1::Pos* out, const Spawn& in)
     out->set_animation(in.animation());
 }
 
-void fillSpawn(seq::v1::Spawn* out, const Item& it)
+void fillSpawn(seq::v1::Spawn* out, const Item& it,
+               const CategoryMgr* categories)
 {
     out->set_id(it.id());
-    out->set_name(it.name().toStdString());
     out->set_type(typeFromItem(it));
 
     if (const auto* sp = dynamic_cast<const Spawn*>(&it)) {
-        // lastName() is absent in Phase 1 headers; omit for now.
+        // EQ ships spawn names with underscores in place of spaces and a
+        // trailing instance number (e.g. "Cizzar_J`Axx00"). transformedName
+        // does the underscore + digit cleanup AND moves leading articles
+        // to the end ("a goblin" -> "goblin, a") so the spawn list sorts
+        // by noun. Mirrors showeq-c spawnlistcommon.cpp:188.
+        out->set_name(sp->transformedName().toStdString());
+        // lastName carries NPC titles and merchant roles like
+        // "(Fletching Supplies)". showeq-c renders it as
+        // "<name> (<lastName>)" — we ship the parts separately so
+        // clients can format independently.
+        out->set_last_name(sp->lastName().toStdString());
         out->set_level(sp->level());
         out->set_race(sp->race());
         out->set_class_(sp->classVal());
@@ -76,10 +87,26 @@ void fillSpawn(seq::v1::Spawn* out, const Item& it)
         fillPos(out->mutable_pos(), *sp);
     } else {
         // Drops, doors: no Spawn state, just position on the Item base.
+        // Their names don't carry the underscore/instance-suffix
+        // convention so the raw Item::name is fine to send.
+        out->set_name(it.name().toStdString());
         auto* pos = out->mutable_pos();
         pos->set_x(it.x());
         pos->set_y(it.y());
         pos->set_z(it.z());
+    }
+
+    if (categories) {
+        const QString fs = it.filterString();
+        const int8_t level = (it.type() == tSpawn || it.type() == tPlayer)
+            ? static_cast<const Spawn&>(it).level() : 0;
+        const CategoryList& all = categories->getCategories();
+        for (int i = 0; i < all.size(); ++i) {
+            const Category* c = all.at(i);
+            if (c && c->isFiltered(fs, level)) {
+                out->add_category_ids(static_cast<uint32_t>(i));
+            }
+        }
     }
 }
 
@@ -195,6 +222,19 @@ void fillGroupUpdate(seq::v1::GroupUpdate* out, GroupMgr& g)
         } else {
             m->set_in_zone(false);
         }
+    }
+}
+
+void fillCategoriesUpdate(seq::v1::CategoriesUpdate* out, CategoryMgr& cm)
+{
+    const CategoryList& all = cm.getCategories();
+    for (int i = 0; i < all.size(); ++i) {
+        const Category* c = all.at(i);
+        if (!c) continue;
+        auto* row = out->add_categories();
+        row->set_id(static_cast<uint32_t>(i));
+        row->set_name(c->name().toStdString());
+        row->set_color(c->color().name().toStdString());
     }
 }
 

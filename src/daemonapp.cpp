@@ -7,6 +7,7 @@
 
 #include "main.h"
 
+#include "category.h"
 #include "combatrouter.h"
 #include "datalocationmgr.h"
 #include "datetimemgr.h"
@@ -166,6 +167,11 @@ bool DaemonApp::start()
     // the websocket layer.
     m_combatRouter = new CombatRouter(m_spawnShell, m_spells, this);
 
+    // CategoryMgr loads user-defined Category groupings from the
+    // pSEQPrefs XML preferences (section "CategoryMgr"). seqdef.xml ships
+    // with a default set so the list is never empty.
+    m_categoryMgr = new CategoryMgr(this, "categoryMgr");
+
     // Load the initial zone map if we already know the zone (e.g. replay
     // mode with zone already fixed). Otherwise loadZoneMap fires on the
     // first zone-resolving signal.
@@ -184,7 +190,7 @@ bool DaemonApp::start()
     // Let the WebSocket server hand these to each SessionAdapter it spawns.
     m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get(),
                    m_messageShell, m_groupMgr, m_spellShell,
-                   m_combatRouter);
+                   m_combatRouter, m_categoryMgr);
 
     if (m_packet) {
         wireZoneMgr();
