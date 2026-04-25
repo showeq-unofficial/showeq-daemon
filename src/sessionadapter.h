@@ -10,6 +10,7 @@
 class QWebSocket;
 class CategoryMgr;
 class CombatRouter;
+class FilterMgr;
 class GroupMgr;
 class Item;
 class MapData;
@@ -44,6 +45,7 @@ public:
                    SpellShell*   spellShell,
                    CombatRouter* combatRouter,
                    CategoryMgr*  categoryMgr,
+                   FilterMgr*    filterMgr,
                    QObject*      parent = nullptr);
     ~SessionAdapter() override;
 
@@ -86,6 +88,8 @@ private slots:
                        uint32_t spellId, const QString& spellName);
     // Re-emits the full category list on any CategoryMgr change.
     void onCategoriesChanged();
+    // Re-emits the full filter rule set on any FilterMgr filtersChanged.
+    void onFilterRulesChanged();
 
 private:
     void startStreaming();
@@ -94,6 +98,7 @@ private:
     void sendGroupUpdate();
     void sendBuffsUpdate();
     void sendCategoriesUpdate();
+    void sendFilterRulesUpdate();
     void emitEnvelope(seq::v1::Envelope&& env);
     void sendOrBuffer(seq::v1::Envelope&& env);
 
@@ -107,6 +112,7 @@ private:
     SpellShell*                  m_spellShell   = nullptr;
     CombatRouter*                m_combatRouter = nullptr;
     CategoryMgr*                 m_categoryMgr  = nullptr;
+    FilterMgr*                   m_filterMgr    = nullptr;
 
     bool                         m_subscribed = false;
     bool                         m_liveTailing = false;

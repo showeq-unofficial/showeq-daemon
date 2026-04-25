@@ -190,7 +190,7 @@ bool DaemonApp::start()
     // Let the WebSocket server hand these to each SessionAdapter it spawns.
     m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get(),
                    m_messageShell, m_groupMgr, m_spellShell,
-                   m_combatRouter, m_categoryMgr);
+                   m_combatRouter, m_categoryMgr, m_filterMgr);
 
     if (m_packet) {
         wireZoneMgr();

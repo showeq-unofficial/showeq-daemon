@@ -114,6 +114,12 @@ class FilterMgr : public QObject
   bool addZoneFilter(uint8_t filter, const QString& filterString);
   void remZoneFilter(uint8_t filter, const QString& filterString);
 
+  // Read-only access to the internal Filters containers so the websocket
+  // layer can enumerate the current rule set when a client subscribes.
+  // Both can be null in pathological setup paths; callers must guard.
+  const Filters* globalFilters() const { return m_filters; }
+  const Filters* zoneFilters()   const { return m_zoneFilters; }
+
   bool registerRuntimeFilter(const QString& name, 
 			     uint8_t& flag,
 			     uint32_t& flagMask);

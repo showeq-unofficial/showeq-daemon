@@ -8,6 +8,7 @@
 
 #include "category.h"
 #include "combatrouter.h"
+#include "filtermgr.h"
 #include "group.h"
 #include "mapcore.h"
 #include "messageshell.h"
@@ -30,6 +31,7 @@ SessionAdapter::SessionAdapter(QWebSocket*   sock,
                                SpellShell*   spellShell,
                                CombatRouter* combatRouter,
                                CategoryMgr*  categoryMgr,
+                               FilterMgr*    filterMgr,
                                QObject*      parent)
     : QObject(parent)
     , m_sock(sock)
@@ -42,6 +44,7 @@ SessionAdapter::SessionAdapter(QWebSocket*   sock,
     , m_spellShell(spellShell)
     , m_combatRouter(combatRouter)
     , m_categoryMgr(categoryMgr)
+    , m_filterMgr(filterMgr)
 {
     connect(sock, &QWebSocket::textMessageReceived,
             this, &SessionAdapter::onTextMessage);
@@ -71,6 +74,31 @@ void SessionAdapter::onBinaryMessage(const QByteArray& bytes)
         }
         m_subscribed = true;
         startStreaming();
+        return;
+    }
+    if (env.has_add_filter_rule() && m_filterMgr) {
+        const auto& add = env.add_filter_rule();
+        const QString pattern = QString::fromStdString(add.pattern());
+        const uint8_t type = static_cast<uint8_t>(add.filter_type());
+        if (add.per_zone()) {
+            m_filterMgr->addZoneFilter(type, pattern);
+        } else {
+            m_filterMgr->addFilter(type, pattern);
+        }
+        // FilterMgr emits filtersChanged after the mutation, which fans
+        // out to every connected SessionAdapter via onFilterRulesChanged.
+        return;
+    }
+    if (env.has_remove_filter_rule() && m_filterMgr) {
+        const auto& rem = env.remove_filter_rule();
+        const QString pattern = QString::fromStdString(rem.pattern());
+        const uint8_t type = static_cast<uint8_t>(rem.filter_type());
+        if (rem.per_zone()) {
+            m_filterMgr->remZoneFilter(type, pattern);
+        } else {
+            m_filterMgr->remFilter(type, pattern);
+        }
+        return;
     }
 }
 
@@ -202,6 +230,11 @@ void SessionAdapter::startStreaming()
                 this,          SLOT(onCategoriesChanged()));
     }
 
+    if (m_filterMgr) {
+        connect(m_filterMgr, SIGNAL(filtersChanged()),
+                this,        SLOT(onFilterRulesChanged()));
+    }
+
     // STEP 2: iterate current state into a Snapshot and ship it.
     sendSnapshot();
 
@@ -221,6 +254,11 @@ void SessionAdapter::startStreaming()
     // Initial CategoriesUpdate (loaded from prefs at CategoryMgr ctor).
     if (m_categoryMgr) {
         sendCategoriesUpdate();
+    }
+    // Initial FilterRulesUpdate (global + per-zone rules currently
+    // loaded; either may be empty if files don't exist).
+    if (m_filterMgr) {
+        sendFilterRulesUpdate();
     }
 
     // STEP 3: drain anything that arrived during the iteration.
@@ -478,6 +516,20 @@ void SessionAdapter::sendCategoriesUpdate()
     if (!m_categoryMgr) return;
     seq::v1::Envelope env;
     seq::encode::fillCategoriesUpdate(env.mutable_categories(), *m_categoryMgr);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onFilterRulesChanged()
+{
+    if (!m_filterMgr) return;
+    sendFilterRulesUpdate();
+}
+
+void SessionAdapter::sendFilterRulesUpdate()
+{
+    if (!m_filterMgr) return;
+    seq::v1::Envelope env;
+    seq::encode::fillFilterRulesUpdate(env.mutable_filter_rules(), *m_filterMgr);
     sendOrBuffer(std::move(env));
 }
 

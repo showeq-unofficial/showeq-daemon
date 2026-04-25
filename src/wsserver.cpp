@@ -20,7 +20,7 @@ WsServer::~WsServer() = default;
 
 void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
                         MessageShell* ms, GroupMgr* gm, SpellShell* sps,
-                        CombatRouter* cr, CategoryMgr* cm)
+                        CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm)
 {
     m_spawnShell    = ss;
     m_zoneMgr       = zm;
@@ -31,6 +31,7 @@ void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
     m_spellShell    = sps;
     m_combatRouter  = cr;
     m_categoryMgr   = cm;
+    m_filterMgr     = fm;
 }
 
 bool WsServer::listen(const QHostAddress& host, quint16 port)
@@ -47,7 +48,7 @@ void WsServer::onNewConnection()
                                            m_mapData, m_messageShell,
                                            m_groupMgr, m_spellShell,
                                            m_combatRouter, m_categoryMgr,
-                                           this);
+                                           m_filterMgr, this);
         connect(sock, &QWebSocket::disconnected,
                 this, &WsServer::onSessionDisconnected);
         m_sessions.append(session);

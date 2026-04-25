@@ -4,6 +4,8 @@
 
 #include "category.h"
 #include "everquest.h"
+#include "filter.h"
+#include "filtermgr.h"
 #include "group.h"
 #include "mapcore.h"
 #include "player.h"
@@ -223,6 +225,30 @@ void fillGroupUpdate(seq::v1::GroupUpdate* out, GroupMgr& g)
             m->set_in_zone(false);
         }
     }
+}
+
+static void appendFilterRules(seq::v1::FilterRulesUpdate* out,
+                              const Filters* filters, bool perZone)
+{
+    if (!filters) return;
+    // FilterTypeDefs values are 0..6 (Hunt..Tracer); SIZEOF_FILTERS is 7.
+    for (uint8_t type = 0; type < SIZEOF_FILTERS; ++type) {
+        const int n = filters->numFilters(type);
+        for (int i = 0; i < n; ++i) {
+            auto* row = out->add_rules();
+            row->set_filter_type(type);
+            row->set_pattern(filters->getOrigFilterString(type, i).toStdString());
+            row->set_min_level(static_cast<uint32_t>(filters->getMinLevel(type, i)));
+            row->set_max_level(static_cast<uint32_t>(filters->getMaxLevel(type, i)));
+            row->set_per_zone(perZone);
+        }
+    }
+}
+
+void fillFilterRulesUpdate(seq::v1::FilterRulesUpdate* out, const FilterMgr& fm)
+{
+    appendFilterRules(out, fm.globalFilters(), /*perZone=*/false);
+    appendFilterRules(out, fm.zoneFilters(),   /*perZone=*/true);
 }
 
 void fillCategoriesUpdate(seq::v1::CategoriesUpdate* out, CategoryMgr& cm)

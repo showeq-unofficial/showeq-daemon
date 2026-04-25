@@ -8,6 +8,7 @@
 class QWebSocketServer;
 class CategoryMgr;
 class CombatRouter;
+class FilterMgr;
 class GroupMgr;
 class MapData;
 class MessageShell;
@@ -31,7 +32,7 @@ public:
     // pointers must outlive the WsServer; they're not owned.
     void setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
                   MessageShell* ms, GroupMgr* gm, SpellShell* sps,
-                  CombatRouter* cr, CategoryMgr* cm);
+                  CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm);
 
     bool listen(const QHostAddress& host, quint16 port);
 
@@ -52,4 +53,5 @@ private:
     SpellShell*    m_spellShell    = nullptr;
     CombatRouter*  m_combatRouter  = nullptr;
     CategoryMgr*   m_categoryMgr   = nullptr;
+    FilterMgr*     m_filterMgr     = nullptr;
 };

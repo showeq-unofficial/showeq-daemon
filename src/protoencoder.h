@@ -8,6 +8,7 @@
 #include "seq/v1/events.pb.h"
 
 class CategoryMgr;
+class FilterMgr;
 class GroupMgr;
 class Item;
 class Player;
@@ -49,5 +50,10 @@ void fillBuff(seq::v1::Buff* out, const SpellItem& spell);
 // daemon's iteration order — id is the index into that order, which is
 // what fillSpawn writes into Spawn.category_ids.
 void fillCategoriesUpdate(seq::v1::CategoriesUpdate* out, CategoryMgr& cm);
+
+// Walks both the global and per-zone Filters in `fm` and emits one
+// FilterRule per concrete pattern. per_zone is set on rules that came
+// from the zone overlay file.
+void fillFilterRulesUpdate(seq::v1::FilterRulesUpdate* out, const FilterMgr& fm);
 
 } // namespace seq::encode
