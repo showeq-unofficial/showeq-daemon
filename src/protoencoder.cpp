@@ -59,7 +59,8 @@ void fillPos(seq::v1::Pos* out, const Spawn& in)
 }
 
 void fillSpawn(seq::v1::Spawn* out, const Item& it,
-               const CategoryMgr* categories)
+               const CategoryMgr* categories,
+               const FilterMgr* filterMgr)
 {
     out->set_id(it.id());
     out->set_type(typeFromItem(it));
@@ -99,9 +100,27 @@ void fillSpawn(seq::v1::Spawn* out, const Item& it,
     }
 
     if (categories) {
-        const QString fs = it.filterString();
-        const int8_t level = (it.type() == tSpawn || it.type() == tPlayer)
-            ? static_cast<const Spawn&>(it).level() : 0;
+        // Several seqdef.xml categories key off filter-type names that
+        // never appear in Spawn::filterString itself — Hunting matches
+        // ":Hunt:", Alert matches ":Alert:", Filtered matches
+        // ":Filtered:". showeq-c's spawnlist2 prepends the FilterMgr's
+        // text form of the spawn's filter mask before evaluating
+        // categories; mirror that here so those categories actually
+        // match. Falls back gracefully if filterMgr is null (categories
+        // that only key off Name/Race/Class/etc. still work).
+        QString fs;
+        const Spawn* sp = dynamic_cast<const Spawn*>(&it);
+        if (filterMgr) {
+            fs = ":";
+            fs += filterMgr->filterString(it.filterFlags());
+            if (sp) {
+                fs += filterMgr->runtimeFilterString(sp->runtimeFilterFlags());
+            }
+            fs += it.filterString();
+        } else {
+            fs = it.filterString();
+        }
+        const int8_t level = sp ? sp->level() : 0;
         const CategoryList& all = categories->getCategories();
         for (int i = 0; i < all.size(); ++i) {
             const Category* c = all.at(i);

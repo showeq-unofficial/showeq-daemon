@@ -295,7 +295,8 @@ void SessionAdapter::sendSnapshot()
         while (it.hasNext()) {
             it.next();
             if (const Item* item = it.value()) {
-                seq::encode::fillSpawn(snap->add_spawns(), *item, m_categoryMgr);
+                seq::encode::fillSpawn(snap->add_spawns(), *item,
+                                       m_categoryMgr, m_filterMgr);
                 seenIds.insert(item->id());
             }
         }
@@ -311,7 +312,8 @@ void SessionAdapter::sendSnapshot()
     // a marker for `player_id`.
     if (m_player && m_player->getPlayerID() != 0 &&
         !seenIds.contains(m_player->getPlayerID())) {
-        seq::encode::fillSpawn(snap->add_spawns(), *m_player, m_categoryMgr);
+        seq::encode::fillSpawn(snap->add_spawns(), *m_player,
+                               m_categoryMgr, m_filterMgr);
     }
 
     emitEnvelope(std::move(env));
@@ -343,7 +345,7 @@ void SessionAdapter::onAddItem(const Item* item)
     if (!item) return;
     seq::v1::Envelope env;
     seq::encode::fillSpawn(env.mutable_spawn_added()->mutable_spawn(), *item,
-                           m_categoryMgr);
+                           m_categoryMgr, m_filterMgr);
     sendOrBuffer(std::move(env));
 }
 
@@ -366,10 +368,18 @@ void SessionAdapter::onChangeItem(const Item* item, uint32_t changeType)
     // changeItem(player, ALL) at the new id). Send SpawnAdded so the
     // client overwrites/creates the entry; SpawnUpdated would be dropped
     // because there's no existing entry at the new id.
-    if ((changeType & tSpawnChangedALL) == tSpawnChangedALL) {
+    //
+    // Filter-flag changes get the same treatment: filter flags feed into
+    // category membership (see fillSpawn), so when a user adds a rule
+    // the spawn's category_ids set changes too. SpawnUpdated only carries
+    // filter_flags, so the client's category_ids would otherwise stay
+    // stale until re-zone.
+    const bool filterChanged =
+        (changeType & (tSpawnChangedFilter | tSpawnChangedRuntimeFilter)) != 0;
+    if ((changeType & tSpawnChangedALL) == tSpawnChangedALL || filterChanged) {
         seq::v1::Envelope env;
         seq::encode::fillSpawn(env.mutable_spawn_added()->mutable_spawn(),
-                               *item, m_categoryMgr);
+                               *item, m_categoryMgr, m_filterMgr);
         sendOrBuffer(std::move(env));
         return;
     }
@@ -387,9 +397,6 @@ void SessionAdapter::onChangeItem(const Item* item, uint32_t changeType)
         }
         if (changeType & tSpawnChangedName) {
             upd->set_name(sp->name().toStdString());
-        }
-        if (changeType & (tSpawnChangedFilter | tSpawnChangedRuntimeFilter)) {
-            upd->set_filter_flags(sp->filterFlags());
         }
     }
     sendOrBuffer(std::move(env));

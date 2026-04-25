@@ -21,9 +21,13 @@ namespace seq::encode {
 // Fills `out` from `in`. Populates pos, type, ids, name, levels, HP — all
 // fields the Phase 1 web client needs to draw and label a moving dot.
 // When `categories` is non-null, also fills `category_ids` with the
-// indices of any matching CategoryMgr Categories.
+// indices of any matching CategoryMgr Categories. `filterMgr`, when
+// passed alongside, lets categories that key off filter-type names
+// (e.g. seqdef Hunting → ":Hunt:") match — see fillSpawn impl for the
+// filterString prefix it inserts.
 void fillSpawn(seq::v1::Spawn* out, const Item& in,
-               const CategoryMgr* categories = nullptr);
+               const CategoryMgr* categories = nullptr,
+               const FilterMgr* filterMgr = nullptr);
 
 // Fills a Pos proto from a Spawn's current position + velocity + heading.
 void fillPos(seq::v1::Pos* out, const Spawn& in);
