@@ -13,6 +13,7 @@
 #include "mapcore.h"
 #include "messageshell.h"
 #include "player.h"
+#include "prefsbroker.h"
 #include "protoencoder.h"
 #include "spawn.h"
 #include "spawnshell.h"
@@ -32,6 +33,7 @@ SessionAdapter::SessionAdapter(QWebSocket*   sock,
                                CombatRouter* combatRouter,
                                CategoryMgr*  categoryMgr,
                                FilterMgr*    filterMgr,
+                               PrefsBroker*  prefsBroker,
                                QObject*      parent)
     : QObject(parent)
     , m_sock(sock)
@@ -45,6 +47,7 @@ SessionAdapter::SessionAdapter(QWebSocket*   sock,
     , m_combatRouter(combatRouter)
     , m_categoryMgr(categoryMgr)
     , m_filterMgr(filterMgr)
+    , m_prefsBroker(prefsBroker)
 {
     connect(sock, &QWebSocket::textMessageReceived,
             this, &SessionAdapter::onTextMessage);
@@ -98,6 +101,14 @@ void SessionAdapter::onBinaryMessage(const QByteArray& bytes)
         } else {
             m_filterMgr->remFilter(type, pattern);
         }
+        return;
+    }
+    if (env.has_set_pref() && m_prefsBroker) {
+        // PrefsBroker validates against the allowlist; rejects (unknown
+        // key, mismatched value variant) are dropped silently — no error
+        // envelope yet. On success the broker emits prefChanged, which
+        // every connected SessionAdapter forwards as PrefChanged.
+        m_prefsBroker->apply(env.set_pref().pref());
         return;
     }
 }
@@ -235,6 +246,14 @@ void SessionAdapter::startStreaming()
                 this,        SLOT(onFilterRulesChanged()));
     }
 
+    if (m_prefsBroker) {
+        // Direct connection in the same thread; pref payloads are small
+        // and this fans out to every connected SessionAdapter so each
+        // emits its own PrefChanged envelope.
+        connect(m_prefsBroker, &PrefsBroker::prefChanged,
+                this,          &SessionAdapter::onPrefChanged);
+    }
+
     // STEP 2: iterate current state into a Snapshot and ship it.
     sendSnapshot();
 
@@ -259,6 +278,10 @@ void SessionAdapter::startStreaming()
     // loaded; either may be empty if files don't exist).
     if (m_filterMgr) {
         sendFilterRulesUpdate();
+    }
+    // Initial PrefsSnapshot — every allowlisted pref's current value.
+    if (m_prefsBroker) {
+        sendPrefsSnapshot();
     }
 
     // STEP 3: drain anything that arrived during the iteration.
@@ -537,6 +560,21 @@ void SessionAdapter::sendFilterRulesUpdate()
     if (!m_filterMgr) return;
     seq::v1::Envelope env;
     seq::encode::fillFilterRulesUpdate(env.mutable_filter_rules(), *m_filterMgr);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onPrefChanged(const seq::v1::Pref& pref)
+{
+    seq::v1::Envelope env;
+    *env.mutable_pref_changed()->mutable_pref() = pref;
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::sendPrefsSnapshot()
+{
+    if (!m_prefsBroker) return;
+    seq::v1::Envelope env;
+    m_prefsBroker->fillSnapshot(env.mutable_prefs());
     sendOrBuffer(std::move(env));
 }
 

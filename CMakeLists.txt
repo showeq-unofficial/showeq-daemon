@@ -120,6 +120,7 @@ set(SEQ_DAEMON_NEW_SOURCES
   src/sessionadapter.cpp
   src/protoencoder.cpp
   src/combatrouter.cpp
+  src/prefsbroker.cpp
   src/seq_globals.cpp
 )
 

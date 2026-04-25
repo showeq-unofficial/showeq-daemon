@@ -22,6 +22,7 @@ class MessageFilters;
 class MessageShell;
 class Messages;
 class Player;
+class PrefsBroker;
 class Spells;
 class SpawnShell;
 class SpellShell;
@@ -92,6 +93,7 @@ private:
     Messages*                       m_messages       = nullptr;
     MessageShell*                   m_messageShell   = nullptr;
     CombatRouter*                   m_combatRouter   = nullptr;
+    PrefsBroker*                    m_prefsBroker    = nullptr;
     std::unique_ptr<MapData>        m_mapData;
 
     std::unique_ptr<WsServer>       m_ws;

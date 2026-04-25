@@ -15,12 +15,13 @@ class GroupMgr;
 class Item;
 class MapData;
 class MessageShell;
+class Player;
+class PrefsBroker;
 class Spawn;
 class SpawnShell;
 class SpellItem;
 class SpellShell;
 class ZoneMgr;
-class Player;
 
 // SessionAdapter is the per-client bridge between in-process QObject signals
 // (SpawnShell::addItem, ZoneMgr::zoneChanged, Player::posChanged, ...) and
@@ -46,6 +47,7 @@ public:
                    CombatRouter* combatRouter,
                    CategoryMgr*  categoryMgr,
                    FilterMgr*    filterMgr,
+                   PrefsBroker*  prefsBroker,
                    QObject*      parent = nullptr);
     ~SessionAdapter() override;
 
@@ -90,6 +92,8 @@ private slots:
     void onCategoriesChanged();
     // Re-emits the full filter rule set on any FilterMgr filtersChanged.
     void onFilterRulesChanged();
+    // Forwards a PrefsBroker prefChanged signal as a PrefChanged envelope.
+    void onPrefChanged(const seq::v1::Pref& pref);
 
 private:
     void startStreaming();
@@ -99,6 +103,7 @@ private:
     void sendBuffsUpdate();
     void sendCategoriesUpdate();
     void sendFilterRulesUpdate();
+    void sendPrefsSnapshot();
     void emitEnvelope(seq::v1::Envelope&& env);
     void sendOrBuffer(seq::v1::Envelope&& env);
 
@@ -113,6 +118,7 @@ private:
     CombatRouter*                m_combatRouter = nullptr;
     CategoryMgr*                 m_categoryMgr  = nullptr;
     FilterMgr*                   m_filterMgr    = nullptr;
+    PrefsBroker*                 m_prefsBroker  = nullptr;
 
     bool                         m_subscribed = false;
     bool                         m_liveTailing = false;

@@ -12,11 +12,12 @@ class FilterMgr;
 class GroupMgr;
 class MapData;
 class MessageShell;
+class Player;
+class PrefsBroker;
 class SessionAdapter;
 class SpawnShell;
 class SpellShell;
 class ZoneMgr;
-class Player;
 
 // WsServer owns a QWebSocketServer on the same event loop as the capture
 // pipeline, so handlers never need to cross thread boundaries to serialize
@@ -32,7 +33,8 @@ public:
     // pointers must outlive the WsServer; they're not owned.
     void setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
                   MessageShell* ms, GroupMgr* gm, SpellShell* sps,
-                  CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm);
+                  CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
+                  PrefsBroker* pb);
 
     bool listen(const QHostAddress& host, quint16 port);
 
@@ -54,4 +56,5 @@ private:
     CombatRouter*  m_combatRouter  = nullptr;
     CategoryMgr*   m_categoryMgr   = nullptr;
     FilterMgr*     m_filterMgr     = nullptr;
+    PrefsBroker*   m_prefsBroker   = nullptr;
 };

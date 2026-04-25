@@ -23,6 +23,7 @@
 #include "packetcommon.h"
 #include "packetinfo.h"
 #include "player.h"
+#include "prefsbroker.h"
 #include "spawnshell.h"
 #include "spells.h"
 #include "spellshell.h"
@@ -172,6 +173,11 @@ bool DaemonApp::start()
     // with a default set so the list is never empty.
     m_categoryMgr = new CategoryMgr(this, "categoryMgr");
 
+    // PrefsBroker is the curated XMLPreferences <-> wire bridge. Constructed
+    // after pSEQPrefs is initialized but before any client can connect, so
+    // the very first PrefsSnapshot reflects the on-disk state.
+    m_prefsBroker = new PrefsBroker(this);
+
     // Load the initial zone map if we already know the zone (e.g. replay
     // mode with zone already fixed). Otherwise loadZoneMap fires on the
     // first zone-resolving signal.
@@ -190,7 +196,8 @@ bool DaemonApp::start()
     // Let the WebSocket server hand these to each SessionAdapter it spawns.
     m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get(),
                    m_messageShell, m_groupMgr, m_spellShell,
-                   m_combatRouter, m_categoryMgr, m_filterMgr);
+                   m_combatRouter, m_categoryMgr, m_filterMgr,
+                   m_prefsBroker);
 
     if (m_packet) {
         wireZoneMgr();
