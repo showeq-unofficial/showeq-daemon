@@ -7,6 +7,7 @@
 
 #include "main.h"
 
+#include "combatrouter.h"
 #include "datalocationmgr.h"
 #include "datetimemgr.h"
 #include "eqstr.h"
@@ -23,10 +24,14 @@
 #include "player.h"
 #include "spawnshell.h"
 #include "spells.h"
+#include "spellshell.h"
 #include "wsserver.h"
 #include "zonemgr.h"
 
 namespace seq { void initGlobals(const QString& def, const QString& user); }
+
+// Forward decls for helpers defined further down in this file.
+static QString legacyShoweqHome();
 
 DaemonApp::DaemonApp(Config cfg, QObject* parent)
     : QObject(parent)
@@ -64,10 +69,28 @@ bool DaemonApp::start()
 
     // Cross-cutting helpers the extracted managers expect to find on the
     // QObject tree. Spells is optional — if spells_us.txt is missing the
-    // daemon still runs, we just can't render spell names.
+    // daemon still runs, we just can't render spell names or compute
+    // calc-from-level durations. Search cascade:
+    //   1. DataLocationMgr (user dir / --config-dir / pkg dir)
+    //   2. /usr/local/share/showeq/ (showeq-c install location)
+    //   3. ~/.showeq/ (legacy showeq-c user dir)
     m_dateTimeMgr = new DateTimeMgr(this, "datetimemgr");
-    const QFileInfo spellsFile =
+    QFileInfo spellsFile =
         m_dataLocationMgr->findExistingFile(".", "spells_us.txt");
+    if (!spellsFile.exists()) {
+        for (const QString& path : {
+                 QStringLiteral("/usr/local/share/showeq/spells_us.txt"),
+                 legacyShoweqHome() + "/.showeq/spells_us.txt",
+             }) {
+            QFileInfo fi(path);
+            if (fi.exists()) { spellsFile = fi; break; }
+        }
+    }
+    if (spellsFile.exists()) {
+        qInfo("loaded spells from %s", qUtf8Printable(spellsFile.absoluteFilePath()));
+    } else {
+        qInfo("no spells_us.txt found — spell names + durations will be empty");
+    }
     m_spells    = new Spells(spellsFile.exists()
                               ? spellsFile.absoluteFilePath()
                               : QString());
@@ -126,6 +149,23 @@ bool DaemonApp::start()
                                       m_zoneMgr, m_spawnShell, m_player,
                                       this, "messageShell");
 
+    // SpellShell tracks active buffs / outgoing casts. Wires player
+    // signals + clear-on-zone, mirroring showeq-c interface.cpp:967-988.
+    m_spellShell = new SpellShell(m_player, m_spawnShell, m_spells);
+    m_spellShell->setParent(this);
+    connect(m_player, SIGNAL(newPlayer()),
+            m_spellShell, SLOT(clear()));
+    connect(m_player, SIGNAL(buffLoad(const spellBuff*)),
+            m_spellShell, SLOT(buffLoad(const spellBuff*)));
+    connect(m_zoneMgr, SIGNAL(zoneChanged(const QString&)),
+            m_spellShell, SLOT(zoneChanged()));
+    connect(m_spawnShell, SIGNAL(killSpawn(const Item*, const Item*, uint16_t)),
+            m_spellShell, SLOT(killSpawn(const Item*)));
+
+    // CombatRouter parses OP_Action2 into structured combat events for
+    // the websocket layer.
+    m_combatRouter = new CombatRouter(m_spawnShell, m_spells, this);
+
     // Load the initial zone map if we already know the zone (e.g. replay
     // mode with zone already fixed). Otherwise loadZoneMap fires on the
     // first zone-resolving signal.
@@ -143,7 +183,8 @@ bool DaemonApp::start()
 
     // Let the WebSocket server hand these to each SessionAdapter it spawns.
     m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get(),
-                   m_messageShell, m_groupMgr);
+                   m_messageShell, m_groupMgr, m_spellShell,
+                   m_combatRouter);
 
     if (m_packet) {
         wireZoneMgr();
@@ -349,6 +390,35 @@ void DaemonApp::wireSpawnShell()
                        "groupDisbandStruct", SZC_Match,
                        m_groupMgr,
                        SLOT(removeGroupMember(const uint8_t*)));
+
+    // SpellShell — mirrors showeq-c/src/interface.cpp:973-988.
+    m_packet->connect2("OP_CastSpell", SP_Zone, DIR_Server|DIR_Client,
+                       "startCastStruct", SZC_Match,
+                       m_spellShell,
+                       SLOT(selfStartSpellCast(const uint8_t*)));
+    m_packet->connect2("OP_Buff", SP_Zone, DIR_Server|DIR_Client,
+                       "buffStruct", SZC_Match,
+                       m_spellShell,
+                       SLOT(buff(const uint8_t*, size_t, uint8_t)));
+    m_packet->connect2("OP_Action", SP_Zone, DIR_Server|DIR_Client,
+                       "actionStruct", SZC_Match,
+                       m_spellShell,
+                       SLOT(action(const uint8_t*, size_t, uint8_t)));
+    m_packet->connect2("OP_Action", SP_Zone, DIR_Server|DIR_Client,
+                       "actionAltStruct", SZC_Match,
+                       m_spellShell,
+                       SLOT(action(const uint8_t*, size_t, uint8_t)));
+    m_packet->connect2("OP_SimpleMessage", SP_Zone, DIR_Server,
+                       "simpleMessageStruct", SZC_Match,
+                       m_spellShell,
+                       SLOT(simpleMessage(const uint8_t*, size_t, uint8_t)));
+
+    // Combat events. action2Struct carries damage data (showeq-c handles
+    // this in interface.cpp around line 4950). OP_Action2 is server-side.
+    m_packet->connect2("OP_Action2", SP_Zone, DIR_Client|DIR_Server,
+                       "action2Struct", SZC_Match,
+                       m_combatRouter,
+                       SLOT(action2(const uint8_t*, size_t, uint8_t)));
 }
 
 static QString legacyShoweqHome()

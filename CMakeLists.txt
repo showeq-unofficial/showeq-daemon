@@ -119,6 +119,7 @@ set(SEQ_DAEMON_NEW_SOURCES
   src/wsserver.cpp
   src/sessionadapter.cpp
   src/protoencoder.cpp
+  src/combatrouter.cpp
   src/seq_globals.cpp
 )
 

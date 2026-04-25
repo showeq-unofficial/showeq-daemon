@@ -11,6 +11,7 @@ class GroupMgr;
 class Item;
 class Player;
 class Spawn;
+class SpellItem;
 class MapData;
 
 namespace seq::encode {
@@ -36,5 +37,8 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p);
 // Fills `out` with all 6 group slots from `g`. Slots without a member
 // produce an empty GroupMember (in_zone=false, name="").
 void fillGroupUpdate(seq::v1::GroupUpdate* out, GroupMgr& g);
+
+// Fills `out` with one Buff message from a SpellShell SpellItem.
+void fillBuff(seq::v1::Buff* out, const SpellItem& spell);
 
 } // namespace seq::encode

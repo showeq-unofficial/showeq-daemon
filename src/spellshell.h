@@ -185,6 +185,7 @@ class SpellShell : public QObject
   SpellShell(Player* player, SpawnShell* spawnshell, Spells* spells);
   virtual ~SpellShell();
   void deleteSpell(const SpellItem*);
+  const QList<SpellItem*>& spellList() const { return m_spellList; }
   
  signals:
   void addSpell(const SpellItem *); // done

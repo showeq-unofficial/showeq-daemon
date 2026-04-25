@@ -8,11 +8,15 @@
 #include "seq/v1/events.pb.h"
 
 class QWebSocket;
+class CombatRouter;
 class GroupMgr;
 class Item;
 class MapData;
 class MessageShell;
+class Spawn;
 class SpawnShell;
+class SpellItem;
+class SpellShell;
 class ZoneMgr;
 class Player;
 
@@ -36,6 +40,8 @@ public:
                    MapData*      mapData,
                    MessageShell* messageShell,
                    GroupMgr*     groupMgr,
+                   SpellShell*   spellShell,
+                   CombatRouter* combatRouter,
                    QObject*      parent = nullptr);
     ~SessionAdapter() override;
 
@@ -69,12 +75,20 @@ private slots:
                        const QString& target, const QString& text);
     // Re-emits the full group state on any GroupMgr add/remove/clear.
     void onGroupChanged();
+    // Re-emits the full active-buff list on any SpellShell change.
+    void onBuffsChanged();
+    // Forwards a CombatRouter combatEvent signal as a CombatEvent envelope.
+    void onCombatEvent(uint32_t sourceId, const QString& sourceName,
+                       uint32_t targetId, const QString& targetName,
+                       uint32_t type, int32_t damage,
+                       uint32_t spellId, const QString& spellName);
 
 private:
     void startStreaming();
     void sendSnapshot();
     void sendPlayerStats();
     void sendGroupUpdate();
+    void sendBuffsUpdate();
     void emitEnvelope(seq::v1::Envelope&& env);
     void sendOrBuffer(seq::v1::Envelope&& env);
 
@@ -85,6 +99,8 @@ private:
     MapData*                     m_mapData      = nullptr;
     MessageShell*                m_messageShell = nullptr;
     GroupMgr*                    m_groupMgr     = nullptr;
+    SpellShell*                  m_spellShell   = nullptr;
+    CombatRouter*                m_combatRouter = nullptr;
 
     bool                         m_subscribed = false;
     bool                         m_liveTailing = false;

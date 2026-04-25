@@ -12,6 +12,7 @@ class DataLocationMgr;
 class DateTimeMgr;
 class EQPacket;
 class EQStr;
+class CombatRouter;
 class FilterMgr;
 class GroupMgr;
 class GuildMgr;
@@ -22,6 +23,7 @@ class Messages;
 class Player;
 class Spells;
 class SpawnShell;
+class SpellShell;
 class WsServer;
 class ZoneMgr;
 
@@ -82,10 +84,12 @@ private:
     Player*                         m_player        = nullptr;
     FilterMgr*                      m_filterMgr     = nullptr;
     SpawnShell*                     m_spawnShell    = nullptr;
+    SpellShell*                     m_spellShell    = nullptr;
     GroupMgr*                       m_groupMgr      = nullptr;
     MessageFilters*                 m_messageFilters = nullptr;
     Messages*                       m_messages       = nullptr;
     MessageShell*                   m_messageShell   = nullptr;
+    CombatRouter*                   m_combatRouter   = nullptr;
     std::unique_ptr<MapData>        m_mapData;
 
     std::unique_ptr<WsServer>       m_ws;

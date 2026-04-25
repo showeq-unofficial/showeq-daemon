@@ -6,6 +6,7 @@
 #include <QSet>
 #include <QWebSocket>
 
+#include "combatrouter.h"
 #include "group.h"
 #include "mapcore.h"
 #include "messageshell.h"
@@ -13,6 +14,7 @@
 #include "protoencoder.h"
 #include "spawn.h"
 #include "spawnshell.h"
+#include "spellshell.h"
 #include "zonemgr.h"
 
 #include "seq/v1/client.pb.h"
@@ -24,6 +26,8 @@ SessionAdapter::SessionAdapter(QWebSocket*   sock,
                                MapData*      mapData,
                                MessageShell* messageShell,
                                GroupMgr*     groupMgr,
+                               SpellShell*   spellShell,
+                               CombatRouter* combatRouter,
                                QObject*      parent)
     : QObject(parent)
     , m_sock(sock)
@@ -33,6 +37,8 @@ SessionAdapter::SessionAdapter(QWebSocket*   sock,
     , m_mapData(mapData)
     , m_messageShell(messageShell)
     , m_groupMgr(groupMgr)
+    , m_spellShell(spellShell)
+    , m_combatRouter(combatRouter)
 {
     connect(sock, &QWebSocket::textMessageReceived,
             this, &SessionAdapter::onTextMessage);
@@ -156,6 +162,30 @@ void SessionAdapter::startStreaming()
                 this,       SLOT(onGroupChanged()));
     }
 
+    if (m_spellShell) {
+        connect(m_spellShell, SIGNAL(addSpell(const SpellItem*)),
+                this,         SLOT(onBuffsChanged()));
+        connect(m_spellShell, SIGNAL(delSpell(const SpellItem*)),
+                this,         SLOT(onBuffsChanged()));
+        connect(m_spellShell, SIGNAL(changeSpell(const SpellItem*)),
+                this,         SLOT(onBuffsChanged()));
+        connect(m_spellShell, SIGNAL(clearSpells()),
+                this,         SLOT(onBuffsChanged()));
+    }
+
+    if (m_combatRouter) {
+        connect(m_combatRouter,
+                SIGNAL(combatEvent(uint32_t, const QString&,
+                                   uint32_t, const QString&,
+                                   uint32_t, int32_t,
+                                   uint32_t, const QString&)),
+                this,
+                SLOT(onCombatEvent(uint32_t, const QString&,
+                                   uint32_t, const QString&,
+                                   uint32_t, int32_t,
+                                   uint32_t, const QString&)));
+    }
+
     // STEP 2: iterate current state into a Snapshot and ship it.
     sendSnapshot();
 
@@ -167,6 +197,10 @@ void SessionAdapter::startStreaming()
     // Initial GroupUpdate (all 6 slots, may all be empty).
     if (m_groupMgr) {
         sendGroupUpdate();
+    }
+    // Initial BuffsUpdate (may be an empty list before login).
+    if (m_spellShell) {
+        sendBuffsUpdate();
     }
 
     // STEP 3: drain anything that arrived during the iteration.
@@ -371,6 +405,44 @@ void SessionAdapter::sendGroupUpdate()
     if (!m_groupMgr) return;
     seq::v1::Envelope env;
     seq::encode::fillGroupUpdate(env.mutable_group(), *m_groupMgr);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onBuffsChanged()
+{
+    if (!m_spellShell) return;
+    sendBuffsUpdate();
+}
+
+void SessionAdapter::sendBuffsUpdate()
+{
+    if (!m_spellShell) return;
+    seq::v1::Envelope env;
+    auto* update = env.mutable_buffs();
+    update->set_captured_ms(static_cast<uint64_t>(
+        QDateTime::currentMSecsSinceEpoch()));
+    for (const SpellItem* s : m_spellShell->spellList()) {
+        if (!s) continue;
+        seq::encode::fillBuff(update->add_buffs(), *s);
+    }
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onCombatEvent(uint32_t sourceId, const QString& sourceName,
+                                   uint32_t targetId, const QString& targetName,
+                                   uint32_t type, int32_t damage,
+                                   uint32_t spellId, const QString& spellName)
+{
+    seq::v1::Envelope env;
+    auto* ev = env.mutable_combat();
+    ev->set_source_id(sourceId);
+    ev->set_source_name(sourceName.toStdString());
+    ev->set_target_id(targetId);
+    ev->set_target_name(targetName.toStdString());
+    ev->set_type(type);
+    ev->set_damage(damage);
+    ev->set_spell_id(spellId);
+    ev->set_spell_name(spellName.toStdString());
     sendOrBuffer(std::move(env));
 }
 

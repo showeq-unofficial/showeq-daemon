@@ -6,11 +6,13 @@
 #include <memory>
 
 class QWebSocketServer;
+class CombatRouter;
 class GroupMgr;
 class MapData;
 class MessageShell;
 class SessionAdapter;
 class SpawnShell;
+class SpellShell;
 class ZoneMgr;
 class Player;
 
@@ -27,7 +29,8 @@ public:
     // Called by DaemonApp after the state managers are constructed. The
     // pointers must outlive the WsServer; they're not owned.
     void setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
-                  MessageShell* ms, GroupMgr* gm);
+                  MessageShell* ms, GroupMgr* gm, SpellShell* sps,
+                  CombatRouter* cr);
 
     bool listen(const QHostAddress& host, quint16 port);
 
@@ -45,4 +48,6 @@ private:
     MapData*       m_mapData       = nullptr;
     MessageShell*  m_messageShell  = nullptr;
     GroupMgr*      m_groupMgr      = nullptr;
+    SpellShell*    m_spellShell    = nullptr;
+    CombatRouter*  m_combatRouter  = nullptr;
 };

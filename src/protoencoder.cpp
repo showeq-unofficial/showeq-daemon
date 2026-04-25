@@ -7,6 +7,7 @@
 #include "mapcore.h"
 #include "player.h"
 #include "spawn.h"
+#include "spellshell.h"
 
 namespace seq::encode {
 
@@ -195,6 +196,17 @@ void fillGroupUpdate(seq::v1::GroupUpdate* out, GroupMgr& g)
             m->set_in_zone(false);
         }
     }
+}
+
+void fillBuff(seq::v1::Buff* out, const SpellItem& s)
+{
+    out->set_spell_id(s.spellId());
+    out->set_spell_name(s.spellName().toStdString());
+    out->set_duration_s(s.duration());
+    out->set_caster_id(s.casterId());
+    out->set_caster_name(s.casterName().toStdString());
+    out->set_target_id(s.targetId());
+    out->set_target_name(s.targetName().toStdString());
 }
 
 } // namespace seq::encode
