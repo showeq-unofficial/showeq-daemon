@@ -4,10 +4,12 @@
 #include <QDateTime>
 #include <QLoggingCategory>
 #include <QSet>
-#include <QWebSocket>
+#include <algorithm>
+#include <vector>
 
 #include "category.h"
 #include "combatrouter.h"
+#include "envelopesink.h"
 #include "filtermgr.h"
 #include "group.h"
 #include "mapcore.h"
@@ -22,7 +24,7 @@
 
 #include "seq/v1/client.pb.h"
 
-SessionAdapter::SessionAdapter(QWebSocket*   sock,
+SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
                                SpawnShell*   spawnShell,
                                ZoneMgr*      zoneMgr,
                                Player*       player,
@@ -36,7 +38,7 @@ SessionAdapter::SessionAdapter(QWebSocket*   sock,
                                PrefsBroker*  prefsBroker,
                                QObject*      parent)
     : QObject(parent)
-    , m_sock(sock)
+    , m_sink(sink)
     , m_spawnShell(spawnShell)
     , m_zoneMgr(zoneMgr)
     , m_player(player)
@@ -49,20 +51,16 @@ SessionAdapter::SessionAdapter(QWebSocket*   sock,
     , m_filterMgr(filterMgr)
     , m_prefsBroker(prefsBroker)
 {
-    connect(sock, &QWebSocket::textMessageReceived,
-            this, &SessionAdapter::onTextMessage);
-    connect(sock, &QWebSocket::binaryMessageReceived,
-            this, &SessionAdapter::onBinaryMessage);
 }
 
 SessionAdapter::~SessionAdapter() = default;
 
-void SessionAdapter::onTextMessage(const QString& text)
+void SessionAdapter::handleClientText(const QString& text)
 {
     qInfo("ws text frame ignored: %s", qUtf8Printable(text));
 }
 
-void SessionAdapter::onBinaryMessage(const QByteArray& bytes)
+void SessionAdapter::handleClientBinary(const QByteArray& bytes)
 {
     seq::v1::ClientEnvelope env;
     if (!env.ParseFromArray(bytes.constData(), bytes.size())) {
@@ -132,6 +130,10 @@ void SessionAdapter::startStreaming()
             this,         &SessionAdapter::onDelItem);
     connect(m_spawnShell, &SpawnShell::changeItem,
             this,         &SessionAdapter::onChangeItem);
+    connect(m_spawnShell, &SpawnShell::spawnConsidered,
+            this,         &SessionAdapter::onSpawnConsidered);
+    connect(m_spawnShell, &SpawnShell::targetSpawn,
+            this,         &SessionAdapter::onTargetSpawn);
     // Player emits its own changeItem on per-tick position/heading updates
     // (player.cpp:932 — tSpawnChangedPosition); SpawnShell forwards a few
     // bigger transitions but not the per-tick movement. Connect both so
@@ -309,25 +311,30 @@ void SessionAdapter::sendSnapshot()
         seq::encode::fillMapGeometry(snap->mutable_geometry(), *m_mapData);
     }
 
-    // SpawnShell maintains separate ItemMaps for spawns, drops, doors, and
-    // players; the Phase 1 client renders all of them the same way (as
-    // labeled dots), so we collapse them into a single repeated Spawn list.
+    // SpawnShell maintains separate ItemMaps (QHash<int, Item*>) for
+    // spawns, drops, doors, and players; the Phase 1 client renders all
+    // of them the same way (as labeled dots), so we collapse them into
+    // a single repeated Spawn list. ItemMap is a QHash; Qt randomizes
+    // hash seeds per-process so iteration order is not stable. Collect
+    // pointers into a vector and sort by id before encoding so the
+    // Snapshot bytes are deterministic across runs (regression-harness
+    // requirement; clients key by id and don't depend on order anyway).
+    std::vector<const Item*> all;
     QSet<uint16_t> seenIds;
-    auto append = [&](const ItemMap& map) {
+    auto collect = [&](const ItemMap& map) {
         ItemConstIterator it(map);
         while (it.hasNext()) {
             it.next();
             if (const Item* item = it.value()) {
-                seq::encode::fillSpawn(snap->add_spawns(), *item,
-                                       m_categoryMgr, m_filterMgr);
+                all.push_back(item);
                 seenIds.insert(item->id());
             }
         }
     };
-    append(m_spawnShell->spawns());
-    append(m_spawnShell->drops());
-    append(m_spawnShell->doors());
-    append(m_spawnShell->getConstMap(tPlayer));
+    collect(m_spawnShell->spawns());
+    collect(m_spawnShell->drops());
+    collect(m_spawnShell->doors());
+    collect(m_spawnShell->getConstMap(tPlayer));
 
     // Belt + suspenders: if the player object never made it into
     // SpawnShell's m_players map (which can happen during early init
@@ -335,7 +342,16 @@ void SessionAdapter::sendSnapshot()
     // a marker for `player_id`.
     if (m_player && m_player->getPlayerID() != 0 &&
         !seenIds.contains(m_player->getPlayerID())) {
-        seq::encode::fillSpawn(snap->add_spawns(), *m_player,
+        all.push_back(m_player);
+    }
+
+    std::sort(all.begin(), all.end(),
+              [](const Item* a, const Item* b) {
+                  return a->id() < b->id();
+              });
+
+    for (const Item* item : all) {
+        seq::encode::fillSpawn(snap->add_spawns(), *item,
                                m_categoryMgr, m_filterMgr);
     }
 
@@ -347,11 +363,7 @@ void SessionAdapter::emitEnvelope(seq::v1::Envelope&& env)
     env.set_seq(++m_seq);
     env.set_server_ts_ms(static_cast<uint64_t>(
         QDateTime::currentMSecsSinceEpoch()));
-
-    QByteArray buf;
-    buf.resize(static_cast<int>(env.ByteSizeLong()));
-    env.SerializeToArray(buf.data(), buf.size());
-    m_sock->sendBinaryMessage(buf);
+    m_sink->send(env);
 }
 
 void SessionAdapter::sendOrBuffer(seq::v1::Envelope&& env)
@@ -567,6 +579,21 @@ void SessionAdapter::onPrefChanged(const seq::v1::Pref& pref)
 {
     seq::v1::Envelope env;
     *env.mutable_pref_changed()->mutable_pref() = pref;
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onSpawnConsidered(const Item* item)
+{
+    if (!item) return;
+    seq::v1::Envelope env;
+    env.mutable_considered()->set_spawn_id(item->id());
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onTargetSpawn(uint32_t spawnId)
+{
+    seq::v1::Envelope env;
+    env.mutable_targeted()->set_spawn_id(spawnId);
     sendOrBuffer(std::move(env));
 }
 

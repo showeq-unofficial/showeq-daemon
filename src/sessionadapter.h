@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QList>
 #include <QObject>
 #include <QString>
@@ -7,7 +8,7 @@
 
 #include "seq/v1/events.pb.h"
 
-class QWebSocket;
+class IEnvelopeSink;
 class CategoryMgr;
 class CombatRouter;
 class FilterMgr;
@@ -27,6 +28,11 @@ class ZoneMgr;
 // (SpawnShell::addItem, ZoneMgr::zoneChanged, Player::posChanged, ...) and
 // the seq.v1 protobuf stream a connected client consumes.
 //
+// The transport (QWebSocket in production, a collecting buffer in tests) is
+// abstracted behind IEnvelopeSink so the adapter has no direct Qt-network
+// dependency. WsServer owns the socket-side wiring; tests instantiate the
+// adapter directly with a fake sink.
+//
 // Snapshot/tail race — read before editing:
 // When a client subscribes, we MUST connect signals FIRST (with handlers
 // buffering to m_buffered, not sending), THEN iterate SpawnShell state into
@@ -36,7 +42,7 @@ class ZoneMgr;
 class SessionAdapter : public QObject {
     Q_OBJECT
 public:
-    SessionAdapter(QWebSocket*   sock,
+    SessionAdapter(IEnvelopeSink* sink,
                    SpawnShell*   spawnShell,
                    ZoneMgr*      zoneMgr,
                    Player*       player,
@@ -51,12 +57,13 @@ public:
                    QObject*      parent = nullptr);
     ~SessionAdapter() override;
 
-    QWebSocket* socket() const { return m_sock; }
+    // Inbound client traffic. WsServer wires QWebSocket::textMessageReceived
+    // and binaryMessageReceived to these. Tests call them directly with the
+    // serialized ClientEnvelope they want to deliver.
+    void handleClientText(const QString& text);
+    void handleClientBinary(const QByteArray& bytes);
 
 private slots:
-    void onTextMessage(const QString& text);
-    void onBinaryMessage(const QByteArray& bytes);
-
     // Signal handlers wired to the shared state managers. Before
     // m_liveTailing flips true, these push envelopes into m_buffered
     // instead of sending them.
@@ -94,6 +101,10 @@ private slots:
     void onFilterRulesChanged();
     // Forwards a PrefsBroker prefChanged signal as a PrefChanged envelope.
     void onPrefChanged(const seq::v1::Pref& pref);
+    // Forwards SpawnShell::spawnConsidered as a Considered envelope.
+    void onSpawnConsidered(const Item* item);
+    // Forwards SpawnShell::targetSpawn as a Targeted envelope.
+    void onTargetSpawn(uint32_t spawnId);
 
 private:
     void startStreaming();
@@ -107,7 +118,7 @@ private:
     void emitEnvelope(seq::v1::Envelope&& env);
     void sendOrBuffer(seq::v1::Envelope&& env);
 
-    QWebSocket*                  m_sock         = nullptr;
+    IEnvelopeSink*               m_sink         = nullptr;
     SpawnShell*                  m_spawnShell   = nullptr;
     ZoneMgr*                     m_zoneMgr      = nullptr;
     Player*                      m_player       = nullptr;

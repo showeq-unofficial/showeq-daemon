@@ -68,7 +68,12 @@ target_include_directories(seq-proto PUBLIC "${SEQ_PROTO_GEN_DIR}")
 target_link_libraries(seq-proto PUBLIC protobuf::libprotobuf)
 set_target_properties(seq-proto PROPERTIES AUTOMOC OFF AUTORCC OFF AUTOUIC OFF)
 
-# --- daemon ------------------------------------------------------------------
+# --- daemon core library -----------------------------------------------------
+# Everything except the WebSocket/main wiring goes into a static library so
+# the test binaries (tests/) can link against the same code without dragging
+# in QWebSockets or the command-line parser. Daemon executable adds the
+# remaining pieces (main.cpp + WsServer + SessionAdapter + DaemonApp wiring).
+#
 # Sources extracted from showeq-c/src (authoritative list derived from
 # showeq-c/src/Makefile.am's showeq_SOURCES, minus all QWidget-bound files).
 set(SEQ_DAEMON_EXTRACTED_SOURCES
@@ -113,50 +118,66 @@ set(SEQ_DAEMON_EXTRACTED_SOURCES
   src/zonemgr.cpp
 )
 
-set(SEQ_DAEMON_NEW_SOURCES
-  src/main.cpp
-  src/daemonapp.cpp
-  src/wsserver.cpp
-  src/sessionadapter.cpp
+set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/protoencoder.cpp
   src/combatrouter.cpp
+  src/filesink.cpp
   src/prefsbroker.cpp
   src/seq_globals.cpp
 )
 
-add_executable(showeq-daemon
+add_library(seq-daemon-core STATIC
   ${SEQ_DAEMON_EXTRACTED_SOURCES}
-  ${SEQ_DAEMON_NEW_SOURCES}
+  ${SEQ_DAEMON_CORE_NEW_SOURCES}
 )
 
-target_include_directories(showeq-daemon PRIVATE
+target_include_directories(seq-daemon-core PUBLIC
   src
   ${PCAP_INCLUDE_DIRS}
 )
 
-# Matches showeq-c's Makefile.am: INCLUDES = ... -DPKGDATADIR="..."
-# The daemon reads opcode XML and default config from this path.
-target_compile_definitions(showeq-daemon PRIVATE
-  PKGDATADIR="${CMAKE_INSTALL_PREFIX}/share/showeq-daemon/"
-)
-
-target_link_libraries(showeq-daemon PRIVATE
+target_link_libraries(seq-daemon-core PUBLIC
   seq-proto
   Qt5::Core
   Qt5::Gui
   Qt5::Widgets
   Qt5::Network
   Qt5::Xml
-  Qt5::WebSockets
   ${PCAP_LIBRARIES}
   ${ZLIB_LIBRARIES}
   Threads::Threads
 )
 
-target_compile_options(showeq-daemon PRIVATE
+target_compile_options(seq-daemon-core PRIVATE
   -Wall
   # Extracted code triggers a lot of benign warnings. Re-tighten these
   # once the legacy files have been cleaned up in a dedicated pass.
+  -Wno-unused-parameter
+  -Wno-deprecated-declarations
+)
+
+# Matches showeq-c's Makefile.am: INCLUDES = ... -DPKGDATADIR="..."
+# datalocationmgr.cpp reads this; tests get the same install path so the
+# extracted code keeps its single source of truth.
+target_compile_definitions(seq-daemon-core PRIVATE
+  PKGDATADIR="${CMAKE_INSTALL_PREFIX}/share/showeq-daemon/"
+)
+
+# --- daemon executable -------------------------------------------------------
+add_executable(showeq-daemon
+  src/main.cpp
+  src/daemonapp.cpp
+  src/wsserver.cpp
+  src/sessionadapter.cpp
+)
+
+target_link_libraries(showeq-daemon PRIVATE
+  seq-daemon-core
+  Qt5::WebSockets
+)
+
+target_compile_options(showeq-daemon PRIVATE
+  -Wall
   -Wno-unused-parameter
   -Wno-deprecated-declarations
 )

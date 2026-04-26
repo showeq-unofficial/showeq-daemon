@@ -1,10 +1,37 @@
 #include "wsserver.h"
 
+#include <QByteArray>
 #include <QLoggingCategory>
 #include <QWebSocket>
 #include <QWebSocketServer>
 
+#include "envelopesink.h"
 #include "sessionadapter.h"
+
+#include "seq/v1/events.pb.h"
+
+namespace {
+
+// Production sink: serialize the envelope and push it across the socket as
+// a single binary WebSocket frame. One per connection; lifetime tracked
+// alongside the SessionAdapter in WsServer::m_sessions.
+class WebSocketSink : public IEnvelopeSink {
+public:
+    explicit WebSocketSink(QWebSocket* sock) : m_sock(sock) {}
+
+    void send(const seq::v1::Envelope& env) override
+    {
+        QByteArray buf;
+        buf.resize(static_cast<int>(env.ByteSizeLong()));
+        env.SerializeToArray(buf.data(), buf.size());
+        m_sock->sendBinaryMessage(buf);
+    }
+
+private:
+    QWebSocket* m_sock;
+};
+
+} // namespace
 
 WsServer::WsServer(QObject* parent)
     : QObject(parent)
@@ -16,7 +43,12 @@ WsServer::WsServer(QObject* parent)
             this, &WsServer::onNewConnection);
 }
 
-WsServer::~WsServer() = default;
+WsServer::~WsServer()
+{
+    for (auto& s : m_sessions) {
+        delete s.sink;
+    }
+}
 
 void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
                         MessageShell* ms, GroupMgr* gm, SpellShell* sps,
@@ -45,15 +77,30 @@ void WsServer::onNewConnection()
 {
     while (m_server->hasPendingConnections()) {
         QWebSocket* sock = m_server->nextPendingConnection();
-        auto* session = new SessionAdapter(sock, m_spawnShell,
+        auto* sink = new WebSocketSink(sock);
+        auto* session = new SessionAdapter(sink, m_spawnShell,
                                            m_zoneMgr, m_player,
                                            m_mapData, m_messageShell,
                                            m_groupMgr, m_spellShell,
                                            m_combatRouter, m_categoryMgr,
                                            m_filterMgr, m_prefsBroker, this);
+
+        // Forward QWebSocket inbound traffic to the adapter's public
+        // handlers. Lambdas capture the adapter by value (raw pointer) —
+        // safe because both die together in onSessionDisconnected before
+        // the QWebSocket itself is deleteLater'd.
+        connect(sock, &QWebSocket::textMessageReceived,
+                session, [session](const QString& t) {
+                    session->handleClientText(t);
+                });
+        connect(sock, &QWebSocket::binaryMessageReceived,
+                session, [session](const QByteArray& b) {
+                    session->handleClientBinary(b);
+                });
         connect(sock, &QWebSocket::disconnected,
                 this, &WsServer::onSessionDisconnected);
-        m_sessions.append(session);
+
+        m_sessions.insert(sock, Session{session, sink});
         qInfo("ws client connected (%d total)", m_sessions.size());
     }
 }
@@ -62,13 +109,11 @@ void WsServer::onSessionDisconnected()
 {
     auto* sock = qobject_cast<QWebSocket*>(sender());
     if (!sock) return;
-    for (auto it = m_sessions.begin(); it != m_sessions.end(); ) {
-        if ((*it)->socket() == sock) {
-            (*it)->deleteLater();
-            it = m_sessions.erase(it);
-        } else {
-            ++it;
-        }
+    auto it = m_sessions.find(sock);
+    if (it != m_sessions.end()) {
+        it->adapter->deleteLater();
+        delete it->sink;
+        m_sessions.erase(it);
     }
     sock->deleteLater();
     qInfo("ws client disconnected (%d remaining)", m_sessions.size());

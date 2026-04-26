@@ -1,15 +1,17 @@
 #pragma once
 
-#include <QObject>
+#include <QHash>
 #include <QHostAddress>
-#include <QList>
+#include <QObject>
 #include <memory>
 
+class QWebSocket;
 class QWebSocketServer;
 class CategoryMgr;
 class CombatRouter;
 class FilterMgr;
 class GroupMgr;
+class IEnvelopeSink;
 class MapData;
 class MessageShell;
 class Player;
@@ -43,8 +45,13 @@ private slots:
     void onSessionDisconnected();
 
 private:
+    struct Session {
+        SessionAdapter* adapter;
+        IEnvelopeSink*  sink;
+    };
+
     std::unique_ptr<QWebSocketServer>   m_server;
-    QList<SessionAdapter*>              m_sessions;
+    QHash<QWebSocket*, Session>         m_sessions;
 
     SpawnShell*    m_spawnShell    = nullptr;
     ZoneMgr*       m_zoneMgr       = nullptr;
