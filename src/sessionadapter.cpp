@@ -7,6 +7,10 @@
 #include <algorithm>
 #include <vector>
 
+extern "C" { // pcap headers aren't c++-clean
+#include <pcap.h>
+}
+
 #include "category.h"
 #include "combatrouter.h"
 #include "envelopesink.h"
@@ -174,6 +178,30 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
         // envelope yet. On success the broker emits prefChanged, which
         // every connected SessionAdapter forwards as PrefChanged.
         m_prefsBroker->apply(env.set_pref().pref());
+        return;
+    }
+    if (env.has_list_devices()) {
+        // Session-scoped reply, not broadcast — the picker is per-tab UI.
+        // pcap_findalldevs walks /sys/class/net (or platform equivalent);
+        // failure leaves the list empty and the client renders "no
+        // devices found", which is the same fallback path as a host
+        // with no usable interfaces.
+        seq::v1::Envelope reply;
+        auto* list = reply.mutable_devices_list();
+        char errbuf[PCAP_ERRBUF_SIZE] = {};
+        pcap_if_t* alldevs = nullptr;
+        if (pcap_findalldevs(&alldevs, errbuf) == 0) {
+            for (pcap_if_t* d = alldevs; d != nullptr; d = d->next) {
+                auto* dev = list->add_devices();
+                dev->set_name(d->name ? d->name : "");
+                dev->set_description(d->description ? d->description : "");
+                dev->set_is_loopback((d->flags & PCAP_IF_LOOPBACK) != 0);
+            }
+            pcap_freealldevs(alldevs);
+        } else {
+            qWarning("pcap_findalldevs failed: %s", errbuf);
+        }
+        sendOrBuffer(std::move(reply));
         return;
     }
 }

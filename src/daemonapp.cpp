@@ -149,6 +149,18 @@ bool DaemonApp::start()
         pSEQPrefs->setPrefString("Filename", "VPacket", m_cfg.replay);
     }
 
+    // CLI --device wins; otherwise consult the XML pref so the value the
+    // user saved through the preferences UI persists across restarts.
+    // Replay sessions ignore the device entirely.
+    if (m_cfg.device.isEmpty() && m_cfg.replay.isEmpty()) {
+        const QString xmlDev =
+            pSEQPrefs->getPrefString("Device", "Network", QString());
+        if (!xmlDev.isEmpty()) {
+            m_cfg.device = xmlDev;
+            qInfo("device from prefs: %s", qUtf8Printable(xmlDev));
+        }
+    }
+
     // EQPacket's ctor calls pcap_create/pcap_activate, which exit(1)s when
     // there's no device available. Skip capture setup entirely when the
     // user passed neither --device nor --replay; the daemon then serves
@@ -245,6 +257,12 @@ bool DaemonApp::start()
     // after pSEQPrefs is initialized but before any client can connect, so
     // the very first PrefsSnapshot reflects the on-disk state.
     m_prefsBroker = new PrefsBroker(this);
+    // The broker triggers EQPacket::monitorDevice / monitorIPClient on
+    // Network/* edits so changes apply mid-session (the user has to
+    // zone for the new session-key handshake — same as showeq-c).
+    // Null in --no-device + --no-replay smoke-test mode; the broker
+    // handles that and just persists to XML.
+    m_prefsBroker->setPacket(m_packet);
 
     // Load the initial zone map if we already know the zone (e.g. replay
     // mode with zone already fixed). Otherwise loadZoneMap fires on the
@@ -367,12 +385,18 @@ bool DaemonApp::startCapture()
 
     const bool hasReplay = !m_cfg.replay.isEmpty();
     const bool wantRecord = !m_cfg.recordVpk.isEmpty();
+    // Mirror --device: CLI was already applied, fall back to XML so the
+    // operator's saved preference picks up. Empty / sentinel string ==
+    // auto-detect next session, same semantics as showeq-c.
+    QString clientIp =
+        pSEQPrefs->getPrefString("IP", "Network", AUTOMATIC_CLIENT_IP);
+    if (clientIp.isEmpty()) clientIp = AUTOMATIC_CLIENT_IP;
     m_packet = new EQPacket(
         worldOpcodes.absoluteFilePath(),
         zoneOpcodes.absoluteFilePath(),
         /*arqSeqGiveUp*/ 512,
         /*device*/ hasReplay ? QString() : m_cfg.device,
-        /*ip*/ AUTOMATIC_CLIENT_IP,
+        /*ip*/ clientIp,
         /*mac*/ QStringLiteral("0"),
         /*realtime*/ false,
         /*snaplen*/ 2,

@@ -4,6 +4,8 @@
 
 #include "seq/v1/events.pb.h"
 
+class EQPacket;
+
 // PrefsBroker is the curated bridge between the legacy XMLPreferences
 // store (`pSEQPrefs`) and the seq.v1 Pref wire schema. Only an
 // allowlisted subset of XML preferences is shareable; reads, writes,
@@ -17,6 +19,11 @@ class PrefsBroker : public QObject {
     Q_OBJECT
 public:
     explicit PrefsBroker(QObject* parent = nullptr);
+
+    // The capture pipeline is optional — neither --device nor --replay
+    // means no EQPacket. Network/Device and Network/IP edits still
+    // persist to XML in that mode; they just take effect on next start.
+    void setPacket(EQPacket* packet) { m_packet = packet; }
 
     // Populate `out` with one Pref per allowlisted entry, reading the
     // current value from pSEQPrefs (falling back to the per-entry
@@ -32,4 +39,7 @@ public:
 
 signals:
     void prefChanged(const seq::v1::Pref& pref);
+
+private:
+    EQPacket* m_packet = nullptr;
 };
