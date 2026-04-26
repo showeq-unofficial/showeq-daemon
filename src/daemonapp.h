@@ -3,6 +3,7 @@
 #include <QHostAddress>
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <memory>
 
 // Forward declarations of the extracted showeq types. We keep them out of
@@ -71,6 +72,11 @@ public:
         // where no client connects and the listen port is just a
         // collision risk against the user's main daemon instance.
         bool         noListen = false;
+        // Opcode names routed through the seq-bridge Rust decoder
+        // (see SpawnShell::setUseRustMobUpdate). Empty by default —
+        // the C++ path remains primary. Stage A: only OP_MobUpdate is
+        // recognized; unknown names are ignored silently.
+        QStringList  rustOpcodes;
         QHostAddress listenHost;
         quint16      listenPort = 9090;
     };

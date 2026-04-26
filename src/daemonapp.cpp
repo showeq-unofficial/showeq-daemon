@@ -484,6 +484,8 @@ void DaemonApp::wireSpawnShell()
                        "spawnPositionUpdate", SZC_Match,
                        m_spawnShell,
                        SLOT(updateSpawns(const uint8_t*)));
+    m_spawnShell->setUseRustMobUpdate(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_MobUpdate")));
     m_packet->connect2("OP_WearChange", SP_Zone, DIR_Server|DIR_Client,
                        "SpawnUpdateStruct", SZC_Match,
                        m_spawnShell,

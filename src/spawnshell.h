@@ -161,6 +161,12 @@ public slots:
 
    void updateGuildTag(uint32_t guildId);
 
+   // Routes future updateSpawns() calls through the Rust seq-bridge
+   // decoder when true. Stage A of the C++→Rust hybrid migration —
+   // off by default; set from DaemonApp when --rust-opcodes contains
+   // OP_MobUpdate.
+   void setUseRustMobUpdate(bool on) { m_useRustMobUpdate = on; }
+
  protected:
    void refilterSpawns(spawnItemType type);
    void refilterSpawnsRuntime(spawnItemType type);
@@ -186,6 +192,9 @@ public slots:
    ItemMap m_spawns;
    ItemMap m_drops;
    ItemMap m_doors;
+
+   // Stage A Rust-decoder gate — see setUseRustMobUpdate().
+   bool m_useRustMobUpdate = false;
    ItemMap m_players;
 
    // timer for saving spawns

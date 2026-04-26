@@ -145,6 +145,10 @@ int main(int argc, char** argv)
         "where no client connects: --record-vpk live captures, "
         "--replay + --record-golden runs, --opcode-stats diagnostics. "
         "Also avoids port-bind conflicts alongside another daemon.");
+    QCommandLineOption rustOpcodesOpt(QStringList{"rust-opcodes"},
+        "Comma-separated opcode names handed off to the Rust decoder "
+        "(seq-bridge). Stage A: only OP_MobUpdate is recognized.",
+        "names", "");
 
     parser.addOption(deviceOpt);
     parser.addOption(listenOpt);
@@ -155,6 +159,7 @@ int main(int argc, char** argv)
     parser.addOption(recordGoldenOpt);
     parser.addOption(opcodeStatsOpt);
     parser.addOption(noListenOpt);
+    parser.addOption(rustOpcodesOpt);
     parser.process(app);
 
     DaemonApp::Config cfg;
@@ -166,6 +171,8 @@ int main(int argc, char** argv)
     cfg.recordGolden = parser.value(recordGoldenOpt);
     cfg.opcodeStats  = parser.value(opcodeStatsOpt);
     cfg.noListen     = parser.isSet(noListenOpt);
+    cfg.rustOpcodes  = parser.value(rustOpcodesOpt)
+                             .split(QLatin1Char(','), Qt::SkipEmptyParts);
 
     // Resolve record paths against cwd for the same reason --config-dir
     // is — under sudo, $HOME points at /root.

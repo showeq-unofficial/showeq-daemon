@@ -33,6 +33,7 @@
 #include "player.h"
 #include "util.h"
 #include "guild.h"
+#include "seq-bridge-cxx/lib.h"
 #include "packetcommon.h"
 #include "diagnosticmessages.h"
 #include "netstream.h"
@@ -1285,8 +1286,25 @@ void SpawnShell::updateSpawns(const uint8_t* data)
   if (m_zoneMgr->isZoning())
     return;
 
+  if (m_useRustMobUpdate) {
+    auto out = seq::rust::decode_mob_update(
+        rust::Slice<const uint8_t>{data, sizeof(spawnPositionUpdate)});
+    if (out.ok) {
+      updateSpawn(out.spawn_id,
+                  static_cast<int16_t>(out.x),
+                  static_cast<int16_t>(out.y),
+                  static_cast<int16_t>(out.z),
+                  0, 0, 0,
+                  static_cast<int8_t>(out.heading), 0, 0);
+      return;
+    }
+    // SZC_Match dispatch already guarantees the payload size; if Rust's
+    // length check fails, something is very wrong. Fall through to the
+    // C++ path defensively rather than dropping the packet.
+  }
+
   const spawnPositionUpdate* updates = (const spawnPositionUpdate*)data;
-  updateSpawn(updates->spawnId, 
+  updateSpawn(updates->spawnId,
 	      updates->x >> 3, updates->y >> 3, updates->z >> 3,
 	      0,0,0,updates->heading,0,0);
 }
