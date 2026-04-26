@@ -29,6 +29,7 @@
 #include "player.h"
 #include "prefsbroker.h"
 #include "sessionadapter.h"
+#include "spawnmonitor.h"
 #include "spawnshell.h"
 #include "spells.h"
 #include "spellshell.h"
@@ -186,6 +187,23 @@ bool DaemonApp::start()
 
     m_spawnShell = new SpawnShell(*m_filterMgr, m_zoneMgr, m_player, m_guildMgr);
 
+    // SpawnMonitor learns recurring NPC pop locations + their respawn
+    // timers from observed spawn/kill cycles. Mirrors showeq-c
+    // interface.cpp:326. The monitor connects its own slots to the
+    // SpawnShell + ZoneMgr signals it needs in its ctor.
+    m_spawnMonitor = new SpawnMonitor(m_dataLocationMgr.get(),
+                                      m_zoneMgr, m_spawnShell,
+                                      this, "spawnMonitor");
+    // Persist on shutdown. SpawnMonitor's normal save path fires on
+    // zone-change; without this hook, points learned mid-zone are lost
+    // when the daemon receives SIGINT/SIGTERM (saveSpawnPoints itself
+    // is a no-op when m_modified is false, so this is cheap on idle
+    // exits). aboutToQuit is invoked from the Qt event loop after
+    // QCoreApplication::quit() — fired by main.cpp's signal bridge —
+    // so the monitor still sees a live DataLocationMgr.
+    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit,
+            m_spawnMonitor, &SpawnMonitor::saveSpawnPoints);
+
     // GroupMgr tracks group members. Wiring matches showeq-c/src/
     // interface.cpp:593-615 — needs the player profile signal, three
     // group opcode handlers, and the spawn lifecycle slots.
@@ -256,7 +274,7 @@ bool DaemonApp::start()
     m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get(),
                    m_messageShell, m_groupMgr, m_spellShell,
                    m_combatRouter, m_categoryMgr, m_filterMgr,
-                   m_prefsBroker);
+                   m_prefsBroker, m_spawnMonitor);
 
     // --record-golden: spin up an internal SessionAdapter writing into a
     // FileSink. Subscribe is synthesized immediately so the on-disk
@@ -272,7 +290,8 @@ bool DaemonApp::start()
                                              m_mapData.get(), m_messageShell,
                                              m_groupMgr, m_spellShell,
                                              m_combatRouter, m_categoryMgr,
-                                             m_filterMgr, m_prefsBroker, this);
+                                             m_filterMgr, m_prefsBroker,
+                                             m_spawnMonitor, this);
         seq::v1::ClientEnvelope subEnv;
         subEnv.mutable_subscribe();
         QByteArray subBytes;

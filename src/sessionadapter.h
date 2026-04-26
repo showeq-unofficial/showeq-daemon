@@ -20,6 +20,8 @@ class MessageShell;
 class Player;
 class PrefsBroker;
 class Spawn;
+class SpawnMonitor;
+class SpawnPoint;
 class SpawnShell;
 class SpellItem;
 class SpellShell;
@@ -55,6 +57,7 @@ public:
                    CategoryMgr*  categoryMgr,
                    FilterMgr*    filterMgr,
                    PrefsBroker*  prefsBroker,
+                   SpawnMonitor* spawnMonitor,
                    QObject*      parent = nullptr);
     ~SessionAdapter() override;
 
@@ -124,6 +127,15 @@ private slots:
     void onSpawnConsidered(const Item* item);
     // Forwards SpawnShell::targetSpawn as a Targeted envelope.
     void onTargetSpawn(uint32_t spawnId);
+    // SpawnMonitor signal handlers — pushed as
+    // SpawnPointAdded/Updated/Removed/Cleared envelopes. Reads from the
+    // SpawnPoint* directly inside the slot; the pointer must not be
+    // stored across slot returns (deleted slots delete the SpawnPoint
+    // synchronously after emitting).
+    void onSpawnPointAdded(const SpawnPoint* sp);
+    void onSpawnPointUpdated(const SpawnPoint* sp);
+    void onSpawnPointDeleted(const SpawnPoint* sp);
+    void onSpawnPointsCleared();
 
 private:
     void startStreaming();
@@ -149,6 +161,7 @@ private:
     CategoryMgr*                 m_categoryMgr  = nullptr;
     FilterMgr*                   m_filterMgr    = nullptr;
     PrefsBroker*                 m_prefsBroker  = nullptr;
+    SpawnMonitor*                m_spawnMonitor = nullptr;
 
     QString                      m_sessionId;
     bool                         m_subscribed = false;

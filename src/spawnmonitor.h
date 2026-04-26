@@ -135,6 +135,16 @@ signals:
   void newSpawnPoint( const SpawnPoint* spawnPoint );
   void clearSpawnPoints();
   void selectionChanged(const SpawnPoint* selected);
+  // Emitted when a promoted SpawnPoint's recorded fields change — i.e.
+  // when checkSpawnPoint() updates an existing point on a re-pop, or
+  // when killSpawn() restarts one. Lets SessionAdapter push a
+  // SpawnPointUpdated envelope on each real change without a poll loop.
+  // Not emitted by daemonapp during initial loadSpawnPoints() (the
+  // newSpawnPoint signal already covers that).
+  void spawnPointUpdated( const SpawnPoint* spawnPoint );
+  // Emitted from deleteSpawnPoint() before the SpawnPoint pointer is
+  // destroyed. Slots may read from the pointer but must not retain it.
+  void spawnPointDeleted( const SpawnPoint* spawnPoint );
 
 protected:
   void restartSpawnPoint( SpawnPoint* spawnPoint );

@@ -19,6 +19,7 @@ class MessageShell;
 class Player;
 class PrefsBroker;
 class SessionAdapter;
+class SpawnMonitor;
 class SpawnShell;
 class SpellShell;
 class ZoneMgr;
@@ -47,7 +48,7 @@ public:
     void setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
                   MessageShell* ms, GroupMgr* gm, SpellShell* sps,
                   CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
-                  PrefsBroker* pb);
+                  PrefsBroker* pb, SpawnMonitor* sm);
 
     bool listen(const QHostAddress& host, quint16 port);
 
@@ -94,4 +95,5 @@ private:
     CategoryMgr*   m_categoryMgr   = nullptr;
     FilterMgr*     m_filterMgr     = nullptr;
     PrefsBroker*   m_prefsBroker   = nullptr;
+    SpawnMonitor*  m_spawnMonitor  = nullptr;
 };

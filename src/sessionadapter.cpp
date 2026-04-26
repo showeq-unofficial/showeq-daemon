@@ -18,6 +18,7 @@
 #include "prefsbroker.h"
 #include "protoencoder.h"
 #include "spawn.h"
+#include "spawnmonitor.h"
 #include "spawnshell.h"
 #include "spellshell.h"
 #include "zonemgr.h"
@@ -36,6 +37,7 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
                                CategoryMgr*  categoryMgr,
                                FilterMgr*    filterMgr,
                                PrefsBroker*  prefsBroker,
+                               SpawnMonitor* spawnMonitor,
                                QObject*      parent)
     : QObject(parent)
     , m_sink(sink)
@@ -50,6 +52,7 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
     , m_categoryMgr(categoryMgr)
     , m_filterMgr(filterMgr)
     , m_prefsBroker(prefsBroker)
+    , m_spawnMonitor(spawnMonitor)
 {
 }
 
@@ -282,6 +285,22 @@ void SessionAdapter::startStreaming()
                 this,          &SessionAdapter::onPrefChanged);
     }
 
+    if (m_spawnMonitor) {
+        // SpawnMonitor surfaces four signals — newSpawnPoint (promoted
+        // from candidate to tracked), spawnPointUpdated (re-pop / kill
+        // restart), spawnPointDeleted (explicit user delete), and
+        // clearSpawnPoints (zone change / clear-all). The current
+        // promoted set is iterated into the Snapshot below.
+        connect(m_spawnMonitor, &SpawnMonitor::newSpawnPoint,
+                this,           &SessionAdapter::onSpawnPointAdded);
+        connect(m_spawnMonitor, &SpawnMonitor::spawnPointUpdated,
+                this,           &SessionAdapter::onSpawnPointUpdated);
+        connect(m_spawnMonitor, &SpawnMonitor::spawnPointDeleted,
+                this,           &SessionAdapter::onSpawnPointDeleted);
+        connect(m_spawnMonitor, &SpawnMonitor::clearSpawnPoints,
+                this,           &SessionAdapter::onSpawnPointsCleared);
+    }
+
     // STEP 2: iterate current state into a Snapshot and ship it.
     sendSnapshot();
 
@@ -380,6 +399,25 @@ void SessionAdapter::sendSnapshot()
     for (const Item* item : all) {
         seq::encode::fillSpawn(snap->add_spawns(), *item,
                                m_categoryMgr, m_filterMgr);
+    }
+
+    // Seed any already-promoted SpawnPoints. QHash iteration order is
+    // randomized per-process, so sort by key for deterministic Snapshot
+    // bytes (regression-harness requirement).
+    if (m_spawnMonitor) {
+        std::vector<const SpawnPoint*> points;
+        const auto& map = m_spawnMonitor->spawnPoints();
+        points.reserve(map.size());
+        for (auto it = map.constBegin(); it != map.constEnd(); ++it) {
+            if (it.value()) points.push_back(it.value());
+        }
+        std::sort(points.begin(), points.end(),
+                  [](const SpawnPoint* a, const SpawnPoint* b) {
+                      return a->key() < b->key();
+                  });
+        for (const SpawnPoint* sp : points) {
+            seq::encode::fillSpawnPoint(snap->add_spawn_points(), *sp);
+        }
     }
 
     emitEnvelope(std::move(env));
@@ -665,5 +703,38 @@ void SessionAdapter::sendPlayerStats()
 {
     seq::v1::Envelope env;
     seq::encode::fillPlayerStats(env.mutable_player_stats(), *m_player);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onSpawnPointAdded(const SpawnPoint* sp)
+{
+    if (!sp) return;
+    seq::v1::Envelope env;
+    seq::encode::fillSpawnPoint(
+        env.mutable_spawn_point_added()->mutable_point(), *sp);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onSpawnPointUpdated(const SpawnPoint* sp)
+{
+    if (!sp) return;
+    seq::v1::Envelope env;
+    seq::encode::fillSpawnPoint(
+        env.mutable_spawn_point_updated()->mutable_point(), *sp);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onSpawnPointDeleted(const SpawnPoint* sp)
+{
+    if (!sp) return;
+    seq::v1::Envelope env;
+    env.mutable_spawn_point_removed()->set_key(sp->key().toStdString());
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onSpawnPointsCleared()
+{
+    seq::v1::Envelope env;
+    env.mutable_spawn_points_cleared();
     sendOrBuffer(std::move(env));
 }

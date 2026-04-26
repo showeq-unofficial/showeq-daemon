@@ -55,13 +55,16 @@ SpawnPoint::~SpawnPoint()
 
 QString SpawnPoint::key( int x, int y, int z)
 {
-  QString		t;
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
-  t = QString::asprintf( "%d%d%d", x, y, z );
-#else
-  t.sprintf( "%d%d%d", x, y, z );
-#endif
-  return t;
+  // Separator-delimited so distinct coordinate triples can't alias to
+  // the same key string. The legacy "%d%d%d" form collided whenever
+  // |x|*10^k landed adjacent to a y or z digit (e.g. 100/10/0 and
+  // 10/0/100 both produced "100100"), causing a second spawn at a new
+  // location to look up the first spawn's candidate and get promoted
+  // as if it were a re-pop of that earlier point.
+  //
+  // The on-disk .sp format stores x/y/z as separate space-delimited
+  // fields, not the key — so changing key() has no migration impact.
+  return QString::asprintf( "%d|%d|%d", x, y, z );
 }
 
 Spawn* SpawnPoint::getSpawn() const
@@ -183,8 +186,19 @@ void SpawnMonitor::deleteSpawnPoint(const SpawnPoint* sp)
     emit selectionChanged(m_selected);
   }
 
-  // remove the spawn point
-  delete m_spawns.take(sp->key());
+  // Notify before destruction so listeners can read the SpawnPoint to
+  // build a SpawnPointRemoved envelope.
+  emit spawnPointDeleted(sp);
+
+  // Remove the spawn point. The legacy code only took() from m_spawns
+  // (the candidate pool), leaking entries that had already been
+  // promoted into m_points. Take from whichever map holds it.
+  const QString key = sp->key();
+  if (SpawnPoint* taken = m_points.take(key)) {
+    delete taken;
+  } else {
+    delete m_spawns.take(key);
+  }
   m_modified = true;
 }
 
@@ -241,22 +255,28 @@ void SpawnMonitor::zoneEnd( const QString& newZoneName )
 void SpawnMonitor::restartSpawnPoint( SpawnPoint* sp )
 {
   sp->restart();
+  // killSpawn() resets m_deathTime / m_lastID — clients need to see this
+  // to start their respawn countdown.
+  emit spawnPointUpdated(sp);
 }
-	
+
 void SpawnMonitor::checkSpawnPoint(const Spawn* spawn )
 {
   // ignore everything but mobs
   if ( ( spawn->NPC() != SPAWN_NPC ) || ( spawn->petOwnerID() != 0 ) || spawn->isMount() || spawn->isAura() || spawn->isMercenary() )
     return;
-  
+
   QString key = SpawnPoint::key( *spawn );
-  
+
   SpawnPoint* sp;
   sp = m_points.value(key, nullptr);
   if ( sp )
   {
     m_modified = true;
     sp->update(spawn);
+    // Re-pop on a known point: count++, last/lastID/spawnTime/diffTime
+    // refreshed. Send the new state to clients.
+    emit spawnPointUpdated(sp);
   }
   else
   {
@@ -264,7 +284,7 @@ void SpawnMonitor::checkSpawnPoint(const Spawn* spawn )
     if ( sp )
     {
       sp->update(spawn);
-      
+
       m_points.insert( key, sp );
       emit newSpawnPoint( sp );
       m_modified = true;

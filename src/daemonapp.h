@@ -27,6 +27,7 @@ class Player;
 class PrefsBroker;
 class SessionAdapter;
 class Spells;
+class SpawnMonitor;
 class SpawnShell;
 class SpellShell;
 class WsServer;
@@ -106,6 +107,7 @@ private:
     Player*                         m_player        = nullptr;
     FilterMgr*                      m_filterMgr     = nullptr;
     SpawnShell*                     m_spawnShell    = nullptr;
+    SpawnMonitor*                   m_spawnMonitor  = nullptr;
     SpellShell*                     m_spellShell    = nullptr;
     GroupMgr*                       m_groupMgr      = nullptr;
     CategoryMgr*                    m_categoryMgr   = nullptr;

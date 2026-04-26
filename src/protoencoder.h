@@ -13,6 +13,7 @@ class GroupMgr;
 class Item;
 class Player;
 class Spawn;
+class SpawnPoint;
 class SpellItem;
 class MapData;
 
@@ -59,5 +60,10 @@ void fillCategoriesUpdate(seq::v1::CategoriesUpdate* out, CategoryMgr& cm);
 // FilterRule per concrete pattern. per_zone is set on rules that came
 // from the zone overlay file.
 void fillFilterRulesUpdate(seq::v1::FilterRulesUpdate* out, const FilterMgr& fm);
+
+// Snapshots a SpawnMonitor SpawnPoint into the wire form. The `key`
+// field uses the legacy SpawnPoint::key() format so resume + replay
+// keep stable identity across reconnects.
+void fillSpawnPoint(seq::v1::SpawnPoint* out, const SpawnPoint& sp);
 
 } // namespace seq::encode

@@ -10,6 +10,7 @@
 #include "mapcore.h"
 #include "player.h"
 #include "spawn.h"
+#include "spawnmonitor.h"
 #include "spellshell.h"
 
 namespace seq::encode {
@@ -211,10 +212,24 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
     // ...) aren't const-qualified. They don't actually mutate.
     auto& mp = const_cast<Player&>(p);
 
-    out->set_hp_cur(mp.HP());
-    out->set_hp_max(mp.maxHP());
-    out->set_mana_cur(mp.getMana());
-    out->set_mana_max(mp.getMaxMana());
+    // EQ never sends max mana on the wire — the legacy `calcMaxMana`
+    // formula is `(WIS/5 + 2) * level + m_plusMana`, where m_plusMana
+    // accumulates from item add/remove packets. The daemon doesn't wire
+    // OP_CharInventory yet, so m_plusMana stays 0 and the calc
+    // undershoots by however much MANA the player has on gear / AAs.
+    // Floor the reported max to whatever the live OP_ManaChange tells
+    // us — current > max is impossible in EQ, so observed current is
+    // a strictly better lower bound than our calculated max. Same
+    // pattern for HP, which also lives behind a calcMaxHP() approx.
+    const uint16_t curHP = mp.HP();
+    const uint16_t calcHPMax = mp.maxHP();
+    out->set_hp_cur(curHP);
+    out->set_hp_max(curHP > calcHPMax ? curHP : calcHPMax);
+
+    const uint16_t curMana = mp.getMana();
+    const uint16_t calcManaMax = mp.getMaxMana();
+    out->set_mana_cur(curMana);
+    out->set_mana_max(curMana > calcManaMax ? curMana : calcManaMax);
     out->set_stamina_cur(100u - mp.getFatigue());
     out->set_stamina_max(100u);
 
@@ -294,6 +309,21 @@ void fillCategoriesUpdate(seq::v1::CategoriesUpdate* out, CategoryMgr& cm)
         row->set_name(c->name().toStdString());
         row->set_color(c->color().name().toStdString());
     }
+}
+
+void fillSpawnPoint(seq::v1::SpawnPoint* out, const SpawnPoint& sp)
+{
+    out->set_key(sp.key().toStdString());
+    out->set_x(sp.x());
+    out->set_y(sp.y());
+    out->set_z(sp.z());
+    out->set_name(sp.name().toStdString());
+    out->set_last(sp.last().toStdString());
+    out->set_last_id(sp.lastID());
+    out->set_count(static_cast<uint32_t>(sp.count()));
+    out->set_spawn_time_s(static_cast<uint64_t>(sp.spawnTime()));
+    out->set_death_time_s(static_cast<uint64_t>(sp.deathTime()));
+    out->set_diff_time_s(static_cast<uint64_t>(sp.diffTime()));
 }
 
 void fillBuff(seq::v1::Buff* out, const SpellItem& s)
