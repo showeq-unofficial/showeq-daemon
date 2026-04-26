@@ -17,17 +17,25 @@ namespace {
 // candidate-matching section of the report intersects payload sizes with
 // these to suggest "OP_Foo is probably 0x????" pairings. Sizes from
 // `sizeof(struct)` in everquest.h.
+//
+// expectedDir filters out the obvious wrong-direction false positives —
+// e.g. OP_HPUpdate is overwhelmingly server→client (server tells client
+// when an HP value changes); a 33-packet client→server opcode at the
+// right size is almost certainly something else (target update, ping,
+// etc.). All current hints are S>C dominant.
 struct StructHint {
     const char* opcodeName;
     const char* structName;
     int         size;
+    uint8_t     expectedDir;   // DIR_Server typically
 };
+// DIR_Server / DIR_Client come from packetcommon.h.
 const StructHint kHints[] = {
-    {"OP_Stamina",      "staminaStruct",       8},
-    {"OP_HPUpdate",     "hpNpcUpdateStruct",  18},
-    {"OP_ManaChange",   "manaDecrementStruct", 20},
-    {"OP_Action2",      "action2Struct",      48},
-    {"OP_Buff",         "buffStruct",         168},
+    {"OP_Stamina",      "staminaStruct",        8, DIR_Server},
+    {"OP_HPUpdate",     "hpNpcUpdateStruct",   18, DIR_Server},
+    {"OP_ManaChange",   "manaDecrementStruct", 20, DIR_Server},
+    {"OP_Action2",      "action2Struct",       48, DIR_Server},
+    {"OP_Buff",         "buffStruct",         168, DIR_Server},
 };
 
 const char* dirLabel(uint8_t dir)
@@ -172,31 +180,79 @@ void OpcodeStatsLogger::writeReport()
     dump(m_world, "world");
 
     // Candidate matches: for each known struct that maps to a still-
-    // unresolved opcode, list every unknown zone opcode whose dominant
-    // payload size matches. Heuristic — false positives possible — but
-    // narrows the search space dramatically.
+    // unresolved opcode, score every unknown zone opcode by:
+    //   (1) does the dominant direction match the expected direction?
+    //   (2) how many packets at the matching size went in that direction?
+    // Strong matches (right direction + many packets at the right size)
+    // bubble up. Wrong-direction candidates are demoted but still listed
+    // so the user can spot edge cases. False positives still possible.
     out << "# candidate matches (unresolved opcodes vs known struct sizes)\n";
     out << "# Take with salt - same size doesn't prove same struct.\n";
+    out << "# Each candidate row: opcode  matching-dir-count  total-at-size  expected/actual-dir\n";
     for (const auto& hint : kHints) {
-        out << QString("# %1 (%2, %3 bytes):")
+        out << QString("# %1 (%2, %3 bytes, expected %4):")
                    .arg(hint.opcodeName, hint.structName)
-                   .arg(hint.size) << "\n";
-        bool any = false;
-        std::vector<std::pair<uint16_t, int>> matches;
+                   .arg(hint.size)
+                   .arg(dirLabel(hint.expectedDir)) << "\n";
+
+        struct Candidate {
+            uint16_t op;
+            int      sizeCountTotal;   // packets of any dir at this size
+            int      sizeCountInDir;   // packets at this size in expected dir
+            QString  dominantDirs;     // human-readable summary
+        };
+        std::vector<Candidate> matches;
         for (auto it = m_zone.begin(); it != m_zone.end(); ++it) {
-            if (!it->name.isEmpty()) continue;  // only unknown opcodes
-            if (it->sizeCounts.contains(hint.size)) {
-                matches.emplace_back(it.key(), it->sizeCounts[hint.size]);
+            if (!it->name.isEmpty()) continue;
+            if (!it->sizeCounts.contains(hint.size)) continue;
+            // Direction info per opcode is aggregated across all sizes
+            // (we don't record dir-per-size). For known-struct-only
+            // opcodes that's accurate; multi-purpose opcodes will be
+            // less precise but still informative.
+            const int sizeTotal = it->sizeCounts[hint.size];
+            const int dirCount = it->dirCounts.value(hint.expectedDir, 0);
+            // Approximate "size + expected dir" overlap by min(size, dir).
+            // Underestimates if other-sized packets in the expected dir
+            // exist; overestimates if they don't. Good enough to rank.
+            const int approxOverlap = std::min(sizeTotal, dirCount);
+            QString dirs;
+            for (auto dit = it->dirCounts.begin(); dit != it->dirCounts.end(); ++dit) {
+                if (!dirs.isEmpty()) dirs += ' ';
+                dirs += QString("%1=%2").arg(dirLabel(dit.key())).arg(dit.value());
             }
+            matches.push_back({it.key(), sizeTotal, approxOverlap, dirs});
         }
+        // Sort: right-direction matches first, then by overlap desc,
+        // then by total size-count desc.
         std::sort(matches.begin(), matches.end(),
-                  [](auto& a, auto& b) { return a.second > b.second; });
-        for (const auto& [op, count] : matches) {
-            out << QString("#   0x%1  (%2 packets at this size)")
-                       .arg(op, 4, 16, QChar('0')).arg(count) << "\n";
-            any = true;
+                  [](const Candidate& a, const Candidate& b) {
+                      if ((a.sizeCountInDir > 0) != (b.sizeCountInDir > 0))
+                          return a.sizeCountInDir > b.sizeCountInDir;
+                      if (a.sizeCountInDir != b.sizeCountInDir)
+                          return a.sizeCountInDir > b.sizeCountInDir;
+                      return a.sizeCountTotal > b.sizeCountTotal;
+                  });
+        if (matches.empty()) {
+            out << "#   (no unknown opcodes seen with this size)\n\n";
+            continue;
         }
-        if (!any) out << "#   (no unknown opcodes seen with this size)\n";
+        // Cap output at top 5 to keep the report readable.
+        const int rows = std::min<int>(5, matches.size());
+        for (int i = 0; i < rows; ++i) {
+            const auto& c = matches[i];
+            const bool dirOK = c.sizeCountInDir > 0;
+            out << QString("#   0x%1  size@%2=%3  dir-match~%4  dirs(%5)%6")
+                       .arg(c.op, 4, 16, QChar('0'))
+                       .arg(hint.size)
+                       .arg(c.sizeCountTotal)
+                       .arg(c.sizeCountInDir)
+                       .arg(c.dominantDirs)
+                       .arg(dirOK ? "" : "  [WRONG DIR]")
+                << "\n";
+        }
+        if ((int)matches.size() > rows) {
+            out << QString("#   ... %1 more, omitted").arg(matches.size() - rows) << "\n";
+        }
         out << "\n";
     }
 }
