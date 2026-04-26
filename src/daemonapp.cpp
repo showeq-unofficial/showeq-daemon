@@ -292,6 +292,10 @@ bool DaemonApp::start()
                                              m_combatRouter, m_categoryMgr,
                                              m_filterMgr, m_prefsBroker,
                                              m_spawnMonitor, this);
+        // The golden adapter writes the regression-harness .pbstream;
+        // strip wall-clock fields so the tier-2 byte-cmp is stable
+        // across runs.
+        m_goldenAdapter->setDeterministic(true);
         seq::v1::ClientEnvelope subEnv;
         subEnv.mutable_subscribe();
         QByteArray subBytes;

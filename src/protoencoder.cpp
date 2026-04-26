@@ -311,7 +311,8 @@ void fillCategoriesUpdate(seq::v1::CategoriesUpdate* out, CategoryMgr& cm)
     }
 }
 
-void fillSpawnPoint(seq::v1::SpawnPoint* out, const SpawnPoint& sp)
+void fillSpawnPoint(seq::v1::SpawnPoint* out, const SpawnPoint& sp,
+                    bool deterministic)
 {
     out->set_key(sp.key().toStdString());
     out->set_x(sp.x());
@@ -321,9 +322,15 @@ void fillSpawnPoint(seq::v1::SpawnPoint* out, const SpawnPoint& sp)
     out->set_last(sp.last().toStdString());
     out->set_last_id(sp.lastID());
     out->set_count(static_cast<uint32_t>(sp.count()));
-    out->set_spawn_time_s(static_cast<uint64_t>(sp.spawnTime()));
-    out->set_death_time_s(static_cast<uint64_t>(sp.deathTime()));
-    out->set_diff_time_s(static_cast<uint64_t>(sp.diffTime()));
+    if (deterministic) {
+        out->set_spawn_time_s(0);
+        out->set_death_time_s(0);
+        out->set_diff_time_s(0);
+    } else {
+        out->set_spawn_time_s(static_cast<uint64_t>(sp.spawnTime()));
+        out->set_death_time_s(static_cast<uint64_t>(sp.deathTime()));
+        out->set_diff_time_s(static_cast<uint64_t>(sp.diffTime()));
+    }
 }
 
 void fillBuff(seq::v1::Buff* out, const SpellItem& s)

@@ -85,6 +85,13 @@ public:
     void setSink(IEnvelopeSink* sink) { m_sink = sink; }
     void replaySince(uint64_t lastSeq);
 
+    // When set, encoders strip wall-clock fields (currently
+    // SpawnPoint.spawn_time_s/death_time_s/diff_time_s) so the
+    // tier-2 byte-cmp regression harness produces stable bytes
+    // across runs. DaemonApp turns this on for the --record-golden
+    // adapter only; live client adapters keep wall-clock data.
+    void setDeterministic(bool on) { m_deterministic = on; }
+
 private slots:
     // Signal handlers wired to the shared state managers. Before
     // m_liveTailing flips true, these push envelopes into m_buffered
@@ -166,6 +173,7 @@ private:
     QString                      m_sessionId;
     bool                         m_subscribed = false;
     bool                         m_liveTailing = false;
+    bool                         m_deterministic = false;
     uint64_t                     m_seq = 0;
     QList<seq::v1::Envelope>     m_buffered;
 

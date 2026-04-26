@@ -416,7 +416,8 @@ void SessionAdapter::sendSnapshot()
                       return a->key() < b->key();
                   });
         for (const SpawnPoint* sp : points) {
-            seq::encode::fillSpawnPoint(snap->add_spawn_points(), *sp);
+            seq::encode::fillSpawnPoint(snap->add_spawn_points(), *sp,
+                                        m_deterministic);
         }
     }
 
@@ -711,7 +712,8 @@ void SessionAdapter::onSpawnPointAdded(const SpawnPoint* sp)
     if (!sp) return;
     seq::v1::Envelope env;
     seq::encode::fillSpawnPoint(
-        env.mutable_spawn_point_added()->mutable_point(), *sp);
+        env.mutable_spawn_point_added()->mutable_point(), *sp,
+        m_deterministic);
     sendOrBuffer(std::move(env));
 }
 
@@ -720,7 +722,8 @@ void SessionAdapter::onSpawnPointUpdated(const SpawnPoint* sp)
     if (!sp) return;
     seq::v1::Envelope env;
     seq::encode::fillSpawnPoint(
-        env.mutable_spawn_point_updated()->mutable_point(), *sp);
+        env.mutable_spawn_point_updated()->mutable_point(), *sp,
+        m_deterministic);
     sendOrBuffer(std::move(env));
 }
 

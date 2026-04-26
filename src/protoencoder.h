@@ -64,6 +64,12 @@ void fillFilterRulesUpdate(seq::v1::FilterRulesUpdate* out, const FilterMgr& fm)
 // Snapshots a SpawnMonitor SpawnPoint into the wire form. The `key`
 // field uses the legacy SpawnPoint::key() format so resume + replay
 // keep stable identity across reconnects.
-void fillSpawnPoint(seq::v1::SpawnPoint* out, const SpawnPoint& sp);
+//
+// `deterministic` zeroes the wall-clock time_t fields (spawn/death/
+// diff) so the regression-harness byte-cmp stays stable across runs.
+// SessionAdapter passes its m_deterministic state through; only the
+// golden recorder sets it today.
+void fillSpawnPoint(seq::v1::SpawnPoint* out, const SpawnPoint& sp,
+                    bool deterministic = false);
 
 } // namespace seq::encode
