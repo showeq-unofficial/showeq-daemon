@@ -5,8 +5,12 @@
 #include <QFileInfo>
 #include <QHostAddress>
 #include <QLoggingCategory>
+#include <QSocketNotifier>
 
+#include <csignal>
 #include <cstdio>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "daemonapp.h"
 
@@ -51,6 +55,45 @@ void messageHandler(QtMsgType type, const QMessageLogContext& ctx,
     }
 }
 
+// SIGINT/SIGTERM bridged into the Qt event loop via a socketpair. The
+// signal handler writes one byte; a QSocketNotifier on the read end fires
+// QCoreApplication::quit() on the main thread. This gets us clean Qt
+// teardown (FileSink dtor flushes, OpcodeStatsLogger dtor writes the
+// report, WsServer drops sessions) on Ctrl-C and `systemctl stop`,
+// instead of the kernel SIGINT-default of "exit immediately".
+int g_signalFd[2] = {-1, -1};
+
+void posixSignalHandler(int /*sig*/)
+{
+    char b = 1;
+    ssize_t r = ::write(g_signalFd[0], &b, 1);
+    (void)r;  // signal handler — nothing we can do about a failed write.
+}
+
+void installSignalBridge()
+{
+    if (::socketpair(AF_UNIX, SOCK_STREAM, 0, g_signalFd) != 0) {
+        qWarning("socketpair failed; SIGINT/SIGTERM will be ungraceful");
+        return;
+    }
+    struct sigaction sa{};
+    sa.sa_handler = &posixSignalHandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    ::sigaction(SIGINT, &sa, nullptr);
+    ::sigaction(SIGTERM, &sa, nullptr);
+
+    auto* notifier = new QSocketNotifier(g_signalFd[1], QSocketNotifier::Read,
+                                         QCoreApplication::instance());
+    QObject::connect(notifier, &QSocketNotifier::activated, [] {
+        char b;
+        ssize_t r = ::read(g_signalFd[1], &b, 1);
+        (void)r;
+        qInfo("shutdown signal received, exiting");
+        QCoreApplication::quit();
+    });
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -60,6 +103,8 @@ int main(int argc, char** argv)
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName("showeq-daemon");
     QCoreApplication::setApplicationVersion("0.0.1");
+
+    installSignalBridge();
 
     QCommandLineParser parser;
     parser.setApplicationDescription("Headless ShowEQ packet-capture daemon");
