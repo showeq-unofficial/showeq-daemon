@@ -312,7 +312,7 @@ void Player::loadProfile(const playerProfileStruct& player)
   m_maxMana = calcMaxMana( m_maxINT, m_maxWIS,
                            m_class, m_level
 			 ) + m_plusMana;
-  
+
   emit manaChanged(m_mana, m_maxMana);  // need max mana
 
   // done with mana

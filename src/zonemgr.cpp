@@ -221,8 +221,14 @@ int32_t ZoneMgr::fillProfileStruct(charProfileStruct *player, const uint8_t *dat
   netStream.skipBytes(16);
   
   player->profile.gender = netStream.readUInt8();
-  player->profile.race = netStream.readUInt32();
-  player->profile.class_ = netStream.readUInt32();
+  // Note: readUInt32() is big-endian (network order); readUInt32NC() is
+  // little-endian (EQ wire format). race + class_ used the wrong reader,
+  // so class=2 (cleric) read as 0x02000000 then truncated to uint8_t=0
+  // in setClassVal. m_class would be re-set later from spawnStruct via
+  // Spawn::update, but calcMaxMana(...,m_class=0,...) inside loadProfile
+  // had already returned 0 → m_maxMana stuck at 0 → mana bar showed "—".
+  player->profile.race = netStream.readUInt32NC();
+  player->profile.class_ = netStream.readUInt32NC();
   player->profile.level = netStream.readUInt8();
   player->profile.level1 = netStream.readUInt8();
 
