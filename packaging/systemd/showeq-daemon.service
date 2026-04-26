@@ -1,0 +1,54 @@
+[Unit]
+Description=ShowEQ packet-capture daemon
+Documentation=https://github.com/showeq-unofficial/showeq-daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# All daemon flags come from this file so the unit itself doesn't need
+# editing per host. See showeq-daemon.env.example for the keys.
+EnvironmentFile=/etc/showeq-daemon/showeq-daemon.env
+
+# Install puts opcode XML + spells_us.txt under /usr/local/share by
+# convention; the daemon resolves --config-dir relative to the cwd
+# when given an absolute path, so this is just a sensible default.
+WorkingDirectory=/usr/local/share/showeq-daemon
+
+ExecStart=/usr/local/bin/showeq-daemon \
+    --device=${SEQ_DEVICE} \
+    --listen=${SEQ_LISTEN} \
+    --config-dir=${SEQ_CONFIG_DIR} \
+    $SEQ_EXTRA_ARGS
+
+# pcap needs CAP_NET_RAW + CAP_NET_ADMIN. Simplest path is User=root;
+# to run as an unprivileged user, set User= to a regular account and
+# uncomment the AmbientCapabilities + CapabilityBoundingSet lines.
+User=root
+# AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+# CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+
+# Crash-loop-friendly restart. EQ session crypto means a fresh daemon
+# process can't decrypt mid-session traffic until the next login event
+# (see NICE_TO_HAVE.md), so a brief gap on restart is expected — don't
+# set RestartSec too low or systemd will spin if pcap is misconfigured.
+Restart=on-failure
+RestartSec=5
+
+# stdout/stderr → journal by default; the in-process Qt logger already
+# prepends ISO timestamps + level tags, which journalctl preserves.
+StandardOutput=journal
+StandardError=journal
+
+# Modest hardening — won't help against a compromised pcap-privileged
+# binary much, but cheap to set on a LAN tool.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# DataLocationMgr writes to a user dir; make sure that's reachable.
+ReadWritePaths=/var/lib/showeq-daemon
+
+[Install]
+WantedBy=multi-user.target

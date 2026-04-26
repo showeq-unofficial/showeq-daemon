@@ -46,6 +46,35 @@ For LAN-reachable mode (trusted LAN only — no auth, no TLS in v1):
 sudo build/showeq-daemon --device eth0 --listen 0.0.0.0:9090
 ```
 
+## Running as a service
+
+A systemd unit lives at `packaging/systemd/showeq-daemon.service`.
+First-time install (assumes the daemon binary is already at
+`/usr/local/bin/showeq-daemon` and config files at
+`/usr/local/share/showeq-daemon`):
+
+```sh
+sudo install -d /etc/showeq-daemon /var/lib/showeq-daemon
+sudo install -m 0644 packaging/systemd/showeq-daemon.env.example \
+    /etc/showeq-daemon/showeq-daemon.env
+sudo $EDITOR /etc/showeq-daemon/showeq-daemon.env       # set SEQ_DEVICE etc.
+sudo install -m 0644 packaging/systemd/showeq-daemon.service \
+    /etc/systemd/system/showeq-daemon.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now showeq-daemon
+```
+
+Logs land in the journal — the daemon's Qt message handler already
+prepends ISO timestamps and `[INFO ]`/`[WARN ]`/`[ERROR]` tags:
+
+```sh
+journalctl -u showeq-daemon -f
+```
+
+The unit runs as root for `CAP_NET_RAW` + `CAP_NET_ADMIN`. To drop
+privileges, set `User=` to a regular account and uncomment the
+`AmbientCapabilities` / `CapabilityBoundingSet` lines in the unit.
+
 ## Layout
 
 ```
@@ -58,13 +87,40 @@ src/              # Daemon sources (extracted from showeq-c + new glue)
 proto/            # git submodule -> showeq-proto
 conf/             # Opcode XML + preference schema
 docs/             # patch-day.md and friends
-tests/replay/     # .vpk + .pbstream goldens for regression
+tests/            # tier-1 ctest suite + tier-2 replay scripts
+packaging/        # systemd unit + env example
 cmake/            # CMake helper modules
 ```
 
 ## License
 
 GPL-2.0 (inherited from `showeq-c`). See [LICENSE](LICENSE).
+
+## Beyond a trusted LAN
+
+The v1 daemon ships **plaintext WebSocket, no auth, no TLS** by design
+— it's a single-user packet-sniffer for a home LAN. If you want to put
+it on a hostile network (untrusted Wi-Fi, VPS, public IP), don't expose
+the daemon directly. Instead:
+
+- **TLS** — terminate at a reverse proxy in front of the daemon
+  (`nginx`, `caddy`, `traefik`). Bind the daemon to `127.0.0.1`,
+  proxy `wss://` from the public side. The daemon doesn't need to
+  know about TLS. Caddy's auto-HTTPS handles cert renewal in two
+  config lines.
+- **Auth** — same proxy can do HTTP basic auth or OIDC before
+  forwarding the WebSocket upgrade. The daemon trusts whatever
+  reaches its socket, so the proxy is the trust boundary.
+- **Origin pinning** — the daemon's `QWebSocketServer` does not
+  check `Origin` today; a malicious page on another origin could
+  open a session if it can reach the listening port. A
+  proxy-side `Origin` allowlist is the simplest fix.
+- **Per-client rate limit** — the in-process token bucket caps
+  inbound `ClientEnvelope`s at 30 msg/s with a 60-msg burst. That
+  protects against accidental loops; for hostile clients, also
+  put a connection-rate limit at the proxy.
+
+None of these are on the daemon roadmap; they live at the edge.
 
 ## Patch day
 
