@@ -89,6 +89,10 @@ int main(int argc, char** argv)
         "length-delimited seq.v1.Envelope protobuf. With --replay, the "
         "daemon exits at EOF — the regression-harness golden workflow.",
         "file");
+    QCommandLineOption opcodeStatsOpt(QStringList{"opcode-stats"},
+        "Patch-day diagnostic: tally every decoded opcode (known + "
+        "unknown) and write a sorted report with payload-size matches "
+        "against known-struct sizes to FILE on shutdown.", "file");
 
     parser.addOption(deviceOpt);
     parser.addOption(listenOpt);
@@ -97,6 +101,7 @@ int main(int argc, char** argv)
     parser.addOption(mapsDirOpt);
     parser.addOption(recordVpkOpt);
     parser.addOption(recordGoldenOpt);
+    parser.addOption(opcodeStatsOpt);
     parser.process(app);
 
     DaemonApp::Config cfg;
@@ -106,6 +111,7 @@ int main(int argc, char** argv)
     cfg.mapsDir      = parser.value(mapsDirOpt);
     cfg.recordVpk    = parser.value(recordVpkOpt);
     cfg.recordGolden = parser.value(recordGoldenOpt);
+    cfg.opcodeStats  = parser.value(opcodeStatsOpt);
 
     // Resolve record paths against cwd for the same reason --config-dir
     // is — under sudo, $HOME points at /root.
@@ -114,6 +120,9 @@ int main(int argc, char** argv)
     }
     if (!cfg.recordGolden.isEmpty() && QDir::isRelativePath(cfg.recordGolden)) {
         cfg.recordGolden = QFileInfo(cfg.recordGolden).absoluteFilePath();
+    }
+    if (!cfg.opcodeStats.isEmpty() && QDir::isRelativePath(cfg.opcodeStats)) {
+        cfg.opcodeStats = QFileInfo(cfg.opcodeStats).absoluteFilePath();
     }
 
     // Resolve --config-dir relative to the invocation cwd, not $HOME.

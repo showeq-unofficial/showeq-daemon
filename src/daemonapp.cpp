@@ -22,6 +22,7 @@
 #include "messagefilter.h"
 #include "messages.h"
 #include "messageshell.h"
+#include "opcodestats.h"
 #include "packet.h"
 #include "packetcommon.h"
 #include "packetinfo.h"
@@ -115,6 +116,27 @@ bool DaemonApp::start()
                               ? spellsFile.absoluteFilePath()
                               : QString());
     m_eqStrings = new EQStr();
+    // EQ format-string table for OP_FormattedMessage / OP_SimpleMessage
+    // payloads. Without it those handlers emit "Unknown: <id>: <args>"
+    // because the format-id → template lookup returns nothing. Same
+    // search cascade as spells_us.txt above.
+    QFileInfo eqstrFile =
+        m_dataLocationMgr->findExistingFile(".", "eqstr_us.txt");
+    if (!eqstrFile.exists()) {
+        for (const QString& path : {
+                 QStringLiteral("/usr/local/share/showeq/eqstr_us.txt"),
+                 legacyShoweqHome() + "/.showeq/eqstr_us.txt",
+             }) {
+            QFileInfo fi(path);
+            if (fi.exists()) { eqstrFile = fi; break; }
+        }
+    }
+    if (eqstrFile.exists()) {
+        m_eqStrings->load(eqstrFile.absoluteFilePath());
+        qInfo("loaded eqstr from %s", qUtf8Printable(eqstrFile.absoluteFilePath()));
+    } else {
+        qInfo("no eqstr_us.txt found — formatted system messages will read \"Unknown: <id>\"");
+    }
 
     // EQPacket reads `[VPacket] Filename` from pSEQPrefs to decide where
     // to record/playback. Set it before constructing EQPacket so both
@@ -258,6 +280,14 @@ bool DaemonApp::start()
     }
 
     if (m_packet) {
+        // Tap decoded packets BEFORE the regular wiring so the logger
+        // sees every dispatch (it doesn't matter for correctness — the
+        // signal is broadcast — but keeping it adjacent to where the
+        // packet pipeline starts makes the order obvious).
+        if (!m_cfg.opcodeStats.isEmpty()) {
+            m_opcodeStats = new OpcodeStatsLogger(m_packet, m_cfg.opcodeStats, this);
+        }
+
         wireZoneMgr();
         wireSpawnShell();
 
@@ -455,13 +485,34 @@ void DaemonApp::wireSpawnShell()
                        m_spawnShell,
                        SLOT(corpseLoc(const uint8_t*)));
 
-    // Chat — only OP_ChannelMessage for Phase 3; OP_FormattedMessage and
-    // OP_SpecialMesg can be wired to MessageShell later if/when we want
-    // system-text events on the wire.
-    m_packet->connect2("OP_ChannelMessage", SP_Zone, DIR_Client|DIR_Server,
+    // Chat. OP_CommonMessage carries the player-to-player channels
+    // (/say /tell /guild /group /raid /shout /auction /ooc) parsed by
+    // MessageShell::channelMessage; the matching legacy
+    // showeq-c/src/interface.cpp:679 wires it under the same name. The
+    // daemon was previously asking for "OP_ChannelMessage", which
+    // isn't in conf/zoneopcodes.xml, so the slot never fired and chat
+    // was silently dropped.
+    m_packet->connect2("OP_CommonMessage", SP_Zone, DIR_Client|DIR_Server,
                        "channelMessageStruct", SZC_None,
                        m_messageShell,
                        SLOT(channelMessage(const uint8_t*, size_t, uint8_t)));
+    // System / NPC / spell text. Each of these resolves through
+    // chatColor2MessageType(messageColor) into an MT_* channel id
+    // (MT_General, MT_Spell, MT_Money, MT_Random, MT_Emote, ...) so the
+    // web chat panel can categorize and filter without daemon-side
+    // policy. DIR_Server only — the client echoes nothing useful here.
+    m_packet->connect2("OP_FormattedMessage", SP_Zone, DIR_Server,
+                       "formattedMessageStruct", SZC_None,
+                       m_messageShell,
+                       SLOT(formattedMessage(const uint8_t*, size_t, uint8_t)));
+    m_packet->connect2("OP_SimpleMessage", SP_Zone, DIR_Server,
+                       "simpleMessageStruct", SZC_Match,
+                       m_messageShell,
+                       SLOT(simpleMessage(const uint8_t*, size_t, uint8_t)));
+    m_packet->connect2("OP_SpecialMesg", SP_Zone, DIR_Server,
+                       "specialMessageStruct", SZC_None,
+                       m_messageShell,
+                       SLOT(specialMessage(const uint8_t*, size_t, uint8_t)));
 
     // Group opcodes — mirrors showeq-c/src/interface.cpp:595-606.
     m_packet->connect2("OP_GroupUpdate", SP_Zone, DIR_Server,

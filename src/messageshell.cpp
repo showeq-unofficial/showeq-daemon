@@ -274,10 +274,14 @@ void MessageShell::formattedMessage(const uint8_t* data, size_t len, uint8_t dir
   QString tempStr;
 
   size_t messagesLen = len - ((uint8_t*)&fmsg->messages[0] - (uint8_t*)fmsg);
-  m_messages->addMessage(chatColor2MessageType(fmsg->messageColor), 
-			 m_eqStrings->formatMessage(fmsg->messageFormat,
-						    fmsg->messages, 
-						    messagesLen));
+  const MessageType mt = chatColor2MessageType(fmsg->messageColor);
+  const QString text = m_eqStrings->formatMessage(fmsg->messageFormat,
+                                                  fmsg->messages,
+                                                  messagesLen);
+  m_messages->addMessage(mt, text);
+  // Forward to the websocket as a system-flavored chatMessage so the web
+  // chat panel sees NPC speech, system warnings, exp ticks, etc.
+  emit chatMessage(static_cast<uint32_t>(mt), QString(), QString(), text);
 }
 
 void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)
@@ -288,9 +292,11 @@ void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)
 
   const simpleMessageStruct* smsg = (const simpleMessageStruct*)data;
   QString tempStr;
- 
-  m_messages->addMessage(chatColor2MessageType(smsg->messageColor), 
-			 m_eqStrings->message(smsg->messageFormat));
+
+  const MessageType mt = chatColor2MessageType(smsg->messageColor);
+  const QString text = m_eqStrings->message(smsg->messageFormat);
+  m_messages->addMessage(mt, text);
+  emit chatMessage(static_cast<uint32_t>(mt), QString(), QString(), text);
 }
 
 void MessageShell::specialMessage(const uint8_t* data, size_t, uint8_t dir)
@@ -302,7 +308,7 @@ void MessageShell::specialMessage(const uint8_t* data, size_t, uint8_t dir)
   const specialMessageStruct* smsg = (const specialMessageStruct*)data;
 
   const Item* target = NULL;
-  
+
   if (smsg->target)
     target = m_spawnShell->findID(tSpawn, smsg->target);
 
@@ -317,11 +323,21 @@ void MessageShell::specialMessage(const uint8_t* data, size_t, uint8_t dir)
   const char* message = smsg->source + QString(smsg->source).length() + 1
       + sizeof(smsg->unknown0xxx);
 
-  if (target) m_messages->addMessage(chatColor2MessageType(smsg->messageColor),
-          QString("Special: '%1' -> '%2' - %3") .arg(smsg->source)
-          .arg(target->name()) .arg(message)); else
-      m_messages->addMessage(chatColor2MessageType(smsg->messageColor),
-              QString("Special: '%1' - %2") .arg(smsg->source) .arg(message));
+  const MessageType mt = chatColor2MessageType(smsg->messageColor);
+  const QString sender = QString::fromLatin1(smsg->source);
+  const QString targetName = target ? target->name() : QString();
+  const QString text = QString::fromLatin1(message);
+
+  if (target) {
+    m_messages->addMessage(mt,
+        QString("Special: '%1' -> '%2' - %3").arg(sender, targetName, text));
+  } else {
+    m_messages->addMessage(mt,
+        QString("Special: '%1' - %2").arg(sender, text));
+  }
+  // Web chat panel keeps the structured fields (sender + target + text)
+  // and renders however it likes; no string concatenation on the wire.
+  emit chatMessage(static_cast<uint32_t>(mt), sender, targetName, text);
 }
 
 void MessageShell::guildMOTD(const uint8_t* data, size_t, uint8_t dir)

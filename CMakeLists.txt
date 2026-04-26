@@ -122,6 +122,7 @@ set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/protoencoder.cpp
   src/combatrouter.cpp
   src/filesink.cpp
+  src/opcodestats.cpp
   src/prefsbroker.cpp
   src/seq_globals.cpp
 )

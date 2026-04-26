@@ -16,6 +16,7 @@ class CategoryMgr;
 class CombatRouter;
 class FileSink;
 class FilterMgr;
+class OpcodeStatsLogger;
 class GroupMgr;
 class GuildMgr;
 class MapData;
@@ -60,6 +61,10 @@ public:
         // delimited seq.v1.Envelope protobuf. With --replay set, the
         // daemon exits at EOF (golden generation workflow).
         QString      recordGolden;
+        // If set, OpcodeStatsLogger taps EQPacket's decoded-packet
+        // signals and writes a per-opcode tally to this file at
+        // shutdown — patch-day diagnostic for finding ffff opcodes.
+        QString      opcodeStats;
         QHostAddress listenHost;
         quint16      listenPort = 9090;
     };
@@ -112,4 +117,8 @@ private:
     // adapter is parented to `this` so Qt cleans it up on shutdown.
     std::unique_ptr<FileSink>       m_goldenSink;
     SessionAdapter*                 m_goldenAdapter  = nullptr;
+
+    // Set when --opcode-stats is passed. Parented to `this` so the
+    // dtor's writeReport() runs as part of normal Qt teardown.
+    OpcodeStatsLogger*              m_opcodeStats    = nullptr;
 };
