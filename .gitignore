@@ -12,3 +12,8 @@ compile_commands.json
 .cache/
 .vscode/
 .idea/
+
+# Runtime-written XMLPreferences (DataLocationMgr saves to user dir;
+# under --config-dir <conf> it lands here in the working tree).
+conf/showeq-daemon.xml
+conf/showeq-daemon.xml.bak
