@@ -1,0 +1,5 @@
+# Replay fixtures stay local — they contain plaintext EQ session data
+# (character/zone/chat). See README.md in this directory.
+*.vpk
+*.pbstream
+*.check.pbstream

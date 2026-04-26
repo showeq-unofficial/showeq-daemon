@@ -499,6 +499,7 @@ void EQPacket::processPlaybackPackets (void)
 
     // stop the timer, nothing more can be done...
     stop();
+    emit playbackFinished();
   }
 
   /* Clear decoding flag */

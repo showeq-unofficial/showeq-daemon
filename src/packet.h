@@ -131,6 +131,12 @@ class EQPacket : public QObject
    void lockOnClient(in_port_t serverPort, in_port_t clientPort, in_addr_t clientAddr);
 
  signals:
+   // Emitted exactly once when a --replay session reaches end-of-file.
+   // Wired by DaemonApp to QCoreApplication::quit() in record-golden
+   // mode so `--replay X.vpk --record-golden Y.pbstream` exits cleanly
+   // instead of hanging in the event loop after EOF.
+   void playbackFinished();
+
    // used for net_stats display
    void cacheSize(int, int);
    void seqReceive(int, int);

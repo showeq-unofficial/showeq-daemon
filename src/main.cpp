@@ -33,19 +33,40 @@ int main(int argc, char** argv)
         "Directory holding zone .map / .txt files. Defaults to "
         "~/.showeq/maps (the legacy showeq-c location), falling back to "
         "$config-dir/maps.", "dir");
+    QCommandLineOption recordVpkOpt(QStringList{"record-vpk"},
+        "Record raw EQ packets to FILE.vpk for later --replay. Combine "
+        "with --device for live capture.", "file");
+    QCommandLineOption recordGoldenOpt(QStringList{"record-golden"},
+        "Record the envelope stream a client would receive to FILE as "
+        "length-delimited seq.v1.Envelope protobuf. With --replay, the "
+        "daemon exits at EOF — the regression-harness golden workflow.",
+        "file");
 
     parser.addOption(deviceOpt);
     parser.addOption(listenOpt);
     parser.addOption(replayOpt);
     parser.addOption(configDirOpt);
     parser.addOption(mapsDirOpt);
+    parser.addOption(recordVpkOpt);
+    parser.addOption(recordGoldenOpt);
     parser.process(app);
 
     DaemonApp::Config cfg;
-    cfg.device    = parser.value(deviceOpt);
-    cfg.replay    = parser.value(replayOpt);
-    cfg.configDir = parser.value(configDirOpt);
-    cfg.mapsDir   = parser.value(mapsDirOpt);
+    cfg.device       = parser.value(deviceOpt);
+    cfg.replay       = parser.value(replayOpt);
+    cfg.configDir    = parser.value(configDirOpt);
+    cfg.mapsDir      = parser.value(mapsDirOpt);
+    cfg.recordVpk    = parser.value(recordVpkOpt);
+    cfg.recordGolden = parser.value(recordGoldenOpt);
+
+    // Resolve record paths against cwd for the same reason --config-dir
+    // is — under sudo, $HOME points at /root.
+    if (!cfg.recordVpk.isEmpty() && QDir::isRelativePath(cfg.recordVpk)) {
+        cfg.recordVpk = QFileInfo(cfg.recordVpk).absoluteFilePath();
+    }
+    if (!cfg.recordGolden.isEmpty() && QDir::isRelativePath(cfg.recordGolden)) {
+        cfg.recordGolden = QFileInfo(cfg.recordGolden).absoluteFilePath();
+    }
 
     // Resolve --config-dir relative to the invocation cwd, not $HOME.
     // Under sudo, $HOME is /root, which would silently send DataLocationMgr

@@ -1,9 +1,11 @@
 #include "daemonapp.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QLoggingCategory>
 #include <QStandardPaths>
+#include <QTimer>
 
 #include "main.h"
 
@@ -12,6 +14,7 @@
 #include "datalocationmgr.h"
 #include "datetimemgr.h"
 #include "eqstr.h"
+#include "filesink.h"
 #include "filtermgr.h"
 #include "group.h"
 #include "guild.h"
@@ -24,11 +27,15 @@
 #include "packetinfo.h"
 #include "player.h"
 #include "prefsbroker.h"
+#include "sessionadapter.h"
 #include "spawnshell.h"
 #include "spells.h"
 #include "spellshell.h"
 #include "wsserver.h"
+#include "xmlpreferences.h"
 #include "zonemgr.h"
+
+#include "seq/v1/client.pb.h"
 
 namespace seq { void initGlobals(const QString& def, const QString& user); }
 
@@ -43,7 +50,18 @@ DaemonApp::DaemonApp(Config cfg, QObject* parent)
 {
 }
 
-DaemonApp::~DaemonApp() = default;
+DaemonApp::~DaemonApp()
+{
+    // The golden adapter's m_sink points at m_goldenSink (a unique_ptr
+    // member). Members are torn down in reverse declaration order, but
+    // m_goldenAdapter is a raw pointer cleaned up by ~QObject much
+    // later — that would leave m_sink dangling. Tear down explicitly
+    // here so the adapter stops before the sink it writes through.
+    if (m_goldenAdapter) {
+        delete m_goldenAdapter;
+        m_goldenAdapter = nullptr;
+    }
+}
 
 bool DaemonApp::start()
 {
@@ -97,6 +115,21 @@ bool DaemonApp::start()
                               ? spellsFile.absoluteFilePath()
                               : QString());
     m_eqStrings = new EQStr();
+
+    // EQPacket reads `[VPacket] Filename` from pSEQPrefs to decide where
+    // to record/playback. Set it before constructing EQPacket so both
+    // the recordPackets and playbackPackets paths can find their file.
+    // Recording (write) and replay (read) are mutually exclusive at the
+    // VPacket layer, so if both flags were passed we reject early.
+    if (!m_cfg.recordVpk.isEmpty() && !m_cfg.replay.isEmpty()) {
+        qCritical("--record-vpk and --replay are mutually exclusive");
+        return false;
+    }
+    if (!m_cfg.recordVpk.isEmpty()) {
+        pSEQPrefs->setPrefString("Filename", "VPacket", m_cfg.recordVpk);
+    } else if (!m_cfg.replay.isEmpty()) {
+        pSEQPrefs->setPrefString("Filename", "VPacket", m_cfg.replay);
+    }
 
     // EQPacket's ctor calls pcap_create/pcap_activate, which exit(1)s when
     // there's no device available. Skip capture setup entirely when the
@@ -199,9 +232,45 @@ bool DaemonApp::start()
                    m_combatRouter, m_categoryMgr, m_filterMgr,
                    m_prefsBroker);
 
+    // --record-golden: spin up an internal SessionAdapter writing into a
+    // FileSink. Subscribe is synthesized immediately so the on-disk
+    // stream begins with a Snapshot, matching what a freshly-connected
+    // real client would receive.
+    if (!m_cfg.recordGolden.isEmpty()) {
+        m_goldenSink = std::make_unique<FileSink>(m_cfg.recordGolden);
+        if (!m_goldenSink->isOpen()) {
+            return false;
+        }
+        m_goldenAdapter = new SessionAdapter(m_goldenSink.get(),
+                                             m_spawnShell, m_zoneMgr, m_player,
+                                             m_mapData.get(), m_messageShell,
+                                             m_groupMgr, m_spellShell,
+                                             m_combatRouter, m_categoryMgr,
+                                             m_filterMgr, m_prefsBroker, this);
+        seq::v1::ClientEnvelope subEnv;
+        subEnv.mutable_subscribe();
+        QByteArray subBytes;
+        subBytes.resize(static_cast<int>(subEnv.ByteSizeLong()));
+        subEnv.SerializeToArray(subBytes.data(), subBytes.size());
+        m_goldenAdapter->handleClientBinary(subBytes);
+        qInfo("recording envelope golden to %s",
+              qUtf8Printable(m_cfg.recordGolden));
+    }
+
     if (m_packet) {
         wireZoneMgr();
         wireSpawnShell();
+
+        // In golden-replay mode (--replay + --record-golden) we want the
+        // process to exit cleanly at EOF so the test harness can compare
+        // .pbstream files. A short delay after EOF lets any final
+        // direct-connected slots finish writing into the FileSink.
+        if (!m_cfg.replay.isEmpty() && !m_cfg.recordGolden.isEmpty()) {
+            connect(m_packet, &EQPacket::playbackFinished, this, [] {
+                QTimer::singleShot(50, &QCoreApplication::quit);
+            });
+        }
+
         m_packet->start(10);
         qInfo("capture pipeline running");
     } else {
@@ -237,6 +306,7 @@ bool DaemonApp::startCapture()
     }
 
     const bool hasReplay = !m_cfg.replay.isEmpty();
+    const bool wantRecord = !m_cfg.recordVpk.isEmpty();
     m_packet = new EQPacket(
         worldOpcodes.absoluteFilePath(),
         zoneOpcodes.absoluteFilePath(),
@@ -248,10 +318,13 @@ bool DaemonApp::startCapture()
         /*snaplen*/ 2,
         /*buffersize*/ 4,
         /*sessionTracking*/ false,
-        /*recordPackets*/ false,
+        /*recordPackets*/ wantRecord,
         /*playbackPackets*/ hasReplay ? 1 : PLAYBACK_OFF,
         /*playbackSpeed*/ 0,
         this, "packet");
+    if (wantRecord) {
+        qInfo("recording raw packets to %s", qUtf8Printable(m_cfg.recordVpk));
+    }
     return true;
 }
 
@@ -365,6 +438,10 @@ void DaemonApp::wireSpawnShell()
                        "considerStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(consMessage(const uint8_t*, size_t, uint8_t)));
+    m_packet->connect2("OP_TargetMouse", SP_Zone, DIR_Server|DIR_Client,
+                       "clientTargetStruct", SZC_Match,
+                       m_spawnShell,
+                       SLOT(clientTarget(const uint8_t*)));
     m_packet->connect2("OP_NpcMoveUpdate", SP_Zone, DIR_Server,
                        "uint8_t", SZC_None,
                        m_spawnShell,

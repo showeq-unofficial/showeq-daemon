@@ -14,6 +14,7 @@ class EQPacket;
 class EQStr;
 class CategoryMgr;
 class CombatRouter;
+class FileSink;
 class FilterMgr;
 class GroupMgr;
 class GuildMgr;
@@ -23,6 +24,7 @@ class MessageShell;
 class Messages;
 class Player;
 class PrefsBroker;
+class SessionAdapter;
 class Spells;
 class SpawnShell;
 class SpellShell;
@@ -50,6 +52,14 @@ public:
         // Overrides the zone-map search directory. Empty string triggers
         // the default cascade: ~/.showeq/maps → $configDir/maps.
         QString      mapsDir;
+        // If set, raw EQ packets are recorded to this .vpk path while
+        // capturing — wraps the legacy XMLPreferences `[VPacket]` mode.
+        QString      recordVpk;
+        // If set, an internal SessionAdapter writes the envelope stream
+        // it would have sent to a client into this file as length-
+        // delimited seq.v1.Envelope protobuf. With --replay set, the
+        // daemon exits at EOF (golden generation workflow).
+        QString      recordGolden;
         QHostAddress listenHost;
         quint16      listenPort = 9090;
     };
@@ -97,4 +107,9 @@ private:
     std::unique_ptr<MapData>        m_mapData;
 
     std::unique_ptr<WsServer>       m_ws;
+
+    // Set when --record-golden is passed. The sink is owned here; the
+    // adapter is parented to `this` so Qt cleans it up on shutdown.
+    std::unique_ptr<FileSink>       m_goldenSink;
+    SessionAdapter*                 m_goldenAdapter  = nullptr;
 };
