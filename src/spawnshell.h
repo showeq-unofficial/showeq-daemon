@@ -107,6 +107,9 @@ signals:
    void killSpawn(const Item* deceased, const Item* killer, uint16_t killerId);
    void selectSpawn(const Item* item);
    void spawnConsidered(const Item* item);
+   // Emitted when a clientTarget packet is parsed. spawnId is the new
+   // target's spawn id (0 if the player cleared their target).
+   void targetSpawn(uint32_t spawnId);
    void clearItems();
    void numSpawns(int);
 
@@ -139,6 +142,7 @@ public slots:
    void updateNpcHP(const uint8_t* hpupdate);
    void spawnWearingUpdate(const uint8_t* wearing);
    void consMessage(const uint8_t* con, size_t, uint8_t);
+   void clientTarget(const uint8_t* cts);
    void removeSpawn(const uint8_t* rmSpawn, size_t len, uint8_t dir);
    void deleteSpawn(const uint8_t* delSpawn);
    void killSpawn(const uint8_t* deadspawn);

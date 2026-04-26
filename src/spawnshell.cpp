@@ -1524,6 +1524,12 @@ void SpawnShell::consMessage(const uint8_t* data, size_t, uint8_t dir)
   } // else not yourself
 } // end consMessage()
 
+void SpawnShell::clientTarget(const uint8_t* data)
+{
+  const clientTargetStruct* cts = (const clientTargetStruct*)data;
+  emit targetSpawn(cts->newTarget);
+}
+
 void SpawnShell::removeSpawn(const uint8_t* data, size_t len, uint8_t dir)
 {
   if(dir==DIR_Client)

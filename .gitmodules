@@ -1,3 +1,3 @@
 [submodule "proto"]
 	path = proto
-	url = ../showeq-proto
+	url = git@github.com:showeq-unofficial/showeq-proto.git
