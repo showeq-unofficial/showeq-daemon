@@ -25,7 +25,20 @@ static seq::v1::SpawnType typeFromItem(const Item& it)
     }
     if (const auto* sp = dynamic_cast<const Spawn*>(&it)) {
         if (sp->isCorpse()) {
-            return sp->NPC() ? seq::v1::CORPSE_NPC : seq::v1::CORPSE_PC;
+            // m_NPC distinguishes the two corpse flavors (SPAWN_PC_CORPSE
+            // vs SPAWN_NPC_CORPSE) — both are non-zero, so a truthiness
+            // check would always resolve to CORPSE_NPC. Match on the
+            // specific NPC-corpse value instead.
+            return sp->NPC() == SPAWN_NPC_CORPSE
+                ? seq::v1::CORPSE_NPC
+                : seq::v1::CORPSE_PC;
+        }
+        // Other PCs in the zone live in SpawnShell as Spawns (Item::type
+        // == tSpawn) with m_NPC == SPAWN_PLAYER. The local player is the
+        // only one that comes through as tPlayer; without this branch all
+        // other-player spawns get reported as NPC.
+        if (sp->isPlayer()) {
+            return seq::v1::PC;
         }
     }
     return seq::v1::NPC;
