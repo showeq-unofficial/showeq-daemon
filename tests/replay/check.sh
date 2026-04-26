@@ -95,6 +95,38 @@ for vpk in "${vpks[@]}"; do
         echo "     produced: ${keep}"
         fail=$((fail+1))
         failures+=("${name}")
+        continue
+    fi
+
+    # Second pass: rerun with the Stage A Rust decoder routing
+    # OP_MobUpdate through seq-bridge. Output must still byte-match
+    # the same golden — that's the cross-decoder guarantee. Add more
+    # opcode names here as further stages adopt them.
+    rust_check="${TMPDIR_RUN}/${name}.rust.pbstream"
+    PORT=$((PORT+1))
+    if ! "${DAEMON}" \
+            --replay "${vpk}" \
+            --config-dir "${CONF_DIR}" \
+            --record-golden "${rust_check}" \
+            --rust-opcodes OP_MobUpdate \
+            --listen "127.0.0.1:${PORT}" >>"${log}" 2>&1; then
+        echo "FAIL ${name} [Rust] (daemon exited non-zero — see ${log})"
+        fail=$((fail+1))
+        failures+=("${name}[Rust]")
+        continue
+    fi
+    if cmp --silent "${golden}" "${rust_check}"; then
+        echo "PASS ${name} [Rust]"
+        pass=$((pass+1))
+    else
+        keep="${REPLAY_DIR}/${name}.rust.check.pbstream"
+        cp "${rust_check}" "${keep}"
+        bytes="$(cmp "${golden}" "${rust_check}" 2>&1 || true)"
+        echo "FAIL ${name} [Rust]: ${bytes}"
+        echo "     golden:   ${golden}"
+        echo "     produced: ${keep}"
+        fail=$((fail+1))
+        failures+=("${name}[Rust]")
     fi
 done
 
