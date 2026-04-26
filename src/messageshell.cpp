@@ -34,6 +34,36 @@
 #include "util.h"
 #include "netstream.h"
 
+#include <QRegularExpression>
+
+namespace {
+
+// EQ wraps inline item references in chat / system text with the
+// 0x12 (DC2) control byte: \x12<binary item header><item name>\x12.
+// The header is uppercase-hex digits with a lot of zero padding;
+// the name follows. showeq-c rendered these as raw bytes (its
+// MessagesWindow doesn't strip them either) — you just rarely see
+// a loot line in showeq-c chat. On the wire to a web client the
+// binary is plain noise; strip it down to just the readable name.
+QString stripEqItemLinks(const QString& in)
+{
+    if (!in.contains(QChar(0x12))) return in;
+    QString out = in;
+    // Primary pattern: hex prefix followed by an "Aa"-style start of
+    // a real word. Captures the readable tail.
+    static const QRegularExpression rx(
+        QStringLiteral("\\x12[0-9A-F]+([A-Z][a-z][^\\x12]*)\\x12"));
+    out.replace(rx, "\\1");
+    // Fallback: any remaining \x12...\x12 pair (link without a clear
+    // name boundary). Drop entirely so the wire payload is clean.
+    static const QRegularExpression fallback(
+        QStringLiteral("\\x12[^\\x12]*\\x12"));
+    out.replace(fallback, QString());
+    return out;
+}
+
+} // namespace
+
 //----------------------------------------------------------------------
 // MessageShell
 MessageShell::MessageShell(Messages* messages, EQStr* eqStrings,
@@ -112,7 +142,7 @@ void MessageShell::channelMessage(const uint8_t* data, size_t len, uint8_t dir)
     emit chatMessage(static_cast<uint32_t>(cmsg->chanNum),
                      QString::fromLatin1(cmsg->sender),
                      QString::fromLatin1(cmsg->target),
-                     QString::fromLatin1(cmsg->message));
+                     stripEqItemLinks(QString::fromLatin1(cmsg->message)));
     break;
   default:
     break;
@@ -275,9 +305,10 @@ void MessageShell::formattedMessage(const uint8_t* data, size_t len, uint8_t dir
 
   size_t messagesLen = len - ((uint8_t*)&fmsg->messages[0] - (uint8_t*)fmsg);
   const MessageType mt = chatColor2MessageType(fmsg->messageColor);
-  const QString text = m_eqStrings->formatMessage(fmsg->messageFormat,
-                                                  fmsg->messages,
-                                                  messagesLen);
+  const QString text = stripEqItemLinks(
+      m_eqStrings->formatMessage(fmsg->messageFormat,
+                                 fmsg->messages,
+                                 messagesLen));
   m_messages->addMessage(mt, text);
   // Forward to the websocket as a system-flavored chatMessage so the web
   // chat panel sees NPC speech, system warnings, exp ticks, etc.
@@ -294,7 +325,7 @@ void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)
   QString tempStr;
 
   const MessageType mt = chatColor2MessageType(smsg->messageColor);
-  const QString text = m_eqStrings->message(smsg->messageFormat);
+  const QString text = stripEqItemLinks(m_eqStrings->message(smsg->messageFormat));
   m_messages->addMessage(mt, text);
   emit chatMessage(static_cast<uint32_t>(mt), QString(), QString(), text);
 }
@@ -326,7 +357,7 @@ void MessageShell::specialMessage(const uint8_t* data, size_t, uint8_t dir)
   const MessageType mt = chatColor2MessageType(smsg->messageColor);
   const QString sender = QString::fromLatin1(smsg->source);
   const QString targetName = target ? target->name() : QString();
-  const QString text = QString::fromLatin1(message);
+  const QString text = stripEqItemLinks(QString::fromLatin1(message));
 
   if (target) {
     m_messages->addMessage(mt,
