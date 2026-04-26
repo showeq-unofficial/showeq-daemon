@@ -65,6 +65,11 @@ public:
         // signals and writes a per-opcode tally to this file at
         // shutdown — patch-day diagnostic for finding ffff opcodes.
         QString      opcodeStats;
+        // True to skip the WebSocket server entirely (--no-listen on
+        // the CLI). Useful for capture / replay / diagnostic runs
+        // where no client connects and the listen port is just a
+        // collision risk against the user's main daemon instance.
+        bool         noListen = false;
         QHostAddress listenHost;
         quint16      listenPort = 9090;
     };

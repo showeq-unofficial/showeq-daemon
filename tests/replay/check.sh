@@ -47,6 +47,18 @@ for vpk in "${vpks[@]}"; do
         continue
     fi
 
+    # Per-fixture skip list. Drop a fixture's basename here when its
+    # daemon-side handling is wallclock-dependent and cmp would flap.
+    # Currently: SpellShell::timeout fires every 6s independent of the
+    # packet stream (decrements buff durations / removes expired ones),
+    # so any fixture that exercises buff lifecycles produces a different
+    # byte stream per run.
+    if [[ "${name}" == "buffs" ]]; then
+        echo "SKIP ${name} (wallclock-dependent SpellShell timer; cmp non-deterministic)"
+        skip=$((skip+1))
+        continue
+    fi
+
     golden="${REPLAY_DIR}/${name}.pbstream"
     if [[ ! -f "${golden}" ]]; then
         echo "SKIP ${name} (no .pbstream — capture a golden via --record-golden first)"

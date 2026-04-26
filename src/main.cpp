@@ -138,6 +138,11 @@ int main(int argc, char** argv)
         "Patch-day diagnostic: tally every decoded opcode (known + "
         "unknown) and write a sorted report with payload-size matches "
         "against known-struct sizes to FILE on shutdown.", "file");
+    QCommandLineOption noListenOpt(QStringList{"no-listen"},
+        "Skip the WebSocket server entirely. Useful for any session "
+        "where no client connects: --record-vpk live captures, "
+        "--replay + --record-golden runs, --opcode-stats diagnostics. "
+        "Also avoids port-bind conflicts alongside another daemon.");
 
     parser.addOption(deviceOpt);
     parser.addOption(listenOpt);
@@ -147,6 +152,7 @@ int main(int argc, char** argv)
     parser.addOption(recordVpkOpt);
     parser.addOption(recordGoldenOpt);
     parser.addOption(opcodeStatsOpt);
+    parser.addOption(noListenOpt);
     parser.process(app);
 
     DaemonApp::Config cfg;
@@ -157,6 +163,7 @@ int main(int argc, char** argv)
     cfg.recordVpk    = parser.value(recordVpkOpt);
     cfg.recordGolden = parser.value(recordGoldenOpt);
     cfg.opcodeStats  = parser.value(opcodeStatsOpt);
+    cfg.noListen     = parser.isSet(noListenOpt);
 
     // Resolve record paths against cwd for the same reason --config-dir
     // is — under sudo, $HOME points at /root.

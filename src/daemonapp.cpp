@@ -66,8 +66,12 @@ DaemonApp::~DaemonApp()
 
 bool DaemonApp::start()
 {
-    if (!startServer()) {
-        return false;
+    if (!m_cfg.noListen) {
+        if (!startServer()) {
+            return false;
+        }
+    } else {
+        qInfo("--no-listen: WebSocket server disabled");
     }
 
     // DataLocationMgr resolves file paths against ~/.showeq-daemon (user)
@@ -291,13 +295,17 @@ bool DaemonApp::start()
         wireZoneMgr();
         wireSpawnShell();
 
-        // In golden-replay mode (--replay + --record-golden) we want the
-        // process to exit cleanly at EOF so the test harness can compare
-        // .pbstream files. A short delay after EOF lets any final
-        // direct-connected slots finish writing into the FileSink.
-        if (!m_cfg.replay.isEmpty() && !m_cfg.recordGolden.isEmpty()) {
+        // Any --replay session quits cleanly at EOF; replay is only
+        // useful for fixed-input one-shot work (golden generation,
+        // opcode-stats diagnostic, --no-listen processing). Quit
+        // immediately on the next event-loop iteration — any extra
+        // delay risks wallclock-driven timers (SpellShell::timeout
+        // is 6s-period and decrements buff durations) ticking after
+        // the last packet, which leaves the resulting .pbstream non-
+        // deterministic between runs.
+        if (!m_cfg.replay.isEmpty()) {
             connect(m_packet, &EQPacket::playbackFinished, this, [] {
-                QTimer::singleShot(50, &QCoreApplication::quit);
+                QTimer::singleShot(0, &QCoreApplication::quit);
             });
         }
 
