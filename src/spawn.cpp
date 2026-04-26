@@ -360,12 +360,22 @@ Spawn::Spawn()
   setHP(0);
   setMaxHP(0);
   setGuildID(0xffff);
+  setGuildServerID(0);
   setGuildTag(NULL);
   setLevel(0);
   setTypeflag(0);
   setGM(0);
   for (int i = 0; i < tNumWearSlots; i++)
     setEquipment(i, SlotEmpty);
+
+  // The bool flags below are otherwise only set by Spawn::update()
+  // when a spawnStruct arrives. Encoder and category logic both read
+  // them via getters; uninitialized bytes turn into nondeterministic
+  // wire output and weird category matches before the first update.
+  setIsMount(false);
+  setIsMercenary(0);
+  setIsAura(0);
+  setNotUpdated(false);
 
   // just clear the considred flag since data would be outdated
   setConsidered(false);
@@ -410,11 +420,16 @@ Spawn::Spawn(uint16_t id,
   setMaxHP(0);
   setLevel(0);
   setGuildID(0xffff);
+  setGuildServerID(0);
   setGuildTag(NULL);
   for (int i = 0; i < tNumWearSlots; i++)
     setEquipment(i, SlotEmpty);
   setTypeflag(0);
   setGM(0);
+  setIsMount(false);
+  setIsMercenary(0);
+  setIsAura(0);
+  setNotUpdated(false);
   setConsidered(false);
 
   // Finally, note when this update ocurred

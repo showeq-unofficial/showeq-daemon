@@ -38,6 +38,7 @@ private slots:
     void fillPos_heading_data();
     void fillPos_heading();
     void transformedName_articleMove();
+    void fillSpawn_defaultSpawn_isFullyInitialized();
 };
 
 // A vanilla NPC: id, name, position, hp/level/race/class/deity all
@@ -234,6 +235,33 @@ void ProtoEncoderTest::transformedName_articleMove()
     seq::encode::fillSpawn(&out2, s);
     QCOMPARE(QString::fromStdString(out2.name()),
              QString("Spectre, the"));
+}
+
+// Lock in that a freshly default-constructed Spawn produces a fully
+// determined wire envelope. The previous regression: m_guildServerID,
+// m_isMount, m_isMercenary, m_isAura, m_notUpdated were never set in
+// the default ctor, so encoder + category logic read uninitialized
+// memory (broke tier-2 golden determinism). This test documents the
+// expected zero-state and fails noisily if a future field gets added
+// to Spawn without being initialized in the ctor.
+void ProtoEncoderTest::fillSpawn_defaultSpawn_isFullyInitialized()
+{
+    Spawn s;
+
+    seq::v1::Spawn out;
+    seq::encode::fillSpawn(&out, s);
+
+    QCOMPARE(out.id(), 0u);
+    QCOMPARE(out.type(), seq::v1::NPC);
+    QCOMPARE(out.guild_id(), 0xffffu);
+    QCOMPARE(out.guild_server_id(), 0u);  // was uninit pre-2026-04-25
+    QCOMPARE(out.hp_cur(), 0u);
+    QCOMPARE(out.hp_max(), 0u);
+    QCOMPARE(out.level(), 0u);
+    QCOMPARE(out.race(), 0u);
+    QCOMPARE(out.class_(), 0u);
+    QCOMPARE(out.deity(), 0u);
+    QVERIFY(!out.is_gm());
 }
 
 // QTEST_GUILESS_MAIN — daemon code is headless (QCoreApplication only),

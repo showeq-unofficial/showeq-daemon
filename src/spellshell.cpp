@@ -36,10 +36,14 @@
 
 SpellItem::SpellItem()
   : m_duration(0),
+    m_castTime{0, 0},
     m_spellId(0),
     m_casterId(0),
     m_targetId(0)
 {
+    // m_cast (startCastStruct) is a wire struct populated by update();
+    // not read until then. m_spellName/m_casterName/m_targetName default
+    // to empty QStrings — fine.
 }
 
 void SpellItem::updateCastTime()

@@ -181,6 +181,12 @@ void Player::reset()
 
   m_currentAltExp = 0;
   m_currentExp = 0;
+  // Without an explicit init this stays uninitialized until the first
+  // OP_AAExpUpdate or playerProfile arrives. The PlayerStats encoder
+  // serializes it unconditionally, so before the player profile loads
+  // (e.g. at the start of a --replay golden capture) we'd otherwise
+  // emit whatever happened to be on the heap, breaking determinism.
+  m_currentAApts = 0;
   m_minExp = calc_exp(level() - 1, race(), classVal());
   m_maxExp = calc_exp(level(), race(), classVal ());
   m_tickExp = (m_maxExp - m_minExp) / 330;
