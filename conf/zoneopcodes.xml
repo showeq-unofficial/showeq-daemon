@@ -163,7 +163,7 @@
         <comment>Group leader change</comment>
         <payload dir="server" typename="groupLeaderChangeStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_Buff" updated="07/19/23">
+    <opcode id="55b9" name="OP_Buff" updated="04/25/26">
         <comment>old BuffDropCode</comment>
         <payload dir="both" typename="buffStruct" sizechecktype="match"/>
     </opcode>
