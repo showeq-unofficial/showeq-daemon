@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QString>
 #include <cstdint>
+#include <deque>
 
 #include "seq/v1/events.pb.h"
 
@@ -62,6 +63,24 @@ public:
     // serialized ClientEnvelope they want to deliver.
     void handleClientText(const QString& text);
     void handleClientBinary(const QByteArray& bytes);
+
+    // Session resume API used by WsServer.
+    //
+    // sessionId(): the id this adapter is keyed by in WsServer's session
+    //   map. Empty until the daemon assigns one (on first Subscribe).
+    // setSessionId(): seed before the first Subscribe so a Snapshot
+    //   emitted during startStreaming() carries it.
+    // setSink(): swap the output sink (e.g. WebSocket → Noop on
+    //   disconnect, Noop → new WebSocket on resume) without tearing
+    //   down signal subscriptions or losing the ring buffer.
+    // replaySince(): re-emit every buffered envelope with seq > last_seq
+    //   through the current sink, in order. Used after a sink swap on
+    //   resume to fill the gap between the client's last_seq and the
+    //   live stream.
+    QString sessionId() const { return m_sessionId; }
+    void setSessionId(const QString& id) { m_sessionId = id; }
+    void setSink(IEnvelopeSink* sink) { m_sink = sink; }
+    void replaySince(uint64_t lastSeq);
 
 private slots:
     // Signal handlers wired to the shared state managers. Before
@@ -131,8 +150,24 @@ private:
     FilterMgr*                   m_filterMgr    = nullptr;
     PrefsBroker*                 m_prefsBroker  = nullptr;
 
+    QString                      m_sessionId;
     bool                         m_subscribed = false;
     bool                         m_liveTailing = false;
     uint64_t                     m_seq = 0;
     QList<seq::v1::Envelope>     m_buffered;
+
+    // Resume ring buffer. Every emitted envelope is appended (with its
+    // populated seq + server_ts_ms) and pruned from the front by a
+    // 30-second time window plus a hard 10k-entry cap. WsServer keeps
+    // the adapter alive past WebSocket disconnect (via setSink → noop)
+    // so this buffer continues filling and a quick reconnect can
+    // replaySince(last_seq) without losing intermediate events.
+    std::deque<seq::v1::Envelope> m_ringBuffer;
+
+    // Per-session leaky-bucket rate limit on inbound ClientEnvelopes.
+    // Trusted-LAN tool, so the limit is "polite human" — a runaway loop
+    // or fuzzing client trips it but a normal UI session doesn't notice.
+    qint64                       m_bucketLastMs = 0;
+    double                       m_bucketTokens = 0.0;
+    bool                         m_rateLimitWarned = false;
 };

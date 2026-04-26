@@ -2,19 +2,22 @@
 
 #include <QByteArray>
 #include <QLoggingCategory>
+#include <QTimer>
+#include <QUuid>
 #include <QWebSocket>
 #include <QWebSocketServer>
 
 #include "envelopesink.h"
 #include "sessionadapter.h"
 
+#include "seq/v1/client.pb.h"
 #include "seq/v1/events.pb.h"
 
 namespace {
 
 // Production sink: serialize the envelope and push it across the socket as
-// a single binary WebSocket frame. One per connection; lifetime tracked
-// alongside the SessionAdapter in WsServer::m_sessions.
+// a single binary WebSocket frame. One per connected session; lifetime
+// tracked alongside the SessionAdapter in WsServer::m_sessions.
 class WebSocketSink : public IEnvelopeSink {
 public:
     explicit WebSocketSink(QWebSocket* sock) : m_sock(sock) {}
@@ -31,6 +34,17 @@ private:
     QWebSocket* m_sock;
 };
 
+// Detached sink: the SessionAdapter keeps consuming state-manager
+// signals while a session is between WebSockets, but its envelopes go
+// nowhere until a resume swaps in a fresh WebSocketSink. The ring
+// buffer in SessionAdapter still receives them for replay.
+class NoopSink : public IEnvelopeSink {
+public:
+    void send(const seq::v1::Envelope&) override {}
+};
+
+constexpr int kPruneAfterMs = 30 * 1000;
+
 } // namespace
 
 WsServer::WsServer(QObject* parent)
@@ -46,7 +60,8 @@ WsServer::WsServer(QObject* parent)
 WsServer::~WsServer()
 {
     for (auto& s : m_sessions) {
-        delete s.sink;
+        delete s.liveSink;
+        if (s.pruneTimer) s.pruneTimer->deleteLater();
     }
 }
 
@@ -77,44 +92,224 @@ void WsServer::onNewConnection()
 {
     while (m_server->hasPendingConnections()) {
         QWebSocket* sock = m_server->nextPendingConnection();
-        auto* sink = new WebSocketSink(sock);
-        auto* session = new SessionAdapter(sink, m_spawnShell,
-                                           m_zoneMgr, m_player,
-                                           m_mapData, m_messageShell,
-                                           m_groupMgr, m_spellShell,
-                                           m_combatRouter, m_categoryMgr,
-                                           m_filterMgr, m_prefsBroker, this);
+        m_pending.insert(sock, PendingSocket{sock});
 
-        // Forward QWebSocket inbound traffic to the adapter's public
-        // handlers. Lambdas capture the adapter by value (raw pointer) —
-        // safe because both die together in onSessionDisconnected before
-        // the QWebSocket itself is deleteLater'd.
-        connect(sock, &QWebSocket::textMessageReceived,
-                session, [session](const QString& t) {
-                    session->handleClientText(t);
-                });
+        // First binary frame routes through onPendingFirstBinary so we
+        // can decide resume vs. fresh from Subscribe.session_id. After
+        // that, signals reroute to the bound adapter — see
+        // attachNewSession / resumeSession.
         connect(sock, &QWebSocket::binaryMessageReceived,
-                session, [session](const QByteArray& b) {
-                    session->handleClientBinary(b);
+                this, [this, sock](const QByteArray& b) {
+                    onPendingFirstBinary(sock, b);
                 });
         connect(sock, &QWebSocket::disconnected,
-                this, &WsServer::onSessionDisconnected);
+                this, [this, sock] { onSocketDisconnected(sock); });
 
-        m_sessions.insert(sock, Session{session, sink});
-        qInfo("ws client connected (%d total)", m_sessions.size());
+        qInfo("ws client connected (pending Subscribe)");
     }
 }
 
-void WsServer::onSessionDisconnected()
+void WsServer::onPendingFirstBinary(QWebSocket* sock, const QByteArray& bytes)
 {
-    auto* sock = qobject_cast<QWebSocket*>(sender());
-    if (!sock) return;
-    auto it = m_sessions.find(sock);
-    if (it != m_sessions.end()) {
-        it->adapter->deleteLater();
-        delete it->sink;
-        m_sessions.erase(it);
+    auto it = m_pending.find(sock);
+    if (it == m_pending.end()) {
+        // Already promoted to a session — defensively ignore (shouldn't
+        // happen because we disconnect this lambda after promotion).
+        return;
     }
+
+    seq::v1::ClientEnvelope env;
+    if (!env.ParseFromArray(bytes.constData(), bytes.size())) {
+        qWarning("first ClientEnvelope malformed (%lld bytes); dropping connection",
+                 static_cast<long long>(bytes.size()));
+        sock->close();
+        return;
+    }
+    if (!env.has_subscribe()) {
+        qWarning("first ClientEnvelope must be Subscribe; dropping connection");
+        sock->close();
+        return;
+    }
+    const auto& sub = env.subscribe();
+    const QString clientSessionId = QString::fromStdString(sub.session_id());
+    const quint64 lastSeq = sub.last_seq();
+
+    // Resume path: client sent a session_id we still have buffered.
+    if (!clientSessionId.isEmpty()) {
+        auto sit = m_sessions.find(clientSessionId);
+        if (sit != m_sessions.end() && sit->sock == nullptr) {
+            qInfo("ws resume: session=%s last_seq=%llu",
+                  qUtf8Printable(clientSessionId),
+                  static_cast<unsigned long long>(lastSeq));
+            m_pending.erase(it);
+            resumeSession(*sit, sock, lastSeq);
+            return;
+        }
+        if (sit != m_sessions.end() && sit->sock != nullptr) {
+            qWarning("ws resume rejected: session=%s already attached to a socket",
+                     qUtf8Printable(clientSessionId));
+            // Fall through to fresh session below.
+        }
+    }
+
+    // Fresh session.
+    QString id = clientSessionId.isEmpty() ? generateSessionId()
+                                           : clientSessionId;
+    while (m_sessions.contains(id)) {
+        // Honor the client's request to not reuse a stale id; if
+        // there's a collision (extremely unlikely with UUIDs), generate
+        // a new one and let the client learn it from Snapshot.
+        id = generateSessionId();
+    }
+    m_pending.erase(it);
+    attachNewSession(sock, id);
+
+    // Hand the (already-validated) Subscribe to the freshly-created
+    // adapter so it triggers the snapshot/tail handshake.
+    m_sessions.find(id)->adapter->handleClientBinary(bytes);
+}
+
+void WsServer::resumeSession(Session& s, QWebSocket* sock, quint64 lastSeq)
+{
+    // Cancel the prune timer; we've reattached.
+    if (s.pruneTimer) {
+        s.pruneTimer->stop();
+        s.pruneTimer->deleteLater();
+        s.pruneTimer = nullptr;
+    }
+
+    // Swap sink: NoopSink → fresh WebSocketSink. The old NoopSink is
+    // owned by us; delete after the swap.
+    auto* oldSink = s.liveSink;
+    s.liveSink = new WebSocketSink(sock);
+    s.adapter->setSink(s.liveSink);
+    delete oldSink;
+
+    s.sock = sock;
+    m_socketToSession.insert(sock, s.adapter->sessionId());
+
+    // Reroute the socket's binary-message stream straight to the
+    // adapter, replacing the pending-first-binary lambda.
+    sock->disconnect(this);
+    connect(sock, &QWebSocket::textMessageReceived,
+            s.adapter, [a = s.adapter](const QString& t) {
+                a->handleClientText(t);
+            });
+    connect(sock, &QWebSocket::binaryMessageReceived,
+            s.adapter, [a = s.adapter](const QByteArray& b) {
+                a->handleClientBinary(b);
+            });
+    connect(sock, &QWebSocket::disconnected,
+            this, [this, sock] { onSocketDisconnected(sock); });
+
+    // Replay everything in the ring buffer past the client's last_seq.
+    // If the buffer has been pruned past lastSeq, the client will see
+    // a gap — they're expected to compare last_seq against the seq of
+    // the first replayed envelope to detect that. (For now we just
+    // replay what we have; a richer scheme can ship later if a real
+    // user trips it.)
+    s.adapter->replaySince(lastSeq);
+}
+
+void WsServer::attachNewSession(QWebSocket* sock, const QString& sessionId)
+{
+    auto* sink = new WebSocketSink(sock);
+    auto* adapter = makeAdapter(sink, this);
+    adapter->setSessionId(sessionId);
+
+    m_sessions.insert(sessionId, Session{adapter, sink, sock, nullptr});
+    m_socketToSession.insert(sock, sessionId);
+
+    // Disconnect the pending lambda; reroute to the adapter.
+    sock->disconnect(this);
+    connect(sock, &QWebSocket::textMessageReceived,
+            adapter, [adapter](const QString& t) {
+                adapter->handleClientText(t);
+            });
+    connect(sock, &QWebSocket::binaryMessageReceived,
+            adapter, [adapter](const QByteArray& b) {
+                adapter->handleClientBinary(b);
+            });
+    connect(sock, &QWebSocket::disconnected,
+            this, [this, sock] { onSocketDisconnected(sock); });
+
+    qInfo("ws session opened: id=%s (%d active)",
+          qUtf8Printable(sessionId), m_sessions.size());
+}
+
+SessionAdapter* WsServer::makeAdapter(IEnvelopeSink* sink, QObject* parent)
+{
+    return new SessionAdapter(sink, m_spawnShell, m_zoneMgr, m_player,
+                              m_mapData, m_messageShell, m_groupMgr,
+                              m_spellShell, m_combatRouter, m_categoryMgr,
+                              m_filterMgr, m_prefsBroker, parent);
+}
+
+QString WsServer::generateSessionId() const
+{
+    // QUuid::createUuid() is random (v4) and uses /dev/urandom on Linux.
+    // Strip braces + dashes for a compact string the client can stash
+    // in localStorage without escaping.
+    return QUuid::createUuid().toString(QUuid::Id128);
+}
+
+void WsServer::onSocketDisconnected(QWebSocket* sock)
+{
+    // Pending socket that died before sending Subscribe — just clean up.
+    if (m_pending.contains(sock)) {
+        m_pending.remove(sock);
+        sock->deleteLater();
+        qInfo("ws pending client disconnected before Subscribe");
+        return;
+    }
+
+    auto sit = m_socketToSession.find(sock);
+    if (sit == m_socketToSession.end()) {
+        sock->deleteLater();
+        return;
+    }
+    const QString id = sit.value();
+    m_socketToSession.erase(sit);
+
+    auto sessIt = m_sessions.find(id);
+    if (sessIt == m_sessions.end()) {
+        sock->deleteLater();
+        return;
+    }
+    Session& s = *sessIt;
+
+    // Detach: swap to NoopSink so the adapter keeps consuming signals
+    // (filling its ring buffer) but produces nothing externally. Start
+    // the prune timer; a resume within 30s reattaches a real sink.
+    auto* oldSink = s.liveSink;
+    s.liveSink = new NoopSink();
+    s.adapter->setSink(s.liveSink);
+    delete oldSink;
+    s.sock = nullptr;
+
+    s.pruneTimer = new QTimer(this);
+    s.pruneTimer->setSingleShot(true);
+    connect(s.pruneTimer, &QTimer::timeout,
+            this, [this, id] { pruneSession(id); });
+    s.pruneTimer->start(kPruneAfterMs);
+
     sock->deleteLater();
-    qInfo("ws client disconnected (%d remaining)", m_sessions.size());
+    qInfo("ws session detached: id=%s (%d active, %dms to prune)",
+          qUtf8Printable(id), m_sessions.size(), kPruneAfterMs);
+}
+
+void WsServer::pruneSession(const QString& id)
+{
+    auto it = m_sessions.find(id);
+    if (it == m_sessions.end()) return;
+    if (it->sock != nullptr) {
+        // Reattached between timer schedule and fire — leave it alone.
+        return;
+    }
+    if (it->adapter) it->adapter->deleteLater();
+    delete it->liveSink;
+    if (it->pruneTimer) it->pruneTimer->deleteLater();
+    m_sessions.erase(it);
+    qInfo("ws session pruned: id=%s (%d remaining)",
+          qUtf8Printable(id), m_sessions.size());
 }

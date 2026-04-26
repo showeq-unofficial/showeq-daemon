@@ -62,6 +62,32 @@ void SessionAdapter::handleClientText(const QString& text)
 
 void SessionAdapter::handleClientBinary(const QByteArray& bytes)
 {
+    // Leaky-bucket rate limit. 30 sustained msg/s with a 60-msg burst is
+    // far above what any reasonable client UI emits (Subscribe is once
+    // per connection; filter / pref edits are user-initiated). A runaway
+    // client gets quietly dropped and warned once per session.
+    constexpr double kTokensPerSec = 30.0;
+    constexpr double kBucketCap = 60.0;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (m_bucketLastMs == 0) {
+        m_bucketLastMs = now;
+        m_bucketTokens = kBucketCap;
+    } else {
+        m_bucketTokens += (now - m_bucketLastMs) * kTokensPerSec / 1000.0;
+        if (m_bucketTokens > kBucketCap) m_bucketTokens = kBucketCap;
+        m_bucketLastMs = now;
+    }
+    if (m_bucketTokens < 1.0) {
+        if (!m_rateLimitWarned) {
+            qWarning("rate limit: client exceeded %.0f msg/s, dropping",
+                     kTokensPerSec);
+            m_rateLimitWarned = true;
+        }
+        return;
+    }
+    m_bucketTokens -= 1.0;
+    m_rateLimitWarned = false;
+
     seq::v1::ClientEnvelope env;
     if (!env.ParseFromArray(bytes.constData(), bytes.size())) {
         qWarning("malformed ClientEnvelope (%lld bytes)",
@@ -300,6 +326,7 @@ void SessionAdapter::sendSnapshot()
 {
     seq::v1::Envelope env;
     auto* snap = env.mutable_snapshot();
+    snap->set_session_id(m_sessionId.toStdString());
     if (m_zoneMgr) {
         snap->set_zone_short(m_zoneMgr->shortZoneName().toStdString());
         snap->set_zone_long(m_zoneMgr->longZoneName().toStdString());
@@ -364,6 +391,35 @@ void SessionAdapter::emitEnvelope(seq::v1::Envelope&& env)
     env.set_server_ts_ms(static_cast<uint64_t>(
         QDateTime::currentMSecsSinceEpoch()));
     m_sink->send(env);
+
+    // Resume buffer. Cap by time window (30s) and by absolute size
+    // (10k entries) so a chatty zone can't OOM the daemon between
+    // disconnect + reconnect.
+    constexpr int kMaxEntries = 10000;
+    constexpr qint64 kWindowMs = 30 * 1000;
+    m_ringBuffer.push_back(std::move(env));
+    const qint64 cutoff = m_ringBuffer.back().server_ts_ms() - kWindowMs;
+    while (!m_ringBuffer.empty() &&
+           static_cast<qint64>(m_ringBuffer.front().server_ts_ms()) < cutoff) {
+        m_ringBuffer.pop_front();
+    }
+    while (static_cast<int>(m_ringBuffer.size()) > kMaxEntries) {
+        m_ringBuffer.pop_front();
+    }
+}
+
+void SessionAdapter::replaySince(uint64_t lastSeq)
+{
+    // Linear scan is fine — the buffer is bounded at 10k. Skip envelopes
+    // the client already has, replay the rest in order through the
+    // current sink. We do NOT bump m_seq or rewrite server_ts_ms here:
+    // the envelope was already finalized when it was first emitted, and
+    // a faithful replay preserves the original ordering + timestamps.
+    for (const auto& env : m_ringBuffer) {
+        if (env.seq() > lastSeq) {
+            m_sink->send(env);
+        }
+    }
 }
 
 void SessionAdapter::sendOrBuffer(seq::v1::Envelope&& env)
