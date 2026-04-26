@@ -41,9 +41,6 @@
 
 namespace seq { void initGlobals(const QString& def, const QString& user); }
 
-// Forward decls for helpers defined further down in this file.
-static QString legacyShoweqHome();
-
 DaemonApp::DaemonApp(Config cfg, QObject* parent)
     : QObject(parent)
     , m_cfg(std::move(cfg))
@@ -75,22 +72,26 @@ bool DaemonApp::start()
         qInfo("--no-listen: WebSocket server disabled");
     }
 
-    // DataLocationMgr resolves file paths against ~/.showeq-daemon (user)
-    // and PKGDATADIR (install prefix). When --config-dir is passed, we copy
-    // PKGDATADIR by pointing the user dir at it instead, so the bundled
-    // opcode XMLs are picked up without an install step.
+    // DataLocationMgr resolves file paths against ~/.showeq (user) and
+    // PKGDATADIR (install prefix). The user dir is shared with showeq-c so
+    // filters/, maps/, spawnpoints/ etc. interop directly; daemon-only
+    // writes (prefs, future per-daemon state) go under ~/.showeq/daemon/ to
+    // avoid colliding with showeq-c's root-level showeq.xml. When
+    // --config-dir is passed, we copy PKGDATADIR by pointing the user dir
+    // at it instead, so the bundled opcode XMLs are picked up without an
+    // install step.
     if (!m_cfg.configDir.isEmpty()) {
         m_dataLocationMgr = std::make_unique<DataLocationMgr>(m_cfg.configDir);
         qInfo("config dir: %s", qUtf8Printable(m_cfg.configDir));
     } else {
-        m_dataLocationMgr = std::make_unique<DataLocationMgr>(".showeq-daemon");
+        m_dataLocationMgr = std::make_unique<DataLocationMgr>(".showeq");
         m_dataLocationMgr->setupUserDirectory();
     }
 
     const QFileInfo defPref =
         m_dataLocationMgr->findExistingFile(".", "seqdef.xml", true, false);
     const QFileInfo userPref =
-        m_dataLocationMgr->findWriteFile(".", "showeq-daemon.xml", true, true);
+        m_dataLocationMgr->findWriteFile("daemon", "showeq-daemon.xml", true, true);
     seq::initGlobals(defPref.absoluteFilePath(), userPref.absoluteFilePath());
 
     // Cross-cutting helpers the extracted managers expect to find on the
@@ -98,19 +99,14 @@ bool DaemonApp::start()
     // daemon still runs, we just can't render spell names or compute
     // calc-from-level durations. Search cascade:
     //   1. DataLocationMgr (user dir / --config-dir / pkg dir)
-    //   2. /usr/local/share/showeq/ (showeq-c install location)
-    //   3. ~/.showeq/ (legacy showeq-c user dir)
+    //   2. /usr/local/share/showeq/ (parallel showeq-c install — daemon
+    //      doesn't ship its own copy of spells_us.txt)
     m_dateTimeMgr = new DateTimeMgr(this, "datetimemgr");
     QFileInfo spellsFile =
         m_dataLocationMgr->findExistingFile(".", "spells_us.txt");
     if (!spellsFile.exists()) {
-        for (const QString& path : {
-                 QStringLiteral("/usr/local/share/showeq/spells_us.txt"),
-                 legacyShoweqHome() + "/.showeq/spells_us.txt",
-             }) {
-            QFileInfo fi(path);
-            if (fi.exists()) { spellsFile = fi; break; }
-        }
+        QFileInfo fi(QStringLiteral("/usr/local/share/showeq/spells_us.txt"));
+        if (fi.exists()) spellsFile = fi;
     }
     if (spellsFile.exists()) {
         qInfo("loaded spells from %s", qUtf8Printable(spellsFile.absoluteFilePath()));
@@ -128,13 +124,8 @@ bool DaemonApp::start()
     QFileInfo eqstrFile =
         m_dataLocationMgr->findExistingFile(".", "eqstr_us.txt");
     if (!eqstrFile.exists()) {
-        for (const QString& path : {
-                 QStringLiteral("/usr/local/share/showeq/eqstr_us.txt"),
-                 legacyShoweqHome() + "/.showeq/eqstr_us.txt",
-             }) {
-            QFileInfo fi(path);
-            if (fi.exists()) { eqstrFile = fi; break; }
-        }
+        QFileInfo fi(QStringLiteral("/usr/local/share/showeq/eqstr_us.txt"));
+        if (fi.exists()) eqstrFile = fi;
     }
     if (eqstrFile.exists()) {
         m_eqStrings->load(eqstrFile.absoluteFilePath());
@@ -269,6 +260,14 @@ bool DaemonApp::start()
             this,      SLOT(loadZoneMap(const QString&)));
     connect(m_zoneMgr, SIGNAL(zoneChanged(const QString&)),
             this,      SLOT(loadZoneMap(const QString&)));
+
+    // Same dual-signal wiring for the per-zone filter overlay. Without
+    // this, FilterMgr::loadZone only fires once at startup and the
+    // overlay file for the new zone is never re-read on transitions.
+    connect(m_zoneMgr,   SIGNAL(zoneBegin(const QString&)),
+            m_filterMgr, SLOT(loadZone(const QString&)));
+    connect(m_zoneMgr,   SIGNAL(zoneChanged(const QString&)),
+            m_filterMgr, SLOT(loadZone(const QString&)));
 
     // Let the WebSocket server hand these to each SessionAdapter it spawns.
     m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get(),
@@ -616,30 +615,17 @@ void DaemonApp::wireSpawnShell()
                        SLOT(action2(const uint8_t*, size_t, uint8_t)));
 }
 
-static QString legacyShoweqHome()
-{
-    // Under sudo, $HOME (and QDir::homePath) point at /root, not the
-    // invoking user's home — so the legacy ~/.showeq/maps directory the
-    // user actually populated isn't found. SUDO_USER is set by sudo to the
-    // original username, which we use to reconstruct the right path.
-    const QByteArray sudoUser = qgetenv("SUDO_USER");
-    if (!sudoUser.isEmpty() && qgetenv("USER") == "root") {
-        return QStringLiteral("/home/") + QString::fromLocal8Bit(sudoUser);
-    }
-    return QDir::homePath();
-}
-
 static QStringList mapSearchPaths(const QString& override,
                                   const DataLocationMgr* dlm)
 {
-    // Override wins; otherwise default cascade: legacy showeq-c location,
-    // then whatever DataLocationMgr considers the user + pkg "maps" dir.
+    // Override wins; otherwise the DataLocationMgr cascade (user → pkg).
+    // The user dir is ~/.showeq/maps — shared with showeq-c — so no
+    // separate legacy fallback is needed.
     QStringList paths;
     if (!override.isEmpty()) {
         paths.append(override);
         return paths;
     }
-    paths.append(legacyShoweqHome() + "/.showeq/maps");
     if (dlm) {
         paths.append(dlm->userDataDir("maps").absolutePath());
         paths.append(dlm->pkgDataDir("maps").absolutePath());

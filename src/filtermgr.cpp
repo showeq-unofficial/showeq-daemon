@@ -231,6 +231,30 @@ void FilterMgr::remZoneFilter(uint8_t filter, const QString& filterString)
   emit filtersChanged();
 }
 
+bool FilterMgr::editFilter(uint8_t filter,
+                           const QString& oldPattern,
+                           const QString& newPattern)
+{
+  if (filter >= SIZEOF_FILTERS)
+    return false;
+  m_filters->remFilter(filter, oldPattern);
+  bool ok = m_filters->addFilter(filter, newPattern);
+  emit filtersChanged();
+  return ok;
+}
+
+bool FilterMgr::editZoneFilter(uint8_t filter,
+                               const QString& oldPattern,
+                               const QString& newPattern)
+{
+  if (filter >= SIZEOF_FILTERS)
+    return false;
+  m_zoneFilters->remFilter(filter, oldPattern);
+  bool ok = m_zoneFilters->addFilter(filter, newPattern);
+  emit filtersChanged();
+  return ok;
+}
+
 void FilterMgr::loadZone(const QString& shortZoneName)
 {
   QString fileName = shortZoneName + ".xml";

@@ -114,6 +114,15 @@ class FilterMgr : public QObject
   bool addZoneFilter(uint8_t filter, const QString& filterString);
   void remZoneFilter(uint8_t filter, const QString& filterString);
 
+  // Atomic remove(old)+add(new) on the global / per-zone filter list:
+  // single filtersChanged emit so subscribers don't observe a transient
+  // empty state. Returns the result of the add; the remove is best-effort
+  // (a missing old pattern is silently ignored, matching remFilter).
+  bool editFilter(uint8_t filter,
+                  const QString& oldPattern, const QString& newPattern);
+  bool editZoneFilter(uint8_t filter,
+                      const QString& oldPattern, const QString& newPattern);
+
   // Read-only access to the internal Filters containers so the websocket
   // layer can enumerate the current rule set when a client subscribes.
   // Both can be null in pathological setup paths; callers must guard.

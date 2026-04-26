@@ -30,18 +30,30 @@
 #include <QFileInfo>
 #include <QRegExp>
 
+// Under sudo, $HOME (and QDir::homePath) resolve to /root, not the invoking
+// user's home — so a bare homeSubDir like ".showeq" would silently land in
+// /root/.showeq instead of the user's actual data dir. SUDO_USER is set by
+// sudo to the original username; use it to reconstruct the right path.
+static QString invokingUserHome()
+{
+  const QByteArray sudoUser = qgetenv("SUDO_USER");
+  if (!sudoUser.isEmpty() && qgetenv("USER") == "root")
+    return QStringLiteral("/home/") + QString::fromLocal8Bit(sudoUser);
+  return QDir::homePath();
+}
+
 DataLocationMgr::DataLocationMgr(const QString& homeSubDir)
 {
   // create package directory object
   m_pkgData = PKGDATADIR;
 
   // create the user directory object. Absolute paths (used by the daemon's
-  // --config-dir flag) are taken verbatim; bare names are relative to $HOME
-  // as originally in showeq-c.
+  // --config-dir flag) are taken verbatim; bare names are resolved against
+  // the invoking user's home (sudo-aware — see invokingUserHome above).
   if (QDir::isAbsolutePath(homeSubDir))
     m_userData = homeSubDir;
   else
-    m_userData = QDir::homePath() + "/" + homeSubDir;
+    m_userData = invokingUserHome() + "/" + homeSubDir;
 }
 
 DataLocationMgr::~DataLocationMgr()

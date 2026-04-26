@@ -130,6 +130,44 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
         }
         return;
     }
+    if (env.has_edit_filter_rule() && m_filterMgr) {
+        const auto& edit = env.edit_filter_rule();
+        const QString oldPat = QString::fromStdString(edit.old_pattern());
+        const QString newPat = QString::fromStdString(edit.new_pattern());
+        const uint8_t type = static_cast<uint8_t>(edit.filter_type());
+        if (edit.per_zone()) {
+            m_filterMgr->editZoneFilter(type, oldPat, newPat);
+        } else {
+            m_filterMgr->editFilter(type, oldPat, newPat);
+        }
+        return;
+    }
+    if (env.has_save_filters() && m_filterMgr) {
+        // Mirrors showeq-c's "Save Filters" / "Save Zone Filters"
+        // menu items. Persistence is explicit on purpose so a UI
+        // mutation doesn't immediately overwrite an operator's
+        // hand-edited XML. No filtersChanged emit — saving doesn't
+        // alter rule state, just persists it.
+        if (env.save_filters().per_zone()) {
+            m_filterMgr->saveZoneFilters();
+        } else {
+            m_filterMgr->saveFilters();
+        }
+        return;
+    }
+    if (env.has_reload_filters() && m_filterMgr) {
+        // Re-read XML from disk for both global filters and the
+        // current zone overlay (if any). loadFilters/loadZone each
+        // emit filtersChanged, which fans out to SpawnShell (re-eval
+        // of every spawn's flag bits) and every SessionAdapter
+        // (broadcast a fresh FilterRulesUpdate).
+        m_filterMgr->loadFilters();
+        if (m_zoneMgr) {
+            const QString zone = m_zoneMgr->shortZoneName();
+            if (!zone.isEmpty()) m_filterMgr->loadZone(zone);
+        }
+        return;
+    }
     if (env.has_set_pref() && m_prefsBroker) {
         // PrefsBroker validates against the allowlist; rejects (unknown
         // key, mismatched value variant) are dropped silently — no error

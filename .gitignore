@@ -15,8 +15,19 @@ compile_commands.json
 
 # Runtime-written XMLPreferences (DataLocationMgr saves to user dir;
 # under --config-dir <conf> it lands here in the working tree).
+# Old root-level path covers state written before the daemon/ subdir
+# split landed; new path is the current location.
 conf/showeq-daemon.xml
 conf/showeq-daemon.xml.bak
+conf/daemon/showeq-daemon.xml
+conf/daemon/showeq-daemon.xml.bak
 
 # Runtime-written SpawnMonitor per-zone spawn-point cache.
 conf/spawnpoints/
+
+# User-managed filter rules (FilterMgr saveFilters / saveZoneFilters)
+# and zone .map / .txt overlays. Both are operator data — never
+# committed; populated by hand-edits or by the running daemon under
+# --config-dir <conf>.
+conf/filters/
+conf/maps/
