@@ -29,6 +29,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <QLoggingCategory>
 #include <QString>
 
 //----------------------------------------------------------------------
@@ -41,13 +42,25 @@ static int seqMessage(MessageType type, const char* format, va_list ap)
 {
   char buff[SEQ_BUFFER_LENGTH];
   int ret = vsnprintf(buff, sizeof(buff), format, ap);
-  Messages* messages = Messages::messages();
 
-  // if the message object exists, use it, otherwise dump to stderr
-  if (messages)
+  // Always route through Qt's logging system so the message handler
+  // installed in main.cpp gives the line a timestamp + level tag. Pre-
+  // 2026-04-26 the Messages-fallback path printed to bare stderr, which
+  // produced timestamp-less lines mid-startup before the Messages
+  // singleton was constructed.
+  switch (type) {
+    case MT_Debug:   qDebug("%s",   buff); break;
+    case MT_Warning: qWarning("%s", buff); break;
+    default:         qInfo("%s",    buff); break;
+  }
+
+  // Also feed the in-memory Messages list when it exists. Today the
+  // daemon doesn't expose this list to clients (Phase 3 chat went via
+  // MessageShell::chatMessage, not via Messages::newMessage), but the
+  // wiring stays in place for future use.
+  if (Messages* messages = Messages::messages()) {
     messages->addMessage(type, buff);
-  else 
-    fprintf(stderr, "%s\n", buff);
+  }
 
   return ret;
 }
