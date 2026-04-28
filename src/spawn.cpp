@@ -235,11 +235,7 @@ QString print_item (uint16_t item)
   else
   {
     QString item_str;
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
     item_str = QString::asprintf("U%04x", item);
-#else
-    item_str.sprintf("U%04x", item);
-#endif
     return item_str;
   }
 }
@@ -300,19 +296,11 @@ QString Item::info() const
 QString Item::filterString() const
 {
   QString buff;
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
   buff = QString::asprintf("Name:%s:Race:%s:Class:%s:NPC:%d:X:%d:Y:%d:Z:%d:",
           transformedName().toUtf8().data(),
           raceString().toUtf8().data(),
           classString().toUtf8().data(),
           NPC(), x(), y(), z());
-#else
-  buff.sprintf("Name:%s:Race:%s:Class:%s:NPC:%d:X:%d:Y:%d:Z:%d:",
-          transformedName().toUtf8().data(),
-          raceString().toUtf8().data(),
-          classString().toUtf8().data(),
-          NPC(), x(), y(), z());
-#endif
   return buff;
 }
 
@@ -973,7 +961,6 @@ QString Spawn::filterString() const
   QString name = transformedName();
 
   QString buff;
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
   buff = QString::asprintf("Name:%s:Level:%d:Race:%s:Class:%s:NPC:%d:X:%d:Y:%d:Z:%d:"
           "Light:%s:Deity:%s:RTeam:%d:DTeam:%d:Type:%s:LastName:%s:Guild:%s:Spawn:%s:"
           "Info:%s:",
@@ -993,27 +980,6 @@ QString Spawn::filterString() const
           spawnTimeStr ().replace (":", ".").toUtf8 ().data (),
           info().toUtf8().data()
           );
-#else
-  buff.sprintf("Name:%s:Level:%d:Race:%s:Class:%s:NPC:%d:X:%d:Y:%d:Z:%d:"
-          "Light:%s:Deity:%s:RTeam:%d:DTeam:%d:Type:%s:LastName:%s:Guild:%s:Spawn:%s:"
-          "Info:%s:",
-          name.toUtf8().data(),
-          level(),
-          raceString().toUtf8().data(),
-          classString().toUtf8().data(),
-          ((NPC() == 10) ? 0 : NPC()),
-          x(), y(), z(),
-          lightName().toUtf8().data(),
-          deityName().toUtf8().data(),
-          raceTeam(),
-          deityTeam(),
-          typeString().toUtf8().data(),
-          lastName().toUtf8().data(),
-          guildTag().toUtf8().data(),
-          spawnTimeStr ().replace (":", ".").toUtf8 ().data (),
-          info().toUtf8().data()
-          );
-#endif
 
   if (gm())
     buff += QString("GM:") + QString::number(gm()) + ":";
@@ -1172,11 +1138,7 @@ void Door::update(const doorStruct* d)
 	 (int16_t)(d->y), 
 	 (int16_t)(d->z * 10.0));
   setHeading((int8_t)lrintf(d->heading));
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
   m_name = QString::asprintf("Door: %s (%d) ", d->name, d->doorId);
-#else
-  m_name.sprintf("Door: %s (%d) ", d->name, d->doorId);
-#endif
   setZonePoint(d->zonePoint);
   updateLast();
 }

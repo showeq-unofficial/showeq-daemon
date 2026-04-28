@@ -80,11 +80,7 @@ QString SpellItem::durationStr() const
    int h = d / 3600;
    d %= 3600;
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
    text = QString::asprintf("%02d:%02d:%02d", h, d / 60, d % 60);
-#else
-   text.sprintf("%02d:%02d:%02d", h, d / 60, d % 60);
-#endif
    return text;
 }
 

@@ -52,21 +52,12 @@ XMLPreferences::XMLPreferences(const QString& defaultsFileName,
     m_userSections(),
     m_defaultsSections()
 {
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
   m_templateDoc = QString::asprintf("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 			"<!DOCTYPE %s SYSTEM \"%s\">\n"
 			"<seqpreferences version=\"%1.1f\">\n"
 			"<!-- ============================================================= -->"
 			"</seqpreferences>\n",
 			seqPrefName, seqPrefSysId, seqPrefVersion);
-#else
-  m_templateDoc.sprintf("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-			"<!DOCTYPE %s SYSTEM \"%s\">\n"
-			"<seqpreferences version=\"%1.1f\">\n"
-			"<!-- ============================================================= -->"
-			"</seqpreferences>\n",
-			seqPrefName, seqPrefSysId, seqPrefVersion);
-#endif
 
 
   // load the preferences

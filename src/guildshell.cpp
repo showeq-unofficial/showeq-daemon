@@ -31,12 +31,6 @@
 #include <QDateTime>
 #include <QTextStream>
 
-#pragma message("Once our minimum supported Qt version is greater than 5.14, this check can be removed and ENDL replaced with Qt::endl")
-#if (QT_VERSION >= QT_VERSION_CHECK(5,14,0))
-#define ENDL Qt::endl
-#else
-#define ENDL endl
-#endif
 
 //----------------------------------------------------------------------
 // diagnostic defines
@@ -218,7 +212,7 @@ void GuildShell::dumpMembers(QTextStream& out)
     if (classString(i).length() > maxClassNameLength)
       maxClassNameLength = classString(i).length();
 
-  out << "Guild has " << m_members.count() << " members: " << ENDL;
+  out << "Guild has " << m_members.count() << " members: " << Qt::endl;
 
   int nameFieldWidth = - m_maxNameLength;
   int classFieldWidth = - maxClassNameLength;
@@ -231,7 +225,7 @@ void GuildShell::dumpMembers(QTextStream& out)
     .arg("P", 1)
     .arg("Last On", -24)
     .arg("Zone", -18);
-  out << " Public Note" << ENDL;
+  out << " Public Note" << Qt::endl;
 
   QString zone;
   while (it.hasNext())
@@ -252,7 +246,7 @@ void GuildShell::dumpMembers(QTextStream& out)
       .arg(dt.toString(dateFormat), -24)
       .arg(zone, -18);
 
-    out << " " << member->publicNote() << ENDL;
+    out << " " << member->publicNote() << Qt::endl;
   }
 }
 

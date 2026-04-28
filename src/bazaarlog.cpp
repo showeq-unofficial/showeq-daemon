@@ -27,12 +27,6 @@
 #include "spawnshell.h"
 #include "diagnosticmessages.h"
 
-#pragma message("Once our minimum supported Qt version is greater than 5.14, this check can be removed and ENDL replaced with Qt::endl")
-#if (QT_VERSION >= QT_VERSION_CHECK(5,14,0))
-#define ENDL Qt::endl
-#else
-#define ENDL endl
-#endif
 
 BazaarLog::BazaarLog(EQPacket& packet, const QString& fname,
 		     QObject* parent, SpawnShell& shell, const char* name)
@@ -76,17 +70,10 @@ void BazaarLog::bazaarSearch(const uint8_t* data, size_t len, uint8_t dir)
       if (merchant)
 	merchant_name = merchant->name().toLatin1().data();
       QString csv;
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
       csv = QString::asprintf("1^%d^%d^%d^%s^%s",
 		  int(time(NULL)),resp.price,resp.count,
 		  merchant_name, name);
-      m_out << csv << ENDL;
-#else
-      csv.sprintf("1^%d^%d^%d^%s^%s",
-		  int(time(NULL)),resp.price,resp.count,
-		  merchant_name, name);
-      m_out << csv << ENDL;
-#endif
+      m_out << csv << Qt::endl;
     }
 
   flush();

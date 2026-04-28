@@ -845,23 +845,11 @@ void EQPacket::setPlayback(int speed)
   QString string("");
     
   if (speed == 0)
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
     string = QString::asprintf("Playback speed set Fast as possible");
-#else
-    string.sprintf("Playback speed set Fast as possible");
-#endif
   else if (speed < 0)
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
      string = QString::asprintf("Playback paused (']' to resume)");
-#else
-     string.sprintf("Playback paused (']' to resume)");
-#endif
   else
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
      string = QString::asprintf("Playback speed set to %d", speed);
-#else
-     string.sprintf("Playback speed set to %d", speed);
-#endif
 
   emit stsMessage(string, 5000);
 

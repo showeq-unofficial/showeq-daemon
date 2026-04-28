@@ -338,12 +338,7 @@ bool DomConvenience::variantToElement(const QVariant& v, QDomElement& e)
   {
     e.setTagName("int64");
     QString val;
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
     val = QString::asprintf("%0.16llx", v.toLongLong());
-#else
-    val = v.toLongLong();
-    val.sprintf("%0.16llx", v.toLongLong());
-#endif
     e.setAttribute("value", val);
     break;
   }
@@ -352,12 +347,7 @@ bool DomConvenience::variantToElement(const QVariant& v, QDomElement& e)
   {
     e.setTagName("uint64");
     QString val;
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
     val = QString::asprintf("%0.16llx", v.toULongLong());
-#else
-    val = v.toULongLong();
-    val.sprintf("%0.16llx", v.toULongLong());
-#endif
     e.setAttribute("value", val);
     break;
   }

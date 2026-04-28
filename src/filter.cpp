@@ -37,11 +37,6 @@
 
 #define MAXLEN   5000
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5,14,0))
-#define ENDL Qt::endl
-#else
-#define ENDL endl
-#endif
 
 //#define DEBUG_FILTER
 
@@ -216,13 +211,8 @@ void FilterItem::init(const QString& regexString, bool caseSensitive,
 
   filterString = regexString;
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
   if (!caseSensitive)
       m_regexp.setPatternOptions(QRegularExpression::CaseInsensitiveOption);
-#else
-  m_regexp.setPatternSyntax(QRegExp::RegExp);
-  m_regexp.setCaseSensitivity(caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive);
-#endif
 
   // For the pattern, save off the original. This is what will be saved
   // during save operations. But the actual regexp we filter with will
@@ -275,7 +265,7 @@ bool FilterItem::save(QString& indent, QTextStream& out)
     out << "/>";
   }
 
-  out << "</oldfilter>" << ENDL;
+  out << "</oldfilter>" << Qt::endl;
 
   return true;
 }
@@ -706,9 +696,9 @@ bool Filters::save(const QString& filename) const
   out.setFieldAlignment(QTextStream::AlignLeft);
 
   // print document header
-  out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << ENDL
-      << "<!DOCTYPE seqfilters SYSTEM \"seqfilters.dtd\">" << ENDL
-      << "<seqfilters>" << ENDL;
+  out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << Qt::endl
+      << "<!DOCTYPE seqfilters SYSTEM \"seqfilters.dtd\">" << Qt::endl
+      << "<seqfilters>" << Qt::endl;
 
   // set initial indent
   QString indent = "    ";
@@ -720,17 +710,17 @@ bool Filters::save(const QString& filename) const
   {
     // section start tag
     out << indent << "<section name=\"" << m_types.name(it->first)
-	<< "\">" << ENDL;
+	<< "\">" << Qt::endl;
 
     // persist the filter
     it->second->save(indent, out);
 
     // section end tag
-    out << indent << "</section>" << ENDL;
+    out << indent << "</section>" << Qt::endl;
   }
 
   // output closing entity
-  out << "</seqfilters>" << ENDL;
+  out << "</seqfilters>" << Qt::endl;
 
   return true;
 }

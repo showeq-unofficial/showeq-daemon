@@ -29,12 +29,6 @@
 #include "decode.h"
 #include "diagnosticmessages.h"
 
-#pragma message("Once our minimum supported Qt version is greater than 5.14, this check can be removed and ENDL replaced with Qt::endl")
-#if (QT_VERSION >= QT_VERSION_CHECK(5,14,0))
-#define ENDL Qt::endl
-#else
-#define ENDL endl
-#endif
 
 //----------------------------------------------------------------------
 // PacketLog
@@ -54,11 +48,7 @@ PacketLog::~PacketLog()
 inline QString opCodeToString(uint16_t opCode)
 {
   QString tempStr;
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
   tempStr = QString::asprintf("[OPCode: %#.04x]", opCode);
-#else
-  tempStr.sprintf("[OPCode: %#.04x]", opCode);
-#endif
 
   // Flags are gone? Combined and implicit don't make sense anymore and
   // nothing is compressed or encrypted at this point...
@@ -91,19 +81,11 @@ QString PacketLog::print_addr (in_addr_t  addr)
   if (addr == m_packet.clientAddr())
     paddr = "client";
   else
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
     paddr = QString::asprintf( "%d.%d.%d.%d",
 		   addr & 0x000000ff,
 		   (addr & 0x0000ff00) >> 8,
 		   (addr & 0x00ff0000) >> 16,
 		   (addr & 0xff000000) >> 24);
-#else
-    paddr.sprintf( "%d.%d.%d.%d",
-		   addr & 0x000000ff,
-		   (addr & 0x0000ff00) >> 8,
-		   (addr & 0x00ff0000) >> 16,
-		   (addr & 0xff000000) >> 24);
-#endif
 
    return paddr;
 }
@@ -162,10 +144,10 @@ void PacketLog::logData(const uint8_t* data,
   
   // data direction and size
   m_out << ((dir == DIR_Server) ? "[Server->Client] " : "[Client->Server] ")
-      << "[Size: " << QString::number(len) << "]" << ENDL;
+      << "[Size: " << QString::number(len) << "]" << Qt::endl;
 
   // output opcode info
-  m_out << opCodeToString(opcode) << ENDL;
+  m_out << opCodeToString(opcode) << Qt::endl;
 
   flush();
 
@@ -173,7 +155,7 @@ void PacketLog::logData(const uint8_t* data,
   if (len)
     outputData(len, data);
   else
-    m_out << ENDL;
+    m_out << Qt::endl;
 
   flush();
 }
@@ -201,10 +183,10 @@ void PacketLog::logData(const uint8_t* data,
   
   // data direction and size
   m_out << ((dir == DIR_Server) ? "[Server->Client] " : "[Client->Server] ")
-      << "[Size: " << QString::number(len) << "]" << ENDL;
+      << "[Size: " << QString::number(len) << "]" << Qt::endl;
 
   // output opcode info
-  m_out << opCodeToString(opcode) << ENDL;
+  m_out << opCodeToString(opcode) << Qt::endl;
 
   if (opcodeEntry)
   {
@@ -232,7 +214,7 @@ void PacketLog::logData(const uint8_t* data,
       }
     }
 
-    m_out  << ENDL;
+    m_out  << Qt::endl;
   }
 
   flush();
@@ -241,7 +223,7 @@ void PacketLog::logData(const uint8_t* data,
   if (len)
     outputData(len, data);
   else
-    m_out << ENDL;
+    m_out << Qt::endl;
 
   flush();
 }
@@ -266,7 +248,7 @@ void PacketLog::logData(const EQUDPIPPacketFormat& packet)
       << " [" << sourceStr << ":" << QString::number(packet.getSourcePort())
       << "->" << destStr << ":" << QString::number(packet.getDestPort()) 
       << "] [Size: " << QString::number(packet.getUDPPayloadLength()) << "]"
-      << ENDL;
+      << Qt::endl;
 
   uint16_t calcedCRC;
 
@@ -289,18 +271,18 @@ void PacketLog::logData(const EQUDPIPPacketFormat& packet)
 
     if (packet.hasCRC())
     {
-      m_out << " [CRC ok]" << ENDL;
+      m_out << " [CRC ok]" << Qt::endl;
     }
 
-    m_out << ENDL;
+    m_out << Qt::endl;
   }
   else
   {
     m_out << "[BAD CRC (" << QString::number(calcedCRC, 16) 
 	  << " != " << QString::number(packet.crc(), 16) 
-	  << ")! Sessions crossed or unitialized or non-EQ packet! ]" << ENDL;
+	  << ")! Sessions crossed or unitialized or non-EQ packet! ]" << Qt::endl;
     m_out << "[SessionKey: " << QString::number(packet.getSessionKey(), 16) <<
-      "]" << ENDL;
+      "]" << Qt::endl;
   }
 
   flush();
@@ -310,7 +292,7 @@ void PacketLog::logData(const EQUDPIPPacketFormat& packet)
     outputData(packet.getUDPPayloadLength(), 
 	      (const uint8_t*)packet.getUDPPayload());
   else
-    m_out << ENDL;
+    m_out << Qt::endl;
 
   flush();
 }

@@ -17,7 +17,7 @@ endif()
 # QPen, QBrush, QFont, QSizePolicy, QKeySequence) that extracted headers
 # reference. The daemon only instantiates QCoreApplication, never
 # QGuiApplication or QApplication, so it still runs without a display.
-find_package(Qt5 5.14 REQUIRED COMPONENTS Core Gui Widgets Network Xml WebSockets)
+find_package(Qt5 5.15 REQUIRED COMPONENTS Core Gui Widgets Network Xml WebSockets)
 find_package(Protobuf REQUIRED)
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)

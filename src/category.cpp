@@ -337,11 +337,7 @@ void CategoryMgr::reloadCategories(void)
   QString tempStr;
   for(i = 1; i <= tMaxNumCategories; i++)
   {
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
     prefBaseName = QString::asprintf("Category%d_", i);
-#else
-    prefBaseName.sprintf("Category%d_", i);
-#endif
     
     // attempt to pull a button title from the preferences
     tempStr = prefBaseName + "Name";
@@ -390,11 +386,7 @@ void CategoryMgr::savePrefs(void)
       if (!curCategory)
           break;
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
     prefBaseName = QString::asprintf("Category%d_", count++);
-#else
-    prefBaseName.sprintf("Category%d_", count++);
-#endif
     pSEQPrefs->setPrefString(prefBaseName + "Name", section, 
 			     curCategory->name());
     pSEQPrefs->setPrefString(prefBaseName + "Filter", section,
@@ -408,11 +400,7 @@ void CategoryMgr::savePrefs(void)
   QColor black("black");
   while (count <= tMaxNumCategories)
   {
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
     prefBaseName = QString::asprintf("Category%d_", count++);
-#else
-    prefBaseName.sprintf("Category%d_", count++);
-#endif
     pSEQPrefs->setPrefString(prefBaseName + "Name", section, "");
     pSEQPrefs->setPrefString(prefBaseName + "Filter", section, "");
     pSEQPrefs->setPrefString(prefBaseName + "FilterOut", section, "");

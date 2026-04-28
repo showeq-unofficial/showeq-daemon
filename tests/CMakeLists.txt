@@ -4,7 +4,7 @@
 # Tier-2 (replay against .vpk goldens) is documented in tests/README.md
 # and is gated on capturing fixture files from a live session.
 
-find_package(Qt5 5.14 REQUIRED COMPONENTS Test)
+find_package(Qt5 5.15 REQUIRED COMPONENTS Test)
 
 add_executable(protoencoder_test
   protoencoder_test.cpp

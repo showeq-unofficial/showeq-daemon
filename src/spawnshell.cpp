@@ -48,13 +48,6 @@
 #include <cmath>
 
 
-#pragma message("Once our minimum supported Qt version is greater than 5.14, this check can be removed and ENDL replaced with Qt::endl")
-#if (QT_VERSION >= QT_VERSION_CHECK(5,14,0))
-#define ENDL Qt::endl
-#else
-#define ENDL endl
-#endif
-
 //----------------------------------------------------------------------
 // useful macro definitions
 

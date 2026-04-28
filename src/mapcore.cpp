@@ -1431,21 +1431,13 @@ void MapData::createNewLayer()
 
     if (m_mapLayers.count())
     {
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
         fileName = QString::asprintf("%s_%d.map", m_zoneShortName.toLatin1().data(), m_mapLayers.count());
-#else
-        fileName.sprintf("%s_%d.map", m_zoneShortName.toLatin1().data(), m_mapLayers.count());
-#endif
     }
     else
     {
         QDateTime now = QDateTime::currentDateTime();
         QString timestamp = now.toString("yyyyMMdd-hhmmss");
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
         fileName = QString::asprintf("%s.map", timestamp.toLatin1().data());
-#else
-        fileName.sprintf("%s.map", timestamp.toLatin1().data());
-#endif
         m_zoneLongName = timestamp;
         m_zoneShortName = m_zoneLongName;
     }

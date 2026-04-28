@@ -33,11 +33,7 @@
 #include <QVector>
 #include <QString>
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
 #include <QRegularExpression>
-#else
-#include <QRegExp>
-#endif
 
 EQStr::EQStr()
   : m_messageStrings(),
@@ -72,18 +68,10 @@ bool EQStr::load(const QString& fileName)
   formatFile.read(textData.data(), textData.size());
   
   // construct a regex to deal with either style line termination
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
   QRegularExpression lineTerm("[\r\n]{1,2}");
-#else
-  QRegExp lineTerm("[\r\n]{1,2}");
-#endif
 
   // split the data into lines at the line termination
-#if (QT_VERSION >= QT_VERSION_CHECK(5,14,0))
   QStringList lines = QString::fromUtf8(textData).split(lineTerm, Qt::SkipEmptyParts);
-#else
-  QStringList lines = QString::fromUtf8(textData).split(lineTerm, QString::SkipEmptyParts);
-#endif
 
   // start iterating over the lines
   QStringList::Iterator it = lines.begin();
@@ -156,11 +144,7 @@ QString EQStr::formatMessage(uint32_t formatid,
     {
 	uint32_t arg_len;
 	unsigned char *cp;
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
 	tempStr = QString::asprintf( "Unknown: %04x:", formatid);
-#else
-	tempStr.sprintf( "Unknown: %04x:", formatid);
-#endif
 	cp = (unsigned char *) arguments;
 	while (cp < ((unsigned char *) &arguments[argsLen] - sizeof(uint32_t)*sizeof(unsigned char))) {
 	    arg_len = (cp[0] << 0) | (cp[1] << 8) | (cp[2] << 16) | (cp[3] << 24);
@@ -206,26 +190,16 @@ QString EQStr::formatMessage(uint32_t formatid,
 	////////////////////////////
 	// replace template (%T) arguments in formatted string
 	QString formatString = formatStringRes;
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
     QRegularExpression rxt("%T(\\d{1,3})");
     // find first template substitution
     auto match = rxt.match(formatString, 0);
     curPos = match.capturedStart(1);
-#else
-    QRegExp rxt("%T(\\d{1,3})");
-    // find first template substitution
-    curPos = rxt.indexIn(formatString, 0);
-#endif
 
     while (curPos != -1)
     {
         substFormatStringRes = QString();
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
         substArg = match.captured(1).toInt(&ok);
-#else
-        substArg = rxt.cap(1).toInt(&ok);
-#endif
 
 
         if (ok && (substArg <= argList.size()))
@@ -237,7 +211,6 @@ QString EQStr::formatMessage(uint32_t formatid,
         }
 
         // replace template argument with subst string
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
         if (!substFormatStringRes.isEmpty())
         {
             formatString.replace(curPos-2, match.capturedLength(1)+2, substFormatStringRes);
@@ -251,39 +224,18 @@ QString EQStr::formatMessage(uint32_t formatid,
         // find next substitution
         match = rxt.match(formatString, curPos);
         curPos = match.capturedStart(1);
-#else
-        if (!substFormatStringRes.isEmpty())
-        {
-            formatString.replace(curPos, rxt.matchedLength(), substFormatStringRes);
-        }
-        else
-        {
-            formatString.replace(curPos, rxt.matchedLength(), "");
-            curPos += rxt.matchedLength(); // if no replacement string, skip over
-        }
-
-        // find next substitution
-        curPos = rxt.indexIn(formatString, curPos);
-#endif
     }
 
 	////////////////////////////
 	// now replace substitution arguments in formatted string
 	// NOTE: not using QString::arg() because not all arguments are always used
 	//       and it will do screwy stuff in this situation
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
     QRegularExpression rx("%(\\d{1,3})");
     match = rx.match(formatString, 0);
     curPos = match.capturedStart(1);
-#else
-    QRegExp rx("%(\\d{1,3})");
-    // find first template substitution
-    curPos = rx.indexIn(formatString, 0);
-#endif
 
     while (curPos != -1)
     {
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
         substArg = match.captured(1).toInt(&ok);
 
         // replace substitution argument with argument from list
@@ -310,33 +262,6 @@ QString EQStr::formatMessage(uint32_t formatid,
         // find next substitution
         match = rx.match(formatString, curPos);
         curPos = match.capturedStart(1);
-#else
-        substArg = rx.cap(1).toInt(&ok);
-
-        // replace substitution argument with argument from list
-        if (ok && (substArg <= argList.size()))
-        {
-            QString sub = argList[substArg-1];
-            // some messages contains spell names with additional delimited fields
-            if (sub.contains('^'))
-            {
-                sub = sub.mid(sub.lastIndexOf('^')+1);
-                // they also contain an oddball apostrophe
-                if (sub.startsWith("'"))
-                    sub.replace(0, 1, "");
-            }
-            formatString.replace(curPos, rx.matchedLength(), sub);
-        }
-        else
-        {
-            //no argument for this replacement, so replace with empty string
-            formatString.replace(curPos, rx.matchedLength(), "");
-            curPos += rx.matchedLength(); // if no such argument, skip over
-        }
-
-        // find next substitution
-        curPos = rx.indexIn(formatString, curPos);
-#endif
     }
 
     return formatString;

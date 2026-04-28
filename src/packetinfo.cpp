@@ -38,12 +38,6 @@
 #include "everquest.h"
 #include "diagnosticmessages.h"
 
-#pragma message("Once our minimum supported Qt version is greater than 5.14, this check can be removed and ENDL replaced with Qt::endl")
-#if (QT_VERSION >= QT_VERSION_CHECK(5,14,0))
-#define ENDL Qt::endl
-#else
-#define ENDL endl
-#endif
 
 //----------------------------------------------------------------------
 // Macros
@@ -336,9 +330,9 @@ bool EQPacketOPCodeDB::save(const QString& filename)
   out.setFieldAlignment(QTextStream::AlignLeft);
 
   // print document header
-  out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << ENDL
-      << "<!DOCTYPE seqopcodes SYSTEM \"seqopcodes.dtd\">" << ENDL
-      << "<seqopcodes>" << ENDL;
+  out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << Qt::endl
+      << "<!DOCTYPE seqopcodes SYSTEM \"seqopcodes.dtd\">" << Qt::endl
+      << "<seqopcodes>" << Qt::endl;
 
   // set initial indent
   QString indent = "    ";
@@ -374,18 +368,14 @@ bool EQPacketOPCodeDB::save(const QString& filename)
     currentOPCode = oit->second;
 
     // output the current opcode
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
     opcodeString = QString::asprintf("%04x", currentOPCode->opcode());
-#else
-    opcodeString.sprintf("%04x", currentOPCode->opcode());
-#endif
     out << indent << "<opcode id=\"" << opcodeString << "\" name=\""
 	<< currentOPCode->name() << "\"";
     if (currentOPCode->implicitLen())
       out << " implicitlen=\"" << currentOPCode->implicitLen() << "\"";
     if (!currentOPCode->updated().isEmpty())
       out << " updated=\"" << currentOPCode->updated() << "\"";
-    out << ">" << ENDL;
+    out << ">" << Qt::endl;
 
     // increase the indent
     indent += "    ";
@@ -394,7 +384,7 @@ bool EQPacketOPCodeDB::save(const QString& filename)
     QStringList comments = currentOPCode->comments();
     for (QStringList::Iterator cit = comments.begin(); 
 	 cit != comments.end(); ++cit)
-      out << indent << "<comment>" << *cit << "</comment>" << ENDL;
+      out << indent << "<comment>" << *cit << "</comment>" << Qt::endl;
 
     QByteArray dirStr;
     QByteArray sztStr;
@@ -412,18 +402,18 @@ bool EQPacketOPCodeDB::save(const QString& filename)
 	  << "\" typename=\"" << currentPayload->typeName() 
 	  << "\" sizechecktype=\""
 	  << sztStrs[currentPayload->sizeCheckType()]
-	  << "\"/>" << ENDL;
+	  << "\"/>" << Qt::endl;
     }
 
     // decrease the indent
     indent.remove(0, 4);
 
     // close the opcode entity
-    out << indent << "</opcode>" << ENDL;
+    out << indent << "</opcode>" << Qt::endl;
   }
 
   // output closing entity
-  out << "</seqopcodes>" << ENDL;
+  out << "</seqopcodes>" << Qt::endl;
 
   return true;
 }

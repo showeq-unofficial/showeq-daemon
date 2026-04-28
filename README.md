@@ -23,7 +23,7 @@ WebSocket + protobuf.
 
 ## Build
 
-Requires: CMake 3.20+, Qt 5.14+ (Core, Network, Xml, WebSockets), libpcap,
+Requires: CMake 3.20+, Qt 5.15+ (Core, Network, Xml, WebSockets), libpcap,
 Protobuf, zlib, pthreads.
 
 ```sh

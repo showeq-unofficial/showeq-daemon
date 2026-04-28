@@ -35,11 +35,7 @@
 #include <QList>
 #include <QTextStream>
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
 #include <QRegularExpression>
-#else
-#include <QRegExp>
-#endif
 
 #include <map>
 
@@ -147,11 +143,7 @@ public:
   void init(const QString& filterPattern, bool caseSensitive, uint8_t minLevel,
          uint8_t maxLevel);
   
-#if (QT_VERSION >= QT_VERSION_CHECK(5,5,0))
   QRegularExpression m_regexp;
-#else
-  QRegExp m_regexp;
-#endif
   QString m_regexpOriginalPattern;
   uint8_t m_minLevel;
   uint8_t m_maxLevel;

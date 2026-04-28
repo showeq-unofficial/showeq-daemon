@@ -34,12 +34,6 @@
 #include <QDataStream>
 #include <QTextStream>
 
-#pragma message("Once our minimum supported Qt version is greater than 5.14, this check can be removed and ENDL replaced with Qt::endl")
-#if (QT_VERSION >= QT_VERSION_CHECK(5,14,0))
-#define ENDL Qt::endl
-#else
-#define ENDL endl
-#endif
 
 GuildMgr::GuildMgr(QString fn, QObject* parent, const char* name)
   : QObject(parent)
@@ -230,7 +224,7 @@ void GuildMgr::guildList2text(QString fn)
    {
        if (itr->first == 0)
            continue;
-       guildtext << itr->first << "\t" << itr->second << ENDL;
+       guildtext << itr->first << "\t" << itr->second << Qt::endl;
    }
 
    guildsfile.close();
