@@ -23,6 +23,21 @@ target_compile_options(protoencoder_test PRIVATE
 
 add_test(NAME protoencoder_test COMMAND protoencoder_test)
 
+add_executable(seqcolor_test
+  seqcolor_test.cpp
+)
+
+target_link_libraries(seqcolor_test PRIVATE
+  seq-daemon-core
+  Qt${QT_VERSION_MAJOR}::Test
+)
+
+target_compile_options(seqcolor_test PRIVATE
+  -Wall
+)
+
+add_test(NAME seqcolor_test COMMAND seqcolor_test)
+
 if(SEQ_USE_RUST)
   add_executable(rustdecode_test
     rustdecode_test.cpp

@@ -35,7 +35,6 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
-#include <QKeySequence>
 #include <QTextStream>
 
 
@@ -700,65 +699,13 @@ getPrefMethod(int, Int, int);
 getPrefMethod(uint, UInt, uint);
 getPrefMethod(double, Double, double);
 getPrefMethod(bool, Bool, bool);
-getPrefMethod(QColor, Color, const QColor&);
-getPrefMethod(QPen, Pen, const QPen&);
-getPrefMethod(QBrush, Brush, const QBrush&);
+getPrefMethod(SeqColor, Color, const SeqColor&);
 getPrefMethod(QPoint, Point, const QPoint&);
 getPrefMethod(QRect, Rect, const QRect&);
 getPrefMethod(QSize, Size, const QSize&);
-getPrefMethod(QFont, Font, const QFont&);
-getPrefMethod(QSizePolicy, SizePolicy, const QSizePolicy&);
-getPrefMethod(QCursor, Cursor, const QCursor&);
 getPrefMethod(QStringList, StringList, const QStringList&);
 
-// implement get methods that require special behavior
-QKeySequence XMLPreferences::getPrefKey(const QString& inName,
-			       const QString& inSection,
-			       const QString& def,
-			       Persistence pers)
-{
-  return getPrefKey(inName, inSection, QKeySequence(def), pers);
-}
-
-QKeySequence XMLPreferences::getPrefKey(const QString& inName,
-			       const QString& inSection,
-			       const QKeySequence& def,
-			       Persistence pers)
-{
-  // try to retrieve the preference
-  QVariant* preference = getPref(inName, inSection, pers);
-
-  // if preference was retrieved, return it as a string
-  if (preference != NULL)
-  {
-
-    switch(preference->type())
-    {
-    case QVariant::KeySequence:
-      return preference->value<QKeySequence>();
-    case QVariant::String:
-      // convert it to a key
-      return QKeySequence(preference->value<QKeySequence>());
-    case QVariant::Int:
-    case QVariant::UInt:
-    case QVariant::Double:
-      return QKeySequence(preference->value<QKeySequence>());
-    default:
-      qWarning("XMLPreferences::getPrefKey(%s, %s, %s): preference found,\n"
-              "\tbut type %s is not convertable to type key!",
-              inName.toLatin1().data(), inSection.toLatin1().data(),
-              def.toString().toLatin1().data(), preference->typeName());
-      return QKeySequence(def);
-    }
-
-  }
-
-  // return the default value
-  return QKeySequence(def);
-}
-
-
-int64_t XMLPreferences::getPrefInt64(const QString& inName, 
+int64_t XMLPreferences::getPrefInt64(const QString& inName,
 				     const QString& inSection, 
 				     int64_t def, 
 				     Persistence pers)
@@ -894,30 +841,27 @@ setPrefMethod(String, const QString&);
 setPrefMethod(Int, int);
 setPrefMethod(UInt, uint);
 setPrefMethod(Double, double);
-setPrefMethod(Color, const QColor&);
-setPrefMethod(Pen, const QPen&);
-setPrefMethod(Brush, const QBrush&);
 setPrefMethod(Point, const QPoint&);
 setPrefMethod(Rect, const QRect&);
 setPrefMethod(Size, const QSize&);
-setPrefMethod(Font, const QFont&);
-setPrefMethod(SizePolicy, const QSizePolicy&);
 setPrefMethod(StringList, const QStringList&);
 
-void XMLPreferences::setPrefBool(const QString& inName, 
+// SeqColor is a custom metatype; QVariant has no direct ctor for it,
+// so route through QVariant::fromValue<>().
+void XMLPreferences::setPrefColor(const QString& inName,
+                                  const QString& inSection,
+                                  const SeqColor& inValue,
+                                  Persistence pers)
+{
+  setPref(inName, inSection, QVariant::fromValue<SeqColor>(inValue), pers);
+}
+
+void XMLPreferences::setPrefBool(const QString& inName,
 				 const QString& inSection,
 				 bool inValue,
 				 Persistence pers)
 {
   setPref(inName, inSection, QVariant(inValue), pers);
-}
-
-void XMLPreferences::setPrefKey(const QString& inName,
-				const QString& inSection,
-				int inValue,
-				Persistence pers)
-{
-  setPref(inName, inSection, QVariant::fromValue<QKeySequence>(inValue), pers);
 }
 
 void XMLPreferences::setPrefInt64(const QString& inName,

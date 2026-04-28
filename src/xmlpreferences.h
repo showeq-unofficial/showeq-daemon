@@ -38,14 +38,12 @@
 #include <QString>
 #include <QVariant>
 #include <QHash>
-#include <QColor>
-#include <QPen>
-#include <QBrush>
-#include <QFont>
-#include <QSizePolicy>
-#include <QCursor>
+#include <QPoint>
+#include <QRect>
+#include <QSize>
 #include <QStringList>
-#include <QKeySequence>
+
+#include "seqcolor.h"
 
 // XMLPreferences is a generic class that implements a persistant config
 // file in the XML format specified in seqpref.dtd.
@@ -118,32 +116,15 @@ class XMLPreferences
 		       double def = -0.0, Persistence pers = Any);
   bool getPrefBool(const QString& inName, const QString& inSection, 
 		   bool def = false, Persistence pers = Any);
-  QColor getPrefColor(const QString& inName, const QString& inSection, 
-		      const QColor& def = QColor(), Persistence pers = Any);
-  QPen getPrefPen(const QString& inName, const QString& inSection, 
-		  const QPen& def = QPen(), Persistence pers = Any);
-  QBrush getPrefBrush(const QString& inName, const QString& inSection, 
-		      const QBrush& def = QBrush(), Persistence pers = Any);
-  QPoint getPrefPoint(const QString& inName, const QString& inSection, 
+  SeqColor getPrefColor(const QString& inName, const QString& inSection,
+		      const SeqColor& def = SeqColor(), Persistence pers = Any);
+  QPoint getPrefPoint(const QString& inName, const QString& inSection,
 		      const QPoint& def = QPoint(), Persistence pers = Any);
-  QRect getPrefRect(const QString& inName, const QString& inSection, 
+  QRect getPrefRect(const QString& inName, const QString& inSection,
 		    const QRect& def = QRect(), Persistence pers = Any);
-  QSize getPrefSize(const QString& inName, const QString& inSection, 
+  QSize getPrefSize(const QString& inName, const QString& inSection,
 		    const QSize& def = QSize(), Persistence pers = Any);
-  QKeySequence getPrefKey(const QString& inName, const QString& inSection,
-		 const QString& def, Persistence pers = Any);
-  QKeySequence getPrefKey(const QString& inName, const QString& inSection,
-		 const QKeySequence& def, Persistence pers = Any);
-  QFont getPrefFont(const QString& inName, const QString& inSection, 
-		    const QFont& def = QFont(), Persistence pers = Any);
-  QSizePolicy getPrefSizePolicy(const QString& inName, 
-				const QString& inSection, 
-				const QSizePolicy& def = QSizePolicy(), 
-				Persistence pers = Any);
-  QCursor getPrefCursor(const QString& inName, const QString& inSection, 
-			const QCursor& def = QCursor(), 
-			Persistence pers = Any);
-  QStringList getPrefStringList(const QString& inName, 
+  QStringList getPrefStringList(const QString& inName,
 				const QString& inSection, 
 				const QStringList& def = QStringList(), 
 				Persistence pers = Any);
@@ -167,27 +148,15 @@ class XMLPreferences
 		     double inValue, Persistence pers = User);
   void setPrefBool(const QString& inName, const QString& inSection, 
 		   bool inValue, Persistence pers = User);
-  void setPrefColor(const QString& inName, const QString& inSection, 
-		    const QColor& inValue, Persistence pers = User);
-  void setPrefPen(const QString& inName, const QString& inSection, 
-		    const QPen& inValue, Persistence pers = User);
-  void setPrefBrush(const QString& inName, const QString& inSection, 
-		    const QBrush& inValue, Persistence pers = User);
-  void setPrefPoint(const QString& inName, const QString& inSection, 
+  void setPrefColor(const QString& inName, const QString& inSection,
+		    const SeqColor& inValue, Persistence pers = User);
+  void setPrefPoint(const QString& inName, const QString& inSection,
 		    const QPoint& inValue, Persistence pers = User);
-  void setPrefRect(const QString& inName, const QString& inSection, 
+  void setPrefRect(const QString& inName, const QString& inSection,
 		   const QRect& inValue, Persistence pers = User);
-  void setPrefSize(const QString& inName, const QString& inSection, 
+  void setPrefSize(const QString& inName, const QString& inSection,
 		   const QSize& inValue, Persistence pers = User);
-  void setPrefKey(const QString& inName, const QString& inSection, 
-		  int inKey, Persistence pers = User);
-  void setPrefFont(const QString& inName, const QString& inSection, 
-		   const QFont& inValue, Persistence pers = User);
-  void setPrefSizePolicy(const QString& inName, const QString& inSection, 
-			 const QSizePolicy& inValue, Persistence pers = User);
-  void setPrefCursor(const QString& inName, const QString& inSection, 
-		     const QCursor& inValue, Persistence pers = User);
-  void setPrefStringList(const QString& inName, const QString& inSection, 
+  void setPrefStringList(const QString& inName, const QString& inSection,
 			 const QStringList& inValue, Persistence pers = User);
   void setPrefVariant(const QString& inName, const QString& inSection, 
 		      const QVariant& inValue, Persistence pers);

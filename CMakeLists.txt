@@ -13,10 +13,12 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
-# QtCore is the target; Gui/Widgets get linked for value types (QColor,
-# QPen, QBrush, QFont, QSizePolicy, QKeySequence) that extracted headers
-# reference. The daemon only instantiates QCoreApplication, never
-# QGuiApplication or QApplication, so it still runs without a display.
+# Daemon links QtCore + QtNetwork + QtXml + QtWebSockets only. QtGui
+# and QtWidgets were both dropped: QtWidgets after stripping
+# CategoryDlg + dead pass-through, QtGui after replacing QColor with
+# the SeqColor POD (src/seqcolor.{h,cpp}). The daemon only instantiates
+# QCoreApplication, never QGuiApplication or QApplication, so it
+# still runs without a display.
 #
 # Default to Qt5; pass -DSEQ_USE_QT6=ON to build against Qt6.
 # Qt6 additionally requires Core5Compat for the SAX XML API
@@ -25,10 +27,10 @@ endif()
 # QXmlStreamReader in MODERNIZATION_PLAN.md.
 option(SEQ_USE_QT6 "Build against Qt6 instead of Qt5" OFF)
 if(SEQ_USE_QT6)
-    find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Xml WebSockets Core5Compat)
+    find_package(Qt6 REQUIRED COMPONENTS Core Network Xml WebSockets Core5Compat)
     set(QT_VERSION_MAJOR 6)
 else()
-    find_package(Qt5 5.15 REQUIRED COMPONENTS Core Gui Widgets Network Xml WebSockets)
+    find_package(Qt5 5.15 REQUIRED COMPONENTS Core Network Xml WebSockets)
     set(QT_VERSION_MAJOR 5)
 endif()
 find_package(Protobuf REQUIRED)
@@ -177,6 +179,7 @@ set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/opcodestats.cpp
   src/prefsbroker.cpp
   src/seq_globals.cpp
+  src/seqcolor.cpp
 )
 
 add_library(seq-daemon-core STATIC
@@ -192,8 +195,6 @@ target_include_directories(seq-daemon-core PUBLIC
 target_link_libraries(seq-daemon-core PUBLIC
   seq-proto
   Qt${QT_VERSION_MAJOR}::Core
-  Qt${QT_VERSION_MAJOR}::Gui
-  Qt${QT_VERSION_MAJOR}::Widgets
   Qt${QT_VERSION_MAJOR}::Network
   Qt${QT_VERSION_MAJOR}::Xml
   ${PCAP_LIBRARIES}

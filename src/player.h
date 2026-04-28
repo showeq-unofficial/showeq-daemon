@@ -24,8 +24,9 @@
 #define EQPLAYER_H
 
 #include <QObject>
-#include <QColor>
 #include <QMetaType>
+
+#include "seqcolor.h"
 
 #include "everquest.h"
 #include "spawn.h"
@@ -144,9 +145,9 @@ public:
    uint16_t getCurrentAApts() const { return m_currentAApts; }
    uint16_t getFatigue() const { return m_fatigue; }
    
-   const QColor& conColorBase(ColorLevel level);
-   void setConColorBase(ColorLevel level, const QColor& color);
-   const QColor& pickConColor(int otherSpawnLevel) const;
+   const SeqColor& conColorBase(ColorLevel level);
+   void setConColorBase(ColorLevel level, const SeqColor& color);
+   const SeqColor& pickConColor(int otherSpawnLevel) const;
 
 
    bool getStatValue(uint8_t stat,
@@ -260,10 +261,10 @@ public:
   uint32_t m_spellBookSlots[MAX_SPELLBOOK_SLOTS];
   
   // con color bases
-  QColor m_conColorBases[tMaxColorLevels];
+  SeqColor m_conColorBases[tMaxColorLevels];
   
   // con color table
-  QColor m_conTable[maxSpawnLevel];
+  SeqColor m_conTable[maxSpawnLevel];
   
   // last spawn this player killed
   QString m_lastSpawnKilledName;
@@ -293,7 +294,7 @@ public:
 };
 
 inline
-const QColor& Player::pickConColor(int otherSpawnLevel) const
+const SeqColor& Player::pickConColor(int otherSpawnLevel) const
 {
   return m_conTable[otherSpawnLevel];
 }

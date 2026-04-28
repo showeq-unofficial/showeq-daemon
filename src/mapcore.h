@@ -42,11 +42,12 @@
 #include <cstdio>
 
 #include <QString>
-#include <QColor>
-#include <QFont>
-#include <QPixmap>
 #include <QList>
-#include <QPolygon>
+#include <QVector>
+#include <QPoint>
+#include <QRect>
+
+#include "seqcolor.h"
 
 #include "mapcolors.h"
 #include "point.h"
@@ -120,10 +121,9 @@ class MapParameters
   bool isLayerVisible(uint8_t layerNum) const;
 
   int gridResolution() const { return m_gridResolution; }
-  const QColor& gridLineColor() const { return m_gridLineColor; }
-  const QColor& gridTickColor() const { return m_gridTickColor; }
-  const QColor& backgroundColor() const { return m_backgroundColor; }
-  const QFont& font() const { return m_font; }
+  const SeqColor& gridLineColor() const { return m_gridLineColor; }
+  const SeqColor& gridTickColor() const { return m_gridTickColor; }
+  const SeqColor& backgroundColor() const { return m_backgroundColor; }
   int16_t headRoom() const { return m_headRoom; }
   int16_t floorRoom() const { return m_floorRoom; }
   MapLineStyle mapLineStyle() { return m_mapLineStyle; }
@@ -162,16 +162,15 @@ class MapParameters
   void setPanX(int xPan);
   void setPanY(int yPan);
   void setScreenSize(const QSize& size);
-  void setBackgroundColor(const QColor& color) { m_backgroundColor = color; }
-  void setFont(const QFont& font) { m_font = font; }
+  void setBackgroundColor(const SeqColor& color) { m_backgroundColor = color; }
   void setMapLineStyle(MapLineStyle style) { m_mapLineStyle = style; }
   void setShowBackgroundImage(bool val) { m_showBackgroundImage = val; }
   void setShowLocations(bool val) { m_showLocations = val; }
   void setShowLines(bool val) { m_showLines = val; }
   void setShowGridLines(bool val) { m_showGridLines = val; }
   void setShowGridTicks(bool val) { m_showGridTicks = val; }
-  void setGridLineColor(const QColor& color) { m_gridLineColor = color; }
-  void setGridTickColor(const QColor& color) { m_gridTickColor = color; }
+  void setGridLineColor(const SeqColor& color) { m_gridLineColor = color; }
+  void setGridTickColor(const SeqColor& color) { m_gridTickColor = color; }
   void setHeadRoom(int16_t headRoom);
   void setFloorRoom(int16_t floorRoom);
   void setLayerVisibility(uint8_t layerNum, bool isVisible);
@@ -199,10 +198,9 @@ class MapParameters
 
   // configuration parameters
   int m_gridResolution;
-  QColor m_gridLineColor;
-  QColor m_gridTickColor;
-  QColor m_backgroundColor;
-  QFont m_font;
+  SeqColor m_gridLineColor;
+  SeqColor m_gridTickColor;
+  SeqColor m_backgroundColor;
   int16_t m_headRoom;
   int16_t m_floorRoom;
 
@@ -400,26 +398,26 @@ class MapCommon
  public:
   MapCommon() {}
   MapCommon(const QString& name, const QString& color)
-    : m_name(name), m_colorName(color), m_color(color) {}
-  MapCommon(const QString& name, const QColor& color)
+    : m_name(name), m_colorName(color), m_color(SeqColor(color)) {}
+  MapCommon(const QString& name, const SeqColor& color)
     : m_name(name), m_color(color) {}
   virtual ~MapCommon();
 
   const QString& name() const { return m_name; }
-  const QColor& color() const { return m_color; }
-  const QColor& origColor() const { return m_origColor; }
+  const SeqColor& color() const { return m_color; }
+  const SeqColor& origColor() const { return m_origColor; }
   QString colorName() const;
 
   void setName(const QString& name) { m_name = name; }
-  void setColor(const QString& color) { m_color = color; }
-  void setOrigColor(const QColor& color) { m_origColor = color; }
+  void setColor(const QString& color) { m_color = SeqColor(color); }
+  void setOrigColor(const SeqColor& color) { m_origColor = color; }
 
 
  private:
   QString m_name;
   QString m_colorName;
-  QColor m_color;
-  QColor m_origColor;
+  SeqColor m_color;
+  SeqColor m_origColor;
 };
 
 inline QString MapCommon::colorName() const
@@ -428,27 +426,27 @@ inline QString MapCommon::colorName() const
   if (!m_colorName.isEmpty())
     return m_colorName;
 
-  // otherwise return the string form of a QColor
+  // otherwise return the string form of a SeqColor
   return m_color.name();
 }
 
 //----------------------------------------------------------------------
 // MapLineL
-class MapLineL : public MapCommon, public QPolygon
+class MapLineL : public MapCommon, public QVector<QPoint>
 {
  public:
   MapLineL();
   MapLineL(const QString& name, const QString& color, uint32_t size);
   MapLineL(const QString& name, const QString& color, uint32_t size, int16_t z);
   virtual ~MapLineL();
-  
+
   int16_t z() const { return m_z; }
   bool heightSet() const { return m_heightSet; }
   const QRect& boundingRect() const { return m_bounds; }
 
   void setZPos(uint16_t z)
     {  m_z = z; m_heightSet = true; }
-  void calcBounds() { m_bounds = QPolygon::boundingRect(); }
+  void calcBounds();
 
  private:
   int16_t m_z;
@@ -463,7 +461,7 @@ class MapLineM : public MapCommon, public MapPointArray
  public:
   MapLineM();
   MapLineM(const QString& name, const QString& color, uint32_t size);
-  MapLineM(const QString& name, const QColor& color, uint32_t size);
+  MapLineM(const QString& name, const SeqColor& color, uint32_t size);
   MapLineM(const QString& name, const QString& color, const MapPoint& point);
   virtual ~MapLineM();
 
@@ -486,7 +484,7 @@ class MapLocation : public MapCommon, public MapPoint
 	      int16_t x, int16_t y);
   MapLocation(const QString& name, const QString& color, 
 	      int16_t x, int16_t y, int16_t z);
-  MapLocation(const QString& name, const QColor& color, 
+  MapLocation(const QString& name, const SeqColor& color, 
 	      int16_t x, int16_t y, int16_t z);
   virtual ~MapLocation();
   bool heightSet() const { return m_heightSet; }
@@ -569,8 +567,6 @@ class MapData
   MapLayer* mapLayer(uint8_t layerNum);
   uint8_t numLayers() const { return m_mapLayers.count(); }
   QList<MapAggro*>& aggros() { return m_aggros; }
-  const QPixmap& image() const { return m_image; }
-  bool imageLoaded() const { return m_imageLoaded; }
   bool isAggro(const QString& name, uint16_t* range) const;
 
   // make sure map is big enough, returns true if size modified
@@ -595,14 +591,6 @@ class MapData
   void setEditLayer(uint8_t layerNum) { m_editLayer = layerNum; }
   uint8_t editLayer() const { return m_editLayer; }
 
-  // map painting
-  void paintGrid(MapParameters& param, QPainter& p) const;
-  void paintLines(MapParameters& param, QPainter& p) const;
-  void paintDepthFilteredLines(MapParameters& param, QPainter& p) const;
-  void paintFadedFloorsLines(MapParameters& param, QPainter& p) const;
-  void paintLocations(MapParameters& param, QPainter& p) const;
-  bool paintMapImage(MapParameters& param, QPainter& p) const;
-
  private:
   int16_t m_minX;
   int16_t m_minY;
@@ -617,8 +605,6 @@ class MapData
   MapLocation* m_editLocation;
   QList<MapAggro*> m_aggros;
   uint8_t m_zoneZEM;
-  QPixmap m_image;
-  bool m_imageLoaded;
   uint8_t m_editLayer;
 };
 
@@ -682,38 +668,6 @@ void MapData::updateBounds()
   m_size.setWidth(m_boundingRect.width());
   m_size.setHeight(m_boundingRect.height());
 }
-
-//----------------------------------------------------------------------
-// MapCache
-class MapCache 
-{
- public:
-  MapCache(const MapData& data);
-  ~MapCache();
-
-  const QPixmap& getMapImage(MapParameters& param);
-
-  // get methods
-  bool needRepaint(MapParameters& param);
-  bool alwaysRepaint() const { return m_alwaysRepaint; }
-#ifdef DEBUG
-  uint32_t paintCount() const { return m_paintCount; }
-#endif
-
-  // set methods
-  void setAlwaysRepaint(bool val) { m_alwaysRepaint = val; }
-  void forceRepaint() { m_painted = false; }
-  
- private:
-  const MapData& m_mapData;
-  QPixmap m_mapImage;
-  MapParameters m_lastParam;
-#ifdef DEBUG
-  uint32_t m_paintCount;
-#endif
-  bool m_painted;
-  bool m_alwaysRepaint;
-};
 
 //----------------------------------------------------------------------
 // assorted utility functions

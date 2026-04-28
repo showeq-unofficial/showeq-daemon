@@ -35,24 +35,17 @@
 #include <sys/types.h>
 #include <regex.h>
 
+#include <QObject>
 #include <QString>
-#include <QColor>
 #include <QList>
 
-// stuff needed for CategoryDlg
-#include <QDialog>
-#include <QLineEdit>
-#include <QComboBox>
-#include <QLabel>
-#include <QLayout>
-#include <QPushButton>
+#include "seqcolor.h"
 
 //----------------------------------------------------------------------
 // forward declarations
 class FilterItem;
 class Category;
 class CategoryMgr;
-class CategoryDlg;
 
 // ------------------------------------------------------
 // Category
@@ -62,12 +55,12 @@ class Category
   Category(const QString& name, 
 	   const QString& filter, 
 	   const QString& filterout, 
-	   QColor color);
+	   SeqColor color);
   ~Category();
   const QString& name() const { return m_name; }
   const QString& filter() const { return m_filter; }
   const QString& filterout() const { return m_filterout; }
-  const QColor& color() const { return m_color; }
+  const SeqColor& color() const { return m_color; }
 
   bool isFilteredFilter() const { return m_filteredFilter; };
   bool isFiltered(const QString& filterString, int level = 0) const;
@@ -78,27 +71,8 @@ class Category
   QString m_filterout;
   FilterItem* m_filterItem;
   FilterItem* m_filterOutItem;
-  QColor m_color;
+  SeqColor m_color;
   bool m_filteredFilter;
-};
-
-// ------------------------------------------------------
-// CategoryDlg
-class CategoryDlg : public QDialog
-{
-  Q_OBJECT
- public:
-  CategoryDlg(QWidget *parent, QString name);
-  virtual ~CategoryDlg();
-
- public slots:
-  void select_color(void);
-
- public:
-  QLineEdit* m_Name;
-  QLineEdit* m_Filter;
-  QLineEdit* m_FilterOut;
-  QPushButton* m_Color;
 };
 
 typedef QList<Category*> CategoryList;
@@ -124,13 +98,11 @@ class CategoryMgr : public QObject
    const Category* addCategory(const QString& name, 
 			       const QString& filter, 
 			       const QString& filterout, 
-			       QColor color = Qt::black);
+			       SeqColor color = SeqColor(0, 0, 0));
    void remCategory(const Category* cat);
 
  public slots:
    void clearCategories(void);
-   void addCategory(QWidget* parent = 0);
-   void editCategories(const Category* cat, QWidget* parent = 0);
    void reloadCategories(void);
    void savePrefs(void);
 

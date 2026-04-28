@@ -31,6 +31,8 @@
 #include <QVariant>
 #include <QDomDocument>
 
+#include "seqcolor.h"
+
 class DomConvenience
 {
  public:
@@ -41,7 +43,7 @@ class DomConvenience
  protected:
   bool getBoolFromString(const QString& s, bool& ok);
   int getBase(const QDomElement& e);
-  QColor getColor(const QDomElement& e);
+  SeqColor getColor(const QDomElement& e);
   QString boolString(bool b);
   void clearAttributes(QDomElement& e);
 

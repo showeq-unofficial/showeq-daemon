@@ -41,7 +41,6 @@
 #endif
 #include <QVector>
 #include <QPoint>
-#include <QPolygon>
 
 // Point3DArray
 template <class _T>
@@ -69,7 +68,6 @@ class Point3DArray : public QVector<Point3D<_T> >
   bool setPoints(uint32_t nPoints, _T firstx, _T firsty, _T firstz, ...);
   bool putPoints(uint32_t index, uint32_t nPoints, const _T* points);
   bool putPoints(uint32_t index, uint32_t nPoints, _T firstx, _T firsty, _T firstz, ...);
-  QPolygon getQPointArray();
 };
 
 template <class _T> inline 
@@ -225,20 +223,6 @@ bool Point3DArray<_T>::putPoints(uint32_t index, uint32_t nPoints,
   va_end(ap);
 
   return true;
-}
-
-template <class _T> inline
-QPolygon Point3DArray<_T>::getQPointArray()
-{
-  // create a temporary QPointArray of the same size as this array
-  QPolygon tmp(QVector<Point3D<_T> >::size());
-
-  // copy each Point3D<_T> as a QPoint into the temporary QPointArray
-  for (uint32_t i = 0; i < QVector<Point3D<_T> >::size(); i++)
-    tmp.setPoint(i, point(i).qpoint());
-
-  // return the temporary QPointArray
-  return tmp;
 }
 
 #endif // __POINTARRAY_H_

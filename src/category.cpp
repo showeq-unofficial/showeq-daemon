@@ -38,18 +38,12 @@
 
 #include <cstdio>
 
-#include <QColorDialog>
-#include <QHBoxLayout>
-#include <QBoxLayout>
-#include <QLabel>
-#include <QVBoxLayout>
-
 // ------------------------------------------------------
 // Category
 Category::Category(const QString& name, 
 		   const QString& filter, 
 		   const QString& filterout, 
-		   QColor color)
+		   SeqColor color)
 {
   m_name = name;
   m_filter = filter;
@@ -92,97 +86,6 @@ bool Category::isFiltered(const QString& filterString, int level) const
 }
 
 // ------------------------------------------------------
-// CategoryDlg
-CategoryDlg::CategoryDlg(QWidget *parent, QString name)
- : QDialog(parent, Qt::Dialog)
-{
-   setObjectName(name);
-   setModal(true);
-   setWindowTitle("Add Category");
-
-   QFont labelFont;
-   labelFont.setBold(true);
-
-   QBoxLayout* topLayout = new QVBoxLayout(this);
-   QBoxLayout* row4Layout = new QHBoxLayout();
-   topLayout->addLayout(row4Layout);
-   QBoxLayout* row3Layout = new QHBoxLayout();
-   topLayout->addLayout(row3Layout);
-   QBoxLayout* row2Layout = new QHBoxLayout();
-   topLayout->addLayout(row2Layout);
-   QBoxLayout* row1Layout = new QHBoxLayout();
-   topLayout->addLayout(row1Layout);
-   QBoxLayout* row0Layout = new QHBoxLayout();
-   topLayout->addLayout(row0Layout);
-
-   QLabel *colorLabel = new QLabel ("Color", this);
-   colorLabel->setFont(labelFont);
-   colorLabel->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
-   row1Layout->addWidget(colorLabel, 0, Qt::AlignLeft);
-
-   m_Color = new QPushButton(this);
-   m_Color->setObjectName("color");
-   m_Color->setText("...");
-   m_Color->setFont(labelFont);
-   connect(m_Color, SIGNAL(clicked()),
-	   this, SLOT(select_color()));
-   row1Layout->addWidget(m_Color);
-
-   QLabel *nameLabel = new QLabel ("Name", this);
-   nameLabel->setFont(labelFont);
-   nameLabel->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
-   row4Layout->addWidget(nameLabel);
-
-   m_Name = new QLineEdit(this);
-   m_Name->setObjectName("Name");
-   m_Name->setFont(labelFont);
-   row4Layout->addWidget(m_Name);
-
-   QLabel *filterLabel = new QLabel ("Filter", this);
-   filterLabel->setFont(labelFont);
-   filterLabel->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
-   row3Layout->addWidget(filterLabel);
-
-   m_Filter  = new QLineEdit(this);
-   m_Filter->setObjectName("Filter");
-   m_Filter->setFont(labelFont);
-   row3Layout->addWidget(m_Filter);
-
-   QLabel *filteroutLabel = new QLabel ("FilterOut", this);
-   filteroutLabel->setFont(labelFont);
-   filteroutLabel->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
-   row2Layout->addWidget(filteroutLabel);
-
-   m_FilterOut  = new QLineEdit(this);
-   m_FilterOut->setObjectName("FilterOut");
-   m_FilterOut->setFont(labelFont);
-   row2Layout->addWidget(m_FilterOut);
-
-   QPushButton *ok = new QPushButton("OK", this);
-   row0Layout->addWidget(ok, 0, Qt::AlignLeft);
-
-   QPushButton *cancel = new QPushButton("Cancel", this);
-   row0Layout->addWidget(cancel, 0, Qt::AlignRight);
-
-   // Hook on pressing the buttons
-   connect(ok, SIGNAL(clicked()), SLOT(accept()));
-   connect(cancel, SIGNAL(clicked()), SLOT(reject()));
-}
-
-CategoryDlg::~CategoryDlg()
-{
-}
-
-void CategoryDlg::select_color(void)
-{
-  QColor newColor =
-    QColorDialog::getColor(palette().color(backgroundRole()), this);
-
-  if (newColor.isValid())
-    m_Color->setPalette(QPalette(QColor(newColor)));
-}
-
-// ------------------------------------------------------
 // CategoryMgr
 CategoryMgr::CategoryMgr(QObject* parent, const char* name)
   : QObject(parent)
@@ -222,7 +125,7 @@ const CategoryList CategoryMgr::findCategories(const QString& filterString,
 const Category* CategoryMgr::addCategory(const QString& name, 
 					 const QString& filter, 
 					 const QString& filterout, 
-					 QColor color)
+					 SeqColor color)
 {
   //seqDebug("addCategory() '%s' - '%s':'%s'", name, filter, filterout?filterout:"null");
   
@@ -271,61 +174,6 @@ void CategoryMgr::clearCategories(void)
   m_changed = true;
 }
 
-void CategoryMgr::addCategory(QWidget* parent)
-{
-  // not editing an existing, adding a new
-  editCategories(NULL, parent);
-}
-
-void CategoryMgr::editCategories(const Category* cat, QWidget* parent)
-{
-  // Create the filter dialog
-  CategoryDlg* dlg = new CategoryDlg(parent, "CategoryDlg");
-
-  // editing an existing category?
-  if (cat != NULL)
-  {
-    // yes, use it's info for the defaults
-    dlg->m_Name->setText(cat->name());
-    dlg->m_Filter->setText(cat->filter());
-    dlg->m_FilterOut->setText(cat->filterout());
-    dlg->m_Color->setPalette(QPalette(QColor(cat->color())));
-  }
-  else
-  {
-    dlg->m_Name->setText("");
-    dlg->m_Filter->setText(".");
-    dlg->m_FilterOut->setText("");
-    dlg->m_Color->setPalette(QPalette(QColor("black")));
-  }
-
-  // execute the dialog
-  int res = dlg->exec();
-
-  // if the dialog wasn't accepted, don't add/change a category
-  if (res != QDialog::Accepted)
-    return;
-
-  // remove the old category
-  if (cat != NULL)
-    remCategory(cat);
-
-  // Add Category
-  QString name = dlg->m_Name->text();
-  QString filter = dlg->m_Filter->text();
-
-  //seqDebug("Got name: '%s', filter '%s', filterout '%s', color '%s'",
-  //  name?name:"", color?color:"", filter?filter:"", filterout?filterout:""); 
-
-  if (!name.isEmpty() && !filter.isEmpty())
-    addCategory(name,
-            filter,
-            dlg->m_FilterOut->text(),
-            dlg->m_Color->palette().color(dlg->m_Color->backgroundRole()));
-
-  delete dlg;
-}
-
 void CategoryMgr::reloadCategories(void)
 {
   clearCategories();
@@ -346,8 +194,8 @@ void CategoryMgr::reloadCategories(void)
       QString name = pSEQPrefs->getPrefString(tempStr, section);
       QString filter =
 	pSEQPrefs->getPrefString(prefBaseName + "Filter", section);
-      QColor color = pSEQPrefs->getPrefColor(prefBaseName + "Color", 
-					     section, QColor("black"));
+      SeqColor color = pSEQPrefs->getPrefColor(prefBaseName + "Color", 
+					     section, SeqColor("black"));
       tempStr = prefBaseName + "FilterOut";
       QString filterout;
       if (pSEQPrefs->isPreference(tempStr, section))
@@ -397,7 +245,7 @@ void CategoryMgr::savePrefs(void)
 			    curCategory->color());
   }
 
-  QColor black("black");
+  SeqColor black("black");
   while (count <= tMaxNumCategories)
   {
     prefBaseName = QString::asprintf("Category%d_", count++);

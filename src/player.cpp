@@ -94,35 +94,35 @@ Player::Player (QObject* parent,
   m_conColorBases[tGraySpawn] = 
     pSEQPrefs->getPrefColor(conColorBasePrefNames[tGraySpawn],
 			    "Player",
-			    QColor(140, 140, 140));
+			    SeqColor(140, 140, 140));
   m_conColorBases[tGreenSpawn] = 
     pSEQPrefs->getPrefColor(conColorBasePrefNames[tGreenSpawn],
 			    "Player",
-			    QColor(0, 95, 0));
+			    SeqColor(0, 95, 0));
   m_conColorBases[tCyanSpawn] = 
     pSEQPrefs->getPrefColor(conColorBasePrefNames[tCyanSpawn],
 			    "Player",
-			    QColor(0, 255, 255));
+			    SeqColor(0, 255, 255));
   m_conColorBases[tBlueSpawn] = 
     pSEQPrefs->getPrefColor(conColorBasePrefNames[tBlueSpawn],
 			    "Player",
-			    QColor(0, 0, 160));
+			    SeqColor(0, 0, 160));
   m_conColorBases[tEvenSpawn] = 
     pSEQPrefs->getPrefColor(conColorBasePrefNames[tEvenSpawn],
 			    "Player",
-			    QColor(255, 255, 255));
+			    SeqColor(255, 255, 255));
   m_conColorBases[tYellowSpawn] = 
     pSEQPrefs->getPrefColor(conColorBasePrefNames[tYellowSpawn],
 			    "Player",
-			    QColor(255, 255, 0));
+			    SeqColor(255, 255, 0));
   m_conColorBases[tRedSpawn] = 
     pSEQPrefs->getPrefColor(conColorBasePrefNames[tRedSpawn],
 			    "Player",
-			    QColor(127, 0, 0));
-  m_conColorBases[tUnknownSpawn] = 
+			    SeqColor(127, 0, 0));
+  m_conColorBases[tUnknownSpawn] =
     pSEQPrefs->getPrefColor(conColorBasePrefNames[tUnknownSpawn],
 			    "Player",
-			    Qt::gray);
+			    SeqColor(160, 160, 164));
 						 
   // restore the player state if the user requested it...
   if (showeq_params->restorePlayerState)
@@ -1085,9 +1085,9 @@ bool Player::getStatValue(uint8_t stat,
 }
 
 
-const QColor& Player::conColorBase(ColorLevel level)
+const SeqColor& Player::conColorBase(ColorLevel level)
 {
-  static const QColor invalidColor;
+  static const SeqColor invalidColor;
 
   // only retrieve valid color levels
   if (level < tMaxColorLevels)
@@ -1096,7 +1096,7 @@ const QColor& Player::conColorBase(ColorLevel level)
     return invalidColor;
 }
 
-void Player::setConColorBase(ColorLevel level, const QColor& color)
+void Player::setConColorBase(ColorLevel level, const SeqColor& color)
 {
   // only set valid color levels
   if (level >= tMaxColorLevels)
@@ -1232,7 +1232,7 @@ void Player::fillConTable()
   
   // Finally, red spawns. Gradient this light to dark. 4 chunks then
   // we just go dark.
-  uint8_t redBase = m_conColorBases[tRedSpawn].red();
+  uint8_t redBase = m_conColorBases[tRedSpawn].r;
   uint8_t redStep = 25;
 
   // See if redBase is closer to light to choose whether we're going up
@@ -1245,18 +1245,18 @@ void Player::fillConTable()
 
   for (; spawnLevel < level() + 8; spawnLevel++)
   {
-      m_conTable[spawnLevel] = QColor(redColor,
-				 m_conColorBases[tRedSpawn].green(), 
-				 m_conColorBases[tRedSpawn].blue());
-      
+      m_conTable[spawnLevel] = SeqColor(redColor,
+				 m_conColorBases[tRedSpawn].g,
+				 m_conColorBases[tRedSpawn].b);
+
       redColor -= redStep;
   }
 
   for (; spawnLevel < maxSpawnLevel; spawnLevel++)
   {
-      m_conTable[spawnLevel] = QColor(redColor,
-				 m_conColorBases[tRedSpawn].green(), 
-				 m_conColorBases[tRedSpawn].blue());
+      m_conTable[spawnLevel] = SeqColor(redColor,
+				 m_conColorBases[tRedSpawn].g,
+				 m_conColorBases[tRedSpawn].b);
   }
 
   // level 0 is unknown, and thus gray

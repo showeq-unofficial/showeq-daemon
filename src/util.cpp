@@ -31,7 +31,6 @@
 #include <sys/time.h>
 #include <ifaddrs.h>
 
-#include <QColor>
 #include <QFileInfo>
 #include <QDir>
 

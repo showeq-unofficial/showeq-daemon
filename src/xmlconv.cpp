@@ -30,16 +30,9 @@
 
 #include "xmlconv.h"
 
-#include <QColor>
-#include <QPen>
-#include <QBrush>
-#include <QFont>
 #include <QPoint>
 #include <QRect>
 #include <QSize>
-#include <QSizePolicy>
-#include <QKeySequence>
-#include <QCursor>
 #include <QStringList>
 #include <QDomElement>
 
@@ -111,52 +104,14 @@ bool DomConvenience::elementToVariant(const QDomElement& e,
   }
   else if (e.tagName() == "color")
   {
-    QColor color = getColor(e);
-    
+    SeqColor color = getColor(e);
+
     ok = color.isValid();
 
-    v = color;
+    v = QVariant::fromValue<SeqColor>(color);
 
     if (!ok)
       qWarning("%s element without value!", e.tagName().toLatin1().data());
-  }
-  else if (e.tagName() == "pen")
-  {
-    int base = getBase(e);
-    uint w = 0; 
-    Qt::PenStyle s = Qt::SolidLine;
-    Qt::PenCapStyle c = Qt::SquareCap;
-    Qt::PenJoinStyle j = Qt::BevelJoin;
-    QColor color = getColor(e);
-
-    if (e.hasAttribute("style"))
-      s = (Qt::PenStyle)e.attribute("style").toInt(0, base);
-    if (e.hasAttribute("cap"))
-      c = (Qt::PenCapStyle)e.attribute("cap").toInt(0, base);
-    if (e.hasAttribute("join"))
-      j = (Qt::PenJoinStyle)e.attribute("join").toInt(0, base);
-    
-    ok = color.isValid();
-
-    v = QPen(color, w, s, c, j);
-
-    if (!ok)
-      qWarning("%s element without valid value!", e.tagName().toLatin1().data());
-  }
-  else if (e.tagName() == "brush")
-  {
-    int base = getBase(e);
-    QColor color = getColor(e);
-    Qt::BrushStyle s = Qt::SolidPattern;
-    if (e.hasAttribute("style"))
-      s = (Qt::BrushStyle)e.attribute("style").toInt(0, base);
-    
-    ok = color.isValid();
-    
-    v = QBrush(color, s);
-
-    if (!ok)
-      qWarning("%s element without valid value!", e.tagName().toLatin1().data());
   }
   else if (e.tagName() == "point")
   {
@@ -208,57 +163,6 @@ bool DomConvenience::elementToVariant(const QDomElement& e,
     
     v = QVariant(QSize(width, height));
     ok = true;
-  }
-  else if (e.tagName() == "key")
-  {
-    if (e.hasAttribute("sequence"))
-    {
-        QKeySequence key(e.attribute("sequence"));
-
-        v = QVariant::fromValue<QKeySequence>(key);
-        ok = true;
-    }
-  }
-  else if (e.tagName() == "font")
-  {
-    QFont f;
-    bool boolOk;
-
-    if (e.hasAttribute("family"))
-      f.setFamily(e.attribute("family"));
-    if (e.hasAttribute("pointsize"))
-      f.setPointSize(e.attribute("pointsize").toInt());
-    if (e.hasAttribute("bold"))
-      f.setBold(getBoolFromString(e.attribute("bold"), boolOk));
-    if (e.hasAttribute("italic"))
-      f.setItalic(getBoolFromString(e.attribute("italic"), boolOk));
-    if (e.hasAttribute("strikeout"))
-      f.setStrikeOut(getBoolFromString(e.attribute("strikeout"), boolOk));
-
-    v = QVariant(f);
-    ok = true;
-  }
-  else if (e.tagName() == "sizepolicy")
-  {
-    QSizePolicy sp;
-    
-    if (e.hasAttribute("hsizetype"))
-      sp.setHorizontalPolicy((QSizePolicy::Policy)e.attribute("hsizetype").toInt());
-    if (e.hasAttribute("vsizetype"))
-      sp.setVerticalPolicy((QSizePolicy::Policy)e.attribute("vsizetype").toInt());
-    if (e.hasAttribute("horstretch"))
-      sp.setHorizontalStretch(e.attribute("horstretch").toInt());
-    if (e.hasAttribute("verstretch"))
-      sp.setVerticalStretch(e.attribute("verstretch").toInt());
-    v = QVariant(sp);
-    ok = true;
-  }
-  else if (e.tagName() == "cursor")
-  {
-    if (e.hasAttribute("shape"))
-      v = QVariant(QCursor(static_cast<Qt::CursorShape>(e.attribute("shape").toInt(&ok, 10))));
-    else
-      qWarning("%s element without value!", e.tagName().toLatin1().data());
   }
   else if (e.tagName() == "stringlist")
   {
@@ -319,6 +223,18 @@ bool DomConvenience::variantToElement(const QVariant& v, QDomElement& e)
 
   clearAttributes(e);
 
+  // SeqColor is a custom metatype, so its id isn't a compile-time
+  // constant — handle it before the QMetaType switch.
+  if (v.userType() == qMetaTypeId<SeqColor>())
+  {
+    e.setTagName("color");
+    SeqColor color = v.value<SeqColor>();
+    e.setAttribute("red", color.r);
+    e.setAttribute("green", color.g);
+    e.setAttribute("blue", color.b);
+    return true;
+  }
+
   switch (v.type())
   {
   case QMetaType::QString:
@@ -359,37 +275,6 @@ bool DomConvenience::variantToElement(const QVariant& v, QDomElement& e)
     e.setTagName("bool");
     e.setAttribute("value", boolString(v.toBool()));
     break;
-  case QMetaType::QColor:
-    {
-      e.setTagName("color");
-      QColor color = v.value<QColor>();
-      e.setAttribute("red", color.red());
-      e.setAttribute("green", color.green());
-      e.setAttribute("blue", color.blue());
-    }
-    break;
-  case QMetaType::QPen:
-    {
-      e.setTagName("pen");
-      QPen pen = v.value<QPen>();
-      e.setAttribute("red", pen.color().red());
-      e.setAttribute("green", pen.color().green());
-      e.setAttribute("blue", pen.color().blue());
-      e.setAttribute("style", pen.style());
-      e.setAttribute("cap", pen.capStyle());
-      e.setAttribute("join", pen.joinStyle());
-    }
-    break;
-  case QMetaType::QBrush:
-    {
-      e.setTagName("brush");
-      QBrush brush = v.value<QBrush>();
-      e.setAttribute("red", brush.color().red());
-      e.setAttribute("green", brush.color().green());
-      e.setAttribute("blue", brush.color().blue());
-      e.setAttribute("style", brush.style());
-    }
-    break;
   case QMetaType::QPoint:
     {
       e.setTagName("point");
@@ -416,33 +301,6 @@ bool DomConvenience::variantToElement(const QVariant& v, QDomElement& e)
       e.setAttribute("height", qsize.height());
     }
     break;
-  case QMetaType::QFont:
-    {
-      e.setTagName("font");
-      QFont f(v.value<QFont>());
-      e.setAttribute("family", f.family());
-      e.setAttribute("pointsize", f.pointSize());
-      e.setAttribute("bold", boolString(f.bold()));
-      e.setAttribute("italic", boolString(f.italic()));
-      e.setAttribute("underline", boolString(f.underline()));
-      e.setAttribute("strikeout", boolString(f.strikeOut()));
-    }
-    break;
-  case QMetaType::QSizePolicy:
-    {
-      e.setTagName("sizepolicy");
-      QSizePolicy sp(v.value<QSizePolicy>());
-      e.setAttribute("hsizetype", sp.horizontalPolicy());
-      e.setAttribute("vsizetype", sp.verticalPolicy());
-      e.setAttribute("horstretch", sp.horizontalStretch());
-      e.setAttribute("verstretch", sp.verticalStretch());
-    }
-    break;
-  case QMetaType::QCursor:
-    e.setTagName("cursor");
-    e.setAttribute("shape", v.value<QCursor>().shape());
-    break;
-
   case QMetaType::QStringList:
     {
       e.setTagName("stringlist");
@@ -494,11 +352,6 @@ bool DomConvenience::variantToElement(const QVariant& v, QDomElement& e)
     }
     break;
 
-  case QMetaType::QKeySequence:
-    e.setTagName("key");
-    e.setAttribute("sequence", (QString)v.value<QKeySequence>().toString());
-    break;
-
 #if 0
   case QVariant::List:
   case QVaraint::Map:
@@ -541,30 +394,24 @@ int DomConvenience::getBase(const QDomElement& e)
   return base;
 }
 
-QColor DomConvenience::getColor(const QDomElement& e)
+SeqColor DomConvenience::getColor(const QDomElement& e)
 {
-  QColor color;
+  SeqColor color;
   if (e.hasAttribute("name"))
-    color = QColor(e.attribute("name"));
+    color = SeqColor(e.attribute("name"));
 
   // allow specifying of base color by name and then tweaking
-  if (e.hasAttribute("red") || 
+  if (e.hasAttribute("red") ||
       e.hasAttribute("green") ||
       e.hasAttribute("blue"))
   {
     int base = getBase(e);
     bool colorOk = false;
 
-    // default to black
-    int r = 0, g = 0, b = 0;
-
-    // if color was specified by name, use it's RGB values as defaults
-    if (color.isValid())
-    {
-      r = color.red();
-      g = color.green();
-      b = color.blue();
-    }
+    // default to black; if a name was already parsed, start from it
+    int r = color.valid ? color.r : 0;
+    int g = color.valid ? color.g : 0;
+    int b = color.valid ? color.b : 0;
 
     if (e.hasAttribute("red"))
       r = e.attribute("red").toInt(&colorOk, base);
@@ -573,7 +420,7 @@ QColor DomConvenience::getColor(const QDomElement& e)
     if (e.hasAttribute("blue"))
       b = e.attribute("blue").toInt(&colorOk, base);
 
-    color = QColor(r, g, b);
+    color = SeqColor(uint8_t(r), uint8_t(g), uint8_t(b));
   }
 
   return color;

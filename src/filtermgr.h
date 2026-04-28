@@ -39,11 +39,7 @@
 #include <map>
 
 #include <QObject>
-#include <QDialog>
 #include <QString>
-#include <QLabel>
-#include <QLineEdit>
-#include <QCheckBox>
 
 #include "everquest.h"
 
