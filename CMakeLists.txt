@@ -81,35 +81,44 @@ target_include_directories(seq-proto PUBLIC "${SEQ_PROTO_GEN_DIR}")
 target_link_libraries(seq-proto PUBLIC protobuf::libprotobuf)
 set_target_properties(seq-proto PROPERTIES AUTOMOC OFF AUTORCC OFF AUTOUIC OFF)
 
-# --- Rust decoder bridge -----------------------------------------------------
+# --- Rust decoder bridge (opt-in) --------------------------------------------
 # showeq-decoder-rs is a sibling repo. seq-bridge is a cxx staticlib that
-# exposes per-opcode parsers from seq-decode to C++. Per-opcode adoption is
-# gated by the daemon's --rust-opcodes runtime flag; the C++ path stays
-# primary and is the fallback when the flag is absent.
-include(FetchContent)
-FetchContent_Declare(
-  Corrosion
-  GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
-  GIT_TAG v0.6
-)
-FetchContent_MakeAvailable(Corrosion)
+# exposes per-opcode parsers from seq-decode to C++. Per-opcode adoption
+# is gated by the daemon's --rust-opcodes runtime flag; the C++ path is
+# primary and the build default.
+#
+# Default OFF: normal builds don't need a Rust toolchain or the
+# showeq-decoder-rs sibling checkout. Pass -DSEQ_USE_RUST=ON to wire in
+# Corrosion + the seq-bridge crate.
+option(SEQ_USE_RUST "Build with the showeq-decoder-rs Rust decoder integration" OFF)
 
-set(SEQ_DECODER_RS_DIR "${CMAKE_SOURCE_DIR}/../showeq-decoder-rs")
-if(NOT EXISTS "${SEQ_DECODER_RS_DIR}/Cargo.toml")
-  message(FATAL_ERROR
-    "showeq-decoder-rs sibling repo not found at ${SEQ_DECODER_RS_DIR}.\n"
-    "Clone it as a sibling of showeq-daemon. See README for the toolchain note.")
+if(SEQ_USE_RUST)
+  include(FetchContent)
+  FetchContent_Declare(
+    Corrosion
+    GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
+    GIT_TAG v0.6
+  )
+  FetchContent_MakeAvailable(Corrosion)
+
+  set(SEQ_DECODER_RS_DIR "${CMAKE_SOURCE_DIR}/../showeq-decoder-rs")
+  if(NOT EXISTS "${SEQ_DECODER_RS_DIR}/Cargo.toml")
+    message(FATAL_ERROR
+      "SEQ_USE_RUST=ON but showeq-decoder-rs sibling repo not found at ${SEQ_DECODER_RS_DIR}.\n"
+      "Clone github.com/showeq-unofficial/showeq-decoder-rs as a sibling of showeq-daemon, "
+      "or rebuild without -DSEQ_USE_RUST=ON.")
+  endif()
+
+  corrosion_import_crate(
+    MANIFEST_PATH "${SEQ_DECODER_RS_DIR}/Cargo.toml"
+    CRATES seq-bridge
+  )
+
+  corrosion_add_cxxbridge(seq-bridge-cxx
+    CRATE seq_bridge
+    FILES lib.rs
+  )
 endif()
-
-corrosion_import_crate(
-  MANIFEST_PATH "${SEQ_DECODER_RS_DIR}/Cargo.toml"
-  CRATES seq-bridge
-)
-
-corrosion_add_cxxbridge(seq-bridge-cxx
-  CRATE seq_bridge
-  FILES lib.rs
-)
 
 # --- daemon core library -----------------------------------------------------
 # Everything except the WebSocket/main wiring goes into a static library so
@@ -182,7 +191,6 @@ target_include_directories(seq-daemon-core PUBLIC
 
 target_link_libraries(seq-daemon-core PUBLIC
   seq-proto
-  seq-bridge-cxx
   Qt${QT_VERSION_MAJOR}::Core
   Qt${QT_VERSION_MAJOR}::Gui
   Qt${QT_VERSION_MAJOR}::Widgets
@@ -194,6 +202,10 @@ target_link_libraries(seq-daemon-core PUBLIC
 )
 if(SEQ_USE_QT6)
   target_link_libraries(seq-daemon-core PUBLIC Qt6::Core5Compat)
+endif()
+if(SEQ_USE_RUST)
+  target_link_libraries(seq-daemon-core PUBLIC seq-bridge-cxx)
+  target_compile_definitions(seq-daemon-core PUBLIC SEQ_USE_RUST=1)
 endif()
 
 target_compile_options(seq-daemon-core PRIVATE

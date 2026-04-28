@@ -23,19 +23,21 @@ target_compile_options(protoencoder_test PRIVATE
 
 add_test(NAME protoencoder_test COMMAND protoencoder_test)
 
-add_executable(rustdecode_test
-  rustdecode_test.cpp
-)
+if(SEQ_USE_RUST)
+  add_executable(rustdecode_test
+    rustdecode_test.cpp
+  )
 
-target_link_libraries(rustdecode_test PRIVATE
-  seq-daemon-core
-  Qt5::Test
-)
+  target_link_libraries(rustdecode_test PRIVATE
+    seq-daemon-core
+    Qt${QT_VERSION_MAJOR}::Test
+  )
 
-target_compile_options(rustdecode_test PRIVATE
-  -Wall
-  -Wno-unused-parameter
-  -Wno-deprecated-declarations
-)
+  target_compile_options(rustdecode_test PRIVATE
+    -Wall
+    -Wno-unused-parameter
+    -Wno-deprecated-declarations
+  )
 
-add_test(NAME rustdecode_test COMMAND rustdecode_test)
+  add_test(NAME rustdecode_test COMMAND rustdecode_test)
+endif()

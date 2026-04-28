@@ -33,7 +33,9 @@
 #include "player.h"
 #include "util.h"
 #include "guild.h"
+#ifdef SEQ_USE_RUST
 #include "seq-bridge-cxx/lib.h"
+#endif
 #include "packetcommon.h"
 #include "diagnosticmessages.h"
 #include "netstream.h"
@@ -1286,6 +1288,7 @@ void SpawnShell::updateSpawns(const uint8_t* data)
   if (m_zoneMgr->isZoning())
     return;
 
+#ifdef SEQ_USE_RUST
   if (m_useRustMobUpdate) {
     auto out = seq::rust::decode_mob_update(
         rust::Slice<const uint8_t>{data, sizeof(spawnPositionUpdate)});
@@ -1302,6 +1305,7 @@ void SpawnShell::updateSpawns(const uint8_t* data)
     // length check fails, something is very wrong. Fall through to the
     // C++ path defensively rather than dropping the packet.
   }
+#endif
 
   const spawnPositionUpdate* updates = (const spawnPositionUpdate*)data;
   updateSpawn(updates->spawnId,

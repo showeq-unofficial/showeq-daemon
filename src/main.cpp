@@ -173,6 +173,13 @@ int main(int argc, char** argv)
     cfg.noListen     = parser.isSet(noListenOpt);
     cfg.rustOpcodes  = parser.value(rustOpcodesOpt)
                              .split(QLatin1Char(','), Qt::SkipEmptyParts);
+#ifndef SEQ_USE_RUST
+    if (!cfg.rustOpcodes.isEmpty()) {
+        qWarning("--rust-opcodes ignored: this binary was built without "
+                 "SEQ_USE_RUST. Reconfigure with -DSEQ_USE_RUST=ON to enable.");
+        cfg.rustOpcodes.clear();
+    }
+#endif
 
     // Resolve record paths against cwd for the same reason --config-dir
     // is — under sudo, $HOME points at /root.

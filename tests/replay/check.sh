@@ -24,6 +24,15 @@ if [[ ! -x "${DAEMON}" ]]; then
     exit 2
 fi
 
+# rustdecode_test only gets built under -DSEQ_USE_RUST=ON; use it as the
+# build-mode probe. Absent => skip the cross-decoder second pass.
+if [[ -x "${DAEMON_DIR}/build/tests/rustdecode_test" ]]; then
+    HAVE_RUST=1
+else
+    HAVE_RUST=0
+    echo "note: daemon built without -DSEQ_USE_RUST=ON; skipping cross-decoder check"
+fi
+
 shopt -s nullglob
 vpks=("${REPLAY_DIR}"/*.vpk)
 if [[ ${#vpks[@]} -eq 0 ]]; then
@@ -95,6 +104,10 @@ for vpk in "${vpks[@]}"; do
         echo "     produced: ${keep}"
         fail=$((fail+1))
         failures+=("${name}")
+        continue
+    fi
+
+    if [[ ${HAVE_RUST} -eq 0 ]]; then
         continue
     fi
 

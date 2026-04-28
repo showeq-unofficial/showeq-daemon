@@ -100,7 +100,7 @@ cmp tests/replay/<scenario>.pbstream /tmp/check.pbstream && echo OK
 
 ## Tier 3 — cross-decoder diff *(future, gated on Phase 4)*
 
-When the Rust decoder track in `showeq-rust-decoder` starts producing
+When the Rust decoder track in `showeq-decoder-rs` starts producing
 `Envelope` output, the same `.vpk` fixtures from tier 2 are the input
 to a cross-decoder diff: feed the same packets through both decoders,
 compare their `seq.v1` output byte-for-byte.
