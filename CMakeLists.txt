@@ -21,13 +21,9 @@ endif()
 # still runs without a display.
 #
 # Default to Qt5; pass -DSEQ_USE_QT6=ON to build against Qt6.
-# Qt6 additionally requires Core5Compat for the SAX XML API
-# (QXmlDefaultHandler / QXmlSimpleReader / QXmlAttributes) used by
-# packetinfo.cpp's opcode-XML loader. Tracked as a follow-up port to
-# QXmlStreamReader in MODERNIZATION_PLAN.md.
 option(SEQ_USE_QT6 "Build against Qt6 instead of Qt5" OFF)
 if(SEQ_USE_QT6)
-    find_package(Qt6 REQUIRED COMPONENTS Core Network Xml WebSockets Core5Compat)
+    find_package(Qt6 REQUIRED COMPONENTS Core Network Xml WebSockets)
     set(QT_VERSION_MAJOR 6)
 else()
     find_package(Qt5 5.15 REQUIRED COMPONENTS Core Network Xml WebSockets)
@@ -201,9 +197,6 @@ target_link_libraries(seq-daemon-core PUBLIC
   ${ZLIB_LIBRARIES}
   Threads::Threads
 )
-if(SEQ_USE_QT6)
-  target_link_libraries(seq-daemon-core PUBLIC Qt6::Core5Compat)
-endif()
 if(SEQ_USE_RUST)
   target_link_libraries(seq-daemon-core PUBLIC seq-bridge-cxx)
   target_compile_definitions(seq-daemon-core PUBLIC SEQ_USE_RUST=1)

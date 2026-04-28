@@ -27,9 +27,9 @@
 #include <QObject>
 #include <QMetaObject>
 #include <QFile>
-#include <QXmlAttributes>
 #include <QTextStream>
 #include <QByteArray>
+#include <QXmlStreamReader>
 
 #include <map>
 
@@ -44,35 +44,6 @@
 
 // this define is used to diagnose problems with packet dispatch
 // #define  PACKET_DISPATCH_DIAG 1
-
-//----------------------------------------------------------------------
-// OPCodeXmlContentHandler declaration
-class OPCodeXmlContentHandler : public QXmlDefaultHandler
-{
-public:
-  OPCodeXmlContentHandler(const EQPacketTypeDB& typeDB, 
-			  EQPacketOPCodeDB& opcodeDB);
-  virtual ~OPCodeXmlContentHandler();
-  
-  // QXmlContentHandler overrides
-  bool startDocument();
-  bool startElement( const QString&, const QString&, const QString& , 
-		     const QXmlAttributes& );
-  bool characters(const QString& ch);
-  bool endElement( const QString&, const QString&, const QString& );
-  bool endDocument();
-  
-protected:
-  const EQPacketTypeDB& m_typeDB;
-  EQPacketOPCodeDB& m_opcodeDB;
-
-  EQPacketOPCode* m_currentOPCode;
-  EQPacketPayload* m_currentPayload;
-  
-  QString m_currentComment;
-
-  bool m_inComment;
-};
 
 
 //----------------------------------------------------------------------
@@ -286,28 +257,136 @@ EQPacketOPCodeDB::~EQPacketOPCodeDB()
     }
 }
 
-bool EQPacketOPCodeDB::load(const EQPacketTypeDB& typeDB, 
+bool EQPacketOPCodeDB::load(const EQPacketTypeDB& typeDB,
 			    const QString& filename)
 {
-  // load opcodes
-
-  // create XML content handler
-  OPCodeXmlContentHandler handler(typeDB, *this);
-
-  // create a file object on the file
   QFile xmlFile(filename);
+  if (!xmlFile.open(QIODevice::ReadOnly))
+    return false;
 
-  // create an XmlInputSource on the file
-  QXmlInputSource source(&xmlFile);
-  
-  // create an XML parser
-  QXmlSimpleReader reader;
+  QXmlStreamReader reader(&xmlFile);
 
-  // set the content handler
-  reader.setContentHandler(&handler);
+  // State formerly carried across SAX callbacks; now locals over the
+  // pull loop. m_inComment is gone — `<comment>` text is read directly
+  // when StartElement/EndElement bracket it.
+  EQPacketOPCode* currentOPCode = nullptr;
+  EQPacketPayload* currentPayload = nullptr;
 
-  // parse the file
-  return reader.parse(source);
+  while (!reader.atEnd())
+  {
+    reader.readNext();
+
+    if (reader.isStartElement())
+    {
+      // QXmlStreamReader::name() returns QStringRef on Qt5 and
+      // QStringView on Qt6 — use auto so this builds against both.
+      const auto name = reader.name();
+      const QXmlStreamAttributes attr = reader.attributes();
+
+      if (name == QLatin1String("opcode"))
+      {
+        if (!attr.hasAttribute(QLatin1String("id")))
+        {
+          seqWarn("EQPacketOPCodeDB::load: opcode element without id!");
+          return false;
+        }
+
+        bool ok = false;
+        const QString idStr = attr.value(QLatin1String("id")).toString();
+        const uint16_t opcode = idStr.toUShort(&ok, 16);
+        if (!ok)
+        {
+          seqWarn("EQPacketOPCodeDB::load: opcode '%s' failed to convert to uint16_t (result: %#04x)",
+                  idStr.toLatin1().data(), opcode);
+          return false;
+        }
+
+        if (!attr.hasAttribute(QLatin1String("name")))
+        {
+          seqWarn("EQPacketOPCodeDB::load: opcode %#04x missing name parameter!",
+                  opcode);
+          return false;
+        }
+
+        currentOPCode = add(opcode, attr.value(QLatin1String("name")).toString());
+        if (!currentOPCode)
+        {
+          seqWarn("Failed to add opcode %04x", opcode);
+          return false;
+        }
+
+        if (attr.hasAttribute(QLatin1String("updated")))
+          currentOPCode->setUpdated(attr.value(QLatin1String("updated")).toString());
+
+        if (attr.hasAttribute(QLatin1String("implicitlen")))
+          currentOPCode->setImplicitLen(
+            attr.value(QLatin1String("implicitlen")).toUShort());
+
+        continue;
+      }
+
+      if (name == QLatin1String("comment") && currentOPCode)
+      {
+        // readElementText consumes through the matching </comment>,
+        // accumulating any character data — same effect as the SAX
+        // handler's m_currentComment buffer.
+        currentOPCode->addComment(reader.readElementText());
+        continue;
+      }
+
+      if (name == QLatin1String("payload") && currentOPCode)
+      {
+        currentPayload = new EQPacketPayload();
+        currentOPCode->append(currentPayload);
+
+        if (attr.hasAttribute(QLatin1String("dir")))
+        {
+          const auto dir = attr.value(QLatin1String("dir"));
+          if (dir == QLatin1String("both"))
+            currentPayload->setDir(DIR_Client | DIR_Server);
+          else if (dir == QLatin1String("server"))
+            currentPayload->setDir(DIR_Server);
+          else if (dir == QLatin1String("client"))
+            currentPayload->setDir(DIR_Client);
+        }
+
+        if (attr.hasAttribute(QLatin1String("typename")))
+        {
+          const QString typeName = attr.value(QLatin1String("typename")).toString();
+          if (!typeName.isEmpty())
+          {
+            if (!currentPayload->setType(typeDB, typeName.toLatin1().data()))
+              seqWarn("Unknown payload typename '%s' for opcode '%04x'",
+                      typeName.toLatin1().data(),
+                      currentOPCode->opcode());
+          }
+        }
+
+        if (attr.hasAttribute(QLatin1String("sizechecktype")))
+        {
+          const auto szt = attr.value(QLatin1String("sizechecktype"));
+          if (szt.isEmpty() || szt == QLatin1String("none"))
+            currentPayload->setSizeCheckType(SZC_None);
+          else if (szt == QLatin1String("match"))
+            currentPayload->setSizeCheckType(SZC_Match);
+          else if (szt == QLatin1String("modulus"))
+            currentPayload->setSizeCheckType(SZC_Modulus);
+        }
+
+        continue;
+      }
+    }
+    else if (reader.isEndElement())
+    {
+      const auto name = reader.name();
+      if (name == QLatin1String("opcode"))
+        currentOPCode = nullptr;
+      else if (name == QLatin1String("payload"))
+        currentPayload = nullptr;
+    }
+  }
+
+  return !reader.hasError();
 }
 
 bool EQPacketOPCodeDB::save(const QString& filename)
@@ -564,205 +643,3 @@ bool EQPacketOPCodeDB::move(const QString& oldOPCodeName,
   return true;
 }
 
-//----------------------------------------------------------------------
-// OPCodeXmlContentHandler implementation
-OPCodeXmlContentHandler::OPCodeXmlContentHandler(const EQPacketTypeDB& typeDB, 
-						 EQPacketOPCodeDB& opcodeDB)
-  : m_typeDB(typeDB),
-    m_opcodeDB(opcodeDB)
-{
-}
-
-OPCodeXmlContentHandler::~OPCodeXmlContentHandler()
-{
-}
-  
-  // QXmlContentHandler overrides
-bool OPCodeXmlContentHandler::startDocument()
-{
-  // not in an opcode yet, so set the current OPCode object to NULL
-  m_currentOPCode = NULL;
-  m_currentPayload = NULL;
-  m_inComment = false;;
-  return true;
-}
-
-bool OPCodeXmlContentHandler::startElement(const QString&, const QString&, 
-					   const QString& name, 
-					   const QXmlAttributes& attr)
-{
-  if (name == "opcode")
-  {
-    bool ok = false;
-
-    // get the index of the id attribute
-    int index = attr.index("id");
-    if (index == -1)
-    {
-      seqWarn("OPCodeXmlContentHandler::startElement(): opcode element without id!");
-	      
-      return false; // this is an error, something is wrong
-    }
-
-    // the id attribute is the opcode value
-    uint16_t opcode = attr.value(index).toUShort(&ok, 16);
-
-#if 0 // ZBTEMP
-    opcode += 2;
-#endif 
-
-    if (!ok)
-    {
-      seqWarn("OPCodeXmlContentHandler::startElement(): opcode '%s' failed to convert to uint16_t (result: %#04x)",
-	      attr.value(index).toLatin1().data(), opcode);
-
-      return false; // this is an error
-    }
-
-    // get the index of the name attribute
-    index = attr.index("name");
-    
-    // if name attribute was found, set the opcode objects name
-    if (index == -1)
-    {
-      seqWarn("OPCodeXmlContentHandler::startElement(): opcode %#04x missing name parameter!",
-	      opcode);
-
-      return false;
-    }
-
-    // add/create the new opcode object
-    m_currentOPCode = m_opcodeDB.add(opcode, attr.value(index));
-
-    if (!m_currentOPCode)
-    {
-      seqWarn("Failed to add opcode %04x", opcode);
-      return false;
-    }
-
-
-    // get the index of the updated attribute
-    index = attr.index("updated");
-    
-    // if the updated attribute was found, set the objects updated field
-    if (index != -1)
-      m_currentOPCode->setUpdated(attr.value(index));
-
-    // get the index of the implicitlen attribute
-    index = attr.index("implicitlen");
-
-    // if implicitlen attribute was found, set the objects implicitLen field
-    if (index != -1)
-      m_currentOPCode->setImplicitLen(attr.value(index).toUShort());
-
-    return true;
-  }
-
-  if ((name == "comment") && (m_currentOPCode))
-  {
-    // clear any current comment
-    m_currentComment = "";
-    m_inComment = true;
-
-    return true;
-  }
-
-  if ((name == "payload") && (m_currentOPCode))
-  {
-    // create a new payload object and make it the current one
-    m_currentPayload = new EQPacketPayload();
-
-    // add the payload object to the opcode
-    m_currentOPCode->append(m_currentPayload);
-
-    // check for direction attribute
-    int index = attr.index("dir");
-
-    // if an index attribute exists, then use it
-    if (index != -1)
-    {
-      QString value = attr.value(index);
-
-      if (value == "both")
-	m_currentPayload->setDir(DIR_Client | DIR_Server);
-      else if (value == "server")
-	m_currentPayload->setDir(DIR_Server);
-      else if (value == "client")
-	m_currentPayload->setDir(DIR_Client);
-    }
-
-    // get the typename attribute
-    index = attr.index("typename");
-
-    // if a typename attribute exist, then set the payload type
-    if (index != -1)
-    {
-      QString value = attr.value(index);
-      
-      if (!value.isEmpty())
-      {
-          if (!m_currentPayload->setType(m_typeDB, value.toLatin1().data()))
-              seqWarn("Unknown payload typename '%s' for opcode '%04x'",
-                      value.toLatin1().data(), m_currentOPCode->opcode());
-      }
-    }
-
-    // attempt to retrieve the sizechecktype
-    index = attr.index("sizechecktype");
-
-    // if a sizechecktype exists, then set the payload size check type
-    if (index != -1)
-    {
-      QString value = attr.value(index);
-
-      if (value.isEmpty() || (value == "none"))
-	m_currentPayload->setSizeCheckType(SZC_None);
-      else if (value == "match")
-	m_currentPayload->setSizeCheckType(SZC_Match);
-      else if (value == "modulus")
-	m_currentPayload->setSizeCheckType(SZC_Modulus);
-    }
-
-    return true;
-  }
-
-  return true;
-}
-
-bool OPCodeXmlContentHandler::characters(const QString& ch)
-{
-  // if in a <comment>, add the current characters to it's text
-  if (m_inComment)
-    m_currentComment += ch;
-    
-  return true;
-}
-
-bool OPCodeXmlContentHandler::endElement(const QString&, const QString&, 
-					 const QString& name)
-{
-  if (name == "opcode")
-  {
-    // not currently in an opcode, so set the current OPCode object to NULL
-    m_currentOPCode = NULL;
-
-    return true;
-  }
-
-  if ((name == "comment") && (m_inComment))
-  {
-    m_inComment = false;
-    if (m_currentOPCode)
-      m_currentOPCode->addComment(m_currentComment);
-  }
-
-  if ((name == "payload") && (m_currentPayload))
-    m_currentPayload = NULL;
-
-  return true;
-}
-
-bool OPCodeXmlContentHandler::endDocument()
-{
-  return true;
-}

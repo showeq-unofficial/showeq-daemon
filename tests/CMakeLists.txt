@@ -38,6 +38,23 @@ target_compile_options(seqcolor_test PRIVATE
 
 add_test(NAME seqcolor_test COMMAND seqcolor_test)
 
+add_executable(packetinfo_test
+  packetinfo_test.cpp
+)
+
+target_link_libraries(packetinfo_test PRIVATE
+  seq-daemon-core
+  Qt${QT_VERSION_MAJOR}::Test
+)
+
+target_compile_options(packetinfo_test PRIVATE
+  -Wall
+  -Wno-unused-parameter
+  -Wno-deprecated-declarations
+)
+
+add_test(NAME packetinfo_test COMMAND packetinfo_test)
+
 if(SEQ_USE_RUST)
   add_executable(rustdecode_test
     rustdecode_test.cpp
