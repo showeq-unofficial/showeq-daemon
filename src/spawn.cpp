@@ -315,17 +315,6 @@ void Item::setPos(int16_t x, int16_t y, int16_t z)
   setPoint(x, y, z);
 }
 
-void Item::setDistanceToPlayer(double dist)
-{
-    m_fdist = dist;
-    m_idist = (uint32_t)m_fdist;
-}
-
-void Item::setDistanceToPlayer(uint32_t dist)
-{
-    m_idist = dist;
-}
-
 //----------------------------------------------------------------------
 // Spawn
 Spawn::Spawn()

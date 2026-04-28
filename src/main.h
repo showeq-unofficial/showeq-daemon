@@ -41,7 +41,6 @@ extern class XMLPreferences *pSEQPrefs;
 struct ShowEQParams
 {
   bool           retarded_coords; // Verant style YXZ instead of XYZ
-  bool           fast_machine;
   bool           createUnknownSpawns;
   bool           keep_selected_visible;
   bool           pvp;

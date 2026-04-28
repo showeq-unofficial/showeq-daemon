@@ -503,10 +503,6 @@ void SpawnShell::newGroundItem(const uint8_t* data, size_t len, uint8_t dir)
   if (item != NULL)
   {
     item->update(&ds, name);
-    if (!showeq_params->fast_machine)
-       item->setDistanceToPlayer(m_player->calcDist2DInt(*item));
-    else
-       item->setDistanceToPlayer(m_player->calcDist(*item));
     updateFilterFlags(item);
     item->updateLastChanged();
     emit changeItem(item, tSpawnChangedALL);
@@ -514,10 +510,6 @@ void SpawnShell::newGroundItem(const uint8_t* data, size_t len, uint8_t dir)
   else
   {
     item = new Drop(&ds, name);
-    if (!showeq_params->fast_machine)
-       item->setDistanceToPlayer(m_player->calcDist2DInt(*item));
-     else
-       item->setDistanceToPlayer(m_player->calcDist(*item));
     updateFilterFlags(item);
     m_drops.insert(ds.dropId, item);
     emit addItem(item);
@@ -561,10 +553,6 @@ void SpawnShell::newDoorSpawn(const doorStruct& d, size_t len, uint8_t dir)
    {
      Door* door = (Door*)item;
      door->update(&d);
-     if (!showeq_params->fast_machine)
-        item->setDistanceToPlayer(m_player->calcDist2DInt(*item));
-     else
-        item->setDistanceToPlayer(m_player->calcDist(*item));
      updateFilterFlags(door);
      item->updateLastChanged();
      emit changeItem(door, tSpawnChangedALL);
@@ -572,10 +560,6 @@ void SpawnShell::newDoorSpawn(const doorStruct& d, size_t len, uint8_t dir)
    else
    {
      item = (Item*)new Door(&d);
-     if (!showeq_params->fast_machine)
-        item->setDistanceToPlayer(m_player->calcDist2DInt(*item));
-     else
-        item->setDistanceToPlayer(m_player->calcDist(*item));
      updateFilterFlags(item);
      m_doors.insert(d.doorId, item);
      emit addItem(item);
@@ -960,11 +944,6 @@ void SpawnShell::newSpawn(const spawnStruct& s)
 
      spawn->setGuildTag(m_guildMgr->guildIdToName(spawn->guildID(), spawn->guildServerID()));
 
-     if (!showeq_params->fast_machine)
-        item->setDistanceToPlayer(m_player->calcDist2DInt(*item));
-     else
-        item->setDistanceToPlayer(m_player->calcDist(*item));
-
      emit changeItem(item, tSpawnChangedALL);
    }
    else
@@ -976,11 +955,6 @@ void SpawnShell::newSpawn(const spawnStruct& s)
      m_spawns.insert(s.spawnId, item);
 
      spawn->setGuildTag(m_guildMgr->guildIdToName(spawn->guildID(), spawn->guildServerID()));
-
-     if (!showeq_params->fast_machine)
-        item->setDistanceToPlayer(m_player->calcDist2DInt(*item));
-     else
-        item->setDistanceToPlayer(m_player->calcDist(*item));
 
      emit addItem(item);
 
@@ -1236,12 +1210,6 @@ void SpawnShell::updateSpawn(uint16_t id,
         spawn->setDeltas(xVel, yVel, zVel);
         spawn->setHeading(heading, deltaHeading);
 
-        // Distance
-        if (!showeq_params->fast_machine)
-            item->setDistanceToPlayer(m_player->calcDist2DInt(*item));
-        else
-            item->setDistanceToPlayer(m_player->calcDist(*item));
-        
         spawn->updateLast();
         item->updateLastChanged();
         emit changeItem(item, tSpawnChangedPosition);

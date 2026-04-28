@@ -15,16 +15,11 @@ namespace {
 //
 // Currently published:
 //   Interface/DateTimeFormat (string) — chat timestamp format
-//   Misc/FastMachine         (bool)   — 3D float vs 2D int distance calc
 //   Network/Device           (string) — pcap interface to capture on
 //   Network/IP               (string) — EQ client IP filter (auto = 127.0.0.0)
 constexpr const char* kInterfaceSection      = "Interface";
 constexpr const char* kDateTimeFormatKey     = "DateTimeFormat";
 constexpr const char* kDateTimeFormatDefault = "ddd MMM dd,yyyy - hh:mm ap";
-
-constexpr const char* kMiscSection         = "Misc";
-constexpr const char* kFastMachineKey      = "FastMachine";
-constexpr bool        kFastMachineDefault  = true;
 
 constexpr const char* kNetworkSection   = "Network";
 constexpr const char* kDeviceKey        = "Device";
@@ -45,14 +40,6 @@ void PrefsBroker::fillSnapshot(seq::v1::PrefsSnapshot* out) const
         p->set_string_value(
             pSEQPrefs->getPrefString(kDateTimeFormatKey, kInterfaceSection,
                                      kDateTimeFormatDefault).toStdString());
-    }
-    {
-        auto* p = out->add_prefs();
-        p->set_section(kMiscSection);
-        p->set_key(kFastMachineKey);
-        p->set_bool_value(
-            pSEQPrefs->getPrefBool(kFastMachineKey, kMiscSection,
-                                   kFastMachineDefault));
     }
     {
         auto* p = out->add_prefs();
@@ -84,18 +71,6 @@ bool PrefsBroker::apply(const seq::v1::Pref& pref)
         // XMLPreferences batches modifications; flush so the change
         // survives a daemon restart.
         pSEQPrefs->save();
-        emit prefChanged(pref);
-        return true;
-    }
-
-    if (section == kMiscSection && key == kFastMachineKey) {
-        if (pref.value_case() != seq::v1::Pref::kBoolValue) return false;
-        const bool v = pref.bool_value();
-        pSEQPrefs->setPrefBool(key, section, v);
-        pSEQPrefs->save();
-        // Mirror into the runtime global so the very next distance
-        // calculation in spawnshell.cpp picks up the new value.
-        if (showeq_params) showeq_params->fast_machine = v;
         emit prefChanged(pref);
         return true;
     }

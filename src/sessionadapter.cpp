@@ -762,10 +762,10 @@ void SessionAdapter::onTargetSpawn(uint32_t spawnId)
 void SessionAdapter::sendPrefsSnapshot()
 {
     if (!m_prefsBroker) return;
-    // Prefs are entirely user-driven (Network/Device, Misc/FastMachine,
-    // etc.) — locking them into the tier-2 regression golden would mean
-    // any local config edit forces a regen. setDeterministic() is only
-    // set by --record-golden, so live clients still see prefs.
+    // Prefs are entirely user-driven (Network/Device, etc.) — locking
+    // them into the tier-2 regression golden would mean any local
+    // config edit forces a regen. setDeterministic() is only set by
+    // --record-golden, so live clients still see prefs.
     if (m_deterministic) return;
     seq::v1::Envelope env;
     m_prefsBroker->fillSnapshot(env.mutable_prefs());

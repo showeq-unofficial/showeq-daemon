@@ -79,10 +79,6 @@
  </section>
 <!-- ============================================================= -->
  <section name="Misc" >
-  <property name="FastMachine" >
-   <bool value="false" />
-   <comment>set to true if you have a fast machine to enable more accurate calculations</comment>
-  </property>
   <property name="CreateUnknownSpawns" >
    <bool value="true" />
    <comment>Create Unknown Spawns for those spawns with incomplete information</comment>

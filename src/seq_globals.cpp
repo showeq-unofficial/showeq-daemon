@@ -25,7 +25,6 @@ void initGlobals(const QString& configDef, const QString& configFile)
     showeq_params = new ShowEQParams();
     // Fields are zero/false by default; opt-ins below match showeq's
     // usual "sensible runtime" settings rather than its XML defaults.
-    showeq_params->fast_machine          = true;
     showeq_params->createUnknownSpawns   = true;
     showeq_params->keep_selected_visible = true;
     showeq_params->saveZoneState         = false;

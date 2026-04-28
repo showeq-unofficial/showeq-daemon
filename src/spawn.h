@@ -147,8 +147,6 @@ class Item : public EQPoint
   uint32_t filterFlags() const { return m_filterFlags; }
   uint32_t runtimeFilterFlags() const { return m_runtimeFilterFlags; }
   uint8_t NPC() const { return m_NPC; }
-  double getFDistanceToPlayer() const { return m_fdist; }
-  uint32_t getIDistanceToPlayer() const { return m_idist; }
 
   // virtual methods that provide reasonable default values/behaviour
   virtual QString name() const;
@@ -162,8 +160,6 @@ class Item : public EQPoint
   virtual QString dumpString() const;
 
   // set methods
-  void setDistanceToPlayer(double);
-  void setDistanceToPlayer(uint32_t);
   void setPos(int16_t x, int16_t y, int16_t z);
   void setHeading(int8_t heading) { m_heading = heading; }
 
@@ -202,8 +198,6 @@ class Item : public EQPoint
   uint8_t m_NPC;
   int8_t m_heading;
   spawnItemType m_type;
-  double m_fdist;
-  uint32_t m_idist;
 };
 
 //----------------------------------------------------------------------
