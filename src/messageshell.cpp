@@ -41,9 +41,9 @@ namespace {
 // EQ wraps inline item references in chat / system text with the
 // 0x12 (DC2) control byte: \x12<binary item header><item name>\x12.
 // The header is uppercase-hex digits with a lot of zero padding;
-// the name follows. showeq-c rendered these as raw bytes (its
+// the name follows. showeq rendered these as raw bytes (its
 // MessagesWindow doesn't strip them either) — you just rarely see
-// a loot line in showeq-c chat. On the wire to a web client the
+// a loot line in showeq chat. On the wire to a web client the
 // binary is plain noise; strip it down to just the readable name.
 QString stripEqItemLinks(const QString& in)
 {

@@ -1,8 +1,8 @@
 # showeq-daemon
 
 Headless packet-capture and state-tracking daemon for
-[ShowEQ](https://github.com/showeq/showeq). Extracted from the legacy
-monolithic `showeq-c` Qt application so multiple clients (web, native
+[ShowEQ](https://sourceforge.net/projects/seq/). Extracted from the legacy
+monolithic `showeq` Qt application so multiple clients (web, native
 Rust/Iced, future tools) can connect to a single capture process over
 WebSocket + protobuf.
 
@@ -17,9 +17,9 @@ WebSocket + protobuf.
 ## What it is not
 
 - Not a GUI. For a UI, run one of the clients (see `showeq-web`, or run the
-  legacy `showeq-c` standalone).
-- Not a replacement for `showeq-c` yet. Until feature parity is reached,
-  `showeq-c` remains the reference implementation and regression oracle.
+  legacy `showeq` standalone).
+- Not a replacement for `showeq` yet. Until feature parity is reached,
+  `showeq` remains the reference implementation and regression oracle.
 
 ## Build
 
@@ -78,7 +78,7 @@ privileges, set `User=` to a regular account and uncomment the
 ## Layout
 
 ```
-src/              # Daemon sources (extracted from showeq-c + new glue)
+src/              # Daemon sources (extracted from showeq + new glue)
   daemonapp.*     # Top-level wiring hub, replaces interface.cpp's role
   wsserver.*      # QWebSocketServer
   sessionadapter.*# Per-client adapter: QObject signals -> protobuf
@@ -94,7 +94,7 @@ cmake/            # CMake helper modules
 
 ## License
 
-GPL-2.0 (inherited from `showeq-c`). See [LICENSE](LICENSE).
+GPL-2.0 (inherited from `showeq`). See [LICENSE](LICENSE).
 
 ## Beyond a trusted LAN
 
@@ -125,5 +125,5 @@ None of these are on the daemon roadmap; they live at the edge.
 ## Patch day
 
 EverQuest patches typically require updates to `src/everquest.h` and
-`conf/*opcodes.xml` in *both* this repo and `showeq-c`. See
+`conf/*opcodes.xml` in *both* this repo and `showeq`. See
 [docs/patch-day.md](docs/patch-day.md).

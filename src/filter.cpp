@@ -274,7 +274,7 @@ bool FilterItem::isFiltered(const QString& filterString, uint8_t level) const
 {
   // Guard against an invalid m_regexp: Qt5's QRegularExpression is
   // stricter than the legacy QRegExp this code was originally written
-  // for, so a few patterns that round-trip cleanly in showeq-c parse
+  // for, so a few patterns that round-trip cleanly in showeq parse
   // as invalid here and would otherwise spam
   // "QString::indexOf: invalid QRegularExpression object" on every
   // spawn check. Treat invalid as "doesn't match" — same end-user

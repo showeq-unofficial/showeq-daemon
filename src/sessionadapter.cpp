@@ -147,7 +147,7 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
         return;
     }
     if (env.has_save_filters() && m_filterMgr) {
-        // Mirrors showeq-c's "Save Filters" / "Save Zone Filters"
+        // Mirrors showeq's "Save Filters" / "Save Zone Filters"
         // menu items. Persistence is explicit on purpose so a UI
         // mutation doesn't immediately overwrite an operator's
         // hand-edited XML. No filtersChanged emit — saving doesn't

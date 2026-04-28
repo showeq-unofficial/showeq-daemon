@@ -74,8 +74,8 @@ set_target_properties(seq-proto PROPERTIES AUTOMOC OFF AUTORCC OFF AUTOUIC OFF)
 # in QWebSockets or the command-line parser. Daemon executable adds the
 # remaining pieces (main.cpp + WsServer + SessionAdapter + DaemonApp wiring).
 #
-# Sources extracted from showeq-c/src (authoritative list derived from
-# showeq-c/src/Makefile.am's showeq_SOURCES, minus all QWidget-bound files).
+# Sources extracted from showeq/src (authoritative list derived from
+# showeq/src/Makefile.am's showeq_SOURCES, minus all QWidget-bound files).
 set(SEQ_DAEMON_EXTRACTED_SOURCES
   src/bazaarlog.cpp
   src/category.cpp
@@ -157,7 +157,7 @@ target_compile_options(seq-daemon-core PRIVATE
   -Wno-deprecated-declarations
 )
 
-# Matches showeq-c's Makefile.am: INCLUDES = ... -DPKGDATADIR="..."
+# Matches showeq's Makefile.am: INCLUDES = ... -DPKGDATADIR="..."
 # datalocationmgr.cpp reads this; tests get the same install path so the
 # extracted code keeps its single source of truth.
 target_compile_definitions(seq-daemon-core PRIVATE

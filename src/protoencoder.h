@@ -1,6 +1,6 @@
 #pragma once
 
-// Pure translation functions between in-memory showeq-c types (Item, Spawn)
+// Pure translation functions between in-memory showeq types (Item, Spawn)
 // and seq.v1 protobuf messages. Side-effect free so sessionadapter.cpp can
 // stay focused on wire I/O, and so the future Rust decoder (Phase 4) has a
 // clear spec to match byte-for-byte.

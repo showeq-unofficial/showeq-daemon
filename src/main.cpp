@@ -124,7 +124,7 @@ int main(int argc, char** argv)
         "PKGDATADIR; convenient for running from the build tree.", "dir");
     QCommandLineOption mapsDirOpt(QStringList{"m", "maps-dir"},
         "Directory holding zone .map / .txt files. Defaults to "
-        "~/.showeq/maps (shared with showeq-c), falling back to "
+        "~/.showeq/maps (shared with showeq), falling back to "
         "$config-dir/maps.", "dir");
     QCommandLineOption recordVpkOpt(QStringList{"record-vpk"},
         "Record raw EQ packets to FILE.vpk for later --replay. Combine "

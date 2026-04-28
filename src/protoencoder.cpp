@@ -84,10 +84,10 @@ void fillSpawn(seq::v1::Spawn* out, const Item& it,
         // trailing instance number (e.g. "Cizzar_J`Axx00"). transformedName
         // does the underscore + digit cleanup AND moves leading articles
         // to the end ("a goblin" -> "goblin, a") so the spawn list sorts
-        // by noun. Mirrors showeq-c spawnlistcommon.cpp:188.
+        // by noun. Mirrors showeq spawnlistcommon.cpp:188.
         out->set_name(sp->transformedName().toStdString());
         // lastName carries NPC titles and merchant roles like
-        // "(Fletching Supplies)". showeq-c renders it as
+        // "(Fletching Supplies)". showeq renders it as
         // "<name> (<lastName>)" — we ship the parts separately so
         // clients can format independently.
         out->set_last_name(sp->lastName().toStdString());
@@ -117,7 +117,7 @@ void fillSpawn(seq::v1::Spawn* out, const Item& it,
         // Several seqdef.xml categories key off filter-type names that
         // never appear in Spawn::filterString itself — Hunting matches
         // ":Hunt:", Alert matches ":Alert:", Filtered matches
-        // ":Filtered:". showeq-c's spawnlist2 prepends the FilterMgr's
+        // ":Filtered:". showeq's spawnlist2 prepends the FilterMgr's
         // text form of the spawn's filter mask before evaluating
         // categories; mirror that here so those categories actually
         // match. Falls back gracefully if filterMgr is null (categories
@@ -236,7 +236,7 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
     out->set_level(mp.level());
     out->set_exp_cur(mp.getCurrentExp());
     out->set_exp_max(mp.getMaxExp());
-    // 15M is the hardcoded AA cap shared with showeq-c (see player.cpp's
+    // 15M is the hardcoded AA cap shared with showeq (see player.cpp's
     // emit setAltExp call). When EQ raises it, both sides update together.
     out->set_aa_exp_cur(mp.getCurrentAltExp());
     out->set_aa_exp_max(15'000'000u);

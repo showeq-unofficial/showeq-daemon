@@ -107,7 +107,7 @@ bool PrefsBroker::apply(const seq::v1::Pref& pref)
         pSEQPrefs->save();
         // EQPacket::monitorDevice tears down the pcap handle and
         // restarts capture on the new interface. The user has to zone
-        // for fresh decode state to flow — same behavior as showeq-c.
+        // for fresh decode state to flow — same behavior as showeq.
         // No-op in playback mode.
         if (m_packet && !dev.isEmpty()) m_packet->monitorDevice(dev);
         emit prefChanged(pref);

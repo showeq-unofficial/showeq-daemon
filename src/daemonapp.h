@@ -5,7 +5,7 @@
 #include <QString>
 #include <memory>
 
-// Forward declarations of the extracted showeq-c types. We keep them out of
+// Forward declarations of the extracted showeq types. We keep them out of
 // this header to minimize the include footprint for files that only need the
 // DaemonApp shape.
 class DataLocationMgr;
@@ -85,7 +85,7 @@ public:
     bool start();
 
 private slots:
-    // Mirrors showeq-c/src/map.cpp:370 — MapMgr::loadZoneMap. Called on every
+    // Mirrors showeq/src/map.cpp:370 — MapMgr::loadZoneMap. Called on every
     // ZoneMgr::zoneChanged so SessionAdapter has fresh geometry to stream.
     void loadZoneMap(const QString& shortZoneName);
 

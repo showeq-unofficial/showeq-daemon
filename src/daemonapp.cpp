@@ -73,10 +73,10 @@ bool DaemonApp::start()
     }
 
     // DataLocationMgr resolves file paths against ~/.showeq (user) and
-    // PKGDATADIR (install prefix). The user dir is shared with showeq-c so
+    // PKGDATADIR (install prefix). The user dir is shared with showeq so
     // filters/, maps/, spawnpoints/ etc. interop directly; daemon-only
     // writes (prefs, future per-daemon state) go under ~/.showeq/daemon/ to
-    // avoid colliding with showeq-c's root-level showeq.xml. When
+    // avoid colliding with showeq's root-level showeq.xml. When
     // --config-dir is passed, we copy PKGDATADIR by pointing the user dir
     // at it instead, so the bundled opcode XMLs are picked up without an
     // install step.
@@ -99,7 +99,7 @@ bool DaemonApp::start()
     // daemon still runs, we just can't render spell names or compute
     // calc-from-level durations. Search cascade:
     //   1. DataLocationMgr (user dir / --config-dir / pkg dir)
-    //   2. /usr/local/share/showeq/ (parallel showeq-c install — daemon
+    //   2. /usr/local/share/showeq/ (parallel showeq install — daemon
     //      doesn't ship its own copy of spells_us.txt)
     m_dateTimeMgr = new DateTimeMgr(this, "datetimemgr");
     QFileInfo spellsFile =
@@ -191,7 +191,7 @@ bool DaemonApp::start()
     m_spawnShell = new SpawnShell(*m_filterMgr, m_zoneMgr, m_player, m_guildMgr);
 
     // SpawnMonitor learns recurring NPC pop locations + their respawn
-    // timers from observed spawn/kill cycles. Mirrors showeq-c
+    // timers from observed spawn/kill cycles. Mirrors showeq
     // interface.cpp:326. The monitor connects its own slots to the
     // SpawnShell + ZoneMgr signals it needs in its ctor.
     m_spawnMonitor = new SpawnMonitor(m_dataLocationMgr.get(),
@@ -207,7 +207,7 @@ bool DaemonApp::start()
     connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit,
             m_spawnMonitor, &SpawnMonitor::saveSpawnPoints);
 
-    // GroupMgr tracks group members. Wiring matches showeq-c/src/
+    // GroupMgr tracks group members. Wiring matches showeq/src/
     // interface.cpp:593-615 — needs the player profile signal, three
     // group opcode handlers, and the spawn lifecycle slots.
     m_groupMgr = new GroupMgr(m_spawnShell, m_player, this, "groupMgr");
@@ -232,7 +232,7 @@ bool DaemonApp::start()
                                       this, "messageShell");
 
     // SpellShell tracks active buffs / outgoing casts. Wires player
-    // signals + clear-on-zone, mirroring showeq-c interface.cpp:967-988.
+    // signals + clear-on-zone, mirroring showeq interface.cpp:967-988.
     m_spellShell = new SpellShell(m_player, m_spawnShell, m_spells);
     m_spellShell->setParent(this);
     connect(m_player, SIGNAL(newPlayer()),
@@ -259,7 +259,7 @@ bool DaemonApp::start()
     m_prefsBroker = new PrefsBroker(this);
     // The broker triggers EQPacket::monitorDevice / monitorIPClient on
     // Network/* edits so changes apply mid-session (the user has to
-    // zone for the new session-key handshake — same as showeq-c).
+    // zone for the new session-key handshake — same as showeq).
     // Null in --no-device + --no-replay smoke-test mode; the broker
     // handles that and just persists to XML.
     m_prefsBroker->setPacket(m_packet);
@@ -387,7 +387,7 @@ bool DaemonApp::startCapture()
     const bool wantRecord = !m_cfg.recordVpk.isEmpty();
     // Mirror --device: CLI was already applied, fall back to XML so the
     // operator's saved preference picks up. Empty / sentinel string ==
-    // auto-detect next session, same semantics as showeq-c.
+    // auto-detect next session, same semantics as showeq.
     QString clientIp =
         pSEQPrefs->getPrefString("IP", "Network", AUTOMATIC_CLIENT_IP);
     if (clientIp.isEmpty()) clientIp = AUTOMATIC_CLIENT_IP;
@@ -414,7 +414,7 @@ bool DaemonApp::startCapture()
 
 void DaemonApp::wireZoneMgr()
 {
-    // Mirrors showeq-c/src/interface.cpp:568-588 — the minimum set of
+    // Mirrors showeq/src/interface.cpp:568-588 — the minimum set of
     // zone-packet slots needed for zone transitions and player profile.
     m_packet->connect2("OP_ZoneEntry", SP_Zone, DIR_Client,
                        "ClientZoneEntryStruct", SZC_Match,
@@ -448,7 +448,7 @@ void DaemonApp::wireZoneMgr()
     connect(m_zoneMgr, SIGNAL(playerProfile(const charProfileStruct*)),
             m_player,  SLOT(player(const charProfileStruct*)));
 
-    // Player's own per-tick movement. Mirrors showeq-c/src/interface.cpp:1000.
+    // Player's own per-tick movement. Mirrors showeq/src/interface.cpp:1000.
     // OP_ClientUpdate is overloaded — DIR_Server uses playerSpawnPosStruct
     // (other players' updates, wired in wireSpawnShell), DIR_Client uses
     // playerSelfPosStruct (this user's movement). Both feed the Player
@@ -461,7 +461,7 @@ void DaemonApp::wireZoneMgr()
 
 void DaemonApp::wireSpawnShell()
 {
-    // Mirrors showeq-c/src/interface.cpp:880-948 — the spawn-opcode wiring.
+    // Mirrors showeq/src/interface.cpp:880-948 — the spawn-opcode wiring.
     m_packet->connect2("OP_GroundSpawn", SP_Zone, DIR_Server,
                        "makeDropStruct", SZC_Modulus,
                        m_spawnShell,
@@ -494,7 +494,7 @@ void DaemonApp::wireSpawnShell()
     // Player-vital wirings. Each handler filters by spawnId == self
     // so the same opcodes route through both SpawnShell (any-spawn
     // updates) and Player (only when packet is for the local PC).
-    // Mirrors showeq-c/src/interface.cpp:909-1018. OP_Stamina is
+    // Mirrors showeq/src/interface.cpp:909-1018. OP_Stamina is
     // wired even though its opcode is still id="ffff" — once it's
     // resolved the slot fires automatically without code changes.
     m_packet->connect2("OP_HPUpdate", SP_Zone, DIR_Server|DIR_Client,
@@ -565,7 +565,7 @@ void DaemonApp::wireSpawnShell()
     // Chat. OP_CommonMessage carries the player-to-player channels
     // (/say /tell /guild /group /raid /shout /auction /ooc) parsed by
     // MessageShell::channelMessage; the matching legacy
-    // showeq-c/src/interface.cpp:679 wires it under the same name. The
+    // showeq/src/interface.cpp:679 wires it under the same name. The
     // daemon was previously asking for "OP_ChannelMessage", which
     // isn't in conf/zoneopcodes.xml, so the slot never fired and chat
     // was silently dropped.
@@ -615,7 +615,7 @@ void DaemonApp::wireSpawnShell()
                        m_groupMgr,
                        SLOT(removeGroupMember(const uint8_t*)));
 
-    // SpellShell — mirrors showeq-c/src/interface.cpp:973-988.
+    // SpellShell — mirrors showeq/src/interface.cpp:973-988.
     m_packet->connect2("OP_CastSpell", SP_Zone, DIR_Server|DIR_Client,
                        "startCastStruct", SZC_Match,
                        m_spellShell,
@@ -637,7 +637,7 @@ void DaemonApp::wireSpawnShell()
                        m_spellShell,
                        SLOT(simpleMessage(const uint8_t*, size_t, uint8_t)));
 
-    // Combat events. action2Struct carries damage data (showeq-c handles
+    // Combat events. action2Struct carries damage data (showeq handles
     // this in interface.cpp around line 4950). OP_Action2 is server-side.
     m_packet->connect2("OP_Action2", SP_Zone, DIR_Client|DIR_Server,
                        "action2Struct", SZC_Match,
@@ -649,7 +649,7 @@ static QStringList mapSearchPaths(const QString& override,
                                   const DataLocationMgr* dlm)
 {
     // Override wins; otherwise the DataLocationMgr cascade (user → pkg).
-    // The user dir is ~/.showeq/maps — shared with showeq-c — so no
+    // The user dir is ~/.showeq/maps — shared with showeq — so no
     // separate legacy fallback is needed.
     QStringList paths;
     if (!override.isEmpty()) {
@@ -682,7 +682,7 @@ void DaemonApp::loadZoneMap(const QString& shortZoneName)
     const QStringList dirs = mapSearchPaths(m_cfg.mapsDir,
                                             m_dataLocationMgr.get());
 
-    // Mirrors showeq-c/src/map.cpp:370-423 — locate the base .map/.txt then
+    // Mirrors showeq/src/map.cpp:370-423 — locate the base .map/.txt then
     // any numbered layer files (_1, _2, ...). import=true for layer files so
     // they accumulate into the same MapData rather than replacing it.
     const QFileInfo baseMap = locateMap(dirs, shortZoneName + ".map");

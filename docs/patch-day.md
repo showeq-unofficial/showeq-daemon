@@ -1,15 +1,15 @@
 # Patch-day runbook
 
 EverQuest ships periodic patches that change network opcodes and/or struct
-layouts. When this happens, both `showeq-c` (the legacy Qt app — the
+layouts. When this happens, both `showeq` (the legacy Qt app — the
 regression oracle) and `showeq-daemon` (this repo) must be updated in
-lockstep until `showeq-c` is eventually retired.
+lockstep until `showeq` is eventually retired.
 
 This document is the checklist.
 
 ## Files that change on patch day
 
-Three source categories, **in both `showeq-c/` and `showeq-daemon/`**:
+Three source categories, **in both `showeq/` and `showeq-daemon/`**:
 
 | File | What changes | Notes |
 |---|---|---|
@@ -36,10 +36,10 @@ fast path.
    ```
 
    (If the daemon can't decode yet on the new struct layout, do this step
-   using `showeq-c` with its record-capture option — the `.vpk` format is
+   using `showeq` with its record-capture option — the `.vpk` format is
    compatible.)
 
-3. **Update `showeq-c` first** (upstream of us). Edit the three files above
+3. **Update `showeq` first** (upstream of us). Edit the three files above
    to match the new opcodes/structs. This is the patch-day community
    tradition; everyone coordinates there. If someone else already landed it
    upstream, pull.
@@ -49,9 +49,9 @@ fast path.
 
    ```sh
    cd showeq-daemon
-   cp ../showeq-c/src/everquest.h        src/everquest.h
-   cp ../showeq-c/conf/worldopcodes.xml  conf/worldopcodes.xml
-   cp ../showeq-c/conf/zoneopcodes.xml   conf/zoneopcodes.xml
+   cp ../showeq/src/everquest.h        src/everquest.h
+   cp ../showeq/conf/worldopcodes.xml  conf/worldopcodes.xml
+   cp ../showeq/conf/zoneopcodes.xml   conf/zoneopcodes.xml
    ```
 
    (Once we stabilize, switch to `git subtree` or a vendor script. Until
@@ -60,14 +60,14 @@ fast path.
 5. **Rebuild both.**
 
    ```sh
-   cd showeq-c && make -j
+   cd showeq && make -j
    cd ../showeq-daemon && cmake --build build -j
    ```
 
    Compile errors here are almost always a missed struct change.
 
 6. **Run both side-by-side.** Log in. Walk. Compare:
-   - `showeq-c` spawn list vs. web client spawn list
+   - `showeq` spawn list vs. web client spawn list
    - Spawn positions on both maps
    - Zone transitions happen cleanly on both
    - No "unknown opcode" warnings in the daemon log
@@ -85,11 +85,11 @@ fast path.
    in `git log`, e.g.:
 
    ```
-   showeq-c:       Add opcodes for YYYY-MM-DD patch. Thanks <name>.
+   showeq:       Add opcodes for YYYY-MM-DD patch. Thanks <name>.
    showeq-daemon:  Sync everquest.h + opcode XML with YYYY-MM-DD patch.
    ```
 
-9. **Tag a release** once parity is confirmed: `v6.4.N` in `showeq-c`,
+9. **Tag a release** once parity is confirmed: `v6.4.N` in `showeq`,
    `v0.N` in `showeq-daemon`. Tag both on the same day.
 
 ## Things that break this workflow
@@ -106,6 +106,6 @@ fast path.
 ## When to stop dual-maintaining
 
 Once `showeq-web` reaches feature parity and there's no remaining user of
-`showeq-c` for production play (target: end of Phase 5), freeze `showeq-c`.
+`showeq` for production play (target: end of Phase 5), freeze `showeq`.
 Subsequent patch days edit only `showeq-daemon`. Document the transition
 here when it happens.
