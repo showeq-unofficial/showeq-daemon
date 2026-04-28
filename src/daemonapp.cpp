@@ -77,16 +77,18 @@ bool DaemonApp::start()
     // filters/, maps/, spawnpoints/ etc. interop directly; daemon-only
     // writes (prefs, future per-daemon state) go under ~/.showeq/daemon/ to
     // avoid colliding with showeq's root-level showeq.xml. When
-    // --config-dir is passed, we copy PKGDATADIR by pointing the user dir
-    // at it instead, so the bundled opcode XMLs are picked up without an
-    // install step.
+    // --config-dir is passed, it substitutes for the read-only PKGDATADIR
+    // slot (build-tree conf/ standing in for the install path) — the user
+    // dir stays at ~/.showeq so writes still land in a writable location.
     if (!m_cfg.configDir.isEmpty()) {
-        m_dataLocationMgr = std::make_unique<DataLocationMgr>(m_cfg.configDir);
-        qInfo("config dir: %s", qUtf8Printable(m_cfg.configDir));
+        m_dataLocationMgr =
+            std::make_unique<DataLocationMgr>(".showeq", m_cfg.configDir);
+        qInfo("config dir: %s (overrides PKGDATADIR)",
+              qUtf8Printable(m_cfg.configDir));
     } else {
         m_dataLocationMgr = std::make_unique<DataLocationMgr>(".showeq");
-        m_dataLocationMgr->setupUserDirectory();
     }
+    m_dataLocationMgr->setupUserDirectory();
 
     const QFileInfo defPref =
         m_dataLocationMgr->findExistingFile(".", "seqdef.xml", true, false);

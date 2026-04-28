@@ -43,13 +43,18 @@ static QString invokingUserHome()
 }
 
 DataLocationMgr::DataLocationMgr(const QString& homeSubDir)
+  : DataLocationMgr(homeSubDir, QStringLiteral(PKGDATADIR))
 {
-  // create package directory object
-  m_pkgData = PKGDATADIR;
+}
 
-  // create the user directory object. Absolute paths (used by the daemon's
-  // --config-dir flag) are taken verbatim; bare names are resolved against
-  // the invoking user's home (sudo-aware — see invokingUserHome above).
+DataLocationMgr::DataLocationMgr(const QString& homeSubDir,
+                                 const QString& pkgDataOverride)
+{
+  m_pkgData = pkgDataOverride;
+
+  // create the user directory object. Absolute paths are taken verbatim;
+  // bare names are resolved against the invoking user's home (sudo-aware
+  // — see invokingUserHome above).
   if (QDir::isAbsolutePath(homeSubDir))
     m_userData = homeSubDir;
   else

@@ -32,6 +32,10 @@ class DataLocationMgr
 {
  public:
   DataLocationMgr(const QString& homeSubDir);
+  // Same as above, but substitutes pkgDataOverride for the compile-time
+  // PKGDATADIR slot. Used by --config-dir so a build-tree conf/ dir can
+  // stand in for the install path without clobbering the user dir.
+  DataLocationMgr(const QString& homeSubDir, const QString& pkgDataOverride);
   ~DataLocationMgr();
   bool setupUserDirectory();
   QFileInfo findExistingFile(const QString& subdir, const QString& filename,

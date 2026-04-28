@@ -120,8 +120,10 @@ int main(int argc, char** argv)
     QCommandLineOption replayOpt(QStringList{"r", "replay"},
         "Replay a recorded .vpk file instead of live capture.", "file");
     QCommandLineOption configDirOpt(QStringList{"c", "config-dir"},
-        "Directory holding opcode XML and other shared config. Overrides "
-        "PKGDATADIR; convenient for running from the build tree.", "dir");
+        "Directory holding opcode XML and other shared read-only config. "
+        "Overrides the compiled-in PKGDATADIR; the writable user dir "
+        "stays at ~/.showeq. Convenient for running from the build tree.",
+        "dir");
     QCommandLineOption mapsDirOpt(QStringList{"m", "maps-dir"},
         "Directory holding zone .map / .txt files. Defaults to "
         "~/.showeq/maps (shared with showeq), falling back to "

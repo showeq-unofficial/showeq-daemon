@@ -11,21 +11,25 @@ Type=simple
 # editing per host. See showeq-daemon.env.example for the keys.
 EnvironmentFile=/etc/showeq-daemon/showeq-daemon.env
 
-# Install puts opcode XML + spells_us.txt under /usr/local/share by
-# convention; the daemon resolves --config-dir relative to the cwd
-# when given an absolute path, so this is just a sensible default.
-WorkingDirectory=/usr/local/share/showeq-daemon
-
+# Read-only opcode XML / spells_us.txt / eqstr_us.txt are picked up from
+# the compiled-in PKGDATADIR (default /usr/local/share/showeq-daemon).
+# Writable user state lands in $HOME/.showeq — the same dir legacy
+# showeq writes, so filters/, maps/, spawnpoints/ etc. interop directly.
+# Set User= below to your account so $HOME resolves to /home/<you>.
 ExecStart=/usr/local/bin/showeq-daemon \
     --device=${SEQ_DEVICE} \
     --listen=${SEQ_LISTEN} \
-    --config-dir=${SEQ_CONFIG_DIR} \
     $SEQ_EXTRA_ARGS
 
-# pcap needs CAP_NET_RAW + CAP_NET_ADMIN. Simplest path is User=root;
-# to run as an unprivileged user, set User= to a regular account and
-# uncomment the AmbientCapabilities + CapabilityBoundingSet lines.
+# Run as your unprivileged account so $HOME = /home/<you> and
+# DataLocationMgr writes to /home/<you>/.showeq (shared with legacy
+# showeq). User=root is the easy-but-wrong default — under systemd
+# there is no SUDO_USER, so root means /root/.showeq, no interop.
+# pcap needs CAP_NET_RAW + CAP_NET_ADMIN; the ambient capabilities
+# grant them without making the binary setuid root.
 User=root
+# Recommended:
+# User=YOUR_ACCOUNT
 # AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
 # CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
 
@@ -41,14 +45,11 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 
-# Modest hardening — won't help against a compromised pcap-privileged
-# binary much, but cheap to set on a LAN tool.
+# Modest hardening. ProtectHome is intentionally NOT set — the daemon
+# needs to write into $HOME/.showeq for legacy-showeq interop.
 NoNewPrivileges=true
 ProtectSystem=strict
-ProtectHome=true
 PrivateTmp=true
-# DataLocationMgr writes to a user dir; make sure that's reachable.
-ReadWritePaths=/var/lib/showeq-daemon
 
 [Install]
 WantedBy=multi-user.target
