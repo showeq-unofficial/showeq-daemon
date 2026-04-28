@@ -1998,7 +1998,3 @@ void SpawnShell::restoreSpawns(void)
             fileName.toLatin1().data());
   }
 }
-
-#ifndef QMAKEBUILD
-#include "spawnshell.moc"
-#endif

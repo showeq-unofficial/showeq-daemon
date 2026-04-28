@@ -95,8 +95,3 @@ void Messages::addedFilter(uint32_t mask, uint8_t filterid,
     if (filter.isFiltered(*it))
       (*it).setFilterFlags((*it).filterFlags() | mask);
 }
-
-#ifndef QMAKEBUILD
-#include "messages.moc"
-#endif
-

@@ -373,8 +373,3 @@ QString GroupMgr::memberNameBySlot(uint16_t slot) const
   if (!m_members[slot]) return QString();
   return m_members[slot]->m_name;
 }
-
-#ifndef QMAKEBUILD
-#include "group.moc"
-#endif
-

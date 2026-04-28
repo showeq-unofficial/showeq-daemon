@@ -1201,8 +1201,3 @@ void MessageShell::filterMessage(const QString& prefix, MessageType type,
 			 .arg(item->x()).arg(item->y()).arg(item->z())
 			 .arg(spawnInfo));
 }
-
-#ifndef QMAKEBUILD
-#include "messageshell.moc"
-#endif
-

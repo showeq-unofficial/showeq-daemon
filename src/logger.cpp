@@ -154,8 +154,3 @@ void SEQLogger::outputData(uint32_t len,
   
   fprintf (m_fp, "%03d | %-48s | %s \n\n", c, hex, asc);
 }
-
-#ifndef QMAKEBUILD
-#include "logger.moc"
-#endif
-

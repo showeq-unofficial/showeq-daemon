@@ -241,8 +241,3 @@ void GuildMgr::listGuildInfo()
        seqInfo("%d\t%s", itr->first, itr->second.toLatin1().data());
    }
 }
-
-#ifndef QMAKEBUILD
-#include "guild.moc"
-#endif
-

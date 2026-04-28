@@ -52,7 +52,3 @@ void CombatRouter::action2(const uint8_t* data, size_t len, uint8_t /*dir*/)
                      a->damage,
                      static_cast<uint32_t>(a->spell), spellName);
 }
-
-#ifndef QMAKEBUILD
-#include "combatrouter.moc"
-#endif

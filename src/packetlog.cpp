@@ -524,8 +524,3 @@ void OPCodeMonitorPacketLog::packet(const uint8_t* data, size_t len,
       logData(data, len, dir, opcode, opcodeEntry,opCodeName);
   }
 }
-
-#ifndef QMAKEBUILD
-#include "packetlog.moc"
-#endif
-

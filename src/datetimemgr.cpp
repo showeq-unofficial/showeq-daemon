@@ -85,8 +85,3 @@ void DateTimeMgr::update()
     emit updatedDateTime(m_eqDateTime);
   }
 }
-
-#ifndef QMAKEBUILD
-#include "datetimemgr.moc"
-#endif
-

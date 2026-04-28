@@ -203,8 +203,3 @@ uint32_t MessageFilters::filterMessage(uint64_t messageTypeMask,
   // return the filter mask
   return mask;
 }
-
-#ifndef QMAKEBUILD
-#include "messagefilter.moc"
-#endif
-

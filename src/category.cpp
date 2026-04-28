@@ -255,8 +255,3 @@ void CategoryMgr::savePrefs(void)
     pSEQPrefs->setPrefColor(prefBaseName + "Color", section, black);
   }
 }
-
-#ifndef QMAKEBUILD
-#include "category.moc"
-#endif
-

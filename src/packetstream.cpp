@@ -1274,8 +1274,3 @@ uint16_t EQPacketStream::calculateCRC(EQProtocolPacket& packet)
   return ::calcCRC16(packet.rawPacket(), packet.rawPacketLength()-2, 
     m_sessionKey);
 }
-
-#ifndef QMAKEBUILD
-#include "packetstream.moc"
-#endif
-
