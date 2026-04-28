@@ -323,7 +323,11 @@ bool EQPacketOPCodeDB::save(const QString& filename)
   QTextStream out(&file);
 
   // set the output encoding to be UTF8
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+  out.setEncoding(QStringConverter::Utf8);
+#else
   out.setCodec("UTF-8");
+#endif
 
   // set the number output to be left justified decimal
   out.setIntegerBase(10);

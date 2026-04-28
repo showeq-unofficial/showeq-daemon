@@ -281,7 +281,7 @@ void Spells::loadSpells(const QString& spellsFileName)
       text = QString::fromUtf16((uint16_t*)textData.data());
 
     // split the file into at the line termination
-    QStringList lines = text.split(lineTerm, QString::SkipEmptyParts);
+    QStringList lines = text.split(lineTerm, Qt::SkipEmptyParts);
 
     Spell* newSpell;
 

@@ -493,7 +493,11 @@ void XMLPreferences::savePreferences(const QString& filename,
   QTextStream out(&f);
 
   // make sure stream is UTF8 encoded
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+  out.setEncoding(QStringConverter::Utf8);
+#else
   out.setCodec("UTF-8");
+#endif
 
   // save the document to the text stream
   QString docText;

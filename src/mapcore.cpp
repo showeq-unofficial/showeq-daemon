@@ -544,7 +544,7 @@ void MapData::loadMap(const QString& fileName, bool import)
   QRegExp lineTerm("[\r\n]{1,2}");
 
   // split the data into lines at the line termination
-  QStringList lines = QString::fromUtf8(textData).split(lineTerm, QString::SkipEmptyParts);
+  QStringList lines = QString::fromUtf8(textData).split(lineTerm, Qt::SkipEmptyParts);
 
 
   // start iterating over the lines
@@ -991,7 +991,7 @@ void MapData::loadSOEMap(const QString& fileName, bool import)
   QRegExp lineTerm("[\r\n]{1,2}");
 
   // split the data into lines at the line termination
-  QStringList lines = QString::fromUtf8(textData).split(lineTerm, QString::SkipEmptyParts);
+  QStringList lines = QString::fromUtf8(textData).split(lineTerm, Qt::SkipEmptyParts);
 
 
   // start iterating over the lines
