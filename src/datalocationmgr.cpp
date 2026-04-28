@@ -28,7 +28,7 @@
 
 #include <QDir>
 #include <QFileInfo>
-#include <QRegExp>
+#include <QRegularExpression>
 
 // Under sudo, $HOME (and QDir::homePath) resolve to /root, not the invoking
 // user's home — so a bare homeSubDir like ".showeq" would silently land in
@@ -154,8 +154,10 @@ QFileInfo DataLocationMgr::findFile(const QDir& dir, const QString& filename,
   // perform a case insensitive match if requested
   if (!caseSensitive)
   {
-    // create a case insensitive regex
-    QRegExp regex(filename, Qt::CaseInsensitive);
+    // create a case insensitive regex; anchoredPattern wraps with \A...\z
+    // to preserve QRegExp::exactMatch's whole-string semantics.
+    QRegularExpression regex(QRegularExpression::anchoredPattern(filename),
+                             QRegularExpression::CaseInsensitiveOption);
 
     // construct the filterspec to choose only the files with matching access
     QDir::Filters filterSpec;
@@ -176,7 +178,7 @@ QFileInfo DataLocationMgr::findFile(const QDir& dir, const QString& filename,
       {
           fi = it.next();
 	// if found a match, then return it.
-	if (regex.exactMatch(fi.fileName()))
+	if (regex.match(fi.fileName()).hasMatch())
 	  return fi;
       }
     }

@@ -18,10 +18,12 @@ endif()
 # reference. The daemon only instantiates QCoreApplication, never
 # QGuiApplication or QApplication, so it still runs without a display.
 #
-# Default to Qt5; pass -DSEQ_USE_QT6=ON to build against Qt6 (with the
-# Qt5Compat shim brought in for QRegExp / QTextCodec etc. that the
-# extracted showeq sources still use).
-option(SEQ_USE_QT6 "Build against Qt6 (with Qt5Compat shim) instead of Qt5" OFF)
+# Default to Qt5; pass -DSEQ_USE_QT6=ON to build against Qt6.
+# Qt6 additionally requires Core5Compat for the SAX XML API
+# (QXmlDefaultHandler / QXmlSimpleReader / QXmlAttributes) used by
+# packetinfo.cpp's opcode-XML loader. Tracked as a follow-up port to
+# QXmlStreamReader in MODERNIZATION_PLAN.md.
+option(SEQ_USE_QT6 "Build against Qt6 instead of Qt5" OFF)
 if(SEQ_USE_QT6)
     find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Xml WebSockets Core5Compat)
     set(QT_VERSION_MAJOR 6)

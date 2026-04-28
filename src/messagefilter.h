@@ -31,7 +31,7 @@
 
 #include <QObject>
 #include <QString>
-#include <QRegExp>
+#include <QRegularExpression>
 
 //----------------------------------------------------------------------
 // constants
@@ -42,9 +42,9 @@ const int maxMessageFilters = 32;
 class MessageFilter
 {
  public:
-  MessageFilter(const QString& name, 
-		uint64_t matchTypes, const QRegExp& regexp);
-  MessageFilter(uint64_t matchTypes, const QRegExp& regexp);
+  MessageFilter(const QString& name,
+		uint64_t matchTypes, const QRegularExpression& regexp);
+  MessageFilter(uint64_t matchTypes, const QRegularExpression& regexp);
   MessageFilter(const MessageFilter& mf);
   ~MessageFilter();
 
@@ -52,19 +52,19 @@ class MessageFilter
   void setTypes(uint64_t types) { m_types = types; }
   const QString& name() const { return m_name; }
   void setName(const QString& name) { m_name = name; }
-  const QRegExp& regexp() const { return m_regexp; }
-  void setRegExp(const QRegExp& regexp) { m_regexp = regexp; }
+  const QRegularExpression& regexp() const { return m_regexp; }
+  void setRegExp(const QRegularExpression& regexp) { m_regexp = regexp; }
   bool valid() const { return m_regexp.isValid(); }
 
   bool isFiltered(const MessageEntry& message) const;
   bool isFiltered(MessageType type, const QString& message) const;
   bool isFiltered(uint64_t messageTypeMask, const QString& message) const;
-  
+
   bool operator==(const MessageFilter& filter) const;
  protected:
   QString m_name;
   uint64_t m_types;
-  QRegExp m_regexp;
+  QRegularExpression m_regexp;
 };
 
 inline bool MessageFilter::isFiltered(const MessageEntry& message) const
@@ -82,14 +82,15 @@ inline bool MessageFilter::isFiltered(uint64_t messageTypeMask,
 				      const QString& message) const
 {
   return (((m_types & messageTypeMask) != 0) &&
-	  (m_regexp.indexIn(message) != -1));
+	  m_regexp.match(message).hasMatch());
 }
 
 inline bool MessageFilter::operator==(const MessageFilter& filter) const
 {
-  return ((m_name == filter.name()) && 
-	  (m_types == filter.types()) && 
-	  (m_regexp == filter.regexp()));
+  return ((m_name == filter.name()) &&
+	  (m_types == filter.types()) &&
+	  (m_regexp.pattern() == filter.regexp().pattern()) &&
+	  (m_regexp.patternOptions() == filter.regexp().patternOptions()));
 }
 
 //----------------------------------------------------------------------

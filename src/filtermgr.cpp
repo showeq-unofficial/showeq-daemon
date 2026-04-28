@@ -32,7 +32,6 @@
 
 #include <cerrno>
 
-#include <QRegExp>
 #include <QString>
 #include <QFileInfo>
 

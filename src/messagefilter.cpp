@@ -27,15 +27,15 @@
 
 //----------------------------------------------------------------------
 // MessageFilter
-MessageFilter::MessageFilter(const QString& name, 
-			     uint64_t matchTypes, const QRegExp& regexp)
+MessageFilter::MessageFilter(const QString& name,
+			     uint64_t matchTypes, const QRegularExpression& regexp)
   : m_name(name), 
     m_types(matchTypes),
     m_regexp(regexp)
 {
 }
 
-MessageFilter::MessageFilter(uint64_t matchTypes, const QRegExp& regexp)
+MessageFilter::MessageFilter(uint64_t matchTypes, const QRegularExpression& regexp)
   : m_name(regexp.pattern()),
     m_types(matchTypes), 
     m_regexp(regexp)
@@ -67,7 +67,7 @@ MessageFilters::MessageFilters(QObject* parent, const char* name)
   QString number;
   QString preferenceName;
   QString filterName;
-  QRegExp regexp;
+  QRegularExpression regexp;
   uint64_t types;
   for (int i = 0; i < maxMessageFilters; i++)
   {
