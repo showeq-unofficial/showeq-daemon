@@ -70,8 +70,12 @@ bool EQStr::load(const QString& fileName)
   // construct a regex to deal with either style line termination
   QRegularExpression lineTerm("[\r\n]{1,2}");
 
-  // split the data into lines at the line termination
-  QStringList lines = QString::fromUtf8(textData).split(lineTerm, Qt::SkipEmptyParts);
+  // split the data into lines at the line termination. Use explicit
+  // size to exclude textData's +1 NUL pad — leaks through as a stray
+  // NUL-only "line" otherwise (Qt5 dropped it implicitly, Qt6 doesn't).
+  QStringList lines =
+      QString::fromUtf8(textData.constData(), formatFile.size())
+          .split(lineTerm, Qt::SkipEmptyParts);
 
   // start iterating over the lines
   QStringList::Iterator it = lines.begin();

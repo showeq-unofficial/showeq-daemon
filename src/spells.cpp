@@ -275,8 +275,13 @@ void Spells::loadSpells(const QString& spellsFileName)
     uint16_t unicodeIndicator = *(uint16_t*)textData.data();
     QString text;
 
+    // textData is over-allocated by 1 byte to null-terminate the UTF-16
+    // scan. The non-UTF-16 path must exclude that trailing NUL or it
+    // leaks through as a stray NUL-only "line" after split — Qt5 quietly
+    // dropped it during the QByteArray→QString implicit conversion;
+    // Qt6 doesn't.
     if ((unicodeIndicator != 0xfffe) && (unicodeIndicator != 0xfeff))
-      text = textData;
+      text = QString::fromUtf8(textData.constData(), spellsFile.size());
     else
       text = QString::fromUtf16((uint16_t*)textData.data());
 
