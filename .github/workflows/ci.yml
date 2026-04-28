@@ -51,3 +51,16 @@ jobs:
       - name: test
         working-directory: build
         run: ctest --output-on-failure
+
+      - name: smoke
+        run: |
+          # ctest is unit tests; it doesn't actually launch the daemon.
+          # Synthesize a minimal spells_us.txt + eqstr_us.txt + empty
+          # .vpk and run a real --replay end-to-end. Catches startup
+          # crashes that unit tests can't see — e.g. the trailing-NUL
+          # bug in the text loaders that ate the Qt6 build's first
+          # live run before f256926.
+          printf '1^Test%s\n' "$(printf '^0%.0s' {1..60})" > conf/spells_us.txt
+          printf '1\n0\n' > conf/eqstr_us.txt
+          touch /tmp/empty.vpk
+          ./build/showeq-daemon --replay /tmp/empty.vpk --no-listen --config-dir conf
