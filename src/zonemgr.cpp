@@ -35,7 +35,7 @@
 
 #include <QFile>
 #include <QDataStream>
-#include <QRegExp>
+#include <QRegularExpression>
 
 //----------------------------------------------------------------------
 // constants
@@ -682,22 +682,22 @@ void ZoneMgr::zoneNew(const uint8_t* data, size_t len, uint8_t dir)
     m_shortZoneName = zoneNew->shortName;
 
     // LDoN likes to append a _262 to the zonename. Get rid of it.
-    QRegExp rx("_\\d+$");
+    QRegularExpression rx("_\\d+$");
     m_shortZoneName.replace( rx, "");
 
     // 2020-01-20 patch seems to have added _progress suffix to certain
     // zone names, presumably for the progression servers. This happens in
     // ToV DZs for sure, but there may be others.
-    QRegExp rz("_progress$");
+    QRegularExpression rz("_progress$");
     m_shortZoneName.replace(rz, "");
 
     // some zones are getting a suffix of _int (particularly guild halls)
     // which causes failure to load maps.
-    QRegExp ry("_int$");
+    QRegularExpression ry("_int$");
     m_shortZoneName.replace(ry, "");
 
     //anniversary missions
-    QRegExp rw("_errand$");
+    QRegularExpression rw("_errand$");
     m_shortZoneName.replace(rw, "");
   }
 

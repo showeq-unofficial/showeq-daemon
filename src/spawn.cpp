@@ -37,7 +37,7 @@
 #include <climits>
 #include <cmath>
 
-#include <QRegExp>
+#include <QRegularExpression>
 
 #include "spawnshell.h"
 #include "fixpt.h"
@@ -249,8 +249,8 @@ Item::Item(spawnItemType t, uint16_t id)
     m_NPC(99), // random bogus value
     m_type(t)
 {
-  m_spawnTime.start();
-  m_lastUpdate.start();
+  m_spawnTime = QTime::currentTime();
+  m_lastUpdate = QTime::currentTime();
   updateLastChanged();
 }
 
@@ -837,8 +837,8 @@ uint16_t Spawn::deity() const
 QString Spawn::cleanedName() const
 {
   QString newName = name();
-  newName.replace(QRegExp("[0-9]"), "");
-  newName.replace(QRegExp("_"), " ");
+  newName.replace(QRegularExpression("[0-9]"), "");
+  newName.replace(QRegularExpression("_"), " ");
   return newName;
 }
 

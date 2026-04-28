@@ -233,7 +233,7 @@ void GuildShell::dumpMembers(QTextStream& out)
     it.next();
     member = it.value();
 
-    dt.setTime_t(member->lastOn());
+    dt.setSecsSinceEpoch(member->lastOn());
     zone = zoneString(member->zoneId());
     if (member->zoneInstance())
       zone += ":" + QString::number(member->zoneInstance());
@@ -301,7 +301,7 @@ void GuildShell::guildMemberList(const uint8_t* data, size_t len)
     emit added(member);
 
 #ifdef GUILDSHELL_DIAG
-    dt.setTime_t(member->lastOn());
+    dt.setSecsSinceEpoch(member->lastOn());
     seqDebug("%-64s\t%d\t%s\t%d\t%s\t'%s'\t%s:%d",
 	     (const char*)member->name(),
 	     member->level(),

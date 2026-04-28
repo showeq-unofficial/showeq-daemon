@@ -178,7 +178,7 @@ QString NetStream::readLPText()
     QString r = "";
     for (i = 0; i < len; i++) {
 	if (m_pos < m_lastPos) {
-	    r.append (*m_pos);
+	    r.append (QChar(*m_pos));
 	    m_pos++;
 	}
 	else

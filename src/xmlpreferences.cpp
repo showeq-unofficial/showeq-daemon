@@ -34,7 +34,7 @@
 #include <QFile>
 #include <QDir>
 #include <QFileInfo>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QKeySequence>
 #include <QTextStream>
 
@@ -505,7 +505,7 @@ void XMLPreferences::savePreferences(const QString& filename,
   doc.save(docTextStream, 4);
 
   // put newlines after comments (which unfortunately Qt's DOM doesn't track)
-  QRegExp commentEnd("-->");
+  QRegularExpression commentEnd("-->");
   docText.replace(commentEnd, "-->\n");
 
   // write the fixed document out to the file

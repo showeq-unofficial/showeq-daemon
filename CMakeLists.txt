@@ -17,7 +17,18 @@ endif()
 # QPen, QBrush, QFont, QSizePolicy, QKeySequence) that extracted headers
 # reference. The daemon only instantiates QCoreApplication, never
 # QGuiApplication or QApplication, so it still runs without a display.
-find_package(Qt5 5.15 REQUIRED COMPONENTS Core Gui Widgets Network Xml WebSockets)
+#
+# Default to Qt5; pass -DSEQ_USE_QT6=ON to build against Qt6 (with the
+# Qt5Compat shim brought in for QRegExp / QTextCodec etc. that the
+# extracted showeq sources still use).
+option(SEQ_USE_QT6 "Build against Qt6 (with Qt5Compat shim) instead of Qt5" OFF)
+if(SEQ_USE_QT6)
+    find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Xml WebSockets Core5Compat)
+    set(QT_VERSION_MAJOR 6)
+else()
+    find_package(Qt5 5.15 REQUIRED COMPONENTS Core Gui Widgets Network Xml WebSockets)
+    set(QT_VERSION_MAJOR 5)
+endif()
 find_package(Protobuf REQUIRED)
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -139,15 +150,18 @@ target_include_directories(seq-daemon-core PUBLIC
 
 target_link_libraries(seq-daemon-core PUBLIC
   seq-proto
-  Qt5::Core
-  Qt5::Gui
-  Qt5::Widgets
-  Qt5::Network
-  Qt5::Xml
+  Qt${QT_VERSION_MAJOR}::Core
+  Qt${QT_VERSION_MAJOR}::Gui
+  Qt${QT_VERSION_MAJOR}::Widgets
+  Qt${QT_VERSION_MAJOR}::Network
+  Qt${QT_VERSION_MAJOR}::Xml
   ${PCAP_LIBRARIES}
   ${ZLIB_LIBRARIES}
   Threads::Threads
 )
+if(SEQ_USE_QT6)
+  target_link_libraries(seq-daemon-core PUBLIC Qt6::Core5Compat)
+endif()
 
 target_compile_options(seq-daemon-core PRIVATE
   -Wall
@@ -174,7 +188,7 @@ add_executable(showeq-daemon
 
 target_link_libraries(showeq-daemon PRIVATE
   seq-daemon-core
-  Qt5::WebSockets
+  Qt${QT_VERSION_MAJOR}::WebSockets
 )
 
 target_compile_options(showeq-daemon PRIVATE

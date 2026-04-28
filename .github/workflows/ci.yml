@@ -8,12 +8,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        qt_major: [5, 6]
+    name: build-qt${{ matrix.qt_major }}
     steps:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
 
-      - name: install build deps
+      - name: install build deps (Qt5)
+        if: matrix.qt_major == 5
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -22,8 +28,22 @@ jobs:
             libqt5websockets5-dev \
             libpcap-dev libprotobuf-dev protobuf-compiler zlib1g-dev
 
-      - name: configure
+      - name: install build deps (Qt6)
+        if: matrix.qt_major == 6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config \
+            qt6-base-dev qt6-websockets-dev qt6-5compat-dev \
+            libpcap-dev libprotobuf-dev protobuf-compiler zlib1g-dev
+
+      - name: configure (Qt5)
+        if: matrix.qt_major == 5
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: configure (Qt6)
+        if: matrix.qt_major == 6
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_USE_QT6=ON
 
       - name: build
         run: cmake --build build -j

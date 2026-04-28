@@ -175,7 +175,7 @@ class Item : public EQPoint
 
   void updateLast()
   {
-    m_lastUpdate.restart();
+    m_lastUpdate = QTime::currentTime();
   }
   void updateLastChanged()
   {

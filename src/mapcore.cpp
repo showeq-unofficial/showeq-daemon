@@ -43,7 +43,7 @@
 #include <QStringList>
 #include <QFileInfo>
 #include <QFile>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QPolygon>
 #include <QByteArray>
 #include <QPixmap>
@@ -541,7 +541,7 @@ void MapData::loadMap(const QString& fileName, bool import)
   mapFile.read(textData.data(), textData.size());
   
   // construct a regex to deal with either style line termination
-  QRegExp lineTerm("[\r\n]{1,2}");
+  QRegularExpression lineTerm("[\r\n]{1,2}");
 
   // split the data into lines at the line termination
   QStringList lines = QString::fromUtf8(textData).split(lineTerm, Qt::SkipEmptyParts);
@@ -988,7 +988,7 @@ void MapData::loadSOEMap(const QString& fileName, bool import)
   mapFile.read(textData.data(), textData.size());
 
   // construct a regex to deal with either style line termination
-  QRegExp lineTerm("[\r\n]{1,2}");
+  QRegularExpression lineTerm("[\r\n]{1,2}");
 
   // split the data into lines at the line termination
   QStringList lines = QString::fromUtf8(textData).split(lineTerm, Qt::SkipEmptyParts);
@@ -999,7 +999,7 @@ void MapData::loadSOEMap(const QString& fileName, bool import)
 
   filelines = 1;
 
-  QRegExp fieldSep(",\\s*");
+  QRegularExpression fieldSep(",\\s*");
 
   // split the line into fields
   QStringList fields;
@@ -1008,7 +1008,7 @@ void MapData::loadSOEMap(const QString& fileName, bool import)
   // use the file base name as the zone long/short name, it isn't perfect,
   // but neither is this file format
   QFileInfo fileInfo(fileName);
-  QRegExp reStripTrailer("_[1-9]");
+  QRegularExpression reStripTrailer("_[1-9]");
   
   m_zoneLongName = fileInfo.baseName().remove(reStripTrailer);
   m_zoneShortName = m_zoneLongName;

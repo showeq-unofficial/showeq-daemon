@@ -37,7 +37,7 @@
 #include <QStringList>
 #include <QFile>
 #include <QQueue>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QByteArray>
 
 static inline int16_t min(const int16_t& __a,  const int16_t& __b)
@@ -270,7 +270,7 @@ void Spells::loadSpells(const QString& spellsFileName)
     spellsFile.read(textData.data(), textData.size());
 
     // construct a regex to deal with either style line termination
-    QRegExp lineTerm("[\r\n]{1,2}");
+    QRegularExpression lineTerm("[\r\n]{1,2}");
 
     uint16_t unicodeIndicator = *(uint16_t*)textData.data();
     QString text;
