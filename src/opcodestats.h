@@ -1,10 +1,12 @@
 #pragma once
 
+#include <QByteArray>
 #include <QHash>
 #include <QObject>
 #include <QString>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 class EQPacket;
 class EQPacketOPCode;
@@ -38,15 +40,29 @@ private slots:
                               uint16_t opcode, const EQPacketOPCode* entry);
 
 private:
+    struct Sample {
+        QByteArray bytes;       // up to kSampleBytes captured prefix
+        int        size  = 0;   // full payload size as observed
+        uint8_t    dir   = 0;
+    };
+
     struct OpcodeStat {
         QString          name;        // empty = unknown
         QHash<uint8_t,int> dirCounts; // DIR_Server / DIR_Client
         QHash<int,int>   sizeCounts;  // payload size → count
         int              total = 0;
+        // Captured payload samples for unknown opcodes only — up to
+        // kMaxSamples distinct prefixes. Modern EQ tends to fire the
+        // same opcode multiple times with different inner payloads
+        // (e.g. one OP_GroupUpdate per member), so a single first-seen
+        // sample loses the per-member variation. Dedupe by exact
+        // prefix bytes so we don't waste slots on identical retransmits.
+        std::vector<Sample> samples;
     };
 
     void record(QHash<uint16_t, OpcodeStat>& bucket, uint16_t opcode,
-                size_t len, uint8_t dir, const EQPacketOPCode* entry);
+                const uint8_t* data, size_t len, uint8_t dir,
+                const EQPacketOPCode* entry);
 
     QString                       m_outPath;
     QHash<uint16_t, OpcodeStat>   m_zone;

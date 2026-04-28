@@ -30,12 +30,23 @@ struct StructHint {
     uint8_t     expectedDir;   // DIR_Server typically
 };
 // DIR_Server / DIR_Client come from packetcommon.h.
+//
+// The group-* hints all share size=152 (every fixed-size group struct is
+// the same shape), so the same candidate list will repeat under each
+// heading. To tell them apart, run isolated captures: a "form group" run
+// produces OP_GroupFollow + OP_GroupUpdate; a "disband" run produces
+// OP_GroupDisband + OP_GroupUpdate; etc. OP_GroupUpdate itself is
+// variable-length (SZC_None) so it has no hint and shows up only in the
+// raw unknown-opcode dump.
 const StructHint kHints[] = {
-    {"OP_Stamina",      "staminaStruct",        8, DIR_Server},
-    {"OP_HPUpdate",     "hpNpcUpdateStruct",   18, DIR_Server},
-    {"OP_ManaChange",   "manaDecrementStruct", 20, DIR_Server},
-    {"OP_Action2",      "action2Struct",       48, DIR_Server},
-    {"OP_Buff",         "buffStruct",         168, DIR_Server},
+    {"OP_Stamina",      "staminaStruct",          8, DIR_Server},
+    {"OP_HPUpdate",     "hpNpcUpdateStruct",     18, DIR_Server},
+    {"OP_ManaChange",   "manaDecrementStruct",   20, DIR_Server},
+    {"OP_Action2",      "action2Struct",         48, DIR_Server},
+    {"OP_Buff",         "buffStruct",           168, DIR_Server},
+    {"OP_GroupFollow",  "groupFollowStruct",    152, DIR_Server},
+    {"OP_GroupDisband", "groupDisbandStruct",   152, DIR_Server},
+    {"OP_GroupLeader",  "groupLeaderChangeStruct", 152, DIR_Server},
 };
 
 const char* dirLabel(uint8_t dir)
@@ -107,22 +118,23 @@ OpcodeStatsLogger::~OpcodeStatsLogger()
     writeReport();
 }
 
-void OpcodeStatsLogger::onDecodedZonePacket(const uint8_t*, size_t len,
+void OpcodeStatsLogger::onDecodedZonePacket(const uint8_t* data, size_t len,
                                             uint8_t dir, uint16_t opcode,
                                             const EQPacketOPCode* entry)
 {
-    record(m_zone, opcode, len, dir, entry);
+    record(m_zone, opcode, data, len, dir, entry);
 }
 
-void OpcodeStatsLogger::onDecodedWorldPacket(const uint8_t*, size_t len,
+void OpcodeStatsLogger::onDecodedWorldPacket(const uint8_t* data, size_t len,
                                              uint8_t dir, uint16_t opcode,
                                              const EQPacketOPCode* entry)
 {
-    record(m_world, opcode, len, dir, entry);
+    record(m_world, opcode, data, len, dir, entry);
 }
 
 void OpcodeStatsLogger::record(QHash<uint16_t, OpcodeStat>& bucket,
-                               uint16_t opcode, size_t len, uint8_t dir,
+                               uint16_t opcode, const uint8_t* data,
+                               size_t len, uint8_t dir,
                                const EQPacketOPCode* entry)
 {
     OpcodeStat& s = bucket[opcode];
@@ -130,6 +142,24 @@ void OpcodeStatsLogger::record(QHash<uint16_t, OpcodeStat>& bucket,
     s.dirCounts[dir]++;
     s.sizeCounts[static_cast<int>(len)]++;
     s.total++;
+    // Capture up to kMaxSamples distinct payload prefixes per unknown
+    // opcode. Dedupe by exact prefix bytes so identical retransmits
+    // don't fill the slots — we want to see the *variation* (e.g. each
+    // OP_GroupUpdate carries a different member name).
+    constexpr int kMaxSamples  = 3;
+    constexpr int kSampleBytes = 256;
+    if (!entry && data && len > 0 &&
+        static_cast<int>(s.samples.size()) < kMaxSamples) {
+        const int n = static_cast<int>(std::min<size_t>(len, kSampleBytes));
+        QByteArray prefix(reinterpret_cast<const char*>(data), n);
+        bool dup = false;
+        for (const auto& existing : s.samples) {
+            if (existing.bytes == prefix) { dup = true; break; }
+        }
+        if (!dup) {
+            s.samples.push_back({prefix, static_cast<int>(len), dir});
+        }
+    }
 }
 
 void OpcodeStatsLogger::writeReport()
@@ -255,4 +285,58 @@ void OpcodeStatsLogger::writeReport()
         }
         out << "\n";
     }
+
+    // Payload samples for unknown opcodes. Up to kMaxSamples distinct
+    // prefixes per opcode — useful for spotting ASCII name fields (group
+    // / chat / invite packets carry character names in the clear) and
+    // for catching same-opcode/different-payload patterns like the
+    // per-member OP_GroupUpdate broadcasts in modern EQ.
+    auto dumpSamples = [&](const QHash<uint16_t, OpcodeStat>& bucket,
+                           const char* label) {
+        std::vector<std::pair<uint16_t, OpcodeStat>> v;
+        for (auto it = bucket.begin(); it != bucket.end(); ++it) {
+            if (!it->name.isEmpty()) continue;     // known — skip
+            if (it->samples.empty()) continue;     // no samples captured
+            v.emplace_back(it.key(), it.value());
+        }
+        if (v.empty()) return;
+        std::sort(v.begin(), v.end(),
+                  [](auto& a, auto& b) { return a.second.total > b.second.total; });
+        out << "# " << label << " unknown payload samples ("
+            << v.size() << " opcodes, up to 3 distinct prefixes each)\n";
+        out << "# Each block: opcode total-count, then per-sample dir/size + hex/ASCII rows.\n";
+        out << "# ASCII column shows '.' for non-printable bytes.\n";
+        for (const auto& [op, s] : v) {
+            out << QString("# 0x%1  count=%2  samples=%3")
+                       .arg(op, 4, 16, QChar('0'))
+                       .arg(s.total)
+                       .arg(s.samples.size()) << "\n";
+            for (size_t si = 0; si < s.samples.size(); ++si) {
+                const auto& sample = s.samples[si];
+                out << QString("#   sample %1: %2 size=%3")
+                           .arg(si + 1)
+                           .arg(dirLabel(sample.dir))
+                           .arg(sample.size) << "\n";
+                const int n = sample.bytes.size();
+                for (int row = 0; row < n; row += 16) {
+                    QString hexCol, asciiCol;
+                    for (int i = 0; i < 16; ++i) {
+                        if (row + i < n) {
+                            const uint8_t b = static_cast<uint8_t>(sample.bytes[row + i]);
+                            hexCol += QString("%1 ").arg(b, 2, 16, QChar('0'));
+                            asciiCol += (b >= 0x20 && b < 0x7f)
+                                      ? QChar(b)
+                                      : QChar('.');
+                        } else {
+                            hexCol += "   ";
+                        }
+                    }
+                    out << QString("#     %1 |%2|").arg(hexCol).arg(asciiCol) << "\n";
+                }
+            }
+        }
+        out << "\n";
+    };
+    dumpSamples(m_zone, "zone");
+    dumpSamples(m_world, "world");
 }

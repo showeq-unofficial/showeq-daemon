@@ -591,21 +591,27 @@ void DaemonApp::wireSpawnShell()
                        m_messageShell,
                        SLOT(specialMessage(const uint8_t*, size_t, uint8_t)));
 
-    // Group opcodes — mirrors showeq-c/src/interface.cpp:595-606.
+    // Group opcodes — modern EQ uses different sizes than the structs in
+    // everquest.h (which date from a much older client). All wirings use
+    // SZC_None so connect2 can resolve against the XML payload entries
+    // regardless of payload size; handlers that read fixed offsets need
+    // their packet shape to match (currently only the *Disband ones do —
+    // OP_GroupUpdate / OP_GroupFollow are still id="ffff" pending parser
+    // rewrites for the new fixed-size shapes).
     m_packet->connect2("OP_GroupUpdate", SP_Zone, DIR_Server,
                        "uint8_t", SZC_None,
                        m_groupMgr,
                        SLOT(groupUpdate(const uint8_t*, size_t)));
     m_packet->connect2("OP_GroupFollow", SP_Zone, DIR_Server,
-                       "groupFollowStruct", SZC_Match,
+                       "groupFollowStruct", SZC_None,
                        m_groupMgr,
                        SLOT(addGroupMember(const uint8_t*)));
     m_packet->connect2("OP_GroupDisband", SP_Zone, DIR_Server,
-                       "groupDisbandStruct", SZC_Match,
+                       "groupDisbandStruct", SZC_None,
                        m_groupMgr,
                        SLOT(removeGroupMember(const uint8_t*)));
     m_packet->connect2("OP_GroupDisband2", SP_Zone, DIR_Server,
-                       "groupDisbandStruct", SZC_Match,
+                       "groupDisbandStruct", SZC_None,
                        m_groupMgr,
                        SLOT(removeGroupMember(const uint8_t*)));
 

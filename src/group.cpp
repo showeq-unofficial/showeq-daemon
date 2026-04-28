@@ -67,18 +67,15 @@ GroupMgr::~GroupMgr()
 
 void GroupMgr::player(const charProfileStruct* player)
 {
-  // We receive a groupUpdate packet after playerProfile so we'll clear the
-  // member list then repopulate it in case we lost someone during zoning
-  m_memberCount = 0;
-  m_membersInZoneCount = 0;
-
-  for(int i = 0; i < MAX_GROUP_MEMBERS; i++)
-  {
-     m_members[i]->m_name = "";
-     m_members[i]->m_spawn = 0;
-  }
-
-  emit cleared();
+  // The original logic cleared the roster here on the assumption that
+  // the post-PlayerProfile OP_GroupUpdate would repopulate it from a
+  // full-roster blob. Modern EQ's OP_GroupUpdate (0x6890) carries no
+  // peer identity, and OP_GroupFollow (0x1bcd) only fires for new
+  // joins — neither re-announces existing members on zone-in. So we
+  // keep names. SpawnShell will fire delItem on the old zone's spawns
+  // (clearing stale Spawn pointers in m_members) and addItem on the
+  // new zone's spawns (re-resolving them by name), keeping in_zone
+  // counts accurate without any work here.
 
 // 9/3/2008 - Not used. Group data is no longer sent in charProfile.  We still
 //            need to reset the data as done above.
@@ -105,96 +102,41 @@ void GroupMgr::player(const charProfileStruct* player)
 #endif
 }
 
-void GroupMgr::groupUpdate(const uint8_t* data, size_t size)
+void GroupMgr::groupUpdate(const uint8_t* /*data*/, size_t /*size*/)
 {
-  // it's a variable-length packet depending on number of group members and length of names
-  NetStream netStream(data, size);
-  uint32_t memCount, memNumber, level;
-  QString name;
-
-  netStream.skipBytes(4);
-
-  // number of group members
-  memCount = netStream.readUInt32NC();
-
-  // leader name
-  name = netStream.readText();
-
-  // reset counters
-  m_memberCount = 0;
-  m_membersInZoneCount = 0;
-
-  emit cleared();
-
-  // update group member information
-  for(uint32_t i = 0; i < memCount; i++)
-  {
-     memNumber = netStream.readUInt32NC();
-     name = netStream.readText();
-     netStream.skipBytes(4);
-     level = netStream.readUInt32NC();
-
-     // copy the member name
-     m_members[i]->m_name = name;
-
-     // increment the member count
-     m_memberCount++;
-
-     // attempt to retrieve the member's spawn
-     m_members[i]->m_spawn = m_spawnShell->findSpawnByName(m_members[i]->m_name);
-
-     // incremement the spawn count
-     if (m_members[i]->m_spawn)
-        m_membersInZoneCount++;
-
-     emit added(m_members[i]->m_name, m_members[i]->m_spawn);
-
-     netStream.skipBytes(16);
-  }
-
-  // clear the rest
-  for(uint32_t i = memCount; i < MAX_GROUP_MEMBERS; i++)
-  {
-     m_members[i]->m_name = "";
-     m_members[i]->m_spawn = 0;
-  }
-
-// for debugging
-#if 1
-  for(uint32_t i = 0; i < MAX_GROUP_MEMBERS; i++)
-  {
-     if(!m_members[i]->m_name.isEmpty())
-        seqDebug("GroupMgr::groupUpdate '%s'", m_members[i]->m_name.toLatin1().data());
-  }
-#endif
+  // Modern OP_GroupUpdate (opcode 0x6890, fixed 92 bytes) is a per-slot
+  // status push: each packet carries the *recipient's* own name at
+  // offset 0 + a slot index, but no peer identity. Member identity
+  // arrives via OP_GroupFollow (addGroupMember) and departures via
+  // OP_GroupDisband / OP_GroupDisband2 (removeGroupMember), so this
+  // handler currently noops. A future revision can read the slot index
+  // and reconcile m_members ordering if the UI ever needs it.
 }
 
 void GroupMgr::addGroupMember(const uint8_t* data)
 {
-   const groupFollowStruct* gmem = (const groupFollowStruct*)data;
+   // Modern OP_GroupFollow (opcode 0x1bcd, 68 bytes) puts the joining
+   // member's name as a null-terminated string at offset 0 (max 64
+   // bytes). The legacy groupFollowStruct laid out invitee[64] at
+   // offset 64 with a leading zero block — that shape is gone.
+   const char* nameBytes = reinterpret_cast<const char*>(data);
+   const QString name = QString::fromLatin1(
+       nameBytes, qstrnlen(nameBytes, 64));
+
+   if (name.isEmpty()) return;
 
    for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
    {
       if (m_members[i]->m_name.isEmpty())
       {
-	 // copy the member name
-         m_members[i]->m_name = gmem->invitee;
+         m_members[i]->m_name = name;
+         m_memberCount++;
 
-	 // if there is a member, increment the member count
-         if (!m_members[i]->m_name.isEmpty()) 
-            m_memberCount++;
-
-	 // attempt to retrieve the member's spawn
-         m_members[i]->m_spawn = m_spawnShell->findSpawnByName(m_members[i]->m_name);
-
-	 // incremement the spawn count
+         m_members[i]->m_spawn = m_spawnShell->findPlayerByDisplayName(name);
          if (m_members[i]->m_spawn)
             m_membersInZoneCount++;
 
-	 // signal the addition
-         emit added(m_members[i]->m_name, m_members[i]->m_spawn);
-
-	 // added it, so break
+         emit added(name, m_members[i]->m_spawn);
          break;
       }
    }
@@ -232,7 +174,7 @@ void GroupMgr::removeGroupMember(const uint8_t* data)
             m_memberCount--;
 
             // if the member is in zone decrement zone count
-            m_members[i]->m_spawn = m_spawnShell->findSpawnByName(m_members[i]->m_name);
+            m_members[i]->m_spawn = m_spawnShell->findPlayerByDisplayName(m_members[i]->m_name);
             if(m_members[i]->m_spawn)
                m_membersInZoneCount--;
 
@@ -257,18 +199,18 @@ void GroupMgr::addItem(const Item* item)
   if (!spawn->isPlayer())
     return;
 
-  // iterate over the group members
+  // Compare against both raw name() and transformedName() — see
+  // findPlayerByDisplayName for why the OP_GroupFollow payload form
+  // isn't guaranteed.
+  const QString raw = spawn->name();
+  const QString display = spawn->transformedName();
   for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
   {
-    // is this spawn a group member?
-    if (m_members[i]->m_name == spawn->name())
+    if (m_members[i]->m_name.isEmpty()) continue;
+    if (m_members[i]->m_name == raw || m_members[i]->m_name == display)
     {
-      // yes, so note its Spawn object
       m_members[i]->m_spawn = spawn;
-
-      // decrement member in zone count
       m_membersInZoneCount++;
-
       break;
     }
   }
@@ -285,18 +227,16 @@ void GroupMgr::delItem(const Item* item)
   if (!spawn->isPlayer())
     return;
 
-  // iterate over the group members
+  // Match against either form (see addItem)
+  const QString raw = spawn->name();
+  const QString display = spawn->transformedName();
   for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
   {
-    // is this spawn a group member?
-    if (m_members[i]->m_name == spawn->name())
+    if (m_members[i]->m_name.isEmpty()) continue;
+    if (m_members[i]->m_name == raw || m_members[i]->m_name == display)
     {
-      // yes, so clear its Spawn object
       m_members[i]->m_spawn = 0;
-
-      // decrement member in zone count
       m_membersInZoneCount--;
-
       break;
     }
   }
@@ -313,18 +253,16 @@ void GroupMgr::killSpawn(const Item* item)
   if (!spawn->isPlayer())
     return;
 
-  // iterate over the group members
+  // Match against either form (see addItem)
+  const QString raw = spawn->name();
+  const QString display = spawn->transformedName();
   for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
   {
-    // is this spawn a group member?
-    if (m_members[i]->m_name == spawn->name())
+    if (m_members[i]->m_name.isEmpty()) continue;
+    if (m_members[i]->m_name == raw || m_members[i]->m_name == display)
     {
-      // yes, so clear its Spawn object
       m_members[i]->m_spawn = 0;
-
-      // decrement members in zone count
       m_membersInZoneCount--;
-
       break;
     }
   }
@@ -333,17 +271,17 @@ void GroupMgr::killSpawn(const Item* item)
 void GroupMgr::dumpInfo(QTextStream& out)
 {
   // dump general group manager information
-  out << "[GroupMgr]" << ENDL;
-  out << "Members: " << m_memberCount << ENDL;
-  out << "MembersInZone: " << m_membersInZoneCount << ENDL;
-  out << "Player: " << m_player->name() << ENDL;
-  out << "GroupBonus: " << groupBonus() << ENDL;
-  out << "GroupTotalLevels: " << totalLevels() << ENDL;
+  out << "[GroupMgr]" << Qt::endl;
+  out << "Members: " << m_memberCount << Qt::endl;
+  out << "MembersInZone: " << m_membersInZoneCount << Qt::endl;
+  out << "Player: " << m_player->name() << Qt::endl;
+  out << "GroupBonus: " << groupBonus() << Qt::endl;
+  out << "GroupTotalLevels: " << totalLevels() << Qt::endl;
   out << "GroupAverageLevel: ";
   if (m_membersInZoneCount)
-    out << totalLevels()/m_membersInZoneCount << ENDL;
+    out << totalLevels()/m_membersInZoneCount << Qt::endl;
   else
-    out << totalLevels() << ENDL;
+    out << totalLevels() << Qt::endl;
 
   // iterate over the group members
   for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
@@ -358,7 +296,7 @@ void GroupMgr::dumpInfo(QTextStream& out)
 	  << " " << m_members[i]->m_spawn->raceString()
 	  << " " << m_members[i]->m_spawn->classString();
 
-    out << ENDL;
+    out << Qt::endl;
   }  
 }
 

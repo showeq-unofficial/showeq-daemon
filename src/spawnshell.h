@@ -93,6 +93,10 @@ public:
 			       int16_t y, 
 			       double& minDistance);
    Spawn* findSpawnByName(const QString& name);
+   // Like findSpawnByName but compares against Spawn::transformedName()
+   // (the display form, e.g. "Foo") instead of the raw m_name (which
+   // can carry the server's "Foo00"-style suffix). Player spawns only.
+   Spawn* findPlayerByDisplayName(const QString& name);
 
    void dumpSpawns(spawnItemType type, QTextStream& out);
    FilterMgr* filterMgr(void) { return &m_filterMgr; }

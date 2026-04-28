@@ -127,7 +127,7 @@
         <comment>old ZoneChangeCode</comment>
         <payload dir="both" typename="zoneChangeStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupInvite" updated="02/17/21">
+    <opcode id="7380" name="OP_GroupInvite" updated="04/26/26">
         <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
         <comment>You invite someone while ungrouped or get invited by someone ungrouped </comment>
     </opcode>
@@ -139,29 +139,29 @@
         <payload dir="both" typename="groupDeclineStruct" sizechecktype="match"/>
         <comment>Declining to join a group</comment>
     </opcode>
-    <opcode id="ffff" name="OP_GroupFollow" updated="02/17/21">
-        <payload dir="server" typename="groupFollowStruct" sizechecktype="match"/>
-        <comment>You join a group or player joins group</comment>
+    <opcode id="1bcd" name="OP_GroupFollow" updated="04/26/26">
+        <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
+        <comment>Member added (modern: 68 bytes, name at offset 0).</comment>
     </opcode>
     <opcode id="ffff" name="OP_GroupFollow2" updated="02/17/21">
-        <payload dir="server" typename="groupFollowStruct" sizechecktype="match"/>
+        <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
         <comment>Player joins your group</comment>
     </opcode>
-    <opcode id="ffff" name="OP_GroupUpdate" updated="06/19/19">
-        <comment>Group updates</comment>
+    <opcode id="6890" name="OP_GroupUpdate" updated="04/26/26">
+        <comment>Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow.</comment>
         <payload dir="both" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupDisband" updated="02/17/21">
-        <comment>You disband from group</comment>
-        <payload dir="server" typename="groupDisbandStruct" sizechecktype="match"/>
+    <opcode id="02a6" name="OP_GroupDisband" updated="04/26/26">
+        <comment>Your group dissolved (modern: 168 bytes; membername=self at offset 64)</comment>
+        <payload dir="server" typename="groupDisbandStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupDisband2" updated="02/17/21">
-        <comment>Other disbands from group</comment>
-        <payload dir="server" typename="groupDisbandStruct" sizechecktype="match"/>
+    <opcode id="6c57" name="OP_GroupDisband2" updated="04/26/26">
+        <comment>Other member disbanded (modern: 168 bytes; membername=peer at offset 64)</comment>
+        <payload dir="server" typename="groupDisbandStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupLeader" updated="02/17/21">
-        <comment>Group leader change</comment>
-        <payload dir="server" typename="groupLeaderChangeStruct" sizechecktype="match"/>
+    <opcode id="2f41" name="OP_GroupLeader" updated="04/26/26">
+        <comment>Group leader change (modern: 80 bytes)</comment>
+        <payload dir="server" typename="groupLeaderChangeStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="55b9" name="OP_Buff" updated="04/25/26">
         <comment>old BuffDropCode</comment>

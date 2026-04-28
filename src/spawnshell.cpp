@@ -327,6 +327,32 @@ Spawn* SpawnShell::findSpawnByName(const QString& name)
   return NULL;
 }
 
+Spawn* SpawnShell::findPlayerByDisplayName(const QString& name)
+{
+  // Match against both raw name() and transformedName() because the
+  // OP_GroupFollow payload may deliver either the padded form ("Foo00")
+  // or the cleaned form ("Foo") depending on the EQ build, and we
+  // don't want to depend on which.
+  ItemIterator it(m_spawns);
+  while (it.hasNext())
+  {
+    it.next();
+    Spawn* spawn = (Spawn*)it.value();
+    if (!spawn)
+      break;
+    if (!spawn->isPlayer())
+      continue;
+    if (name == spawn->name() || name == spawn->transformedName())
+      return spawn;
+  }
+
+  if (m_player &&
+      (name == m_player->name() || name == m_player->transformedName()))
+    return m_player;
+
+  return nullptr;
+}
+
 void SpawnShell::deleteItem(spawnItemType type, int id)
 {
 #ifdef SPAWNSHELL_DIAG
@@ -404,7 +430,7 @@ void SpawnShell::dumpSpawns(spawnItemType type, QTextStream& out)
        if (!it.value())
            break;
 
-       out << it.value()->dumpString() << ENDL;
+       out << it.value()->dumpString() << Qt::endl;
    }
 }
 
