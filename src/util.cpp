@@ -30,6 +30,7 @@
 #include <cstring>
 #include <sys/time.h>
 #include <ifaddrs.h>
+#include <netinet/in.h>
 
 #include <QFileInfo>
 #include <QDir>
@@ -1022,7 +1023,11 @@ QStringList enumerateNetworkDevices()
         if (ifa->ifa_addr == NULL || devices.contains(ifa->ifa_name))
             continue;
 
-        if (ifa->ifa_addr->sa_family == AF_INET || ifa->ifa_addr->sa_family == AF_PACKET)
+        if (ifa->ifa_addr->sa_family == AF_INET
+#ifdef AF_PACKET
+            || ifa->ifa_addr->sa_family == AF_PACKET
+#endif
+            )
             devices.append(ifa->ifa_name);
     }
 
