@@ -236,6 +236,19 @@ target_compile_options(showeq-daemon PRIVATE
   -Wno-deprecated-declarations
 )
 
+# --- setcap (opt-in) ---------------------------------------------------------
+# Restore cap_net_admin,cap_net_raw on the daemon after a rebuild so live
+# pcap capture works without sudo. Requires a sudoers.d rule permitting
+# passwordless setcap on this binary; see the project README. Not part of
+# the default `all` target — invoke explicitly:
+#   cmake --build build --target setcap
+add_custom_target(setcap
+  COMMAND sudo -n /usr/sbin/setcap cap_net_admin,cap_net_raw=eip $<TARGET_FILE:showeq-daemon>
+  DEPENDS showeq-daemon
+  COMMENT "Restoring cap_net_admin,cap_net_raw on showeq-daemon"
+  VERBATIM
+)
+
 # --- tests -------------------------------------------------------------------
 enable_testing()
 if(EXISTS "${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt")
