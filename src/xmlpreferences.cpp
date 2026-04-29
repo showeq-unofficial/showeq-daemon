@@ -259,6 +259,14 @@ void XMLPreferences::loadPreferences(const QString& filename,
 	 continue;
        }
 
+       // GUI-only tags from legacy showeq (QFont / QKeySequence). The
+       // daemon is headless and never reads Font/*Key properties; skip
+       // silently instead of warning per occurrence in seqdef.xml and
+       // any shared ~/.showeq user config.
+       if (valueElement.tagName() == "font"
+           || valueElement.tagName() == "key")
+         continue;
+
        if (!conv.elementToVariant(valueElement, value))
        {
            qWarning("property '%s' in section '%s' with bogus value in tag '%s'!"
