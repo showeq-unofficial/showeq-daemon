@@ -78,6 +78,7 @@ AddStruct(newCorpseStruct);
 AddStruct(environmentDamageStruct);
 AddStruct(moneyOnCorpseStruct);
 AddStruct(staminaStruct);
+AddStruct(endUpdateStruct);
 AddStruct(action2Struct);
 AddStruct(actionStruct);
 AddStruct(actionAltStruct);

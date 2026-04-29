@@ -40,6 +40,7 @@ struct StructHint {
 // raw unknown-opcode dump.
 const StructHint kHints[] = {
     {"OP_Stamina",      "staminaStruct",          8, DIR_Server},
+    {"OP_EndUpdate",    "endUpdateStruct",       10, DIR_Server},
     {"OP_HPUpdate",     "hpNpcUpdateStruct",     18, DIR_Server},
     {"OP_ManaChange",   "manaDecrementStruct",   20, DIR_Server},
     {"OP_Action2",      "action2Struct",         48, DIR_Server},

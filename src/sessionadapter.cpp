@@ -264,6 +264,8 @@ void SessionAdapter::startStreaming()
                 this,     SLOT(onPlayerStatsChanged()));
         connect(m_player, SIGNAL(stamChanged(int, int, int, int)),
                 this,     SLOT(onPlayerStatsChanged()));
+        connect(m_player, SIGNAL(endChanged(uint32_t, uint32_t)),
+                this,     SLOT(onPlayerStatsChanged()));
         connect(m_player, SIGNAL(levelChanged(uint8_t)),
                 this,     SLOT(onPlayerStatsChanged()));
         connect(m_player, SIGNAL(expChangedInt(int, int, int)),

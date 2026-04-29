@@ -154,6 +154,8 @@ void Player::clear()
   m_food = 0;
   m_water = 0;
   m_fatigue = 0;
+  m_enduranceCur = 0;
+  m_enduranceMax = 0;
 
   m_validStam = false;
   m_validMana = false;
@@ -819,6 +821,18 @@ void Player::updateStamina(const uint8_t* data)
   m_validStam = true;
 
   emit stamChanged(m_food, 127, m_water, 127);
+
+  if (showeq_params->savePlayerState)
+    savePlayerState();
+}
+
+void Player::updateEndurance(const uint8_t* data)
+{
+  const endUpdateStruct* upd = (const endUpdateStruct*)data;
+  m_enduranceCur = upd->cur;
+  m_enduranceMax = upd->max;
+
+  emit endChanged(m_enduranceCur, m_enduranceMax);
 
   if (showeq_params->savePlayerState)
     savePlayerState();

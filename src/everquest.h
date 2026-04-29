@@ -2025,11 +2025,31 @@ struct moneyOnCorpseStruct
 ** OpCode: staminaCode
 */
 
-struct staminaStruct 
+struct staminaStruct
 {
 /*0000*/ uint32_t food;                          // Hunger, in ticks till next eat
 /*0004*/ uint32_t water;                         // Thirst, in ticks till next eat
 /*0008*/
+};
+
+/*
+** Endurance Update (run/jump bar)
+** Length: 10 Octets
+** OpCode: OP_EndUpdate
+**
+** Server-pushed updates to the player's endurance bar — what the EQ
+** UI renders below the mana bar in yellow. Resolved 2026-04-28 from
+** the --opcode-stats sweep (jump-drain capture, n=139, dominant
+** 10-byte S>C unknown). Distinct from OP_Stamina which carries
+** hunger/thirst.
+*/
+
+struct endUpdateStruct
+{
+/*0000*/ uint16_t spawn_id;                      // owner of the endurance bar (player)
+/*0002*/ uint32_t cur;                           // current endurance
+/*0006*/ uint32_t max;                           // max endurance at current level
+/*0010*/
 };
 
 /*

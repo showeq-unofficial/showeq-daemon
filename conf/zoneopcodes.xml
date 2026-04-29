@@ -78,7 +78,7 @@
         <comment>SpawnAppearanceCode</comment>
         <payload dir="both" typename="spawnAppearanceStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_Stamina" updated="07/19/23">
+    <opcode id="4b67" name="OP_Stamina" updated="04/28/26">
         <comment>Server updating on hunger/thirst</comment>
         <payload dir="server" typename="staminaStruct" sizechecktype="match"/>
     </opcode>
@@ -315,9 +315,9 @@
     <comment>Mana Update opcode - 10 bytes</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_EndUpdate" updated="07/19/23">
-    <comment>Endurance Update opcode - 10 bytes</comment>
-        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+    <opcode id="6d58" name="OP_EndUpdate" updated="04/28/26">
+        <comment>Endurance Update opcode - 10 bytes (spawn_id u16, cur u32, max u32)</comment>
+        <payload dir="server" typename="endUpdateStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_Marketplace" updated="11/28/12">
         <comment>Marketplace data - Guessing variable length 11444 bytes as of 11/28/12</comment>

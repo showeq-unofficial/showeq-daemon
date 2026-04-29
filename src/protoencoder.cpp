@@ -230,8 +230,8 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
     const uint16_t calcManaMax = mp.getMaxMana();
     out->set_mana_cur(curMana);
     out->set_mana_max(curMana > calcManaMax ? curMana : calcManaMax);
-    out->set_stamina_cur(100u - mp.getFatigue());
-    out->set_stamina_max(100u);
+    out->set_endurance_cur(mp.getEnduranceCur());
+    out->set_endurance_max(mp.getEnduranceMax());
 
     out->set_level(mp.level());
     out->set_exp_cur(mp.getCurrentExp());

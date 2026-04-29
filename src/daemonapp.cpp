@@ -498,9 +498,9 @@ void DaemonApp::wireSpawnShell()
     // Player-vital wirings. Each handler filters by spawnId == self
     // so the same opcodes route through both SpawnShell (any-spawn
     // updates) and Player (only when packet is for the local PC).
-    // Mirrors showeq/src/interface.cpp:909-1018. OP_Stamina is
-    // wired even though its opcode is still id="ffff" — once it's
-    // resolved the slot fires automatically without code changes.
+    // Mirrors showeq/src/interface.cpp:909-1018. OP_Stamina (hunger /
+    // thirst) and OP_EndUpdate (run/jump endurance bar) were resolved
+    // 2026-04-28; both are now wired and fire on real packets.
     m_packet->connect2("OP_HPUpdate", SP_Zone, DIR_Server|DIR_Client,
                        "hpNpcUpdateStruct", SZC_Match,
                        m_player,
@@ -513,6 +513,10 @@ void DaemonApp::wireSpawnShell()
                        "staminaStruct", SZC_Match,
                        m_player,
                        SLOT(updateStamina(const uint8_t*)));
+    m_packet->connect2("OP_EndUpdate", SP_Zone, DIR_Server,
+                       "endUpdateStruct", SZC_Match,
+                       m_player,
+                       SLOT(updateEndurance(const uint8_t*)));
     m_packet->connect2("OP_WearChange", SP_Zone, DIR_Server|DIR_Client,
                        "SpawnUpdateStruct", SZC_Match,
                        m_player,
