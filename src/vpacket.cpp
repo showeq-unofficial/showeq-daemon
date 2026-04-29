@@ -523,7 +523,7 @@ VPacket::flush(void)
 
   if (m_fd != -1)
   {
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__APPLE__)
     ret = fsync(m_fd);
 #else
     ret = fdatasync(m_fd);
