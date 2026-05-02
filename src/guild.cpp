@@ -95,7 +95,6 @@ void GuildMgr::guildsInZoneList(const uint8_t* data, size_t len)
     uint32_t size = 0; // to keep track of how much we're reading from the packet
     uint32_t guildId = 0;
     uint32_t guildServerId = 0;
-    uint32_t numGuilds = 0;
 
     uint32_t nameLen = netStream.readUInt32NC();
     size += 4;
@@ -104,7 +103,7 @@ void GuildMgr::guildsInZoneList(const uint8_t* data, size_t len)
     netStream.skipBytes(nameLen);
     size += nameLen;
 
-    numGuilds = netStream.readUInt32NC();
+    netStream.readUInt32NC(); // numGuilds — present in wire format but unused here
     size += 4;
 
     bool need_save = false;

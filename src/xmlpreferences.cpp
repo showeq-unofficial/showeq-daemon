@@ -174,10 +174,9 @@ void XMLPreferences::loadPreferences(const QString& filename,
  QString propertyName;
  QDomNode n;
  QDomElement valueElement;
- bool foundValue;
 
  sectionList = doc.elementsByTagName("section");
- for (uint i = 0; i < sectionList.length(); i++)
+ for (uint i = 0; i < static_cast<uint>(sectionList.length()); i++)
  {
    section = sectionList.item(i).toElement();
    if (!section.hasAttribute("name"))
@@ -216,7 +215,7 @@ void XMLPreferences::loadPreferences(const QString& filename,
 
    propertyList = section.elementsByTagName("property");
    
-   for (uint j = 0; j < propertyList.length(); j++)
+   for (uint j = 0; j < static_cast<uint>(propertyList.length()); j++)
    {
      property = propertyList.item(j).toElement();
      if (!property.hasAttribute("name"))
@@ -227,8 +226,6 @@ void XMLPreferences::loadPreferences(const QString& filename,
      }
 
      propertyName = property.attribute("name");
-
-     foundValue = false;
 
      QVariant value;
      // iterate over the nodes under the property
@@ -277,9 +274,6 @@ void XMLPreferences::loadPreferences(const QString& filename,
            continue;
        }
 
-       // found the value
-       foundValue = true;
-       
        // insert value into the section dictionary
        sectionDict->insert(propertyName, new QVariant(value));
        
@@ -373,7 +367,7 @@ void XMLPreferences::savePreferences(const QString& filename,
     sectionDict = sdit.value();
 
     // iterate over all the sections in the document
-    for (uint i = 0; i < sectionList.length(); i++)
+    for (uint i = 0; i < static_cast<uint>(sectionList.length()); i++)
     {
       e = sectionList.item(i).toElement();
       if (!e.hasAttribute("name"))
@@ -420,7 +414,7 @@ void XMLPreferences::savePreferences(const QString& filename,
       propertyList = section.elementsByTagName("property");
 
       // iterate over all the property elements until a match is found
-      for (uint j = 0; j < propertyList.length(); j++)
+      for (uint j = 0; j < static_cast<uint>(propertyList.length()); j++)
       {
           e = propertyList.item(j).toElement();
           if (!e.hasAttribute("name"))
@@ -726,7 +720,7 @@ int64_t XMLPreferences::getPrefInt64(const QString& inName,
   {
     int64_t value = def;
 
-    switch(preference->type())
+    switch (static_cast<int>(preference->type()))
     {
     case QMetaType::QString:
       // convert it to a uint64_t (in base 16)
@@ -778,7 +772,7 @@ uint64_t XMLPreferences::getPrefUInt64(const QString& inName,
   {
     uint64_t value = def;
 
-    switch(preference->type())
+    switch (static_cast<int>(preference->type()))
     {
     case QMetaType::QString:
       // convert it to a uint64_t (in base 16)

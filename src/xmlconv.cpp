@@ -36,13 +36,6 @@
 #include <QStringList>
 #include <QDomElement>
 
-// borrowed with mods from Qt 3.2
-static bool ok_in_hex( QChar c)
-{
-  return c.isDigit() || (c >= 'a' && c < char('a'+6))
-                     || (c >= 'A' && c < char('A'+6));
-}
-
 DomConvenience::DomConvenience(QDomDocument& doc)
   : m_doc(doc)
 {
@@ -170,7 +163,7 @@ bool DomConvenience::elementToVariant(const QDomElement& e,
     QStringList stringList;
     QDomElement stringElement;
     
-    for (uint i = 0; i < stringNodeList.length(); i++)
+    for (uint i = 0; i < static_cast<uint>(stringNodeList.length()); i++)
     {
       stringElement = stringNodeList.item(i).toElement();
       if (!stringElement.hasAttribute("value"))
@@ -235,7 +228,7 @@ bool DomConvenience::variantToElement(const QVariant& v, QDomElement& e)
     return true;
   }
 
-  switch (v.type())
+  switch (static_cast<int>(v.type()))
   {
   case QMetaType::QString:
     e.setTagName("string");
@@ -254,7 +247,7 @@ bool DomConvenience::variantToElement(const QVariant& v, QDomElement& e)
   {
     e.setTagName("int64");
     QString val;
-    val = QString::asprintf("%0.16llx", v.toLongLong());
+    val = QString::asprintf("%.16llx", v.toLongLong());
     e.setAttribute("value", val);
     break;
   }
@@ -263,7 +256,7 @@ bool DomConvenience::variantToElement(const QVariant& v, QDomElement& e)
   {
     e.setTagName("uint64");
     QString val;
-    val = QString::asprintf("%0.16llx", v.toULongLong());
+    val = QString::asprintf("%.16llx", v.toULongLong());
     e.setAttribute("value", val);
     break;
   }
@@ -312,8 +305,8 @@ bool DomConvenience::variantToElement(const QVariant& v, QDomElement& e)
       QStringList stringList = v.toStringList();
       QStringList::Iterator it = stringList.begin();
 
-      for (j = 0; 
-	   ((j < stringNodeList.length()) && (it != stringList.end()));
+      for (j = 0;
+	   ((j < static_cast<uint>(stringNodeList.length())) && (it != stringList.end()));
 	   j++)
       {
 	// get the current string element
@@ -329,10 +322,10 @@ bool DomConvenience::variantToElement(const QVariant& v, QDomElement& e)
       // more nodes in previous stringlist then current, remove excess nodes
       if (stringNodeList.count() > stringList.count())
       {
-	while (j < stringNodeList.count())
+	while (j < static_cast<uint>(stringNodeList.count()))
 	  e.removeChild(stringNodeList.item(j).toElement());
       }
-      else if (j <stringList.count())
+      else if (j < static_cast<uint>(stringList.count()))
       {
 	while (it != stringList.end())
 	{

@@ -272,8 +272,7 @@ void GuildShell::guildMemberList(const uint8_t* data, size_t len)
   gml.skipBytes(1);
 
   // read the player count from the stream
-  uint32_t count;
-  count = gml.readUInt32NC();
+  [[maybe_unused]] uint32_t count = gml.readUInt32NC();
 
 #ifdef GUILDSHELL_DIAG
   seqDebug("Guild has %d members:", count);
@@ -295,7 +294,7 @@ void GuildShell::guildMemberList(const uint8_t* data, size_t len)
     m_members.insert(member->name(), member);
 
     // check for new longest member name
-    if (member->name().length() > m_maxNameLength)
+    if (static_cast<size_t>(member->name().length()) > m_maxNameLength)
       m_maxNameLength = member->name().length();
 
     emit added(member);

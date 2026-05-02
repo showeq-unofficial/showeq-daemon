@@ -767,7 +767,7 @@ int32_t SpawnShell::fillSpawnStruct(spawnStruct *spawn, const uint8_t *data, siz
 
    name = netStream.readText();
 
-   if(name.length() > 0 && name.length() < sizeof(spawn->lastName))
+   if(name.length() > 0 && static_cast<size_t>(name.length()) < sizeof(spawn->lastName))
    {
       strcpy(spawn->lastName, name.toLatin1().data());
    }
@@ -815,7 +815,7 @@ int32_t SpawnShell::fillSpawnStruct(spawnStruct *spawn, const uint8_t *data, siz
       spawn->equipment[8].equip0 = netStream.readUInt32NC();
    }
 
-   for (int i = 0; i < (sizeof(spawn->posData)/sizeof(spawn->posData[0])); ++i) {
+   for (size_t i = 0; i < (sizeof(spawn->posData)/sizeof(spawn->posData[0])); ++i) {
        spawn->posData[i] = netStream.readUInt32NC();
    }
 
@@ -1138,12 +1138,11 @@ void SpawnShell::npcMoveUpdate(const uint8_t* data, size_t len, uint8_t dir)
     int16_t deltaZ = 0;
     int8_t deltaHeading = 0;
     int16_t velocity = 0;
-    int16_t pitch = 0;
-    
+
     if (fieldSpecifier & MASK_PITCH)
     {
         // Pull off pitch. Seq doesn't pay attention to this.
-        pitch = stream.readInt(12);
+        stream.readInt(12);
     }
     if (fieldSpecifier & MASK_DELTA_HEADING)
     {

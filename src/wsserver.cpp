@@ -234,8 +234,8 @@ void WsServer::attachNewSession(QWebSocket* sock, const QString& sessionId)
     connect(sock, &QWebSocket::disconnected,
             this, [this, sock] { onSocketDisconnected(sock); });
 
-    qInfo("ws session opened: id=%s (%d active)",
-          qUtf8Printable(sessionId), m_sessions.size());
+    qInfo("ws session opened: id=%s (%lld active)",
+          qUtf8Printable(sessionId), (long long)m_sessions.size());
 }
 
 SessionAdapter* WsServer::makeAdapter(IEnvelopeSink* sink, QObject* parent)
@@ -296,8 +296,8 @@ void WsServer::onSocketDisconnected(QWebSocket* sock)
     s.pruneTimer->start(kPruneAfterMs);
 
     sock->deleteLater();
-    qInfo("ws session detached: id=%s (%d active, %dms to prune)",
-          qUtf8Printable(id), m_sessions.size(), kPruneAfterMs);
+    qInfo("ws session detached: id=%s (%lld active, %dms to prune)",
+          qUtf8Printable(id), (long long)m_sessions.size(), kPruneAfterMs);
 }
 
 void WsServer::pruneSession(const QString& id)
@@ -312,6 +312,6 @@ void WsServer::pruneSession(const QString& id)
     delete it->liveSink;
     if (it->pruneTimer) it->pruneTimer->deleteLater();
     m_sessions.erase(it);
-    qInfo("ws session pruned: id=%s (%d remaining)",
-          qUtf8Printable(id), m_sessions.size());
+    qInfo("ws session pruned: id=%s (%lld remaining)",
+          qUtf8Printable(id), (long long)m_sessions.size());
 }

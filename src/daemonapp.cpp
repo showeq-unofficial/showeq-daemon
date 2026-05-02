@@ -764,7 +764,7 @@ void DaemonApp::loadZoneMap(const QString& shortZoneName)
         }
         import = true;
     }
-    qInfo("loaded map for zone '%s' (%d layer(s) from %s)",
-          qUtf8Printable(shortZoneName), files.size(),
+    qInfo("loaded map for zone '%s' (%lld layer(s) from %s)",
+          qUtf8Printable(shortZoneName), (long long)files.size(),
           qUtf8Printable(QFileInfo(files.first()).absolutePath()));
 }

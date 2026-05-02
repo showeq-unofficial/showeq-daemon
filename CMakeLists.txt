@@ -205,10 +205,14 @@ endif()
 
 target_compile_options(seq-daemon-core PRIVATE
   -Wall
-  # Extracted code triggers a lot of benign warnings. Re-tighten these
-  # once the legacy files have been cleaned up in a dedicated pass.
+  -Werror
+  # -Wno-unused-parameter / -Wno-deprecated-declarations remain because the
+  # legacy code still triggers them; the rest of -Wall is clean and gated.
   -Wno-unused-parameter
   -Wno-deprecated-declarations
+  # Qt5's QString headers trip GCC's stringop-overread bug detector; keep
+  # the warning visible without breaking the Qt5 CI matrix.
+  -Wno-error=stringop-overread
 )
 
 # Matches showeq's Makefile.am: INCLUDES = ... -DPKGDATADIR="..."

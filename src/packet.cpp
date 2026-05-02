@@ -237,7 +237,10 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
   // if running setuid root, then give up root access, since the PacketCapture
   // is the only thing that needed it.
   if ((geteuid() == 0) && (getuid() != geteuid()))
-    setuid(getuid()); 
+  {
+    if (setuid(getuid()) != 0)
+      seqFatal("setuid(getuid()) failed; refusing to retain root privileges");
+  }
 
   /* Create timer object */
   m_timer = new QTimer (this);

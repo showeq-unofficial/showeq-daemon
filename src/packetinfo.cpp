@@ -547,13 +547,13 @@ void EQPacketOPCodeDB::list(void) const
 
     QStringList comments = current->comments();
 
-    fprintf(stderr, "\t\t%d comment(s)\n", comments.count());
+    fprintf(stderr, "\t\t%lld comment(s)\n", (long long)comments.count());
 
     for (QStringList::Iterator cit = comments.begin();
             cit != comments.end(); ++cit)
       fprintf(stderr, "\t\t\t'%s'\n", (*cit).toLatin1().data());
 
-    fprintf(stderr, "\t\t%d payload(s)\n", current->count());
+    fprintf(stderr, "\t\t%lld payload(s)\n", (long long)current->count());
 
     QListIterator<EQPacketPayload*> pit(*current);
     while (pit.hasNext())

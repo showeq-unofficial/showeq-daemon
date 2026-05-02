@@ -126,7 +126,7 @@ bool EQPacketStream::connect2(const QString& opcodeName,
     return false;
   }
 
-  EQPacketPayload* payload;
+  EQPacketPayload* payload = nullptr;
 
   // try to find a matching payload for this opcode
   EQPayloadListIterator pit(*opcode);

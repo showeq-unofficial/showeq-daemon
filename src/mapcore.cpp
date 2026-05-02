@@ -1115,7 +1115,7 @@ void MapData::loadSOEMap(const QString& fileName, bool import)
 	else 
 	{
 	  // if necessary, add room for a point
-	  if (currentLineM->size() < (numPoints+1))
+	  if (static_cast<uint32_t>(currentLineM->size()) < (numPoints+1))
 	    currentLineM->resize(numPoints+1);
 
 	  // add the point
@@ -1234,13 +1234,13 @@ void MapData::saveMap(const QString& fileName, const uint8_t layerNum) const
     }
 
     // write out the start of the line info
-    fprintf (fh, "L,%s,%s,%d",
+    fprintf (fh, "L,%s,%s,%lld",
             currentLineL->name().toLatin1().data(),
             currentLineL->colorName().toLatin1().data(),
-            currentLineL->size());
+            (long long)currentLineL->size());
 
     // write out all the 2D points in the line
-    for(i = 0; i < currentLineL->size(); i++)
+    for(i = 0; i < static_cast<uint32_t>(currentLineL->size()); i++)
     {
       QPoint curQPoint = currentLineL->at(i);
       fprintf (fh, ",%d,%d", curQPoint.x(), curQPoint.y());
@@ -1258,13 +1258,13 @@ void MapData::saveMap(const QString& fileName, const uint8_t layerNum) const
   {
     currentLineM = *mmit;
     // write out the start of the line info
-    fprintf (fh, "M,%s,%s,%d",
+    fprintf (fh, "M,%s,%s,%lld",
             currentLineM->name().toLatin1().data(),
             currentLineM->colorName().toLatin1().data(),
-            currentLineM->size());
+            (long long)currentLineM->size());
 
     // write out all the 3D points in the line
-    for(i = 0; i < currentLineM->size(); i++)
+    for(i = 0; i < static_cast<uint32_t>(currentLineM->size()); i++)
     {
       MapPoint curMPoint = currentLineM->point(i);
 
@@ -1351,7 +1351,7 @@ void MapData::saveSOEMap(const QString& fileName, const uint8_t layerNum) const
     QPoint lastQPoint = currentLineL->at(0);
 
     // write out all the 2D points in the line
-    for(i = 1; i < currentLineL->size(); ++i)
+    for(i = 1; i < static_cast<uint>(currentLineL->size()); ++i)
     {
       const QPoint& curQPoint = currentLineL->at(i);
 
@@ -1382,7 +1382,7 @@ void MapData::saveSOEMap(const QString& fileName, const uint8_t layerNum) const
     MapPoint lastMPoint = currentLineM->point(0);
 
     // write out all the 3D points in the line
-    for(i = 1; i < currentLineM->size() ; ++i)
+    for(i = 1; i < static_cast<uint>(currentLineM->size()); ++i)
     {
       const MapPoint& curMPoint = currentLineM->point(i);
 
@@ -1434,7 +1434,7 @@ void MapData::createNewLayer()
 
     if (m_mapLayers.count())
     {
-        fileName = QString::asprintf("%s_%d.map", m_zoneShortName.toLatin1().data(), m_mapLayers.count());
+        fileName = QString::asprintf("%s_%lld.map", m_zoneShortName.toLatin1().data(), (long long)m_mapLayers.count());
     }
     else
     {
