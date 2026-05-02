@@ -127,7 +127,8 @@ class MessageShell : public QObject
    // server messages, etc.) are not emitted here. Phase 3 sessionadapter
    // listens to this and forwards to clients as seq.v1.ChatMessage.
    void chatMessage(uint32_t channel, const QString& from,
-                    const QString& target, const QString& text);
+                    const QString& target, const QString& text,
+                    uint32_t chatColor);
 
  protected:
    Messages* m_messages;

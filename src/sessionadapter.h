@@ -114,7 +114,8 @@ private slots:
     // Emits a seq.v1.ChatMessage envelope from a MessageShell::chatMessage
     // signal.
     void onChatMessage(uint32_t channel, const QString& from,
-                       const QString& target, const QString& text);
+                       const QString& target, const QString& text,
+                       uint32_t chatColor);
     // Re-emits the full group state on any GroupMgr add/remove/clear.
     void onGroupChanged();
     // Re-emits the full active-buff list on any SpellShell change.
