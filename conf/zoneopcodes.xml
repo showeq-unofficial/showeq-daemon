@@ -291,7 +291,7 @@
         <comment>Leadership AA Exp Update</comment>
         <payload dir="server" typename="leadExpUpdateStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_MovementHistory" updated="06/18/14">
+    <opcode id="dc5d" name="OP_MovementHistory" updated="05/01/26">
         <comment>Movement history for speed/movement hack detection</comment>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
@@ -415,7 +415,7 @@
         <comment>List of available titles - 1520 bytes</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_Animation" updated="11/28/12">
+    <opcode id="3d3d" name="OP_Animation" updated="05/01/26">
         <comment>Combat animation, emote animations etc - 4 bytes</comment>
         <payload dir="both" typename="uint8_t" sizechecktype="none"/>
     </opcode>
@@ -676,8 +676,9 @@
     <opcode id="ffff" name="OP_InitialMobHealth" updated="06/27/12">
         <comment>Initial health sent when a player clicks on the mob. Subsequent updated will be OP_MobHealth</comment>
     </opcode>
-    <opcode id="ffff" name="OP_MobHealth" updated="03/14/07">
+    <opcode id="2171" name="OP_MobHealth" updated="05/01/26">
         <comment>health sent when a player clicks on the mob</comment>
+        <payload dir="server" typename="mobHealthStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_DeltaCheck" updated="03/14/07">
         <comment>Client sending server delta information.</comment>

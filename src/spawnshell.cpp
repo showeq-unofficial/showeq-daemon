@@ -1456,7 +1456,7 @@ void SpawnShell::updateNpcHP(const uint8_t* data)
 {
   const hpNpcUpdateStruct* hpupdate = (const hpNpcUpdateStruct*)data;
 #ifdef SPAWNSHELL_DIAG
-   seqDebug("SpawnShell::updateNpcHP(id=%d, maxhp=%d hp=%d)", 
+   seqDebug("SpawnShell::updateNpcHP(id=%d, maxhp=%d hp=%d)",
 	  hpupdate->spawnId, hpupdate->maxHP, hpupdate->curHP);
 #endif
    Item* item = m_spawns.value(hpupdate->spawnId, nullptr);
@@ -1468,6 +1468,29 @@ void SpawnShell::updateNpcHP(const uint8_t* data)
      item->updateLastChanged();
      emit changeItem(item, tSpawnChangedHP);
    }
+}
+
+void SpawnShell::updateMobHealth(const uint8_t* data)
+{
+  const mobHealthStruct* mobhp = (const mobHealthStruct*)data;
+  Item* item = m_spawns.value(mobhp->spawnId, nullptr);
+  if (item == NULL)
+    return;
+  Spawn* spawn = (Spawn*)item;
+  // hpPercent is 0-100; reconstruct curHP using the maxHP cached from a
+  // prior OP_HPUpdate / OP_InitialMobHealth. Without maxHP we can't
+  // compute a meaningful curHP, so leave it untouched and just refresh
+  // the change timestamp so the snapshot tail still flows.
+  if (spawn->maxHP() > 0)
+  {
+    spawn->setHP((spawn->maxHP() * mobhp->hpPercent) / 100);
+  }
+#ifdef SPAWNSHELL_DIAG
+  seqDebug("SpawnShell::updateMobHealth(id=%d, pct=%d, maxHP=%d -> curHP=%d)",
+           mobhp->spawnId, mobhp->hpPercent, spawn->maxHP(), spawn->HP());
+#endif
+  item->updateLastChanged();
+  emit changeItem(item, tSpawnChangedHP);
 }
 
 void SpawnShell::spawnWearingUpdate(const uint8_t* data)

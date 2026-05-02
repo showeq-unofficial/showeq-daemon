@@ -144,6 +144,7 @@ public slots:
    void updateSpawnAppearance(const uint8_t* appearanceupdate);
    void shroudSpawn(const uint8_t* spawnupdate, size_t, uint8_t);
    void updateNpcHP(const uint8_t* hpupdate);
+   void updateMobHealth(const uint8_t* mobhp);
    void spawnWearingUpdate(const uint8_t* wearing);
    void consMessage(const uint8_t* con, size_t, uint8_t);
    void clientTarget(const uint8_t* cts);

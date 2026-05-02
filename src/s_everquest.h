@@ -98,6 +98,7 @@ AddStruct(altExpUpdateStruct);
 AddStruct(leadExpUpdateStruct);
 AddStruct(SpawnUpdateStruct);
 AddStruct(hpNpcUpdateStruct);
+AddStruct(mobHealthStruct);
 AddStruct(inspectDataStruct);
 AddStruct(bookTextStruct);
 AddStruct(badCastStruct);

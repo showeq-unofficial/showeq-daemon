@@ -2344,6 +2344,18 @@ struct hpNpcUpdateStruct
 /*0018*/
 };
 
+// OP_MobHealth: subsequent HP ticks for any mob whose maxHP was already
+// sent via OP_InitialMobHealth or OP_HPUpdate. Carries an HP percentage
+// (0-100), not raw HP — confirmed 2026-05-01 by a kill capture where the
+// first observed value was exactly 100 on a non-targeted-yet mob.
+// Consumers should compute `curHP = maxHP * hpPercent / 100`.
+struct mobHealthStruct
+{
+/*0000*/ uint16_t spawnId;
+/*0002*/ int32_t  hpPercent;
+/*0006*/
+};
+
 /*
 ** Inspecting Information
 ** Length: 1956 Octets

@@ -494,6 +494,10 @@ void DaemonApp::wireSpawnShell()
                        "hpNpcUpdateStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(updateNpcHP(const uint8_t*)));
+    m_packet->connect2("OP_MobHealth", SP_Zone, DIR_Server,
+                       "mobHealthStruct", SZC_Match,
+                       m_spawnShell,
+                       SLOT(updateMobHealth(const uint8_t*)));
 
     // Player-vital wirings. Each handler filters by spawnId == self
     // so the same opcodes route through both SpawnShell (any-spawn

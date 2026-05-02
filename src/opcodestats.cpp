@@ -12,42 +12,28 @@
 
 namespace {
 
-// Known structs the daemon currently has handlers for but whose opcodes
-// are still id="ffff" in conf/zoneopcodes.xml (or never resolved). The
-// candidate-matching section of the report intersects payload sizes with
-// these to suggest "OP_Foo is probably 0x????" pairings. Sizes from
+// Known struct sizes for opcodes still id="ffff" in conf/zoneopcodes.xml.
+// The candidate-matching section of the report intersects payload sizes
+// with these to suggest "OP_Foo is probably 0x????" pairings. Sizes from
 // `sizeof(struct)` in everquest.h.
 //
-// expectedDir filters out the obvious wrong-direction false positives —
-// e.g. OP_HPUpdate is overwhelmingly server→client (server tells client
-// when an HP value changes); a 33-packet client→server opcode at the
-// right size is almost certainly something else (target update, ping,
-// etc.). All current hints are S>C dominant.
+// expectedDir filters out wrong-direction false positives — e.g. server-side
+// updates flow S>C; a 30-packet C>S opcode at the right size is almost
+// certainly something else.
 struct StructHint {
     const char* opcodeName;
     const char* structName;
     int         size;
-    uint8_t     expectedDir;   // DIR_Server typically
+    uint8_t     expectedDir;
 };
 // DIR_Server / DIR_Client come from packetcommon.h.
-//
-// The group-* hints all share size=152 (every fixed-size group struct is
-// the same shape), so the same candidate list will repeat under each
-// heading. To tell them apart, run isolated captures: a "form group" run
-// produces OP_GroupFollow + OP_GroupUpdate; a "disband" run produces
-// OP_GroupDisband + OP_GroupUpdate; etc. OP_GroupUpdate itself is
-// variable-length (SZC_None) so it has no hint and shows up only in the
-// raw unknown-opcode dump.
 const StructHint kHints[] = {
-    {"OP_Stamina",      "staminaStruct",          8, DIR_Server},
-    {"OP_EndUpdate",    "endUpdateStruct",       10, DIR_Server},
-    {"OP_HPUpdate",     "hpNpcUpdateStruct",     18, DIR_Server},
-    {"OP_ManaChange",   "manaDecrementStruct",   20, DIR_Server},
-    {"OP_Action2",      "action2Struct",         48, DIR_Server},
-    {"OP_Buff",         "buffStruct",           168, DIR_Server},
-    {"OP_GroupFollow",  "groupFollowStruct",    152, DIR_Server},
-    {"OP_GroupDisband", "groupDisbandStruct",   152, DIR_Server},
-    {"OP_GroupLeader",  "groupLeaderChangeStruct", 152, DIR_Server},
+    {"OP_ExpUpdate",       "expUpdateStruct",          16, DIR_Server},
+    {"OP_LevelUpdate",     "levelUpUpdateStruct",      16, DIR_Server},
+    {"OP_SkillUpdate",     "skillIncStruct",           12, DIR_Server},
+    {"OP_InspectRequest",  "inspectedStruct",           8, DIR_Server},
+    {"OP_InspectAnswer",   "inspectDataStruct",      1956, DIR_Server},
+    {"OP_EnvDamage",       "environmentDamageStruct",  46, DIR_Server},
 };
 
 const char* dirLabel(uint8_t dir)
