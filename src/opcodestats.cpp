@@ -28,9 +28,6 @@ struct StructHint {
 };
 // DIR_Server / DIR_Client come from packetcommon.h.
 const StructHint kHints[] = {
-    {"OP_ExpUpdate",       "expUpdateStruct",          16, DIR_Server},
-    {"OP_LevelUpdate",     "levelUpUpdateStruct",      16, DIR_Server},
-    {"OP_SkillUpdate",     "skillIncStruct",           12, DIR_Server},
     {"OP_InspectRequest",  "inspectedStruct",           8, DIR_Server},
     {"OP_InspectAnswer",   "inspectDataStruct",      1956, DIR_Server},
     {"OP_EnvDamage",       "environmentDamageStruct",  46, DIR_Server},

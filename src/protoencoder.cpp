@@ -253,6 +253,25 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
     out->set_wis(mp.getMaxWIS());
     out->set_int_(mp.getMaxINT());
     out->set_cha(mp.getMaxCHA());
+
+    // Skills — sparse: skip only the unlearned-slot sentinels. Live's
+    // player profile uses 0xFFFFFFFF for "skill not available to this
+    // class/race"; legacy showeq used 255. Value 0 is a *valid* trained
+    // value (e.g. Bind Wound 0/35, Baking 0/300 right after training
+    // the skill but before practicing), so don't filter it.
+    for (uint8_t id = 0; id < MAX_KNOWN_SKILLS; ++id) {
+        const uint32_t v = mp.getSkill(id);
+        // Live carries only CUR (no CAP) in the player profile — caps
+        // are class+level lookups the EQ client computes locally. Without
+        // a wire-side "available to my class" bit, filter v==0 too: a
+        // trained-but-unpracticed skill (e.g. Bind Wound 0/35) hides
+        // until first use, but that's the price of not flooding the
+        // panel with every skill the class doesn't have.
+        if (v == 0 || v == 0xFFFFFFFFu) continue;
+        auto* s = out->add_skills();
+        s->set_skill_id(id);
+        s->set_value(v);
+    }
 }
 
 void fillGroupUpdate(seq::v1::GroupUpdate* out, GroupMgr& g)

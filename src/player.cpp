@@ -188,9 +188,12 @@ void Player::reset()
   // (e.g. at the start of a --replay golden capture) we'd otherwise
   // emit whatever happened to be on the heap, breaking determinism.
   m_currentAApts = 0;
-  m_minExp = calc_exp(level() - 1, race(), classVal());
-  m_maxExp = calc_exp(level(), race(), classVal ());
-  m_tickExp = (m_maxExp - m_minExp) / 330;
+  // Live ships per-level exp progress as 0-100000 (see expUpdateStruct in
+  // everquest.h); the legacy `calc_exp() / 330` machinery was for the old
+  // cumulative-exp-on-a-330-tick-scale wire format and doesn't apply.
+  m_minExp = 0;
+  m_maxExp = 100000;
+  m_tickExp = 1;
 
   for (int a = 0; a < MAX_KNOWN_SKILLS; a++)
     m_playerSkills[a] = 255; // indicate an invalid value
@@ -326,10 +329,11 @@ void Player::loadProfile(const playerProfileStruct& player)
        player.binds[0].heading);
 #endif
 
-  // Exp handling
-  m_minExp = calc_exp(m_level-1, m_race, m_class);
-  m_maxExp = calc_exp(m_level, m_race, m_class);
-  m_tickExp = (m_maxExp - m_minExp) / 330;
+  // Exp handling — live uses per-level 0-100000 progress, not absolute
+  // cumulative exp; see Player ctor for the rationale.
+  m_minExp = 0;
+  m_maxExp = 100000;
+  m_tickExp = 1;
 
   // Merge in our new skills...
   for (int a = 0; a < MAX_KNOWN_SKILLS; a++)
@@ -723,11 +727,11 @@ void Player::updateLevel(const uint8_t* data)
   // save the new level information
   m_level  = levelup->level;
 
-  // calculate the new experience information
-  m_minExp = calc_exp(level() - 1, race(), classVal());
-  m_maxExp = calc_exp(level(), race(), classVal ());
-  m_tickExp = (m_maxExp - m_minExp) / 330;
-  m_currentExp = (m_tickExp * levelup->exp) + m_minExp;
+  // Per-level 0-100000 scale, identical at every level.
+  m_minExp = 0;
+  m_maxExp = 100000;
+  m_tickExp = 1;
+  m_currentExp = levelup->exp;
   m_validExp = true;
 
   // calculate the increment in experience between the current experience and

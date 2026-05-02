@@ -604,6 +604,18 @@ void ZoneMgr::zonePlayer(const uint8_t* data, size_t len)
 
   fillProfileStruct(player,data,len,false); // don't bother checking the length since it's always going to not match up
 
+  // Live's charProfile layout has shifted; fillProfileStruct's per-field
+  // offsets are stale and `player->profile.skills` ends up reading
+  // garbage. Empirically, the live wire (24105-byte payload as of
+  // 2026-05-01) carries the skills array as uint32[100] starting at
+  // wire offset 4622. Overlay it directly so Player::charProfile sees
+  // real values. Defensive: bail if the wire is too short.
+  constexpr size_t kSkillsWireOffset = 4622;
+  if (len >= kSkillsWireOffset + sizeof(player->profile.skills)) {
+    memcpy(player->profile.skills, data + kSkillsWireOffset,
+           sizeof(player->profile.skills));
+  }
+
   m_shortZoneName = zoneNameFromID(player->zoneId);
   m_longZoneName = zoneLongNameFromID(player->zoneId);
   m_zone_exp_multiplier = defaultZoneExperienceMultiplier;

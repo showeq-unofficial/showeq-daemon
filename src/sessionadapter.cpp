@@ -272,6 +272,14 @@ void SessionAdapter::startStreaming()
                 this,     SLOT(onPlayerStatsChanged()));
         connect(m_player, SIGNAL(expAltChangedInt(int, int, int)),
                 this,     SLOT(onPlayerStatsChanged()));
+        // NOTE: do NOT subscribe to addSkill — Player::charProfile fires
+        // it 100x in a tight loop at zone-in and each emit re-serializes
+        // a partially-populated PlayerStats. The client then diffs each
+        // incremental snapshot and synthesizes ~100 bogus "0->N" entries
+        // in the skill-up log. The final population is captured by other
+        // signals (newPlayer / expChangedInt) that fire after the loop.
+        connect(m_player, SIGNAL(changeSkill(int, int)),
+                this,     SLOT(onPlayerStatsChanged()));
         connect(m_player, SIGNAL(newPlayer()),
                 this,     SLOT(onPlayerStatsChanged()));
         // The player's spawn ID changes once at zone-in (from 0 -> real

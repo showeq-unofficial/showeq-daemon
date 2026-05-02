@@ -521,6 +521,18 @@ void DaemonApp::wireSpawnShell()
                        "endUpdateStruct", SZC_Match,
                        m_player,
                        SLOT(updateEndurance(const uint8_t*)));
+    m_packet->connect2("OP_ExpUpdate", SP_Zone, DIR_Server,
+                       "expUpdateStruct", SZC_Match,
+                       m_player,
+                       SLOT(updateExp(const uint8_t*)));
+    m_packet->connect2("OP_LevelUpdate", SP_Zone, DIR_Server,
+                       "levelUpUpdateStruct", SZC_Match,
+                       m_player,
+                       SLOT(updateLevel(const uint8_t*)));
+    m_packet->connect2("OP_SkillUpdate", SP_Zone, DIR_Server,
+                       "skillIncStruct", SZC_Match,
+                       m_player,
+                       SLOT(increaseSkill(const uint8_t*)));
     m_packet->connect2("OP_WearChange", SP_Zone, DIR_Server|DIR_Client,
                        "SpawnUpdateStruct", SZC_Match,
                        m_player,
