@@ -604,12 +604,22 @@ void ZoneMgr::zonePlayer(const uint8_t* data, size_t len)
 
   fillProfileStruct(player,data,len,false); // don't bother checking the length since it's always going to not match up
 
-  // Live's charProfile layout has shifted; fillProfileStruct's per-field
-  // offsets are stale and `player->profile.skills` ends up reading
-  // garbage. Empirically, the live wire (24105-byte payload as of
-  // 2026-05-01) carries the skills array as uint32[100] starting at
-  // wire offset 4622. Overlay it directly so Player::charProfile sees
-  // real values. Defensive: bail if the wire is too short.
+  // fillProfileStruct's netstream parser handles most variable-length
+  // sections correctly, but it explicitly skips the skills array (reads
+  // its length prefix, then skipBytes through the values). Overlay
+  // skills directly so Player::charProfile sees real values. Confirmed
+  // 2026-05-02 across two captures (combat.vpk @ 23875 bytes; login.vpk
+  // @ 37088 bytes): wire offset 4618 holds u32=100 (MAX_KNOWN_SKILLS
+  // length prefix) and 4622..5021 holds uint32[100] skills.
+  //
+  // For reference (no overlay needed — the netstream parser populates
+  // it correctly): wire 1014 holds u32=300 (MAX_AA prefix), 1018..4617
+  // is AA_Array[300] (12 bytes each: aa_id, value, unk). On this opcode
+  // every entry's `value` is 0 — only auto-granted / server-tracked AA
+  // ids appear here. Purchased AA ranks (Origin, Veteran's Enhancement,
+  // etc.) come over OP_SendAATable (still unresolved).
+  //
+  // Defensive: bail if the wire is too short.
   constexpr size_t kSkillsWireOffset = 4622;
   if (len >= kSkillsWireOffset + sizeof(player->profile.skills)) {
     memcpy(player->profile.skills, data + kSkillsWireOffset,
