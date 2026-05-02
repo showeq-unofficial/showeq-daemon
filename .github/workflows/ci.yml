@@ -8,18 +8,27 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu, fedora]
         qt_major: [5, 6]
-    name: build-qt${{ matrix.qt_major }}
+        include:
+          - os: fedora
+            container: fedora:latest
+    name: build-${{ matrix.os }}-qt${{ matrix.qt_major }}
     steps:
+      - name: prepare container (Fedora)
+        if: matrix.os == 'fedora'
+        run: dnf install -y --setopt=install_weak_deps=False git tar findutils
+
       - uses: actions/checkout@v5
         with:
           submodules: recursive
 
-      - name: install build deps (Qt5)
-        if: matrix.qt_major == 5
+      - name: install build deps (Ubuntu Qt5)
+        if: matrix.os == 'ubuntu' && matrix.qt_major == 5
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -28,8 +37,8 @@ jobs:
             libqt5websockets5-dev \
             libpcap-dev libprotobuf-dev protobuf-compiler zlib1g-dev
 
-      - name: install build deps (Qt6)
-        if: matrix.qt_major == 6
+      - name: install build deps (Ubuntu Qt6)
+        if: matrix.os == 'ubuntu' && matrix.qt_major == 6
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -37,13 +46,29 @@ jobs:
             qt6-base-dev qt6-websockets-dev qt6-5compat-dev \
             libpcap-dev libprotobuf-dev protobuf-compiler zlib1g-dev
 
+      - name: install build deps (Fedora Qt5)
+        if: matrix.os == 'fedora' && matrix.qt_major == 5
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            gcc gcc-c++ make cmake pkgconf-pkg-config \
+            qt5-qtbase-devel qt5-qtwebsockets-devel \
+            libpcap-devel protobuf-devel protobuf-compiler zlib-devel
+
+      - name: install build deps (Fedora Qt6)
+        if: matrix.os == 'fedora' && matrix.qt_major == 6
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            gcc gcc-c++ make cmake pkgconf-pkg-config \
+            qt6-qtbase-devel qt6-qtwebsockets-devel \
+            libpcap-devel protobuf-devel protobuf-compiler zlib-devel
+
       - name: configure (Qt5)
         if: matrix.qt_major == 5
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_USE_QT5=ON
 
       - name: configure (Qt6)
         if: matrix.qt_major == 6
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_USE_QT6=ON
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: build
         run: cmake --build build -j

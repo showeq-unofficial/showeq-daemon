@@ -20,14 +20,14 @@ endif()
 # QCoreApplication, never QGuiApplication or QApplication, so it
 # still runs without a display.
 #
-# Default to Qt5; pass -DSEQ_USE_QT6=ON to build against Qt6.
-option(SEQ_USE_QT6 "Build against Qt6 instead of Qt5" OFF)
-if(SEQ_USE_QT6)
-    find_package(Qt6 REQUIRED COMPONENTS Core Network Xml WebSockets)
-    set(QT_VERSION_MAJOR 6)
-else()
+# Default to Qt6; pass -DSEQ_USE_QT5=ON to build against Qt5.
+option(SEQ_USE_QT5 "Build against Qt5 instead of Qt6" OFF)
+if(SEQ_USE_QT5)
     find_package(Qt5 5.15 REQUIRED COMPONENTS Core Network Xml WebSockets)
     set(QT_VERSION_MAJOR 5)
+else()
+    find_package(Qt6 REQUIRED COMPONENTS Core Network Xml WebSockets)
+    set(QT_VERSION_MAJOR 6)
 endif()
 find_package(Protobuf REQUIRED)
 find_package(Threads REQUIRED)
