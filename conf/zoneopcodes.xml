@@ -37,7 +37,7 @@
       <comment>Receiving AA experience. Also when percent to AA changes.</comment>
       <payload dir="server" typename="altExpUpdateStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_ExpUpdate" updated="07/19/23">
+    <opcode id="6961" name="OP_ExpUpdate" updated="05/01/26">
         <comment>ExpUpdateCode</comment>
         <payload dir="server" typename="expUpdateStruct" sizechecktype="match"/>
     </opcode>
@@ -240,11 +240,11 @@
         <comment>MoneyOnCorpseCode</comment>
         <payload dir="server" typename="moneyOnCorpseStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_SkillUpdate" updated="07/19/23">
+    <opcode id="6f75" name="OP_SkillUpdate" updated="05/01/26">
         <comment>Skill up code</comment>
         <payload dir="server" typename="skillIncStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_LevelUpdate" updated="07/19/23">
+    <opcode id="7a97" name="OP_LevelUpdate" updated="05/01/26">
         <comment>LevelUpUpdateCode</comment>
         <payload dir="server" typename="levelUpUpdateStruct" sizechecktype="match"/>
     </opcode>

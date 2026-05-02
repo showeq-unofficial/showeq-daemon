@@ -2272,7 +2272,7 @@ struct levelUpUpdateStruct
 
 struct expUpdateStruct
 {
-/*0000*/ uint32_t exp;                           // experience value  x/330
+/*0000*/ uint32_t exp;                           // per-level progress, 0-100000 (0.001% granularity)
 /*0004*/ uint32_t unknown0004;                   // unknown
 /*0008*/ uint32_t type;                          // 0=set, 2=update
 /*0012*/ uint32_t unknown0012;                   // unknown
