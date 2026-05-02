@@ -655,8 +655,8 @@
     <opcode id="ffff" name="OP_SendExpZonein" updated="03/14/07">
         <comment>Both directions. Negotiating sending of exp info.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_AAAction" updated="03/14/07">
-        <comment>Used for changing percent, buying? and activating skills</comment>
+    <opcode id="773e" name="OP_AAAction" updated="05/02/26">
+        <comment>C>S 16-byte aaActionStruct {action, ability, unknown, exp_value}; resolved by time-correlating 4 buys (1 Mend Pet + 3 Run Speed ranks) against OP_PlayerProfile aa_spent transition.</comment>
     </opcode>
     <opcode id="ffff" name="OP_SetServerFilter" updated="03/14/07">
         <comment>Client telling server /filter information</comment>
