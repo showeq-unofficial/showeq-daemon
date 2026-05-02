@@ -23,6 +23,7 @@
 #include "messages.h"
 #include "messageshell.h"
 #include "opcodestats.h"
+#include "opcodepayloaddumper.h"
 #include "packet.h"
 #include "packetcommon.h"
 #include "packetinfo.h"
@@ -332,6 +333,25 @@ bool DaemonApp::start()
         // packet pipeline starts makes the order obvious).
         if (!m_cfg.opcodeStats.isEmpty()) {
             m_opcodeStats = new OpcodeStatsLogger(m_packet, m_cfg.opcodeStats, this);
+        }
+
+        for (const QString& spec : m_cfg.dumpPayload) {
+            const int colon = spec.indexOf(':');
+            if (colon <= 0) {
+                qWarning("--dump-payload: malformed %s, expected OPCODE:PATH",
+                         qUtf8Printable(spec));
+                continue;
+            }
+            bool ok = false;
+            const uint16_t op = static_cast<uint16_t>(
+                spec.left(colon).toUInt(&ok, 0));
+            if (!ok) {
+                qWarning("--dump-payload: bad opcode %s",
+                         qUtf8Printable(spec.left(colon)));
+                continue;
+            }
+            m_payloadDumpers.append(
+                new OpcodePayloadDumper(m_packet, op, spec.mid(colon + 1), this));
         }
 
         wireZoneMgr();

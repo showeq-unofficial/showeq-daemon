@@ -67,6 +67,11 @@ public:
         // signals and writes a per-opcode tally to this file at
         // shutdown — patch-day diagnostic for finding ffff opcodes.
         QString      opcodeStats;
+        // If non-empty, OpcodePayloadDumper writes the raw payload of
+        // matching zone opcodes to disk. Each entry is "OPCODE:PATH"
+        // (opcode in 0xHEX form). Recon tool: pair two captures and
+        // byte-diff the dumps to locate where field X lives.
+        QStringList  dumpPayload;
         // True to skip the WebSocket server entirely (--no-listen on
         // the CLI). Useful for capture / replay / diagnostic runs
         // where no client connects and the listen port is just a
@@ -134,4 +139,7 @@ private:
     // Set when --opcode-stats is passed. Parented to `this` so the
     // dtor's writeReport() runs as part of normal Qt teardown.
     OpcodeStatsLogger*              m_opcodeStats    = nullptr;
+
+    // One per --dump-payload OPCODE:PATH pair. Parented to `this`.
+    QList<class OpcodePayloadDumper*> m_payloadDumpers;
 };

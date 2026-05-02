@@ -149,6 +149,11 @@ int main(int argc, char** argv)
         "Comma-separated opcode names handed off to the Rust decoder "
         "(seq-bridge). Stage A: only OP_MobUpdate is recognized.",
         "names", "");
+    QCommandLineOption dumpPayloadOpt(QStringList{"dump-payload"},
+        "Recon: write raw payload bytes of a chosen zone opcode to disk "
+        "every time it fires. Format OPCODE:PATH (e.g. 0xdb56:/tmp/profile). "
+        "Each match writes PATH.<N>.bin (1-indexed). Repeatable.",
+        "spec");
 
     parser.addOption(deviceOpt);
     parser.addOption(listenOpt);
@@ -160,6 +165,7 @@ int main(int argc, char** argv)
     parser.addOption(opcodeStatsOpt);
     parser.addOption(noListenOpt);
     parser.addOption(rustOpcodesOpt);
+    parser.addOption(dumpPayloadOpt);
     parser.process(app);
 
     DaemonApp::Config cfg;
@@ -173,6 +179,7 @@ int main(int argc, char** argv)
     cfg.noListen     = parser.isSet(noListenOpt);
     cfg.rustOpcodes  = parser.value(rustOpcodesOpt)
                              .split(QLatin1Char(','), Qt::SkipEmptyParts);
+    cfg.dumpPayload  = parser.values(dumpPayloadOpt);
 #ifndef SEQ_USE_RUST
     if (!cfg.rustOpcodes.isEmpty()) {
         qWarning("--rust-opcodes ignored: this binary was built without "
