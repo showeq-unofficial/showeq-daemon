@@ -72,6 +72,11 @@ public:
         // (opcode in 0xHEX form). Recon tool: pair two captures and
         // byte-diff the dumps to locate where field X lives.
         QStringList  dumpPayload;
+        // If set, EventLogger writes one line per decoded packet to this
+        // path (timestamp + dir + opcode + size + name). Time-correlation
+        // recon: which C>S fired right before the OP_PlayerProfile that
+        // showed the new aa_spent value? — slice externally with awk/grep.
+        QString      listEvents;
         // True to skip the WebSocket server entirely (--no-listen on
         // the CLI). Useful for capture / replay / diagnostic runs
         // where no client connects and the listen port is just a
@@ -142,4 +147,8 @@ private:
 
     // One per --dump-payload OPCODE:PATH pair. Parented to `this`.
     QList<class OpcodePayloadDumper*> m_payloadDumpers;
+
+    // Set when --list-events is passed. Parented to `this` so the dtor
+    // flushes the file as part of normal Qt teardown.
+    class EventLogger*              m_eventLogger    = nullptr;
 };

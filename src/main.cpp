@@ -154,6 +154,11 @@ int main(int argc, char** argv)
         "every time it fires. Format OPCODE:PATH (e.g. 0xdb56:/tmp/profile). "
         "Each match writes PATH.<N>.bin (1-indexed). Repeatable.",
         "spec");
+    QCommandLineOption listEventsOpt(QStringList{"list-events"},
+        "Recon: write one line per decoded packet to FILE — "
+        "<unix_ms> <C|S> 0xXXXX <bytes> <stream> <name>. Use to time-"
+        "correlate which opcode fired around an in-game event.",
+        "file");
 
     parser.addOption(deviceOpt);
     parser.addOption(listenOpt);
@@ -166,6 +171,7 @@ int main(int argc, char** argv)
     parser.addOption(noListenOpt);
     parser.addOption(rustOpcodesOpt);
     parser.addOption(dumpPayloadOpt);
+    parser.addOption(listEventsOpt);
     parser.process(app);
 
     DaemonApp::Config cfg;
@@ -180,6 +186,7 @@ int main(int argc, char** argv)
     cfg.rustOpcodes  = parser.value(rustOpcodesOpt)
                              .split(QLatin1Char(','), Qt::SkipEmptyParts);
     cfg.dumpPayload  = parser.values(dumpPayloadOpt);
+    cfg.listEvents   = parser.value(listEventsOpt);
 #ifndef SEQ_USE_RUST
     if (!cfg.rustOpcodes.isEmpty()) {
         qWarning("--rust-opcodes ignored: this binary was built without "
@@ -198,6 +205,9 @@ int main(int argc, char** argv)
     }
     if (!cfg.opcodeStats.isEmpty() && QDir::isRelativePath(cfg.opcodeStats)) {
         cfg.opcodeStats = QFileInfo(cfg.opcodeStats).absoluteFilePath();
+    }
+    if (!cfg.listEvents.isEmpty() && QDir::isRelativePath(cfg.listEvents)) {
+        cfg.listEvents = QFileInfo(cfg.listEvents).absoluteFilePath();
     }
 
     // Resolve --config-dir relative to the invocation cwd, not $HOME.

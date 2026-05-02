@@ -24,6 +24,7 @@
 #include "messageshell.h"
 #include "opcodestats.h"
 #include "opcodepayloaddumper.h"
+#include "eventlogger.h"
 #include "packet.h"
 #include "packetcommon.h"
 #include "packetinfo.h"
@@ -333,6 +334,10 @@ bool DaemonApp::start()
         // packet pipeline starts makes the order obvious).
         if (!m_cfg.opcodeStats.isEmpty()) {
             m_opcodeStats = new OpcodeStatsLogger(m_packet, m_cfg.opcodeStats, this);
+        }
+
+        if (!m_cfg.listEvents.isEmpty()) {
+            m_eventLogger = new EventLogger(m_packet, m_cfg.listEvents, this);
         }
 
         for (const QString& spec : m_cfg.dumpPayload) {

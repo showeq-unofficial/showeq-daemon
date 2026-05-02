@@ -174,6 +174,7 @@ set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/filesink.cpp
   src/opcodestats.cpp
   src/opcodepayloaddumper.cpp
+  src/eventlogger.cpp
   src/prefsbroker.cpp
   src/seq_globals.cpp
   src/seqcolor.cpp
