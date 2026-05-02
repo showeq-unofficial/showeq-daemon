@@ -236,10 +236,11 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
     out->set_level(mp.level());
     out->set_exp_cur(mp.getCurrentExp());
     out->set_exp_max(mp.getMaxExp());
-    // 15M is the hardcoded AA cap shared with showeq (see player.cpp's
-    // emit setAltExp call). When EQ raises it, both sides update together.
+    // Live OP_PlayerProfile reports expAA on a 0..100000 per-AA-point
+    // scale (matches OP_ExpUpdate's per-level scale). Display % is
+    // value / 1000 — confirmed 2026-05-02 against aa_progress.vpk.
     out->set_aa_exp_cur(mp.getCurrentAltExp());
-    out->set_aa_exp_max(15'000'000u);
+    out->set_aa_exp_max(100'000u);
     out->set_aa_points(mp.getCurrentAApts());
 
     out->set_name(mp.name().toStdString());

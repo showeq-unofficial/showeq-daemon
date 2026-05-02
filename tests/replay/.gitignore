@@ -3,3 +3,4 @@
 *.vpk
 *.pbstream
 *.check.pbstream
+*.opcodestats.txt

@@ -434,8 +434,14 @@ int32_t ZoneMgr::fillProfileStruct(charProfileStruct *player, const uint8_t *dat
 
   player->profile.endurance = netStream.readUInt32NC();
 
-  // Unknown
-  netStream.skipBytes(70);
+  // Wire layout (live, 2026-05-02): the legacy 70-byte unknown gap
+  // straddles the AA exp counter. expAA is a u32 LE on a 0..100000
+  // scale (display % = value / 1000), confirmed against four
+  // OP_PlayerProfile dumps from tests/replay/aa_progress.vpk:
+  // 22846 / 22846 / 22846 / 40318 matching in-game 22.846% → 40.318%.
+  netStream.skipBytes(58);
+  player->expAA = netStream.readUInt32NC();
+  netStream.skipBytes(8);
 
   // Name
   int firstName = netStream.readUInt32NC();
