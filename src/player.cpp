@@ -319,17 +319,20 @@ void Player::loadProfile(const playerProfileStruct& player)
   // Done with stats
   m_validAttributes = true;
 
-  // Mana
-  m_mana = player.MANA;
-
+  // Intentionally do NOT seed m_mana from player.MANA here. Like curHp,
+  // the profile's MANA slot is a stale snapshot — it can equal max (when
+  // the player zoned at full) or some unrelated past value (e.g. 3844
+  // when actual was 2985/5379). Authoritative cur mana comes from
+  // OP_ManaChange (Player::manaChange). m_validMana stays false until
+  // the first such packet, and the encoder displays "—" in the meantime.
+  //
+  // m_maxMana from calcMaxMana is a lower-bound estimate (legacy formula
+  // misses item/AA contributions on modern Live). The encoder's floor
+  // rule snaps it up to cur when OP_ManaChange arrives with a higher
+  // value, which covers the common case of the player being near full.
   m_maxMana = calcMaxMana( m_maxINT, m_maxWIS,
                            m_class, m_level
 			 ) + m_plusMana;
-
-  emit manaChanged(m_mana, m_maxMana);  // need max mana
-
-  // done with mana
-  m_validMana = true;
 
   // location of bind point
 #if 1
