@@ -371,7 +371,9 @@ OP_PlayerProfile (`0xdb56`) was already resolved; this is a layout refinement. T
 
 Only the skills overlay in `zonemgr.cpp::zonePlayer` is necessary — `fillProfileStruct`'s netstream parser already populates `aa_array` correctly (via length-prefix reads); it just explicitly skips the skills values.
 
-**aa_array on this opcode is auto-granted only.** Every entry has `value=0`. Auto-granted ids observed across captures: `1371-1377` (sequential vet rewards), `4665`, `4700`, `9000` on the lvl 1 capture; the lvl 60 capture adds `1000`, `15073`, `8000`. **Purchased AA ranks** (Origin, Veteran's Enhancement, etc.) — even at 1/1 — do **not** appear here. They almost certainly come over **OP_SendAATable**, still unresolved.
+**aa_array on this opcode carries the FULL AA list, including purchased ranks** — early indices populated with auto-grants at `value=0` (e.g. `1371-1377` vet rewards, `4665`, `4700`, `9000`, plus `1000`, `15073`, `8000` at lvl 60), then trailing slots with the player's purchased AAs at `value=rank_count`. Confirmed 2026-05-03 against `aa_point.vpk`: index 13 = `(163, 5)` Mend Pet × 5, index 14 = `(64, 3)` Innate Run Speed × 3 in fire 4 (post-spend). The earlier "auto-grants only" claim came from a capture taken before the user had purchased anything; once `aa_spent > 0`, the trailing slots populate. _(Original note left below for context, struck through.)_
+
+> ~~aa_array on this opcode is auto-granted only. Every entry has value=0. Auto-granted ids observed across captures: 1371-1377 (sequential vet rewards), 4665, 4700, 9000 on the lvl 1 capture; the lvl 60 capture adds 1000, 15073, 8000. Purchased AA ranks (Origin, Veteran's Enhancement, etc.) — even at 1/1 — do not appear here. They almost certainly come over OP_SendAATable, still unresolved.~~
 
 Round-2 ideas (specific to AA work):
 - Hunt OP_SendAATable: capture during a fresh login and `--opcode-stats` for repeated S>C unknowns sized like a per-AA record (~16-32 bytes per entry × N).
@@ -712,9 +714,9 @@ Auto-grant entries match the OP_PlayerProfile `aa_array` set exactly. Purchased 
 
 Cross-validation: at fire 1 (after Mend Pet × 5 bulk buy, before any Run Speed), the (163, 5) Mend Pet entry is already present and the Run Speed slot is `(0, 0)`. Fire 2-4 walk the Run Speed slot from `(62, 1)` → `(63, 2)` → `(64, 3)` as each individual rank is bought.
 
-**Implication for the daemon**: OP_RespondAA is a per-action delta, not a per-zone-in snapshot. A daemon that connects mid-session won't see the player's purchased AAs unless they make another spend. There's no zone-in opcode in this capture that carries the per-ability rank breakdown — OP_PlayerProfile gives totals (`aa_spent`, `aa_unspent`, `aa_assigned`) and the auto-grant `aa_array`, but not the per-ability list.
+**Implication for the daemon**: OP_RespondAA is a per-action delta. The full per-ability snapshot also lives in **OP_PlayerProfile's `aa_array`** (see correction in the 2026-05-02 PP entry above) — fires on every zone-in and contains both auto-grants and purchased ranks. So a daemon connecting mid-session WILL see the player's complete AA breakdown via PP, no need to wait for a spend. OP_RespondAA is the convenient real-time delta; OP_PlayerProfile is the authoritative snapshot.
 
-**Negative result on OP_SendAAStats**: methodically checked all n=4 S>C zone-stream opcodes in `aa_point.vpk` for fire-3-vs-fire-4 (pre-spend vs post-spend zone-in) payload diffs:
+**Negative result on OP_SendAAStats**: methodically checked all n=4 S>C zone-stream opcodes in `aa_point.vpk` for fire-3-vs-fire-4 (pre-spend vs post-spend zone-in) payload diffs. PP's `aa_array` already carries this state on every zone-in, so OP_SendAAStats may genuinely be obsolete — the per-ability rank breakdown doesn't need a separate opcode.
 
 - 0x7932 (804/100 alternating) — zone-area-specific data, not AA state
 - 0xb634 (1/5 alternating, 1 byte) — too small
