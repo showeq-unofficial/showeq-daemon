@@ -622,8 +622,7 @@ bool Filters::load(const QString& filename)
 
   // create a file object on the file
   QFile xmlFile(filename);
-  xmlFile.open(QIODevice::ReadOnly);
-  if (!xmlFile.isOpen())
+  if (!xmlFile.open(QIODevice::ReadOnly))
       return false;
 
   QXmlStreamReader reader(&xmlFile);

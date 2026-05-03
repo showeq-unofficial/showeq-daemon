@@ -458,8 +458,7 @@ void EQPacket::processPlaybackPackets (void)
   /* in packet playback mode fetch packets from VPacket class */
   time_t now;
   int timein = mTime();
-  int i = 0;
-    
+
   long version = PACKETVERSION;
   
   // decode packets from the playback buffer
@@ -469,8 +468,6 @@ void EQPacket::processPlaybackPackets (void)
     
     if (size)
     {
-      i++;
-	
       if (PACKETVERSION == version)
       {
 	dispatchPacket ( size - sizeof (struct ether_header),

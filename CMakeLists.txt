@@ -216,6 +216,18 @@ target_compile_options(seq-daemon-core PRIVATE
   -Wno-error=stringop-overread
 )
 
+# Fedora's GCC 13+ flags Qt6's qmetatype.h SFINAE traits hitting our
+# forward-declared signal-arg classes (EQPacketOPCode, Item, Spawn) as
+# "previously failed to be complete in a SFINAE context". Restructuring
+# signal/slot signatures to fix it isn't worth it; downgrade to warning
+# on compilers that know the option (Ubuntu 22.04's GCC 11 doesn't, and
+# would error on the `-Wno-error=…` itself).
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag(-Wsfinae-incomplete HAVE_W_SFINAE_INCOMPLETE)
+if(HAVE_W_SFINAE_INCOMPLETE)
+  target_compile_options(seq-daemon-core PRIVATE -Wno-error=sfinae-incomplete)
+endif()
+
 # Matches showeq's Makefile.am: INCLUDES = ... -DPKGDATADIR="..."
 # datalocationmgr.cpp reads this; tests get the same install path so the
 # extracted code keeps its single source of truth.

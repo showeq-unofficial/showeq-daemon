@@ -1009,7 +1009,6 @@ if(length > 25600)
 QStringList enumerateNetworkDevices()
 {
     struct ifaddrs *ifaddr, *ifa;
-    int n;
     QStringList devices;
 
     if (getifaddrs(&ifaddr) == -1)
@@ -1018,7 +1017,7 @@ QStringList enumerateNetworkDevices()
         return QStringList();
     }
 
-    for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++)
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
     {
         if (ifa->ifa_addr == NULL || devices.contains(ifa->ifa_name))
             continue;
