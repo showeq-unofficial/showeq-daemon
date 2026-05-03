@@ -504,8 +504,8 @@
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="cb03" name="OP_MoveItem" updated="05/02/26">
-        <comment>Client moving an item from one slot to another - 28 bytes. Resolved via inventory.opcodestats.txt: 30 C>S fires at exactly 28 bytes during a slot-swap session, no competing unknown opcode at that size+direction.</comment>
-        <payload dir="both" typename="uint8_t" sizechecktype="none"/>
+        <comment>Client moving an item from one slot to another - 28 bytes. Resolved via inventory.opcodestats.txt: 30 C>S fires at exactly 28 bytes during a slot-swap session, no competing unknown opcode at that size+direction. Wire layout: two 12-byte invSlotStruct descriptors + uint32 stack count.</comment>
+        <payload dir="client" typename="moveItemStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_Jump" updated="11/28/12">
         <comment>JumpCode - 0 bytes</comment>

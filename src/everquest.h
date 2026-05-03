@@ -1463,6 +1463,47 @@ struct timeOfDayStruct
 };
 
 /*
+** Inventory slot descriptor used by OP_MoveItem (and likely other
+** modern item-flow opcodes). The legacy 4-byte slot id was expanded
+** into a 12-byte descriptor that can address bag sub-slots and
+** augments. Field meanings beyond `slot` are inferred from observed
+** wire samples and are not yet fully resolved — see comment on
+** moveItemStruct below for raw bytes.
+** Length: 12 Octets
+*/
+struct invSlotStruct
+{
+/*000*/ uint32_t main;                           // 0 in observed samples (container/area selector?)
+/*004*/ uint16_t slot;                           // top-level slot index
+/*006*/ uint32_t sub_slot;                       // 0xffffffff in observed samples (bag sub-slot when nested?)
+/*010*/ uint16_t aug;                            // varies per slot, often 0; aug index?
+/*012*/
+};
+
+/*
+** Move Item Struct
+** Length: 28 Octets
+** OpCode: OP_MoveItem (zone)
+**
+** Client-to-server slot move. The legacy 12-byte struct
+** {from_slot, to_slot, number_in_stack} was replaced by two 12-byte
+** invSlotStruct descriptors plus a 4-byte stack count.
+**
+** Sample wire bytes (from tests/replay/inventory.opcodestats.txt,
+** captured during a slot-swap session):
+**   00 00 00 00 0e 00 ff ff ff ff 00 be    <- from: slot 14
+**   00 00 00 00 23 00 ff ff ff ff 00 00    <- to:   slot 35
+**   00 00 00 00                            <- number_in_stack
+*/
+struct moveItemStruct
+{
+/*000*/ invSlotStruct from;                      // source slot
+/*012*/ invSlotStruct to;                        // destination slot
+/*024*/ uint32_t      number_in_stack;           // stack count moved (1 for non-stackable)
+/*028*/
+};
+
+/*
 ** Item Packet Struct - Works on a variety of item operations
 ** Packet Types: See ItemPacketType enum
 ** Length: Variable
