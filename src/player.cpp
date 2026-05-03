@@ -283,7 +283,12 @@ void Player::loadProfile(const playerProfileStruct& player)
   setRace(player.race);
   setClassVal(player.class_);
   setDeity(player.deity);
-  m_curHP = player.curHp;
+  // Intentionally do NOT seed m_curHP from player.curHp here. On modern
+  // Live the profile's curHp slot is stale (typically reflects the last
+  // server-side snapshot rather than current HP), so it shows e.g. 2777
+  // when the player is actually at 4000/4000. Authoritative cur HP comes
+  // from OP_HPUpdate (Player::updateNpcHP). m_validHP stays false until
+  // the first such packet, and the encoder displays "—" in the meantime.
   setLevel(player.level);
 
   // Update con table
