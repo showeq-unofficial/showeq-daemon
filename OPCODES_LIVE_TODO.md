@@ -239,7 +239,7 @@ Confirmation bar: see `feedback_opcode_disambiguation.md` — count + zero-compe
 - [x] OP_AAAction — `0x773e` (2026-05-02)
 - [ ] OP_RespondAA
 - [ ] OP_SendAAStats
-- [ ] OP_SendAATable — likely carries purchased AA ranks (see 2026-05-02 entry)
+- [x] OP_SendAATable — `0xa30a` (2026-05-03) — static ability-definition menu, NOT purchased ranks
 
 ### DZ / Expedition (4)
 - [ ] OP_DzInfo
@@ -496,3 +496,135 @@ Daemon side: parser in `src/itempacket.{h,cpp}`, persistent itemId → ItemTempl
 3. **Cross-reference EQ client serialization.** The 21300-21399 region looks like the wire format used for serialized-item-via-stack on the client side. May be possible to reverse-engineer from public-source EQ-emulator references with care for licensing.
 
 For now, the v1 ItemCache + ItemCacheTotals approach (sum across ALL observed items, not worn-only) is shipped and useful as a "potential gear stats" total. Worn-only is a long-tail follow-up.
+
+### 2026-05-03 — OP_ItemPacket wrapper carries the worn-slot (PP detour resolved)
+
+The 2026-05-02 hypothesis was right (PP doesn't carry a flat slot→itemId table) but the suggested next step (hunt a dedicated worn-update opcode) turned out to be unnecessary: **OP_ItemPacket already broadcasts each slot transition.** The daemon's parser was just discarding the wrapper bytes that name the destination slot.
+
+**Method.** Replayed `inventory-worn2.vpk` and `inventory-naked.vpk` with `--dump-payload 0x3f3b:…` and inspected the wrapper bytes preceding the (already-decoded) item-name region. No new captures needed.
+
+**Wrapper layout** (validated across 90+ fires):
+
+| Offset | Type | Field |
+|--------|------|-------|
+| +0  | u32 | `packetType` — 0x74=item-in-bag, 0x76=bag-itself, 0x78=move-response |
+| +4  | char[16] | ASCII instance-id (e.g. `"vIS00B80001H3G00"`) |
+| +20 | u8  | NUL terminator |
+| +21 | u32 | stack/charges count |
+| +25 | u32 | `main_slot` — 0=top-level (worn/inv/cursor), nonzero=parent bag slot |
+| +29 | u16 | `sub_slot` — when main=0, this IS the worn/inv slot index |
+
+Slot enum (matches the legacy `slot_bitmask` bit indices on `parsedItemTemplateStruct`):
+`0=Charm, 1=Ear_L, 2=Head, 3=Face, 4=Ear_R, 5=Neck, 6=Shoulder, 7=Arms, 8=Back, 9=Wrist_L, 10=Wrist_R, 11=Range, 12=Hands, 13=Primary, 14=Secondary, 15=Finger_L, 16=Finger_R, 17=Chest, 18=Legs, 19=Feet, 20=Waist, 21=PowerSrc, 22=Ammo, 23-30=PersonalInv, 35(0x23)=Cursor`.
+
+**Cross-validation in `inventory-naked.vpk`** (full strip → re-equip × 2). A monk with 21 slots filled produced exactly 21 type-0x78 fires per re-equip, slot indices and items aligning perfectly:
+
+| Slot | Item |
+|------|------|
+| 0  Charm    | Outstanding Charm of Distant Echoes |
+| 1  Ear_L    | Outstanding Summoner Stud of Distant Echoes |
+| 2  Head     | Apothic Crown |
+| 3  Face     | Outstanding Mask of Distant Echoes |
+| 4  Ear_R    | Outstanding Stud of Distant Echoes |
+| 5  Neck     | Outstanding Necklace of Distant Echoes |
+| 6  Shoulder | Outstanding Shawl of Distant Echoes |
+| 7  Arms     | Apothic Sleeves |
+| 8  Back     | Outstanding Cloak of Distant Echoes |
+| 9  Wrist_L  | Bracelet of Exertion |
+| 10 Wrist_R  | Supple Scale Armband |
+| 11 Range    | Iksar Hide Manual |
+| 12 Hands    | Dusty Bloodstained Gloves |
+| 13 Primary  | Orb of Mastery |
+| 14 Secondary| Book of Obulus |
+| 15 Finger_L | Outstanding Band of Distant Echoes |
+| 16 Finger_R | Excellent Band of Distant Echoes |
+| 17 Chest    | Robe of the Azure Sky |
+| 18 Legs     | Apothic Kilt |
+| 19 Feet     | Apothic Boots |
+| 20 Waist    | Damask Sash |
+| 22 Ammo     | Metamorph Wand: Undead Gingerbread Man |
+
+Strip phase showed all 21 items moving to slot 35 (Cursor). The pattern repeats once more at the second strip→redress cycle, so the result reproduces.
+
+**Ruled-out leads** (worth recording so we don't re-chase them):
+- `0x6c39` (14B S>C): count tracked transitions (5/6/etc.) but payload is byte-identical (`0a000000…0`) across every fire — it's a periodic end-of-burst sentinel after bag-snapshot bursts of OP_ItemPackets, not a wear-change.
+- `OP_WearChange` as a dedicated player-self update: not visible in these captures. May still exist as a *visual broadcast* for **other** players' gear changes (legacy comment: "or give a pet a weapon (model changes)"), but for the player's own worn-slot bookkeeping the data is in OP_ItemPacket.
+- `0x549c / 0x9d44 / 0x37ad / 0x800e / 0xbbf0`: counts loosely correlate with various inventory-burst-tier events but none are worn-slot identifiers.
+
+**Daemon parser change** (sketch — see `src/itempacket.{h,cpp}`):
+
+1. Add to `ItemTemplate`:
+   ```cpp
+   uint32_t packetType = 0;   // 0x74 / 0x76 / 0x78
+   uint32_t mainSlot   = 0;   // 0 = top-level
+   uint16_t subSlot    = 0;   // worn/inv slot index when mainSlot==0
+   ```
+2. In `parseItemPacket`, before the existing `findNameStart` scan, read the fixed-offset wrapper fields:
+   ```cpp
+   if (len < 31) return false;
+   out->packetType = readU32LE(data + 0);
+   // bytes [4..20] = 16-byte ASCII instance-id + NUL @ +20
+   if (data[20] != 0) return false;                    // sanity check
+   // bytes [21..24] = stack/charges (currently unused)
+   out->mainSlot = readU32LE(data + 25);
+   out->subSlot  = uint16_t(data[29]) | (uint16_t(data[30]) << 8);
+   ```
+3. In `ItemCache::onItemPacket`, when `mainSlot==0 && subSlot<=22`, also push a `(slot, itemId)` update into a new `WornSlotMap` keyed by slot index. Move-to-cursor (`subSlot==0x23`) clears the slot. The map is the authoritative "currently equipped" set.
+4. Rework `ItemCacheTotals` to sum over `WornSlotMap` instead of all cached items. Keep the legacy "every observed item" sum behind a flag if it's still useful as a "potential" view.
+5. Proto: add a `WornSet` message (slot → itemId, plus per-slot summed stats), wired through `protoencoder.cpp`. Pull the legacy OP_ItemPlayerPacket todo entry — that opcode is obsolete on Live.
+
+**No new opcode resolution.** OP_ItemPacket was already known/resolved on 2026-05-02; this is a wrapper-decoding refinement on top of it. No XML changes needed in `zoneopcodes.xml`.
+
+### 2026-05-03 — OP_SendAATable = 0xa30a (static AA-definition menu, NOT purchased ranks)
+
+Capture: existing `aa_point.vpk` (the same one that nailed OP_AAAction). Method: `--opcode-stats` triage of fire-count=4 S>C unknowns followed by `--dump-payload 0xa30a:/tmp/aa_table/op_a30a` over a daemon replay.
+
+- **OP_SendAATable = `0xa30a`** (S>C, 15640 B, n=4 — one fire per zone-in, matching OP_PlayerProfile's cadence). All four fires are **bit-identical**, which is what proves it's a static reference table rather than per-character state.
+
+  Layout: `u32 count` (= 314 in this capture) followed by 314 records of a 44-byte base + variable-length prereq trailer.
+
+  Base record (11 u32 LE, internally consistent for the first 121 records walked at fixed 44 B stride):
+
+  | Offset | Type | Field |
+  |--------|------|-------|
+  | +0  | u32 | `ability_id` (sequential per series; rank-1 of a series uses the series base id) |
+  | +4  | u32 | `title_sid` (string id; constant within a series — e.g. 101 for Innate Strength) |
+  | +8  | u32 | `hotkey_sid` (mostly equals `ability_id`) |
+  | +12 | u32 | `type` (1/4/8/… — likely tab/category code) |
+  | +16 | u32 | `cost` (recurring 100/101/102/103/104; varies by tier) |
+  | +20 | u32 | `rank` (1..N within the series) |
+  | +24 | u32 | `?` (often 1 or 2 — possibly `class_mask` or `tier_index`) |
+  | +28 | u32 | `level_req` (e.g. 20→100 in 5-step ranks 1..17, then 101+ for tier-2 ranks) |
+  | +32 | u32 | `spell_id` (1016, 1024, 1025, 1026, … — the spell triggered when the rank is purchased) |
+  | +36 | u32 | `?` |
+  | +40 | u32 | `prereq_count` (0 for many ranks; 1+ for ranks ≥ 2 of multi-rank series) |
+
+  Sample of the first three records (sid=101 = Innate Strength tier-1):
+
+  ```
+  rec[0] @    4: id=101  sid=101  hk=101  type=1  cost=100  rank=1   _=1  lvl=20  spell=1016  _=0  prereq_count=0
+  rec[1] @   48: id=102  sid=101  hk=102  type=1  cost=100  rank=2   _=1  lvl=25  spell=1016  _=0  prereq_count=0
+  rec[2] @   92: id=103  sid=101  hk=103  type=1  cost=100  rank=3   _=1  lvl=30  spell=1016  _=0  prereq_count=0
+  ```
+
+  Series transitions cleanly: at rec[17] (id=118, still sid=101) the cost/spell/level_req shift (cost=101, spell=1024, lvl=101) — Innate Strength tier-2. Distinct sids in the table: 101, 201, 301, 401, … (the canonical Innate Str/Sta/Agi/Dex/Cha/Wis/Int chains) plus dozens of class/archetype-specific sids.
+
+  After rec[121] the prereq trailer becomes non-zero and a clean fixed-stride walk no longer aligns — base records are still 44 B but each carries a per-record trailer of `prereq_count × ~8 B` plus what looks like additional sub-fields not yet pinned down. **The opcode identity is locked in;** the trailer layout is a struct-decode follow-up.
+
+- **Important correction to the 2026-05-02 round-3 note**: that note speculated `OP_SendAATable` "likely carries purchased AA ranks." The bit-identical 4-fire payload disproves that — `OP_SendAATable` is the static client-side AA-window menu data, not state. Purchased AA ranks remain unresolved on the wire (OP_PlayerProfile gives `aa_spent`/`aa_unspent`/`aa_assigned` totals, OP_AAExpUpdate gives the unspent-pool counter, but the per-ability rank breakdown still has no known opcode).
+
+  Auto-grant evidence: the auto-granted AA ids observed in OP_PlayerProfile's `aa_array` (1371-1377, 4665, 4700, 8000, 9000, 15073) **do not appear** in the `0xa30a` payload — only id `1000` is present. That confirms `0xa30a` is the *purchasable*-AA definitions table, while auto-grants are reported separately via `aa_array`.
+
+**Ruled-out leads** (so we don't re-chase them):
+
+- `0xa1e1` (3628 B, S>C, n=4): looked promising because its payload contains the exact set of auto-grant ids from OP_PlayerProfile (1000, 15073, 1371-1377, 4665, 4700, 8000, 9000). But fire-by-fire diff shows the payload **changes every fire** with a monotonic counter at offsets 0/4/8 (`5,5,0` → `6,6,1` → `7,7,2` → `8,8,3` across the four zone-ins), and only one additional 8-byte field changes between fire 1 and fire 4 (`(0,0)` → `(64,3)` at offset 196..203). Delta isn't structured like AA-rank state (Mend Pet × 5 + Run Speed × 3 = two records, but only one offset moved). Likely a per-zone-in sequence-number or zone-progress packet that happens to carry the auto-grant id list as static reference data; not the AA table.
+- `0xb92d` (6249 B, S>C, n=4): zlib-deflated (`78 da` signature) — almost certainly map / static-content blob.
+- `0xe49f` (7023 B, S>C, n=4): plaintext char-create dropdowns ("Yes/No/I Don't Care", race names) — character-creation reference data.
+- `0xac8b` (494 B, S>C, n=4): item-name reference list (`Broken Key of Sands`, `Pocket Full of Keys`, …). Not AA.
+- `0xa12c` (48 B, S>C, n=4): `(5,1,2,3,4,5,5,1,2,3,4,5)` — looks like a 5×2 ordering table (party slots? raid roles?). Too small for OP_SendAATable.
+- `0x2e6e` (1603 B, S>C, n=4): structured but starts `(8,0x37,10,1,10,…)` — looks like spawn / NPC reference rather than ability defs.
+
+**Round-N ideas**:
+- Fully decode the per-record prereq trailer past rec[121] in `0xa30a`. Need to figure out whether the trailer stride is `prereq_count × 8 B` or includes additional sub-fields; rank-1, rank-2, rank-3 records of series 1000 had trailers of 8 B / 16 B / 0 B respectively which doesn't fit a single linear formula yet.
+- Hunt the **actual** "purchased-ranks" opcode. Likely candidates: `OP_SendAAStats` (companion to OP_SendAATable, also in the legacy XML), or an opcode that fires only when the player has non-zero spent points (capture a fresh-character session vs. a 60-with-ranks session and compare opcode sets).
+- `0xa1e1` is suspicious enough to deserve its own follow-up — investigate what zone-in packet carries the auto-grant id list with a per-fire counter. Possibly a "zone snapshot summary" or progress meter.

@@ -634,8 +634,8 @@
     <opcode id="ffff" name="OP_VeteranRewards" updated="04/18/11">
         <comment></comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendAATable" updated="08/12/09">
-        <comment></comment>
+    <opcode id="0xa30a" name="OP_SendAATable" updated="05/03/26">
+        <comment>Static AA ability-definition menu sent S&gt;C on zone-in. Variable-length: u32 count + count records of base 44B + per-record prereq trailer.</comment>
     </opcode>
     <opcode id="ffff" name="OP_SendAAStats" updated="08/12/09">
         <comment></comment>
