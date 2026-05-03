@@ -55,6 +55,21 @@ target_compile_options(packetinfo_test PRIVATE
 
 add_test(NAME packetinfo_test COMMAND packetinfo_test)
 
+add_executable(itempacket_test
+  itempacket_test.cpp
+)
+
+target_link_libraries(itempacket_test PRIVATE
+  seq-daemon-core
+  Qt${QT_VERSION_MAJOR}::Test
+)
+
+target_compile_options(itempacket_test PRIVATE
+  -Wall
+)
+
+add_test(NAME itempacket_test COMMAND itempacket_test)
+
 if(SEQ_USE_RUST)
   add_executable(rustdecode_test
     rustdecode_test.cpp

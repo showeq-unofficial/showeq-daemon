@@ -44,6 +44,7 @@ AddStruct(timeOfDayStruct);
 AddStruct(invSlotStruct);
 AddStruct(moveItemStruct);
 AddStruct(itemPacketStruct);
+AddStruct(parsedItemTemplateStruct);
 AddStruct(itemInfoReqStruct);
 AddStruct(itemInfoStruct);
 AddStruct(spawnPositionUpdate);

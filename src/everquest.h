@@ -1517,6 +1517,48 @@ struct itemPacketStruct
 };
 
 /*
+** Parsed Item Template Struct
+** Length: 63+ Octets (variable tail follows for effects/augments)
+**
+** The post-name region of itemPacketStruct.serializedItem. Layout
+** decoded by aligning OP_ItemPacket dumps of items with known stats:
+** Crescent Gi (AC=8, end=10, STR=7, AGI=3, MR=4), Platinum Fire
+** Wedding Ring (AC=5, HP=55), Outstanding Necklace/Mask/Band of
+** Distant Echoes (rich stat sets including HP, mana, all 7 stats,
+** all 5 standard resists, corruption, hp_regen, mana_regen).
+**
+** Offsets here are relative to the start of the post-name region,
+** which begins right after the second null terminator of the
+** duplicated item-name + lore-name strings. Use parseItemPacket()
+** in itempacket.{h,cpp} to locate the post-name region in a raw
+** OP_ItemPacket payload.
+**
+** Wire format gives BASE values; equipped augments contribute their
+** own (separately-fetched) parsedItemTemplateStruct. Total stats are
+** the sum of base + each filled aug.
+*/
+struct parsedItemTemplateStruct
+{
+/*000*/	uint32_t	format_const;            // observed = 63 (0x3f) in all dumps
+/*004*/	uint32_t	reserved04;              // observed = 0
+/*008*/	uint32_t	itemId;                  // server-side item id
+/*012*/	uint32_t	weight_x10;              // weight × 10 (e.g. 30 = 3.0 lb)
+/*016*/	uint32_t	flags;                   // size enum at byte[19] + bit-packed flags
+/*020*/	uint32_t	slot_bitmask;            // EQ slot mask: 0x6000=Pri|Sec, 0x18000=Ring1|Ring2, 0x20=Neck, 0x20000=Chest
+/*024*/	uint32_t	unk024;                  // varies per item; unresolved
+/*028*/	uint32_t	unk028;                  // varies per item; unresolved
+/*032*/	uint16_t	pad032;                  // observed = 0
+/*034*/	int8_t  	resists[5];              // CR, DR, PR, MR, FR (cold/disease/poison/magic/fire)
+/*039*/	int8_t  	corruption;              // corruption resist
+/*040*/	int8_t  	stats[7];                // STR, STA, AGI, DEX, CHA, INT, WIS
+/*047*/	int32_t 	hp;                      // HP modifier
+/*051*/	int32_t 	mana;                    // mana modifier
+/*055*/	int32_t 	endurance;               // endurance modifier
+/*059*/	int32_t 	ac;                      // AC modifier
+/*063*/	// effect/augment/proc fields follow; not yet decoded
+};
+
+/*
 ** Item Info Request Struct 
 ** Length: 80 Octets 
 ** OpCode: ItemInfoCode

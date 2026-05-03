@@ -178,6 +178,7 @@ set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/prefsbroker.cpp
   src/seq_globals.cpp
   src/seqcolor.cpp
+  src/itempacket.cpp
 )
 
 add_library(seq-daemon-core STATIC
