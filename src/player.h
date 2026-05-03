@@ -131,13 +131,13 @@ public:
    int getPlusHP() { return m_plusHP; }
    int getPlusMana() { return m_plusMana; }
 
-   uint8_t getMaxSTR() { return m_maxSTR; }
-   uint8_t getMaxSTA() { return m_maxSTA; }
-   uint8_t getMaxCHA() { return m_maxCHA; }
-   uint8_t getMaxDEX() { return m_maxDEX; }
-   uint8_t getMaxINT() { return m_maxINT; }
-   uint8_t getMaxAGI() { return m_maxAGI; }
-   uint8_t getMaxWIS() { return m_maxWIS; }
+   uint16_t getMaxSTR() { return m_maxSTR; }
+   uint16_t getMaxSTA() { return m_maxSTA; }
+   uint16_t getMaxCHA() { return m_maxCHA; }
+   uint16_t getMaxDEX() { return m_maxDEX; }
+   uint16_t getMaxINT() { return m_maxINT; }
+   uint16_t getMaxAGI() { return m_maxAGI; }
+   uint16_t getMaxWIS() { return m_maxWIS; }
    uint16_t getMaxMana() { return m_maxMana; }
    uint16_t getMana() { return m_mana; }
    uint32_t getSpellBookSlot(uint32_t slotid) { return m_spellBookSlots[slotid]; }
@@ -249,15 +249,18 @@ public:
   
   uint16_t m_plusMana;
   uint16_t m_plusHP;
-  
+
   uint16_t m_maxMana;
-  uint8_t m_maxSTR;
-  uint8_t m_maxSTA;
-  uint8_t m_maxCHA;
-  uint8_t m_maxDEX;
-  uint8_t m_maxINT;
-  uint8_t m_maxAGI;
-  uint8_t m_maxWIS;
+  // Widened from uint8_t (legacy showeq cap of 255) to fit modern Live's
+  // post-cap stats — players today routinely exceed 255 (e.g. INT 330)
+  // and the truncation was making calcMaxMana undershoot wildly.
+  uint16_t m_maxSTR;
+  uint16_t m_maxSTA;
+  uint16_t m_maxCHA;
+  uint16_t m_maxDEX;
+  uint16_t m_maxINT;
+  uint16_t m_maxAGI;
+  uint16_t m_maxWIS;
   
   uint16_t m_food;
   uint16_t m_water;

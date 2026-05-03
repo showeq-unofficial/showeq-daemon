@@ -40,7 +40,10 @@
 
 //----------------------------------------------------------------------
 // constants
-static const char magicStr[5] = "plr2"; // magic is the size of uint32_t + a null
+// "plr3": widened m_maxSTR..m_maxCHA from uint8_t to uint16_t. Older
+// "plr2" files would deserialize 1 byte where 2 are expected and
+// corrupt every following field, so the version bump rejects them.
+static const char magicStr[5] = "plr3"; // magic is the size of uint32_t + a null
 static const uint32_t* magic = (uint32_t*)magicStr;
 
 static const char* conColorBasePrefNames[] =
