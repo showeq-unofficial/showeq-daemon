@@ -263,11 +263,17 @@ bool DaemonApp::start()
     // daemon restarts (we don't see OP_ItemPacket for items the user
     // hasn't moved this session). Wiring of the OP_ItemPacket signal
     // happens in wireZoneMgr() once m_packet is alive.
+    //
+    // --replay sessions skip persistence entirely so regression goldens
+    // aren't contaminated by the user's real cache and replay-captured
+    // items don't pollute the on-disk cache.
     m_itemCache = new ItemCache(this);
-    {
+    if (m_cfg.replay.isEmpty()) {
         const QFileInfo cacheFile = m_dataLocationMgr->findWriteFile(
             "daemon", "itemcache.json", true, true);
         m_itemCache->setStorePath(cacheFile.absoluteFilePath());
+    } else {
+        qInfo("ItemCache: replay mode, persistence disabled");
     }
 
     // PrefsBroker is the curated XMLPreferences <-> wire bridge. Constructed
@@ -308,7 +314,7 @@ bool DaemonApp::start()
     m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get(),
                    m_messageShell, m_groupMgr, m_spellShell,
                    m_combatRouter, m_categoryMgr, m_filterMgr,
-                   m_prefsBroker, m_spawnMonitor);
+                   m_prefsBroker, m_spawnMonitor, m_itemCache);
 
     // --record-golden: spin up an internal SessionAdapter writing into a
     // FileSink. Subscribe is synthesized immediately so the on-disk
@@ -325,7 +331,7 @@ bool DaemonApp::start()
                                              m_groupMgr, m_spellShell,
                                              m_combatRouter, m_categoryMgr,
                                              m_filterMgr, m_prefsBroker,
-                                             m_spawnMonitor, this);
+                                             m_spawnMonitor, m_itemCache, this);
         // The golden adapter writes the regression-harness .pbstream;
         // strip wall-clock fields so the tier-2 byte-cmp is stable
         // across runs.

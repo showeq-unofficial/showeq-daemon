@@ -7,6 +7,8 @@
 #include "filter.h"
 #include "filtermgr.h"
 #include "group.h"
+#include "itemcache.h"
+#include "itempacket.h"
 #include "mapcore.h"
 #include "player.h"
 #include "spawn.h"
@@ -363,6 +365,46 @@ void fillBuff(seq::v1::Buff* out, const SpellItem& s)
     out->set_caster_name(s.casterName().toStdString());
     out->set_target_id(s.targetId());
     out->set_target_name(s.targetName().toStdString());
+}
+
+void fillItem(seq::v1::Item* out, const ItemTemplate& in)
+{
+    out->set_id(in.itemId);
+    out->set_name(in.itemName.toStdString());
+    if (in.loreName != in.itemName) {
+        out->set_lore_name(in.loreName.toStdString());
+    }
+    out->set_slot_mask(in.slotBitmask);
+    out->set_flags(in.flags);
+    out->set_weight(in.weight);
+    out->set_hp(in.hp);
+    out->set_mana(in.mana);
+    out->set_endurance(in.endurance);
+    out->set_ac(in.ac);
+    for (int i = 0; i < ITEM_STAT_COUNT; i++) {
+        out->add_stats(in.stats[i]);
+    }
+    for (int i = 0; i < ITEM_RES_COUNT; i++) {
+        out->add_resists(in.resists[i]);
+    }
+    out->set_corruption(in.corruption);
+}
+
+void fillItemTotals(seq::v1::ItemCacheTotals* out, const ItemCache& cache)
+{
+    auto t = cache.totals();
+    out->set_item_count(static_cast<uint32_t>(t.itemCount));
+    out->set_hp(t.hp);
+    out->set_mana(t.mana);
+    out->set_endurance(t.endurance);
+    out->set_ac(t.ac);
+    for (int i = 0; i < ITEM_STAT_COUNT; i++) {
+        out->add_stats(t.stats[i]);
+    }
+    for (int i = 0; i < ITEM_RES_COUNT; i++) {
+        out->add_resists(t.resists[i]);
+    }
+    out->set_corruption(t.corruption);
 }
 
 } // namespace seq::encode

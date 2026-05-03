@@ -151,6 +151,31 @@ void ItemCache::insert(const ItemTemplate& tpl)
     if (it == m_cache.end()) ++m_learnedCount;
     m_cache.insert(tpl.itemId, tpl);
     m_dirty = true;
+    emit itemLearned(tpl.itemId);
+}
+
+ItemCache::Totals ItemCache::totals() const
+{
+    Totals t;
+    t.itemCount = m_cache.size();
+    for (auto it = m_cache.constBegin(); it != m_cache.constEnd(); ++it) {
+        const ItemTemplate& v = it.value();
+        t.hp        += v.hp;
+        t.mana      += v.mana;
+        t.endurance += v.endurance;
+        t.ac        += v.ac;
+        for (int i = 0; i < ITEM_STAT_COUNT; i++) t.stats[i]   += v.stats[i];
+        for (int i = 0; i < ITEM_RES_COUNT;  i++) t.resists[i] += v.resists[i];
+        t.corruption += v.corruption;
+    }
+    return t;
+}
+
+QList<uint32_t> ItemCache::sortedIds() const
+{
+    auto ids = m_cache.keys();
+    std::sort(ids.begin(), ids.end());
+    return ids;
 }
 
 void ItemCache::onItemPacket(const uint8_t* data, size_t len,

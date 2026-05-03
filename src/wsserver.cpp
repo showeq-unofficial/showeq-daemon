@@ -68,7 +68,7 @@ WsServer::~WsServer()
 void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
                         MessageShell* ms, GroupMgr* gm, SpellShell* sps,
                         CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
-                        PrefsBroker* pb, SpawnMonitor* sm)
+                        PrefsBroker* pb, SpawnMonitor* sm, ItemCache* ic)
 {
     m_spawnShell    = ss;
     m_zoneMgr       = zm;
@@ -82,6 +82,7 @@ void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
     m_filterMgr     = fm;
     m_prefsBroker   = pb;
     m_spawnMonitor  = sm;
+    m_itemCache     = ic;
 }
 
 bool WsServer::listen(const QHostAddress& host, quint16 port)
@@ -244,7 +245,7 @@ SessionAdapter* WsServer::makeAdapter(IEnvelopeSink* sink, QObject* parent)
                               m_mapData, m_messageShell, m_groupMgr,
                               m_spellShell, m_combatRouter, m_categoryMgr,
                               m_filterMgr, m_prefsBroker, m_spawnMonitor,
-                              parent);
+                              m_itemCache, parent);
 }
 
 QString WsServer::generateSessionId() const

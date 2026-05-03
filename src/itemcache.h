@@ -50,6 +50,34 @@ public:
 
     bool save();
 
+    // Aggregate sums across every item in the cache. v1 SCOPE: covers
+    // ALL observed items (worn + inventory + bags + bank) — worn-only
+    // totals require decoding OP_PlayerProfile worn-slot offsets, which
+    // is deferred. Treat the result as "potential gear stats" rather
+    // than "currently equipped".
+    struct Totals
+    {
+        int itemCount  = 0;
+        int hp         = 0;
+        int mana       = 0;
+        int endurance  = 0;
+        int ac         = 0;
+        int stats[ITEM_STAT_COUNT]   = {0};
+        int resists[ITEM_RES_COUNT]  = {0};
+        int corruption = 0;
+    };
+    Totals totals() const;
+
+    // Iterate cached items in itemId order. Used by SessionAdapter to
+    // populate Snapshot.items.
+    QList<uint32_t> sortedIds() const;
+
+signals:
+    // Fired after a successful insert (new id or overwrite of an
+    // existing one). SessionAdapter listens and emits ItemLearned +
+    // ItemCacheTotals envelopes.
+    void itemLearned(uint32_t itemId);
+
 public slots:
     // connect2 entry point. Parses the raw OP_ItemPacket payload and
     // inserts the resulting ItemTemplate. dir is unused but matches the

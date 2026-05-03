@@ -16,6 +16,8 @@ extern "C" { // pcap headers aren't c++-clean
 #include "envelopesink.h"
 #include "filtermgr.h"
 #include "group.h"
+#include "itemcache.h"
+#include "itempacket.h"
 #include "mapcore.h"
 #include "messageshell.h"
 #include "player.h"
@@ -42,6 +44,7 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
                                FilterMgr*    filterMgr,
                                PrefsBroker*  prefsBroker,
                                SpawnMonitor* spawnMonitor,
+                               ItemCache*    itemCache,
                                QObject*      parent)
     : QObject(parent)
     , m_sink(sink)
@@ -57,6 +60,7 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
     , m_filterMgr(filterMgr)
     , m_prefsBroker(prefsBroker)
     , m_spawnMonitor(spawnMonitor)
+    , m_itemCache(itemCache)
 {
 }
 
@@ -407,6 +411,11 @@ void SessionAdapter::startStreaming()
                 this,           &SessionAdapter::onSpawnPointsCleared);
     }
 
+    if (m_itemCache) {
+        connect(m_itemCache, &ItemCache::itemLearned,
+                this,        &SessionAdapter::onItemLearned);
+    }
+
     // STEP 2: iterate current state into a Snapshot and ship it.
     sendSnapshot();
 
@@ -525,6 +534,20 @@ void SessionAdapter::sendSnapshot()
             seq::encode::fillSpawnPoint(snap->add_spawn_points(), *sp,
                                         m_deterministic);
         }
+    }
+
+    // Only emit items + item_totals when the cache is non-empty.
+    // Avoids polluting goldens for fixtures captured before the
+    // ItemCache existed: an empty mutable_item_totals() would still
+    // serialize a (zero) sub-message, changing the byte stream.
+    if (m_itemCache && m_itemCache->size() > 0) {
+        for (uint32_t id : m_itemCache->sortedIds()) {
+            ItemTemplate t;
+            if (!m_itemCache->lookup(id, &t)) continue;
+            seq::encode::fillItem(snap->add_items(), t);
+        }
+        seq::encode::fillItemTotals(snap->mutable_item_totals(),
+                                     *m_itemCache);
     }
 
     emitEnvelope(std::move(env));
@@ -854,4 +877,19 @@ void SessionAdapter::onSpawnPointsCleared()
     seq::v1::Envelope env;
     env.mutable_spawn_points_cleared();
     sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onItemLearned(uint32_t itemId)
+{
+    if (!m_itemCache) return;
+    ItemTemplate t;
+    if (!m_itemCache->lookup(itemId, &t)) return;
+
+    seq::v1::Envelope envItem;
+    seq::encode::fillItem(envItem.mutable_item_learned()->mutable_item(), t);
+    sendOrBuffer(std::move(envItem));
+
+    seq::v1::Envelope envTotals;
+    seq::encode::fillItemTotals(envTotals.mutable_item_totals(), *m_itemCache);
+    sendOrBuffer(std::move(envTotals));
 }

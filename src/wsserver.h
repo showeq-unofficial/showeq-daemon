@@ -14,6 +14,7 @@ class CombatRouter;
 class FilterMgr;
 class GroupMgr;
 class IEnvelopeSink;
+class ItemCache;
 class MapData;
 class MessageShell;
 class Player;
@@ -48,7 +49,7 @@ public:
     void setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
                   MessageShell* ms, GroupMgr* gm, SpellShell* sps,
                   CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
-                  PrefsBroker* pb, SpawnMonitor* sm);
+                  PrefsBroker* pb, SpawnMonitor* sm, ItemCache* ic);
 
     bool listen(const QHostAddress& host, quint16 port);
 
@@ -96,4 +97,5 @@ private:
     FilterMgr*     m_filterMgr     = nullptr;
     PrefsBroker*   m_prefsBroker   = nullptr;
     SpawnMonitor*  m_spawnMonitor  = nullptr;
+    ItemCache*     m_itemCache     = nullptr;
 };

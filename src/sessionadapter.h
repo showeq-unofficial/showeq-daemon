@@ -15,6 +15,7 @@ class CombatRouter;
 class FilterMgr;
 class GroupMgr;
 class Item;
+class ItemCache;
 class MapData;
 class MessageShell;
 class Player;
@@ -58,6 +59,7 @@ public:
                    FilterMgr*    filterMgr,
                    PrefsBroker*  prefsBroker,
                    SpawnMonitor* spawnMonitor,
+                   ItemCache*    itemCache,
                    QObject*      parent = nullptr);
     ~SessionAdapter() override;
 
@@ -144,6 +146,11 @@ private slots:
     void onSpawnPointUpdated(const SpawnPoint* sp);
     void onSpawnPointDeleted(const SpawnPoint* sp);
     void onSpawnPointsCleared();
+    // ItemCache::itemLearned handler. Pushes the item out as
+    // ItemLearned + ItemCacheTotals envelopes. Re-emits the totals on
+    // every insert (debouncing happens client-side; the typical fire
+    // rate is single-digit per minute).
+    void onItemLearned(uint32_t itemId);
 
 private:
     void startStreaming();
@@ -170,6 +177,7 @@ private:
     FilterMgr*                   m_filterMgr    = nullptr;
     PrefsBroker*                 m_prefsBroker  = nullptr;
     SpawnMonitor*                m_spawnMonitor = nullptr;
+    ItemCache*                   m_itemCache    = nullptr;
 
     QString                      m_sessionId;
     bool                         m_subscribed = false;

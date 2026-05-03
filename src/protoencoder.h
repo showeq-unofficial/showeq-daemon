@@ -11,6 +11,8 @@ class CategoryMgr;
 class FilterMgr;
 class GroupMgr;
 class Item;
+class ItemCache;
+struct ItemTemplate;
 class Player;
 class Spawn;
 class SpawnPoint;
@@ -71,5 +73,15 @@ void fillFilterRulesUpdate(seq::v1::FilterRulesUpdate* out, const FilterMgr& fm)
 // golden recorder sets it today.
 void fillSpawnPoint(seq::v1::SpawnPoint* out, const SpawnPoint& sp,
                     bool deterministic = false);
+
+// Translates a parsed ItemTemplate into the wire seq.v1.Item. Stats and
+// resists arrays are written in their canonical order (see itempacket.h
+// ItemStatIndex / ItemResistIndex).
+void fillItem(seq::v1::Item* out, const ItemTemplate& in);
+
+// Aggregate sums of every ItemTemplate currently in the cache. v1 scope
+// covers ALL observed items (worn + inventory + bags + bank); see the
+// proto comment on ItemCacheTotals.
+void fillItemTotals(seq::v1::ItemCacheTotals* out, const ItemCache& cache);
 
 } // namespace seq::encode
