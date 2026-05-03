@@ -609,7 +609,47 @@ Capture: existing `aa_point.vpk` (the same one that nailed OP_AAAction). Method:
 
   Series transitions cleanly: at rec[17] (id=118, still sid=101) the cost/spell/level_req shift (cost=101, spell=1024, lvl=101) — Innate Strength tier-2. Distinct sids in the table: 101, 201, 301, 401, … (the canonical Innate Str/Sta/Agi/Dex/Cha/Wis/Int chains) plus dozens of class/archetype-specific sids.
 
-  After rec[121] the prereq trailer becomes non-zero and a clean fixed-stride walk no longer aligns — base records are still 44 B but each carries a per-record trailer of `prereq_count × ~8 B` plus what looks like additional sub-fields not yet pinned down. **The opcode identity is locked in;** the trailer layout is a struct-decode follow-up.
+  Past rec[121] the records have a per-record **prereq prefix** that prepends an `(skill_id u32, min_points u32)` pair to the base. The original "the trailer is broken" intuition was wrong — the trailing 8 bytes after a base record actually belong to the *next* record as its prefix.
+
+  **Full record schema** (validated against all 314 records in `aa_point.vpk`'s OP_SendAATable):
+
+  ```
+  Record:
+    + (optional) 8-byte prereq prefix:
+        u32 prereq_skill_id
+        u32 prereq_min_points
+    + 44-byte base:
+        u32 ability_id      // unique per rank
+        u32 title_sid       // string id; constant within a series
+        u32 hotkey_sid      // typically equals ability_id
+        u32 type            // tab/category code (1, 2, 3, 4, 8, 10, 12, 14, …)
+        u32 cost            // typically 100-104
+        u32 rank            // 1..N within the series
+        u32 ?               // 1 or 2 (possibly tier_index)
+        u32 level_req       // min character level (20, 25, 30, …, 125)
+        u32 spell_id        // spell triggered (1016, 1024, 1025, …)
+        u32 ?               // typically 0
+        u32 has_prereq_flag // 0 or 1; predicts whether the *next* same-series record has a prefix (with edge cases below)
+  ```
+
+  Counts in this capture: **122 records with no prefix, 192 records with an 8-byte prefix, 0 with 16-byte (the 16B observation from the rough first walk turned out to be misalignment)**. Edge cases the strict "f10 → has_prefix" rule misses, both at series boundaries:
+
+  - **rec[120]** (id=1000, rank-1 of series 1000): `f10=1` but **no prefix** — first rank of a new prereq-bearing series, nothing to point to yet.
+  - **rec[312]** (id=5000, rank-1 of series 5000): `f10=0` but **has prefix** `(skill=103, min=26)` — first rank of an epic series carries an entry-condition prereq even though no later ranks reference it.
+
+  After all 314 records the file ends with a **284-byte trailing summary block** (71 u32s) attached to rec[313] (id=5001 with constant-5001 fields):
+
+  ```
+  (9, 1016, 1, 1, 2, 5523, 5524, 1024, 1, 1, 2,
+   5535, 5536, 1025, 1, 1, 2, 5537, 5538, 1026, 1, 1,
+   2, 5539, 5540, 1028, 1, 1, 2, 5543, 5544, 1030, 1,
+   1, 2, 5547, 5548, 1032, 1, 1, 2, 5561, 5562, 5000,
+   2, 1, 1, 8311, 2, 1, 8313, 5001, 6, 1, 1,
+   8315, 2, 1, 8316, 3, 1, 8317, 4, 1, 8318, 5,
+   1, 8319, 6, 1, 8320)
+  ```
+
+  The pattern looks like cross-reference rows mapping pairs of late-game ability ids (5523-5548, 5561-5562) to their series ids (1024, 1025, 1026, 1028, 1030, 1032, 5000), then an additional run for ids 8311 and 8313-8320 (likely glyph or veteran-mastery slots). The exact field semantics within each row are a future-work item — the daemon doesn't need them to display the AA window, but a future "show me what AAs exist" panel would.
 
 - **Important correction to the 2026-05-02 round-3 note**: that note speculated `OP_SendAATable` "likely carries purchased AA ranks." The bit-identical 4-fire payload disproves that — `OP_SendAATable` is the static client-side AA-window menu data, not state. Purchased AA ranks remain unresolved on the wire (OP_PlayerProfile gives `aa_spent`/`aa_unspent`/`aa_assigned` totals, OP_AAExpUpdate gives the unspent-pool counter, but the per-ability rank breakdown still has no known opcode).
 
@@ -625,6 +665,6 @@ Capture: existing `aa_point.vpk` (the same one that nailed OP_AAAction). Method:
 - `0x2e6e` (1603 B, S>C, n=4): structured but starts `(8,0x37,10,1,10,…)` — looks like spawn / NPC reference rather than ability defs.
 
 **Round-N ideas**:
-- Fully decode the per-record prereq trailer past rec[121] in `0xa30a`. Need to figure out whether the trailer stride is `prereq_count × 8 B` or includes additional sub-fields; rank-1, rank-2, rank-3 records of series 1000 had trailers of 8 B / 16 B / 0 B respectively which doesn't fit a single linear formula yet.
 - Hunt the **actual** "purchased-ranks" opcode. Likely candidates: `OP_SendAAStats` (companion to OP_SendAATable, also in the legacy XML), or an opcode that fires only when the player has non-zero spent points (capture a fresh-character session vs. a 60-with-ranks session and compare opcode sets).
 - `0xa1e1` is suspicious enough to deserve its own follow-up — investigate what zone-in packet carries the auto-grant id list with a per-fire counter. Possibly a "zone snapshot summary" or progress meter.
+- The 284-byte trailing summary block in OP_SendAATable maps glyph/mastery ability ids onto their parent series. Field semantics within each row are unconfirmed — future work if the daemon ever needs to render the late-game AA tabs.
