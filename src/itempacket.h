@@ -49,6 +49,11 @@ enum ItemResistIndex
     ITEM_RES_COUNT   = 5,
 };
 
+// Wrapper-derived location of an OP_ItemPacket payload. When mainSlot==0,
+// subSlot indexes the standard EQ slot enum: 0-22 worn (Charm..Ammo),
+// 23-30 personal inventory, 35 (0x23) cursor. When mainSlot!=0, the item
+// lives inside the bag at that parent slot and subSlot is its position
+// within the bag.
 struct ItemTemplate
 {
     QString  itemName;
@@ -64,6 +69,10 @@ struct ItemTemplate
     int8_t   stats[ITEM_STAT_COUNT]   = {0};
     int8_t   resists[ITEM_RES_COUNT]  = {0};
     int8_t   corruption   = 0;
+    uint32_t packetType   = 0;            // 0x74 in-bag, 0x76 bag-itself, 0x78 move-response
+    uint32_t mainSlot     = 0;            // 0 = top-level (worn/inv/cursor)
+    uint16_t subSlot      = 0;            // when mainSlot==0, this IS the worn/inv slot index
+    uint32_t stackCount   = 0;            // charges or stack count from wrapper
 };
 
 // Parse the full OP_ItemPacket payload (starting at packetType) into

@@ -24,26 +24,41 @@ std::vector<uint8_t> buildSyntheticItem(
     uint32_t itemId, uint32_t weightX10, uint32_t slotMask,
     int32_t hp, int32_t mana, int32_t endurance, int32_t ac,
     int8_t strMod, int8_t agiMod,
-    int8_t mrMod, int8_t frMod)
+    int8_t mrMod, int8_t frMod,
+    uint32_t packetType = 0x78,
+    uint32_t stackCount = 0,
+    uint32_t mainSlot = 0,
+    uint16_t subSlot = 0)
 {
     std::vector<uint8_t> buf;
     buf.reserve(512);
 
-    // packetType (uint32 LE) — observed values: 0x76, 0x78. The exact
-    // value isn't needed for parsing; the parser scans past the header.
-    buf.insert(buf.end(), {0x78, 0x00, 0x00, 0x00});
+    auto pushU32 = [&](uint32_t v) {
+        buf.push_back(uint8_t(v));
+        buf.push_back(uint8_t(v >> 8));
+        buf.push_back(uint8_t(v >> 16));
+        buf.push_back(uint8_t(v >> 24));
+    };
 
-    // Pre-name binary header: 16-byte ASCII instance id + null + a
-    // mix of zeros and 0xff bytes ending right before the name. We
-    // reproduce just enough structure for the parser's `ff ff ff ff
-    // 00 .. <UPPERCASE>` heuristic to fire at the right place.
+    // +0  packetType (u32 LE) — observed values: 0x74, 0x76, 0x78
+    pushU32(packetType);
+
+    // +4  16-byte ASCII instance-id + NUL @ +20
     static const char kInstanceId[] = "TEST00B80003TST0";
     buf.insert(buf.end(), kInstanceId, kInstanceId + 16);
-    buf.push_back(0); // null terminator of instance id
+    buf.push_back(0);
 
-    // Pad with zeros up to the typical name offset (0x77). Real
-    // payloads have stack/slot/charges/etc. interleaved here, but
-    // the parser doesn't need them to be valid.
+    // +21 stack/charges
+    pushU32(stackCount);
+    // +25 mainSlot (0 = top-level worn/inv/cursor)
+    pushU32(mainSlot);
+    // +29 subSlot (when mainSlot==0, the slot index)
+    buf.push_back(uint8_t(subSlot));
+    buf.push_back(uint8_t(subSlot >> 8));
+
+    // Pad with zeros up to the typical name offset (0x70). Real payloads
+    // carry an aug-link region / additional unknown wrapper bytes here;
+    // the parser scans forward to anchor on the name.
     while (buf.size() < 0x70) buf.push_back(0);
     // ff ff ff ff 00 00 00 00 marker right before the name
     for (int i = 0; i < 4; i++) buf.push_back(0xff);
@@ -65,12 +80,6 @@ std::vector<uint8_t> buildSyntheticItem(
     buf.push_back(0);
 
     // parsedItemTemplateStruct (63 bytes documented prefix)
-    auto pushU32 = [&](uint32_t v) {
-        buf.push_back(uint8_t(v));
-        buf.push_back(uint8_t(v >> 8));
-        buf.push_back(uint8_t(v >> 16));
-        buf.push_back(uint8_t(v >> 24));
-    };
     auto pushI32 = [&](int32_t v) { pushU32(uint32_t(v)); };
 
     pushU32(63);               // +0  format_const
@@ -115,9 +124,12 @@ private slots:
   void parsesArmorWithFullStatBlock();
   void parsesRingWithJustHp();
   void parsesWeaponWithNoArmorStats();
+  void parsesWornSlotFromWrapper();
+  void parsesBagSubSlotFromWrapper();
   void rejectsNullData();
   void rejectsTruncatedData();
   void rejectsBufferWithoutName();
+  void rejectsCorruptInstanceIdTerminator();
 };
 
 void ItemPacketTest::parsesArmorWithFullStatBlock()
@@ -189,6 +201,51 @@ void ItemPacketTest::parsesWeaponWithNoArmorStats()
     QCOMPARE(t.slotBitmask, uint32_t(0x6000));
 }
 
+void ItemPacketTest::parsesWornSlotFromWrapper()
+{
+    // Move-response (0x78) for "Outstanding Necklace of Distant Echoes"
+    // landing in slot 5 (Neck) — the canonical re-equip case.
+    auto buf = buildSyntheticItem(
+        QStringLiteral("Outstanding Necklace of Distant Echoes"),
+        QStringLiteral("Outstanding Necklace of Distant Echoes"),
+        2222, 1, 0x20,  // slotMask 0x20 = Neck (template field)
+        80, 80, 0, 0, 0, 0, 0, 0,
+        /* packetType */ 0x78,
+        /* stackCount */ 1,
+        /* mainSlot   */ 0,
+        /* subSlot    */ 5);
+
+    ItemTemplate t;
+    QVERIFY(parseItemPacket(buf.data(), buf.size(), &t));
+    QCOMPARE(t.packetType, uint32_t(0x78));
+    QCOMPARE(t.stackCount, uint32_t(1));
+    QCOMPARE(t.mainSlot,   uint32_t(0));
+    QCOMPARE(t.subSlot,    uint16_t(5));
+    QCOMPARE(t.itemId,     uint32_t(2222));
+}
+
+void ItemPacketTest::parsesBagSubSlotFromWrapper()
+{
+    // In-bag fire (0x74): consumable inside a backpack at parent slot 21,
+    // bag position 3. Worn-set tracker must skip these (mainSlot != 0).
+    auto buf = buildSyntheticItem(
+        QStringLiteral("Blood of the Wolf"),
+        QStringLiteral("Blood of the Wolf"),
+        7777, 1, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        /* packetType */ 0x74,
+        /* stackCount */ 10,
+        /* mainSlot   */ 21,
+        /* subSlot    */ 3);
+
+    ItemTemplate t;
+    QVERIFY(parseItemPacket(buf.data(), buf.size(), &t));
+    QCOMPARE(t.packetType, uint32_t(0x74));
+    QCOMPARE(t.stackCount, uint32_t(10));
+    QCOMPARE(t.mainSlot,   uint32_t(21));
+    QCOMPARE(t.subSlot,    uint16_t(3));
+}
+
 void ItemPacketTest::rejectsNullData()
 {
     ItemTemplate t;
@@ -212,6 +269,19 @@ void ItemPacketTest::rejectsBufferWithoutName()
 {
     // All-zero buffer has no uppercase letter to anchor on.
     std::vector<uint8_t> buf(512, 0);
+    ItemTemplate t;
+    QVERIFY(!parseItemPacket(buf.data(), buf.size(), &t));
+}
+
+void ItemPacketTest::rejectsCorruptInstanceIdTerminator()
+{
+    // Wrapper-extraction relies on the instance-id NUL @ +20 being
+    // present; a missing terminator means downstream offsets won't be
+    // trustworthy either, so we fail fast.
+    auto buf = buildSyntheticItem(
+        QStringLiteral("Test Item"), QStringLiteral("Test Item"),
+        1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0);
+    buf[20] = 0xff;
     ItemTemplate t;
     QVERIFY(!parseItemPacket(buf.data(), buf.size(), &t));
 }

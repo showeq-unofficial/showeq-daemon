@@ -23,6 +23,11 @@ namespace {
 
 constexpr int kDefaultFlushMs = 15 * 60 * 1000;
 
+// EQ slot enum: 0=Charm .. 22=Ammo are worn slots; 0x23=35 is the cursor.
+// See itempacket.h for the full mapping.
+constexpr uint16_t kMaxWornSlot   = 22;
+constexpr uint16_t kCursorSlot    = 0x23;
+
 QJsonObject toJson(const ItemTemplate& t)
 {
     QJsonObject o;
@@ -157,9 +162,11 @@ void ItemCache::insert(const ItemTemplate& tpl)
 ItemCache::Totals ItemCache::totals() const
 {
     Totals t;
-    t.itemCount = m_cache.size();
-    for (auto it = m_cache.constBegin(); it != m_cache.constEnd(); ++it) {
-        const ItemTemplate& v = it.value();
+    for (auto it = m_wornSlots.constBegin(); it != m_wornSlots.constEnd(); ++it) {
+        auto cacheIt = m_cache.constFind(it.value());
+        if (cacheIt == m_cache.constEnd()) continue;
+        const ItemTemplate& v = cacheIt.value();
+        t.itemCount++;
         t.hp        += v.hp;
         t.mana      += v.mana;
         t.endurance += v.endurance;
@@ -184,6 +191,34 @@ void ItemCache::onItemPacket(const uint8_t* data, size_t len,
     ItemTemplate t;
     if (!parseItemPacket(data, len, &t)) return;
     insert(t);
+
+    // Track worn-slot membership from the wrapper. Top-level items
+    // (mainSlot==0) carry the worn/inv/cursor slot directly in subSlot.
+    // Items inside bags (mainSlot!=0) never affect the worn map.
+    if (t.mainSlot != 0 || t.itemId == 0) return;
+
+    bool changed = false;
+
+    // An item moving anywhere always vacates whichever worn slot it
+    // previously occupied (slot-to-slot swaps + un-equip-to-cursor +
+    // un-equip-to-inventory all share this property).
+    for (auto it = m_wornSlots.begin(); it != m_wornSlots.end(); ) {
+        if (it.value() == t.itemId) {
+            it = m_wornSlots.erase(it);
+            changed = true;
+        } else {
+            ++it;
+        }
+    }
+
+    if (t.subSlot <= kMaxWornSlot) {
+        m_wornSlots.insert(int(t.subSlot), t.itemId);
+        changed = true;
+    }
+    // subSlot == kCursorSlot or any inv slot (>=23) leaves the worn
+    // map cleared above; nothing further to insert.
+
+    if (changed) emit wornSlotsChanged();
 }
 
 void ItemCache::onFlushTimer()

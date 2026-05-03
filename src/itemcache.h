@@ -50,11 +50,11 @@ public:
 
     bool save();
 
-    // Aggregate sums across every item in the cache. v1 SCOPE: covers
-    // ALL observed items (worn + inventory + bags + bank) — worn-only
-    // totals require decoding OP_PlayerProfile worn-slot offsets, which
-    // is deferred. Treat the result as "potential gear stats" rather
-    // than "currently equipped".
+    // Aggregate sums over the player's currently equipped gear (the
+    // contents of wornSlots(), looked up against the cache). itemCount
+    // is the number of populated worn slots — empty slots don't
+    // contribute. Stats are BASE values; aug contributions are not yet
+    // folded in.
     struct Totals
     {
         int itemCount  = 0;
@@ -72,11 +72,21 @@ public:
     // populate Snapshot.items.
     QList<uint32_t> sortedIds() const;
 
+    // Slot index (0-22 worn) -> itemId currently equipped there, as
+    // observed via OP_ItemPacket wrapper main_slot=0/sub_slot fields.
+    // Empty slots are absent.
+    QHash<int, uint32_t> wornSlots() const { return m_wornSlots; }
+
 signals:
     // Fired after a successful insert (new id or overwrite of an
-    // existing one). SessionAdapter listens and emits ItemLearned +
-    // ItemCacheTotals envelopes.
+    // existing one). SessionAdapter listens and emits ItemLearned
+    // envelopes.
     void itemLearned(uint32_t itemId);
+
+    // Fired when the worn-slot map changes (any equip / un-equip /
+    // slot-to-slot move). SessionAdapter listens and emits WornSet +
+    // ItemCacheTotals envelopes.
+    void wornSlotsChanged();
 
 public slots:
     // connect2 entry point. Parses the raw OP_ItemPacket payload and
@@ -91,6 +101,7 @@ private:
     bool load();
 
     QHash<uint32_t, ItemTemplate> m_cache;
+    QHash<int, uint32_t>          m_wornSlots;
     QString m_storePath;
     QTimer* m_flushTimer   = nullptr;
     int     m_learnedCount = 0;

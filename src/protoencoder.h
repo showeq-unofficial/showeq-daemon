@@ -79,9 +79,12 @@ void fillSpawnPoint(seq::v1::SpawnPoint* out, const SpawnPoint& sp,
 // ItemStatIndex / ItemResistIndex).
 void fillItem(seq::v1::Item* out, const ItemTemplate& in);
 
-// Aggregate sums of every ItemTemplate currently in the cache. v1 scope
-// covers ALL observed items (worn + inventory + bags + bank); see the
-// proto comment on ItemCacheTotals.
+// Aggregate sums over the player's currently equipped gear. See the
+// proto comment on ItemCacheTotals for semantics.
 void fillItemTotals(seq::v1::ItemCacheTotals* out, const ItemCache& cache);
+
+// Slot → itemId map of currently equipped gear, mirroring
+// ItemCache::wornSlots().
+void fillWornSet(seq::v1::WornSet* out, const ItemCache& cache);
 
 } // namespace seq::encode

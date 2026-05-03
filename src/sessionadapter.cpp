@@ -414,6 +414,8 @@ void SessionAdapter::startStreaming()
     if (m_itemCache) {
         connect(m_itemCache, &ItemCache::itemLearned,
                 this,        &SessionAdapter::onItemLearned);
+        connect(m_itemCache, &ItemCache::wornSlotsChanged,
+                this,        &SessionAdapter::onWornSlotsChanged);
     }
 
     // STEP 2: iterate current state into a Snapshot and ship it.
@@ -506,9 +508,13 @@ void SessionAdapter::sendSnapshot()
         all.push_back(m_player);
     }
 
+    // EQ reuses ids across spawn types (a NPC and a door can both have id
+    // N), so sort by (id, name) — id alone leaves duplicate-id pairs in
+    // QHash-iteration order, which is randomized per process.
     std::sort(all.begin(), all.end(),
               [](const Item* a, const Item* b) {
-                  return a->id() < b->id();
+                  if (a->id() != b->id()) return a->id() < b->id();
+                  return a->name() < b->name();
               });
 
     for (const Item* item : all) {
@@ -536,18 +542,22 @@ void SessionAdapter::sendSnapshot()
         }
     }
 
-    // Only emit items + item_totals when the cache is non-empty.
-    // Avoids polluting goldens for fixtures captured before the
-    // ItemCache existed: an empty mutable_item_totals() would still
-    // serialize a (zero) sub-message, changing the byte stream.
+    // Only emit items when the cache is non-empty. Worn-set fields
+    // (item_totals + worn_set) ride a separate gate: emit only when
+    // we've actually observed an equip event this session, so resumes
+    // without an OP_ItemPacket fire don't ship a zero-valued message
+    // (which would still serialize, changing the byte stream).
     if (m_itemCache && m_itemCache->size() > 0) {
         for (uint32_t id : m_itemCache->sortedIds()) {
             ItemTemplate t;
             if (!m_itemCache->lookup(id, &t)) continue;
             seq::encode::fillItem(snap->add_items(), t);
         }
+    }
+    if (m_itemCache && !m_itemCache->wornSlots().isEmpty()) {
         seq::encode::fillItemTotals(snap->mutable_item_totals(),
                                      *m_itemCache);
+        seq::encode::fillWornSet(snap->mutable_worn_set(), *m_itemCache);
     }
 
     emitEnvelope(std::move(env));
@@ -888,6 +898,15 @@ void SessionAdapter::onItemLearned(uint32_t itemId)
     seq::v1::Envelope envItem;
     seq::encode::fillItem(envItem.mutable_item_learned()->mutable_item(), t);
     sendOrBuffer(std::move(envItem));
+}
+
+void SessionAdapter::onWornSlotsChanged()
+{
+    if (!m_itemCache) return;
+
+    seq::v1::Envelope envWorn;
+    seq::encode::fillWornSet(envWorn.mutable_worn_set(), *m_itemCache);
+    sendOrBuffer(std::move(envWorn));
 
     seq::v1::Envelope envTotals;
     seq::encode::fillItemTotals(envTotals.mutable_item_totals(), *m_itemCache);

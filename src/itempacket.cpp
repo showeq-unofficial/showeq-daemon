@@ -1,14 +1,25 @@
 /*
  * itempacket.cpp - see itempacket.h.
  *
- * Pre-name binary header is a fixed-size jumble (instance-id string +
- * stack/slot/charges/etc.) ending with the marker `ff ff ff ff 00 ...`
- * immediately before the item name. Rather than parse the header (whose
- * fields aren't all known), we scan forward from offset 0x40 for the
- * first uppercase ASCII letter preceded by a zero byte — that's the
- * item-name start. Two null-terminated copies of the name follow
+ * Wire layout (validated against inventory-naked.vpk strip→redress×2,
+ * see OPCODES_LIVE_TODO.md 2026-05-03):
+ *
+ *   +0  u32      packetType  (0x74 in-bag, 0x76 bag-itself, 0x78 move-response)
+ *   +4  char[16] ASCII instance-id (e.g. "vIS00B80001H3G00")
+ *   +20 u8       NUL terminator
+ *   +21 u32      stack/charges count
+ *   +25 u32      mainSlot   (0 = top-level worn/inv/cursor; nonzero = parent bag slot)
+ *   +29 u16      subSlot    (when mainSlot==0, the worn/inv slot index)
+ *   +31 ...      remaining wrapper bytes (aug-link u32, padding) ending
+ *                with the marker `ff ff ff ff 00 ...` immediately before
+ *                the item name.
+ *
+ * After the wrapper, two null-terminated copies of the name follow
  * (item name then lore name); parsedItemTemplateStruct begins at the
- * byte after the second null.
+ * byte after the second null. We locate the name region by scanning
+ * forward from offset 0x40 for the first uppercase ASCII letter
+ * preceded by a zero byte rather than walking the wrapper, since a few
+ * wrapper fields (the aug-link region, padding) still aren't pinned.
  */
 
 #include "itempacket.h"
@@ -64,6 +75,16 @@ bool parseItemPacket(const uint8_t* data, size_t len, ItemTemplate* out)
     // scanning from 0x40 to skip the leading instance-ID ASCII string.
     constexpr size_t kHeaderProbeStart = 0x40;
     if (len < kHeaderProbeStart) return false;
+
+    // Wrapper fields at fixed offsets. The instance-id is exactly 16
+    // ASCII chars + NUL across every observed sample; bail if the NUL
+    // marker isn't where we expect, since downstream offsets won't be
+    // trustworthy either.
+    if (data[20] != 0) return false;
+    out->packetType = readU32LE(data + 0);
+    out->stackCount = readU32LE(data + 21);
+    out->mainSlot   = readU32LE(data + 25);
+    out->subSlot    = uint16_t(data[29]) | (uint16_t(data[30]) << 8);
 
     size_t nameStart = findNameStart(data, len, kHeaderProbeStart);
     if (nameStart == SIZE_MAX) return false;

@@ -146,11 +146,13 @@ private slots:
     void onSpawnPointUpdated(const SpawnPoint* sp);
     void onSpawnPointDeleted(const SpawnPoint* sp);
     void onSpawnPointsCleared();
-    // ItemCache::itemLearned handler. Pushes the item out as
-    // ItemLearned + ItemCacheTotals envelopes. Re-emits the totals on
-    // every insert (debouncing happens client-side; the typical fire
-    // rate is single-digit per minute).
+    // ItemCache::itemLearned handler. Pushes the item out as a single
+    // ItemLearned envelope.
     void onItemLearned(uint32_t itemId);
+
+    // ItemCache::wornSlotsChanged handler. Pushes a fresh WornSet plus
+    // a recomputed ItemCacheTotals (totals are worn-only, see proto).
+    void onWornSlotsChanged();
 
 private:
     void startStreaming();

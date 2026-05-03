@@ -7,7 +7,10 @@
 #include <QtTest/QtTest>
 
 #include <QFile>
+#include <QSignalSpy>
 #include <QTemporaryDir>
+
+#include <vector>
 
 #include "itemcache.h"
 
@@ -24,10 +27,22 @@ private slots:
   void preservesAllStatFieldsThroughJson();
   void omitsZeroFieldsFromJson();
   void loadFromMissingFileSucceedsEmpty();
+  void wornSlotsTrackTopLevelEquipFire();
+  void wornSlotsClearOnCursorMove();
+  void wornSlotsIgnoreInBagFires();
+  void wornSlotsHandleSlotToSlotSwap();
+  void totalsSumWornSetOnly();
 
 private:
   static ItemTemplate sampleArmor();
   static ItemTemplate sampleRing();
+  // Build a synthetic OP_ItemPacket wrapper + minimal payload that
+  // parseItemPacket() accepts. Lets us drive ItemCache::onItemPacket
+  // through its full slot-tracking path without recapitulating
+  // itempacket_test's coverage.
+  static std::vector<uint8_t> buildSyntheticWrapper(
+      uint32_t packetType, uint32_t itemId, uint32_t mainSlot,
+      uint16_t subSlot, uint32_t stack);
 };
 
 ItemTemplate ItemCacheTest::sampleArmor()
@@ -70,6 +85,38 @@ ItemTemplate ItemCacheTest::sampleRing()
     t.hp          = 55;
     t.ac          = 5;
     return t;
+}
+
+std::vector<uint8_t> ItemCacheTest::buildSyntheticWrapper(
+    uint32_t packetType, uint32_t itemId, uint32_t mainSlot,
+    uint16_t subSlot, uint32_t stack)
+{
+    std::vector<uint8_t> buf;
+    auto pushU32 = [&](uint32_t v) {
+        for (int i = 0; i < 4; i++) buf.push_back(uint8_t(v >> (8*i)));
+    };
+    pushU32(packetType);
+    static const char kInstanceId[] = "TEST00B80003TST0";
+    buf.insert(buf.end(), kInstanceId, kInstanceId + 16);
+    buf.push_back(0);
+    pushU32(stack);
+    pushU32(mainSlot);
+    buf.push_back(uint8_t(subSlot));
+    buf.push_back(uint8_t(subSlot >> 8));
+    while (buf.size() < 0x70) buf.push_back(0);
+    for (int i = 0; i < 4; i++) buf.push_back(0xff);
+    for (int i = 0; i < 4; i++) buf.push_back(0x00);
+    static const char kName[] = "Test Worn Item";
+    buf.insert(buf.end(), kName, kName + sizeof(kName));
+    buf.insert(buf.end(), kName, kName + sizeof(kName));
+    pushU32(63); pushU32(0); pushU32(itemId); pushU32(0);
+    pushU32(0); pushU32(0); pushU32(0); pushU32(0);
+    buf.push_back(0); buf.push_back(0);
+    for (int i = 0; i < 5; i++) buf.push_back(0);
+    buf.push_back(0);
+    for (int i = 0; i < 7; i++) buf.push_back(0);
+    for (int i = 0; i < 16; i++) buf.push_back(0);
+    return buf;
 }
 
 void ItemCacheTest::emptyByDefault()
@@ -232,6 +279,87 @@ void ItemCacheTest::loadFromMissingFileSucceedsEmpty()
     ItemCache c;
     c.setStorePath(path);
     QCOMPARE(c.size(), 0);
+}
+
+void ItemCacheTest::wornSlotsTrackTopLevelEquipFire()
+{
+    ItemCache c;
+    QSignalSpy spy(&c, &ItemCache::wornSlotsChanged);
+
+    auto pkt = buildSyntheticWrapper(0x78, 1111, /*main*/ 0, /*sub*/ 5, 1);
+    c.onItemPacket(pkt.data(), pkt.size(), 0);
+    QCOMPARE(c.wornSlots().value(5), uint32_t(1111));
+    QCOMPARE(spy.count(), 1);
+}
+
+void ItemCacheTest::wornSlotsClearOnCursorMove()
+{
+    ItemCache c;
+    QSignalSpy spy(&c, &ItemCache::wornSlotsChanged);
+
+    auto equip = buildSyntheticWrapper(0x78, 1111, 0, /*Neck*/ 5,    1);
+    c.onItemPacket(equip.data(), equip.size(), 0);
+    QCOMPARE(c.wornSlots().value(5), uint32_t(1111));
+
+    auto cursor = buildSyntheticWrapper(0x78, 1111, 0, /*Cursor*/ 0x23, 1);
+    c.onItemPacket(cursor.data(), cursor.size(), 0);
+    QVERIFY(c.wornSlots().isEmpty());
+    QCOMPARE(spy.count(), 2);
+}
+
+void ItemCacheTest::wornSlotsIgnoreInBagFires()
+{
+    ItemCache c;
+    QSignalSpy spy(&c, &ItemCache::wornSlotsChanged);
+
+    auto inBag = buildSyntheticWrapper(0x74, 9999, /*main*/ 21, /*sub*/ 3, 10);
+    c.onItemPacket(inBag.data(), inBag.size(), 0);
+    QVERIFY(c.wornSlots().isEmpty());
+    QCOMPARE(spy.count(), 0);
+    QCOMPARE(c.size(), 1);   // still cached as a known item template
+}
+
+void ItemCacheTest::wornSlotsHandleSlotToSlotSwap()
+{
+    // Item moves directly from one worn slot to another (e.g. finger
+    // swap response) — must vacate the old slot without a cursor stop.
+    ItemCache c;
+    auto a = buildSyntheticWrapper(0x78, 5555, 0, /*Finger_L*/ 15, 1);
+    c.onItemPacket(a.data(), a.size(), 0);
+    auto b = buildSyntheticWrapper(0x78, 5555, 0, /*Finger_R*/ 16, 1);
+    c.onItemPacket(b.data(), b.size(), 0);
+
+    QVERIFY(!c.wornSlots().contains(15));
+    QCOMPARE(c.wornSlots().value(16), uint32_t(5555));
+}
+
+void ItemCacheTest::totalsSumWornSetOnly()
+{
+    // Cached items alone don't contribute to totals — only the worn set.
+    ItemCache c;
+    c.insert(sampleArmor());            // hp=122, mana=124
+    c.insert(sampleRing());             // hp=55,  ac=5
+
+    auto t0 = c.totals();
+    QCOMPARE(t0.itemCount, 0);
+    QCOMPARE(t0.hp,        0);
+
+    // Drive worn-slot tracking against the same itemIds. Note the
+    // synthetic wrapper overwrites the rich cache entry with its empty
+    // stat block, so we re-insert the rich templates after to verify
+    // totals routes through the cache and reads the fresh stats.
+    auto neckWrap = buildSyntheticWrapper(0x78, 111843, 0, /*Neck*/ 5,      1);
+    c.onItemPacket(neckWrap.data(), neckWrap.size(), 0);
+    auto ringWrap = buildSyntheticWrapper(0x78, 14679,  0, /*Finger_L*/ 15, 1);
+    c.onItemPacket(ringWrap.data(), ringWrap.size(), 0);
+    c.insert(sampleArmor());            // restore rich stats post-wrapper
+    c.insert(sampleRing());
+
+    auto t = c.totals();
+    QCOMPARE(t.itemCount, 2);
+    QCOMPARE(t.hp,        122 + 55);
+    QCOMPARE(t.mana,      124 + 0);
+    QCOMPARE(t.ac,        16 + 5);
 }
 
 QTEST_GUILESS_MAIN(ItemCacheTest)
