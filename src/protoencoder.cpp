@@ -242,6 +242,7 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
     out->set_aa_exp_cur(mp.getCurrentAltExp());
     out->set_aa_exp_max(100'000u);
     out->set_aa_points(mp.getCurrentAApts());
+    out->set_aa_unspent(mp.getCurrentAAUnspent());
 
     out->set_name(mp.name().toStdString());
     out->set_class_(mp.classVal());

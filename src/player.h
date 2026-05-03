@@ -144,6 +144,7 @@ public:
    uint32_t getMaxExp() { return m_maxExp; }
    uint32_t getCurrentAltExp() const { return m_currentAltExp; }
    uint16_t getCurrentAApts() const { return m_currentAApts; }
+   uint32_t getCurrentAAUnspent() const { return m_currentAAUnspent; }
    uint16_t getFatigue() const { return m_fatigue; }
    uint32_t getEnduranceCur() const { return m_enduranceCur; }
    uint32_t getEnduranceMax() const { return m_enduranceMax; }
@@ -259,6 +260,7 @@ public:
   // ExperienceWindow needs this
   uint32_t m_currentAltExp;
   uint16_t m_currentAApts;
+  uint32_t m_currentAAUnspent;
   uint32_t m_currentExp;
   uint32_t m_minExp;
   uint32_t m_maxExp;

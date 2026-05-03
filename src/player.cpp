@@ -188,6 +188,7 @@ void Player::reset()
   // (e.g. at the start of a --replay golden capture) we'd otherwise
   // emit whatever happened to be on the heap, breaking determinism.
   m_currentAApts = 0;
+  m_currentAAUnspent = 0;
   // Live ships per-level exp progress as 0-100000 (see expUpdateStruct in
   // everquest.h); the legacy `calc_exp() / 330` machinery was for the old
   // cumulative-exp-on-a-330-tick-scale wire format and doesn't apply.
@@ -347,6 +348,7 @@ void Player::loadProfile(const playerProfileStruct& player)
   memcpy (&m_spellBookSlots[0], &player.sSpellBook[0], sizeof(m_spellBookSlots));
 
   m_currentAApts = player.aa_spent;
+  m_currentAAUnspent = player.aa_unspent;
 
   // Buffs
   int buffnumber;
@@ -425,9 +427,9 @@ void Player::player(const charProfileStruct* player)
   m_validExp = true;
   
   emit expChangedInt (m_currentExp, m_minExp, m_maxExp);
-  emit expAltChangedInt(m_currentAltExp, 0, 15000000);
+  emit expAltChangedInt(m_currentAltExp, 0, 100000);
 
-  emit setAltExp(m_currentAltExp, 15000000, 15000000/330, m_currentAApts);
+  emit setAltExp(m_currentAltExp, 100000, 100000/100, m_currentAApts);
 
   if (showeq_params->savePlayerState)
     savePlayerState();
@@ -623,37 +625,40 @@ void Player::updateAltExp(const uint8_t* data)
 {
   const altExpUpdateStruct* altexp = (const altExpUpdateStruct*)data;
 
-  /* purple: I got no idea what is up here. This seems to be written like
-   *         the packet from the server gives the entire exp bump and not
-   *         just the proper percent. This makes it behave funny. Taking out
-   *         the multiply by percent here.
-  uint32_t realExp = altexp->altexp * altexp->percent * (15000000 / 33000);
-  uint32_t expIncrement;
+  // Confirmed via aa_progress.vpk + aa_point.vpk + aa_slider50.vpk:
+  //   altexp->altexp    — 0..100000 per-AA-point scale (sub-percent
+  //                       precision; in-game display % is altexp/1000).
+  //   altexp->aapoints  — UNSPENT count. Legacy code wrote this into
+  //                       m_currentAApts (= "spent" tracker), corrupting
+  //                       it on every tick. Route to m_currentAAUnspent
+  //                       so spent/unspent stay independent.
+  //   altexp->percent   — the player's "% of exp to AA" slider (uint8
+  //                       0..100). Fires its own OP_AAExpUpdate every
+  //                       time the slider moves; otherwise constant.
+  uint32_t scaledAltExp = altexp->altexp;
+  uint32_t expIncrement = (scaledAltExp > m_currentAltExp)
+                            ? scaledAltExp - m_currentAltExp
+                            : 0;
 
-  if (realExp > m_currentExp)
-    expIncrement = realExp - m_currentAltExp;
-  else
-    expIncrement = 0;
-   */
-  uint32_t realExp = altexp->altexp * (15000000 / 330);
-  uint32_t expIncrement;
-
-  if (realExp > m_currentExp)
-  {
-    expIncrement = realExp - m_currentAltExp;
+  // OP_AAExpUpdate carries unspent only — aa_spent waits for the next
+  // OP_PlayerProfile (zone-in). Mirror the in-client UI by deriving a
+  // spend-delta from any decrease in unspent: each click in the AA
+  // window decrements aapoints and bumps the spent counter by the same
+  // amount. Multi-rank buys (e.g. Mend Pet rank 5 in a single click)
+  // collapse into one tick with the full delta — handled here too.
+  // Increases in unspent (AA-point ding via altexp wrap, or /resetaas
+  // refund) are intentionally NOT subtracted from spent: charProfile
+  // is the ground truth that reconciles those on the next zone-in.
+  if (altexp->aapoints < m_currentAAUnspent) {
+    m_currentAApts += m_currentAAUnspent - altexp->aapoints;
   }
-  else
-  {
-    expIncrement = 0;
-  }
+  m_currentAAUnspent = altexp->aapoints;
+  m_currentAltExp = scaledAltExp;
 
-  m_currentAApts = altexp->aapoints;
-  m_currentAltExp = realExp;
-
-  emit expAltChangedInt(m_currentAltExp, 0, 15000000);
+  emit expAltChangedInt(m_currentAltExp, 0, 100000);
 
   emit newAltExp(expIncrement, m_currentAltExp, altexp->altexp,
-		 15000000, 15000000/330, m_currentAApts);
+		 100000, 100000/100, m_currentAApts);
 
   if (showeq_params->savePlayerState)
     savePlayerState();
