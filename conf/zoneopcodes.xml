@@ -634,7 +634,7 @@
     <opcode id="ffff" name="OP_VeteranRewards" updated="04/18/11">
         <comment></comment>
     </opcode>
-    <opcode id="0xa30a" name="OP_SendAATable" updated="05/03/26">
+    <opcode id="a30a" name="OP_SendAATable" updated="05/03/26">
         <comment>Static AA ability-definition menu sent S&gt;C on zone-in. Variable-length: u32 count + count records of base 44B + per-record prereq trailer.</comment>
     </opcode>
     <opcode id="ffff" name="OP_SendAAStats" updated="08/12/09">
@@ -809,6 +809,9 @@
     <opcode id="ffff" name="OP_TributeInfo" updated="02/13/07">
         <comment>Tribute information</comment>
     </opcode>
+    <opcode id="a1e1" name="OP_RespondAA" updated="05/03/26">
+        <comment>Server response to OP_AAAction; carries 12B records (ability_id, rank, _) for player's full AA list incl. auto-grants and purchased ranks</comment>
+    </opcode>
 
 <!-- OLD OPCODES. These haven't been mapped in a post 1/26/2005 world. If you
      can find any of these in the current stream, please update them and let
@@ -935,9 +938,6 @@
         <comment>Client requesting zone objects</comment>
     </opcode>
     <opcode id="ffff" name="OP_Translocate" updated="05/26/04">
-        <comment></comment>
-    </opcode>
-    <opcode id="ffff" name="OP_RespondAA" updated="05/26/04">
         <comment></comment>
     </opcode>
     <opcode id="ffff" name="OP_IncreaseStats" updated="05/26/04">

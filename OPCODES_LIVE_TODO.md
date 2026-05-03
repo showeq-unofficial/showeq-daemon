@@ -237,8 +237,8 @@ Confirmation bar: see `feedback_opcode_disambiguation.md` — count + zero-compe
 
 ### AAs (4)
 - [x] OP_AAAction — `0x773e` (2026-05-02)
-- [ ] OP_RespondAA
-- [ ] OP_SendAAStats
+- [x] OP_RespondAA — `0xa1e1` (2026-05-03) — per-spend response carrying the player's full AA list
+- [ ] OP_SendAAStats — likely obsolete on current Live; not observed firing in `aa_point.vpk`
 - [x] OP_SendAATable — `0xa30a` (2026-05-03) — static ability-definition menu, NOT purchased ranks
 
 ### DZ / Expedition (4)
@@ -665,6 +665,64 @@ Capture: existing `aa_point.vpk` (the same one that nailed OP_AAAction). Method:
 - `0x2e6e` (1603 B, S>C, n=4): structured but starts `(8,0x37,10,1,10,…)` — looks like spawn / NPC reference rather than ability defs.
 
 **Round-N ideas**:
-- Hunt the **actual** "purchased-ranks" opcode. Likely candidates: `OP_SendAAStats` (companion to OP_SendAATable, also in the legacy XML), or an opcode that fires only when the player has non-zero spent points (capture a fresh-character session vs. a 60-with-ranks session and compare opcode sets).
-- `0xa1e1` is suspicious enough to deserve its own follow-up — investigate what zone-in packet carries the auto-grant id list with a per-fire counter. Possibly a "zone snapshot summary" or progress meter.
 - The 284-byte trailing summary block in OP_SendAATable maps glyph/mastery ability ids onto their parent series. Field semantics within each row are unconfirmed — future work if the daemon ever needs to render the late-game AA tabs.
+
+### 2026-05-03 — OP_RespondAA = 0xa1e1 (per-spend AA snapshot)
+
+Capture: same `aa_point.vpk`. Method: timestamp correlation via `--list-events`.
+
+The 2026-05-03 OP_SendAATable entry called out `0xa1e1` as a suspicious 4-fire S>C opcode that carried the auto-grant id list with a per-fire counter. The hypothesis was "per-zone-in zone snapshot." Wrong: it fires **per OP_AAAction spend event**, not per zone-in. Timestamp evidence:
+
+| event | times relative to PP fire 1 (ms) |
+|-------|----------------------------------|
+| OP_PlayerProfile (S>C 37108B) — zone-ins | 0, 98, 252, 353 |
+| OP_AAAction (C>S 16B) — spend events | 303, 305, 305, 306 |
+| `0xa1e1` (S>C 3628B) — 4 fires | 303, 305, 306, 306 |
+
+The four `0xa1e1` fires line up with the four `OP_AAAction` C>S spend events within ~1 ms — server's "spend confirmation" reply.
+
+**Payload layout** (validated against fires 1-4 of `aa_point.vpk`):
+
+| Offset | Type | Field |
+|--------|------|-------|
+| +0  | u32 | `total_purchased_ranks` (5, 6, 7, 8 across the four spends) |
+| +4  | u32 | duplicate of `total_purchased_ranks` |
+| +8  | u32 | `last_action_progress` (0, 1, 2, 3 — Run Speed rank as it tickles up) |
+| +12 | u32 | constant 5 in this capture |
+| +16 | u32[3] | zeros |
+| +28 onward | record[] | 12 B each: `(ability_id u32, rank u32, _ u32)` |
+
+Records observed in fire 4 (post-spend snapshot):
+
+```
+@ 28: (1000,    0, 0)   auto-grant
+@ 40: (15073,   0, 0)   auto-grant
+@ 52: (1371,    0, 0)   vet-reward auto-grant
+... (1372-1377 same shape)
+@136: (4665,    0, 0)   auto-grant
+@148: (4700,    0, 0)
+@160: (8000,    0, 0)
+@172: (9000,    0, 0)
+@184: (163,     5, 0)   Mend Pet rank-5 (purchased!)  ← was already (163,5) in fire 1; bulk buy preceded fire 1
+@196: (64,      3, 0)   Innate Run Speed rank-3 (purchased!) ← grew (62,1)→(63,2)→(64,3) across fires 2-4
+@208 onward: zeros (empty slots up to ~3628 B)
+```
+
+Auto-grant entries match the OP_PlayerProfile `aa_array` set exactly. Purchased entries carry the rank count in the `rank` field (vs. `rank=0` for auto-grants). The `ability_id` field is the AA_Ability id (per-rank id from OP_SendAATable's record[0]) of the *highest* rank purchased, not the AA_Skill id used by OP_AAAction (which had ability=58 for Mend Pet, ability=13 for Run Speed).
+
+Cross-validation: at fire 1 (after Mend Pet × 5 bulk buy, before any Run Speed), the (163, 5) Mend Pet entry is already present and the Run Speed slot is `(0, 0)`. Fire 2-4 walk the Run Speed slot from `(62, 1)` → `(63, 2)` → `(64, 3)` as each individual rank is bought.
+
+**Implication for the daemon**: OP_RespondAA is a per-action delta, not a per-zone-in snapshot. A daemon that connects mid-session won't see the player's purchased AAs unless they make another spend. There's no zone-in opcode in this capture that carries the per-ability rank breakdown — OP_PlayerProfile gives totals (`aa_spent`, `aa_unspent`, `aa_assigned`) and the auto-grant `aa_array`, but not the per-ability list.
+
+**Negative result on OP_SendAAStats**: methodically checked all n=4 S>C zone-stream opcodes in `aa_point.vpk` for fire-3-vs-fire-4 (pre-spend vs post-spend zone-in) payload diffs:
+
+- 0x7932 (804/100 alternating) — zone-area-specific data, not AA state
+- 0xb634 (1/5 alternating, 1 byte) — too small
+- 0xe44a (24 B all fires) — values like (56320, 900000, 180000, 6, 0, 0) and (3087136512, 900000, …) don't fit AA shape, look like a session/timer field
+- All other n=4 zone-stream S>C opcodes are bit-identical across fires (static reference data)
+
+So **OP_SendAAStats does not fire on zone-in in current Live**, at least not as a separate opcode. The 2009 reference may be obsolete; the per-spend OP_RespondAA mechanism appears to subsume it. Marking OP_SendAAStats with that note in the tier list rather than `[x]`.
+
+**Round-N ideas**:
+- Capture a fresh login (just-zoned-in, mid-session reconnect) where the player already has spent AAs, to verify nothing else carries the per-ability breakdown. If confirmed, the daemon's "AA tab" view is fundamentally limited to in-session spends unless we also persist the OP_RespondAA snapshot to disk like the item cache.
+- Decode the leading 4 u32s of `0xa1e1` more carefully — `last_action_progress` might actually be "rank within most-recent series" and the constant `5` at +12 might be a per-character constant worth understanding.
