@@ -70,6 +70,21 @@ target_compile_options(itempacket_test PRIVATE
 
 add_test(NAME itempacket_test COMMAND itempacket_test)
 
+add_executable(itemcache_test
+  itemcache_test.cpp
+)
+
+target_link_libraries(itemcache_test PRIVATE
+  seq-daemon-core
+  Qt${QT_VERSION_MAJOR}::Test
+)
+
+target_compile_options(itemcache_test PRIVATE
+  -Wall
+)
+
+add_test(NAME itemcache_test COMMAND itemcache_test)
+
 if(SEQ_USE_RUST)
   add_executable(rustdecode_test
     rustdecode_test.cpp

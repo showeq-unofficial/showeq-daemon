@@ -17,6 +17,7 @@ class CategoryMgr;
 class CombatRouter;
 class FileSink;
 class FilterMgr;
+class ItemCache;
 class OpcodeStatsLogger;
 class GroupMgr;
 class GuildMgr;
@@ -127,6 +128,7 @@ private:
     SpellShell*                     m_spellShell    = nullptr;
     GroupMgr*                       m_groupMgr      = nullptr;
     CategoryMgr*                    m_categoryMgr   = nullptr;
+    ItemCache*                      m_itemCache     = nullptr;
     MessageFilters*                 m_messageFilters = nullptr;
     Messages*                       m_messages       = nullptr;
     MessageShell*                   m_messageShell   = nullptr;

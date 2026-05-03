@@ -18,6 +18,7 @@
 #include "filtermgr.h"
 #include "group.h"
 #include "guild.h"
+#include "itemcache.h"
 #include "mapcore.h"
 #include "messagefilter.h"
 #include "messages.h"
@@ -257,6 +258,18 @@ bool DaemonApp::start()
     // with a default set so the list is never empty.
     m_categoryMgr = new CategoryMgr(this, "categoryMgr");
 
+    // Daemon-side itemId -> ItemTemplate cache. Persisted as JSON under
+    // ~/.showeq/daemon/itemcache.json so worn-gear stats survive across
+    // daemon restarts (we don't see OP_ItemPacket for items the user
+    // hasn't moved this session). Wiring of the OP_ItemPacket signal
+    // happens in wireZoneMgr() once m_packet is alive.
+    m_itemCache = new ItemCache(this);
+    {
+        const QFileInfo cacheFile = m_dataLocationMgr->findWriteFile(
+            "daemon", "itemcache.json", true, true);
+        m_itemCache->setStorePath(cacheFile.absoluteFilePath());
+    }
+
     // PrefsBroker is the curated XMLPreferences <-> wire bridge. Constructed
     // after pSEQPrefs is initialized but before any client can connect, so
     // the very first PrefsSnapshot reflects the on-disk state.
@@ -484,6 +497,15 @@ void DaemonApp::wireZoneMgr()
                        "playerSelfPosStruct", SZC_Match,
                        m_player,
                        SLOT(playerUpdateSelf(const uint8_t*, size_t, uint8_t)));
+
+    // OP_ItemPacket carries one fully-serialized item per fire. Feed
+    // every parse into the daemon's itemId -> ItemTemplate cache.
+    // SZC_None because the payload is variable-length; the parser
+    // validates internally.
+    m_packet->connect2("OP_ItemPacket", SP_Zone, DIR_Server,
+                       "uint8_t", SZC_None,
+                       m_itemCache,
+                       SLOT(onItemPacket(const uint8_t*, size_t, uint8_t)));
 }
 
 void DaemonApp::wireSpawnShell()
