@@ -180,6 +180,34 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
         m_prefsBroker->apply(env.set_pref().pref());
         return;
     }
+    if (env.has_rename_spawn_point() && m_spawnMonitor) {
+        // Look up by SpawnPoint::key (decimal x|y|z) — same key the
+        // daemon ships in SpawnPoint.key. Renames on candidate points
+        // (m_spawns, not yet promoted to m_points) are intentionally
+        // dropped: the candidate pool churns until two pops at the
+        // same coords promote it, and labels assigned mid-promotion
+        // would race with the legacy file format that only persists
+        // promoted points. Empty `name` clears the label, matching
+        // the showeq-c rename dialog where the user could clear the
+        // text field before clicking OK.
+        const auto& rn = env.rename_spawn_point();
+        const QString key = QString::fromStdString(rn.key());
+        const QString newName = QString::fromStdString(rn.name());
+        const auto& points = m_spawnMonitor->spawnPoints();
+        auto it = points.find(key);
+        if (it != points.end()) {
+            m_spawnMonitor->setName(it.value(), newName);
+            // Write-through to <zone>.sp. Legacy waited for the next
+            // zoneChanged to flush; we'd rather a single rename
+            // survive a daemon crash. saveSpawnPoints() short-circuits
+            // when m_modified is false, so a no-op rename is cheap.
+            m_spawnMonitor->saveSpawnPoints();
+        } else {
+            qInfo("rename_spawn_point: unknown key %s",
+                  qUtf8Printable(key));
+        }
+        return;
+    }
     if (env.has_list_devices()) {
         // Session-scoped reply, not broadcast — the picker is per-tab UI.
         // pcap_findalldevs walks /sys/class/net (or platform equivalent);

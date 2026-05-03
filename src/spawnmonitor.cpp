@@ -145,10 +145,16 @@ void SpawnMonitor::setName(const SpawnPoint* csp, const QString& name)
 {
   if (csp == NULL)
     return;
-  
+
   SpawnPoint* sp = (SpawnPoint*)csp;
   sp->setName(name);
   setModified(sp);
+  // Legacy showeq mutated the in-memory point and waited for the next
+  // zoneChanged/zoneEnd to trigger saveSpawnPoints + relied on its own
+  // SpawnPointList::update() refresh. The daemon split has multiple
+  // headless consumers — fan the change out so every connected client
+  // sees the new label without waiting for a full snapshot.
+  emit spawnPointUpdated(sp);
 }
 
 void SpawnMonitor::setModified( SpawnPoint* changedSp )
