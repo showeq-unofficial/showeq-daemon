@@ -154,7 +154,7 @@ Point3D<_T>::Point3D(_T x, _T y, _T z)
 
 // obligatory virtual destructor
 template <class _T> inline
-Point3D<_T>::~Point3D<_T>()
+Point3D<_T>::~Point3D()
 {
 }
 
