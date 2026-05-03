@@ -350,6 +350,15 @@ void Player::loadProfile(const playerProfileStruct& player)
   m_currentAApts = player.aa_spent;
   m_currentAAUnspent = player.aa_unspent;
 
+  // Sparse list of purchased AAs. aa_array is dense (zeros in unused slots)
+  // and includes auto-grants at value=0; filter both out — clients that
+  // care about auto-grants can synthesize them from a static list.
+  m_purchasedAA.clear();
+  for (int i = 0; i < MAX_AA; ++i) {
+    if (player.aa_array[i].AA == 0 || player.aa_array[i].value == 0) continue;
+    m_purchasedAA.push_back({player.aa_array[i].AA, player.aa_array[i].value});
+  }
+
   // Buffs
   int buffnumber;
   const struct spellBuff *buff;
@@ -859,6 +868,20 @@ void Player::zoneChanged()
 {
   reset();
   clear();
+}
+
+// spawnStruct.curHp is a 0-100 percentage and Spawn::update hardcodes
+// maxHP=100; for the local PC, HP/maxHP are authoritative from
+// OP_HPUpdate (raw values). Snapshot and restore so a spawnStruct (e.g.
+// the duplicate zoneEntry packets fired after zoning) can't overwrite
+// a real raw HP read with a percentage.
+void Player::update(const spawnStruct* s)
+{
+  const int32_t savedCurHP = HP();
+  const int32_t savedMaxHP = maxHP();
+  Spawn::update(s);
+  setHP(savedCurHP);
+  setMaxHP(savedMaxHP);
 }
 
 void Player::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)

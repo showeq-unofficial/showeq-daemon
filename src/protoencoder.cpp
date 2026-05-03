@@ -276,6 +276,15 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
         s->set_skill_id(id);
         s->set_value(v);
     }
+
+    // Purchased AAs (rank > 0). Auto-grants (rank=0) are pre-filtered
+    // in Player::loadProfile so the client only sees abilities the
+    // player actually owns ranks of.
+    for (const auto& aa : p.getPurchasedAA()) {
+        auto* e = out->add_purchased_aa();
+        e->set_ability_id(aa.abilityId);
+        e->set_rank(aa.rank);
+    }
 }
 
 void fillGroupUpdate(seq::v1::GroupUpdate* out, GroupMgr& g)
@@ -405,6 +414,17 @@ void fillItemTotals(seq::v1::ItemCacheTotals* out, const ItemCache& cache)
         out->add_resists(t.resists[i]);
     }
     out->set_corruption(t.corruption);
+}
+
+void fillWornSet(seq::v1::WornSet* out, const ItemCache& cache)
+{
+    auto worn = cache.wornSlots();
+    auto slotIndices = worn.keys();
+    std::sort(slotIndices.begin(), slotIndices.end());
+    for (int slot : slotIndices) {
+        out->add_slot_indices(slot);
+        out->add_item_ids(worn.value(slot));
+    }
 }
 
 } // namespace seq::encode

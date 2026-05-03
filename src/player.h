@@ -25,6 +25,7 @@
 
 #include <QObject>
 #include <QMetaType>
+#include <QVector>
 
 #include "seqcolor.h"
 
@@ -117,6 +118,7 @@ public:
    void setRealName(const QString& name) { m_realName = name; }
 
    virtual void killSpawn();
+   void update(const spawnStruct* s) override;
 
    // ZBTEMP: compatibility code
    uint16_t getPlayerID() const { return id(); }
@@ -145,6 +147,11 @@ public:
    uint32_t getCurrentAltExp() const { return m_currentAltExp; }
    uint16_t getCurrentAApts() const { return m_currentAApts; }
    uint32_t getCurrentAAUnspent() const { return m_currentAAUnspent; }
+   // Sparse list of AAs the player has purchased (rank > 0). Populated
+   // from charProfileStruct.aa_array on each OP_PlayerProfile; auto-grant
+   // entries (value=0) are filtered out. Empty until the first PP arrives.
+   struct PurchasedAA { uint32_t abilityId; uint32_t rank; };
+   const QVector<PurchasedAA>& getPurchasedAA() const { return m_purchasedAA; }
    uint16_t getFatigue() const { return m_fatigue; }
    uint32_t getEnduranceCur() const { return m_enduranceCur; }
    uint32_t getEnduranceMax() const { return m_enduranceMax; }
@@ -238,6 +245,7 @@ public:
   uint8_t m_defaultLevel;
   uint32_t m_playerSkills[MAX_KNOWN_SKILLS];
   uint8_t m_playerLanguages[MAX_KNOWN_LANGS];
+  QVector<PurchasedAA> m_purchasedAA;
   
   uint16_t m_plusMana;
   uint16_t m_plusHP;
