@@ -121,7 +121,7 @@ for vpk in "${vpks[@]}"; do
             --replay "${vpk}" \
             --config-dir "${CONF_DIR}" \
             --record-golden "${rust_check}" \
-            --rust-opcodes OP_MobUpdate \
+            --rust-opcodes OP_MobUpdate,OP_DeleteSpawn \
             --listen "127.0.0.1:${PORT}" >>"${log}" 2>&1; then
         echo "FAIL ${name} [Rust] (daemon exited non-zero — see ${log})"
         fail=$((fail+1))

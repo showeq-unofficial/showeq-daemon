@@ -25,6 +25,9 @@ private slots:
     void decode_mob_update_matches_cpp_path();
     void decode_mob_update_negative_coords();
     void decode_mob_update_bad_length_returns_not_ok();
+    void decode_delete_spawn_matches_cpp_path();
+    void decode_delete_spawn_max_id();
+    void decode_delete_spawn_bad_length_returns_not_ok();
 };
 
 // Build a 14-byte spawnPositionUpdate buffer the same way the wire
@@ -87,6 +90,48 @@ void RustDecodeTest::decode_mob_update_bad_length_returns_not_ok()
 {
     const uint8_t buf[13] = {0};
     auto out = seq::rust::decode_mob_update(
+        rust::Slice<const uint8_t>{buf, sizeof(buf)});
+    QVERIFY(!out.ok);
+}
+
+void RustDecodeTest::decode_delete_spawn_matches_cpp_path()
+{
+    deleteSpawnStruct s{};
+    s.spawnId = 0xCAFEBABE;
+    QByteArray buf(sizeof(deleteSpawnStruct), '\0');
+    std::memcpy(buf.data(), &s, sizeof(deleteSpawnStruct));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+
+    const deleteSpawnStruct* cpp =
+        reinterpret_cast<const deleteSpawnStruct*>(data);
+    auto out = seq::rust::decode_delete_spawn(
+        rust::Slice<const uint8_t>{data, sizeof(deleteSpawnStruct)});
+
+    QVERIFY(out.ok);
+    QCOMPARE(out.spawn_id, cpp->spawnId);
+}
+
+void RustDecodeTest::decode_delete_spawn_max_id()
+{
+    // u32 max — guards against an accidental sign-extension elsewhere
+    // in the FFI shim.
+    deleteSpawnStruct s{};
+    s.spawnId = 0xFFFFFFFFu;
+    QByteArray buf(sizeof(deleteSpawnStruct), '\0');
+    std::memcpy(buf.data(), &s, sizeof(deleteSpawnStruct));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+
+    auto out = seq::rust::decode_delete_spawn(
+        rust::Slice<const uint8_t>{data, sizeof(deleteSpawnStruct)});
+
+    QVERIFY(out.ok);
+    QCOMPARE(out.spawn_id, 0xFFFFFFFFu);
+}
+
+void RustDecodeTest::decode_delete_spawn_bad_length_returns_not_ok()
+{
+    const uint8_t buf[3] = {0};
+    auto out = seq::rust::decode_delete_spawn(
         rust::Slice<const uint8_t>{buf, sizeof(buf)});
     QVERIFY(!out.ok);
 }

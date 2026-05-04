@@ -1606,9 +1606,29 @@ void SpawnShell::removeSpawn(const uint8_t* data, size_t len, uint8_t dir)
 
 void SpawnShell::deleteSpawn(const uint8_t* data)
 {
-  const deleteSpawnStruct* delspawn = (const deleteSpawnStruct*)data;
+  uint32_t spawnId;
+
+#ifdef SEQ_USE_RUST
+  if (m_useRustDeleteSpawn) {
+    auto out = seq::rust::decode_delete_spawn(
+        rust::Slice<const uint8_t>{data, sizeof(deleteSpawnStruct)});
+    if (out.ok) {
+      spawnId = out.spawn_id;
+    } else {
+      // SZC_Match guarantees this can't happen, but fall through to
+      // the C++ path defensively rather than dropping the packet.
+      const deleteSpawnStruct* delspawn = (const deleteSpawnStruct*)data;
+      spawnId = delspawn->spawnId;
+    }
+  } else
+#endif
+  {
+    const deleteSpawnStruct* delspawn = (const deleteSpawnStruct*)data;
+    spawnId = delspawn->spawnId;
+  }
+
 #ifdef SPAWNSHELL_DIAG
-  seqDebug("SpawnShell::deleteSpawn(id=%d)", delspawn->spawnId);
+  seqDebug("SpawnShell::deleteSpawn(id=%d)", spawnId);
 #endif
   if (m_posDeadSpawnIDs < (MAX_DEAD_SPAWNIDS - 1))
     m_posDeadSpawnIDs++;
@@ -1618,9 +1638,9 @@ void SpawnShell::deleteSpawn(const uint8_t* data)
   if (m_cntDeadSpawnIDs < MAX_DEAD_SPAWNIDS)
     m_cntDeadSpawnIDs++;
 
-  m_deadSpawnID[m_posDeadSpawnIDs] = delspawn->spawnId;
+  m_deadSpawnID[m_posDeadSpawnIDs] = spawnId;
 
-  deleteItem(tSpawn, delspawn->spawnId);
+  deleteItem(tSpawn, spawnId);
 }
 
 void SpawnShell::killSpawn(const uint8_t* data)

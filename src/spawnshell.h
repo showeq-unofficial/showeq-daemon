@@ -167,6 +167,8 @@ public slots:
    // off by default; set from DaemonApp when --rust-opcodes contains
    // OP_MobUpdate.
    void setUseRustMobUpdate(bool on) { m_useRustMobUpdate = on; }
+   // Stage A+1 — same pattern for OP_DeleteSpawn.
+   void setUseRustDeleteSpawn(bool on) { m_useRustDeleteSpawn = on; }
 
  protected:
    void refilterSpawns(spawnItemType type);
@@ -194,8 +196,10 @@ public slots:
    ItemMap m_drops;
    ItemMap m_doors;
 
-   // Stage A Rust-decoder gate — see setUseRustMobUpdate().
-   bool m_useRustMobUpdate = false;
+   // Stage A / A+1 Rust-decoder gates — see setUseRustMobUpdate() /
+   // setUseRustDeleteSpawn().
+   bool m_useRustMobUpdate  = false;
+   bool m_useRustDeleteSpawn = false;
    ItemMap m_players;
 
    // timer for saving spawns

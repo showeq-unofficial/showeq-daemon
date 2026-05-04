@@ -594,6 +594,8 @@ void DaemonApp::wireSpawnShell()
                        "deleteSpawnStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(deleteSpawn(const uint8_t*)));
+    m_spawnShell->setUseRustDeleteSpawn(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_DeleteSpawn")));
     m_packet->connect2("OP_SpawnRename", SP_Zone, DIR_Server,
                        "spawnRenameStruct", SZC_Match,
                        m_spawnShell,
