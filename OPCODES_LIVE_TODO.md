@@ -6,6 +6,8 @@ Target server: **live EQ** (Tasks/AA/DZ/Tribute/Fellowship/Marketplace/Mercenari
 
 Confirmation bar: see `feedback_opcode_disambiguation.md` — count + zero-competitor over n>=5; n=2-3 is enough if `--opcode-stats` reports no other unknowns at the target size+direction.
 
+Checkbox legend: `[ ]` unresolved, `[x]` resolved, `[~]` superseded / obsolete on current Live (won't be hunted; eligible for batch removal — `grep '\[~\]'` to list).
+
 ---
 
 ## Tier 1 — Core gameplay loop (79)
@@ -132,7 +134,7 @@ Confirmation bar: see `feedback_opcode_disambiguation.md` — count + zero-compe
 ### Inventory / items (8)
 - [x] OP_MoveItem = 0xcb03 (C>S, 28B; resolved 2026-05-02)
 - [x] OP_ItemPacket = 0x3f3b (S>C, variable; resolved 2026-05-02)
-- [ ] OP_ItemPlayerPacket — appears obsolete on current Live; per-item OP_ItemPacket fires now cover both bulk-on-zone-in and per-move delivery
+- [~] OP_ItemPlayerPacket — appears obsolete on current Live; per-item OP_ItemPacket fires now cover both bulk-on-zone-in and per-move delivery
 - [ ] OP_ItemLinkClick
 - [ ] OP_ItemLinkResponse
 - [ ] OP_ClickInventory
@@ -238,7 +240,7 @@ Confirmation bar: see `feedback_opcode_disambiguation.md` — count + zero-compe
 ### AAs (4)
 - [x] OP_AAAction — `0x773e` (2026-05-02)
 - [x] OP_RespondAA — `0xa1e1` (2026-05-03) — per-spend response carrying the player's full AA list
-- [ ] OP_SendAAStats — likely obsolete on current Live; not observed firing in `aa_point.vpk`
+- [~] OP_SendAAStats — likely obsolete on current Live; not observed firing in `aa_point.vpk`
 - [x] OP_SendAATable — `0xa30a` (2026-05-03) — static ability-definition menu, NOT purchased ranks
 
 ### DZ / Expedition (4)
