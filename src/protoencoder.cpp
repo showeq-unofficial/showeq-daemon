@@ -47,13 +47,19 @@ static seq::v1::SpawnType typeFromItem(const Item& it)
     return seq::v1::NPC;
 }
 
+// X and Y are negated on the wire so clients can render coordinates
+// directly in screen convention (+X right = East, +Y down = South).
+// EQ's runtime convention has +X = West and +Y = North, the inverse.
+// Z (height) is the same in both conventions and ships raw. Velocity
+// (vx, vy) lives in the same coord system as position, so it gets the
+// same negation. See seq/v1/events.proto Pos for the wire contract.
 void fillPos(seq::v1::Pos* out, const Spawn& in)
 {
-    out->set_x(in.x());
-    out->set_y(in.y());
+    out->set_x(-in.x());
+    out->set_y(-in.y());
     out->set_z(in.z());
-    out->set_vx(in.deltaX());
-    out->set_vy(in.deltaY());
+    out->set_vx(-in.deltaX());
+    out->set_vy(-in.deltaY());
     out->set_vz(in.deltaZ());
 
     // Convert the legacy heading representation to degrees 0..359.
@@ -108,10 +114,12 @@ void fillSpawn(seq::v1::Spawn* out, const Item& it,
         // Drops, doors: no Spawn state, just position on the Item base.
         // Their names don't carry the underscore/instance-suffix
         // convention so the raw Item::name is fine to send.
+        // X/Y negation per the screen-convention contract documented in
+        // fillPos above.
         out->set_name(it.name().toStdString());
         auto* pos = out->mutable_pos();
-        pos->set_x(it.x());
-        pos->set_y(it.y());
+        pos->set_x(-it.x());
+        pos->set_y(-it.y());
         pos->set_z(it.z());
     }
 
@@ -149,10 +157,13 @@ void fillSpawn(seq::v1::Spawn* out, const Item& it,
 
 void fillMapGeometry(seq::v1::MapGeometry* out, const MapData& map)
 {
-    out->set_min_x(map.minX());
-    out->set_min_y(map.minY());
-    out->set_max_x(map.maxX());
-    out->set_max_y(map.maxY());
+    // Bounds swap min<->max under negation: if x ranges over [lo, hi]
+    // then -x ranges over [-hi, -lo]. See screen-convention contract
+    // documented in fillPos above.
+    out->set_min_x(-map.maxX());
+    out->set_min_y(-map.maxY());
+    out->set_max_x(-map.minX());
+    out->set_max_y(-map.minY());
 
     // MapData is const-correct, but mapLayer() is non-const because layers
     // are lazily created during editing. We only read here, so cast away.
@@ -171,8 +182,8 @@ void fillMapGeometry(seq::v1::MapGeometry* out, const MapData& map)
             const int n = line->size();
             for (int p = 0; p < n; ++p) {
                 const QPoint pt = line->at(p);
-                out_line->add_x(pt.x());
-                out_line->add_y(pt.y());
+                out_line->add_x(-pt.x());
+                out_line->add_y(-pt.y());
             }
             if (line->heightSet()) {
                 out_line->add_z(line->z());
@@ -188,8 +199,8 @@ void fillMapGeometry(seq::v1::MapGeometry* out, const MapData& map)
             const int n = line->size();
             for (int p = 0; p < n; ++p) {
                 const MapPoint& pt = line->point(p);
-                out_line->add_x(pt.x());
-                out_line->add_y(pt.y());
+                out_line->add_x(-pt.x());
+                out_line->add_y(-pt.y());
                 out_line->add_z(pt.z());
             }
         }
@@ -199,8 +210,8 @@ void fillMapGeometry(seq::v1::MapGeometry* out, const MapData& map)
             auto* out_loc = out->add_locations();
             out_loc->set_name(loc->name().toStdString());
             out_loc->set_color(loc->colorName().toStdString());
-            out_loc->set_x(loc->x());
-            out_loc->set_y(loc->y());
+            out_loc->set_x(-loc->x());
+            out_loc->set_y(-loc->y());
             out_loc->set_z(loc->z());
             out_loc->set_z_valid(loc->heightSet());
             out_loc->set_layer(i);
@@ -347,8 +358,12 @@ void fillSpawnPoint(seq::v1::SpawnPoint* out, const SpawnPoint& sp,
                     bool deterministic)
 {
     out->set_key(sp.key().toStdString());
-    out->set_x(sp.x());
-    out->set_y(sp.y());
+    // X/Y negation per the screen-convention contract documented in
+    // fillPos. The `key` string still uses the legacy decimal x|y|z
+    // encoding (raw EQ coords) — opaque to the client, used by the
+    // daemon as a stable hash key.
+    out->set_x(-sp.x());
+    out->set_y(-sp.y());
     out->set_z(sp.z());
     out->set_name(sp.name().toStdString());
     out->set_last(sp.last().toStdString());

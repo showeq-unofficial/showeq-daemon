@@ -85,13 +85,15 @@ void ProtoEncoderTest::fillSpawn_npc()
     QCOMPARE(out.guild_id(), 0xffffu);
     QVERIFY(!out.is_gm());
 
-    // Position embedded as Pos sub-message.
+    // Position embedded as Pos sub-message. X/Y/vx/vy are negated by
+    // fillPos so the wire is in screen convention; Z and vz pass
+    // through. See seq/v1/events.proto Pos for the contract.
     QVERIFY(out.has_pos());
-    QCOMPARE(out.pos().x(), 123);
-    QCOMPARE(out.pos().y(), -456);
+    QCOMPARE(out.pos().x(), -123);
+    QCOMPARE(out.pos().y(), 456);
     QCOMPARE(out.pos().z(), 78);
-    QCOMPARE(out.pos().vx(), 1);
-    QCOMPARE(out.pos().vy(), 2);
+    QCOMPARE(out.pos().vx(), -1);
+    QCOMPARE(out.pos().vy(), -2);
     QCOMPARE(out.pos().vz(), 3);
 }
 
@@ -155,8 +157,9 @@ void ProtoEncoderTest::fillSpawn_drop()
     QCOMPARE(out.type(), seq::v1::DROP);
     QCOMPARE(QString::fromStdString(out.name()), QString("Pile_of_Coins"));
     QVERIFY(out.has_pos());
-    QCOMPARE(out.pos().x(), 10);
-    QCOMPARE(out.pos().y(), 20);
+    // X/Y negated to screen convention; Z passes through.
+    QCOMPARE(out.pos().x(), -10);
+    QCOMPARE(out.pos().y(), -20);
     QCOMPARE(out.pos().z(), 30);
     // Drop branch doesn't fill velocity / heading / level / hp.
     QCOMPARE(out.pos().vx(), 0);
@@ -175,7 +178,8 @@ void ProtoEncoderTest::fillSpawn_door()
 
     QCOMPARE(out.id(), 7u);
     QCOMPARE(out.type(), seq::v1::DOOR);
-    QCOMPARE(out.pos().x(), -100);
+    // X negated: input -100 → wire 100.
+    QCOMPARE(out.pos().x(), 100);
 }
 
 // Verifies the 8-bit heading → degrees formula in fillPos for non-Player
