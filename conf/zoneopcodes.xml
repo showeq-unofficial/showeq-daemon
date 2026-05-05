@@ -58,7 +58,7 @@
         <comment>MobUpdateCode</comment>
         <payload dir="both" typename="spawnPositionUpdate" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_DeleteSpawn">
+    <opcode id="6dba" name="OP_DeleteSpawn" updated="05/04/26">
         <comment>DeleteSpawnCode</comment>
         <payload dir="both" typename="deleteSpawnStruct" sizechecktype="match"/>
     </opcode>
@@ -291,7 +291,7 @@
         <comment>Leadership AA Exp Update</comment>
         <payload dir="server" typename="leadExpUpdateStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_MovementHistory">
+    <opcode id="9e21" name="OP_MovementHistory" updated="05/04/26">
         <comment>Movement history for speed/movement hack detection</comment>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
@@ -809,7 +809,7 @@
     <opcode id="ffff" name="OP_TributeInfo">
         <comment>Tribute information</comment>
     </opcode>
-    <opcode id="ffff" name="OP_RespondAA">
+    <opcode id="fb0a" name="OP_RespondAA" updated="05/04/26">
         <comment>Server response to OP_AAAction; carries 12B records (ability_id, rank, _) for player's full AA list incl. auto-grants and purchased ranks</comment>
     </opcode>
 

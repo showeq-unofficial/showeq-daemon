@@ -62,10 +62,10 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_ClientUpdate — playerSpawnPosStruct (server)
 - [x] OP_NpcMoveUpdate — uint8_t (server, variable) — `0x917c` (2026-05-04)
 - [x] OP_MobUpdate — spawnPositionUpdate (both) — `0x4a4f` (2026-05-04)
-- [ ] OP_MovementHistory — uint8_t (client, variable)
+- [x] OP_MovementHistory — uint8_t (client, variable) — `0x9e21` (2026-05-04)
 
 ### Spawn lifecycle / appearance (5)
-- [ ] OP_DeleteSpawn — deleteSpawnStruct (both)
+- [x] OP_DeleteSpawn — deleteSpawnStruct (both) — `0x6dba` (2026-05-04)
 - [x] OP_RemoveSpawn — removeSpawnStruct (both) — `0xeb88` (2026-05-04)
 - [ ] OP_Death — newCorpseStruct (server)
 - [ ] OP_SpawnAppearance — spawnAppearanceStruct (both)
@@ -123,7 +123,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 ### Alternate Advancement (3)
 - [x] OP_SendAATable — *(static ability-definition menu)* — `0xce3d` (2026-05-04)
 - [ ] OP_AAAction
-- [ ] OP_RespondAA — *(per-spend response with full AA list)*
+- [x] OP_RespondAA — *(per-spend response with full AA list)* — `0xfb0a` (2026-05-04)
 
 ---
 
@@ -248,6 +248,27 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
   - 0xa958: `ae 5d 2b f4  8b 38 01 00  e9 0e 00 00  89 1d 00 00  …`
 - Confidence: high for the **set** mapping (4 names → 4 IDs, byte sizes constrain Exe→64b uniquely). Medium-high for the spell/base/skillcaps individual mapping within the 2056b trio: relies on the legacy declaration-order convention being preserved on Test, which is a reasonable but unverified assumption. Re-verify after the next capture by checking a session log for the same fire order.
 - **Re-verified 2026-05-04 against `tests/replay/test-login-2.vpk`**: same fire order (`0x2de1 → 0x289c → 0xa958` for the 2056b trio, `0x44d9` paired with SkillCaps in the next ms) reproduced in both login bursts of the new capture. The legacy-declaration-order disambiguation holds.
+
+### 2026-05-04 — OP_RespondAA = 0xfb0a
+- Capture: `tests/replay/test-zone-entry.vpk`. 53 fires.
+- Method: `--dump-payload 0xfb0a:`. Variable S>C, sizes 1000-17007 bytes.
+- Sample bytes: payload header (16 ASCII zeros + sentinels) followed by AA grant text: `"Frenzy of Conquest 1 Benefit"`, `"Veng/Drum/ImpDam/BA Benefit I"`, `"Improved Damage 01"`, etc. — the per-spend AA grant flavor matching OPCODES_LIVE_TODO.md's "OP_RespondAA — per-spend response carrying the player's full AA list".
+- Struct fit: `uint8_t` variable; payload is the player's full purchased-AA roster.
+- Ruled out: 0xce3d (175x same shape) is the *static menu* of all definitions; 0xfb0a fires far less and the strings are grant-flavored ("of Conquest", "Benefit I/II/III") rather than ability-definition flavored.
+
+### 2026-05-04 — OP_MovementHistory = 0x9e21
+- Capture: `tests/replay/test-zone-entry.vpk`. 132 fires.
+- Method: `--dump-payload 0x9e21:`. Variable C>S, sizes 18 / 35 / 52 / 273 / 426 / 2500 bytes.
+- Sample bytes (fire 1, 18b): `00 00 90 41  00 00 1f 43  00 00 d0 c1  03 2d ff 00 00 00` — three IEEE-754 floats `18.0, 159.0, -26.0` followed by spawn-id-like trailer. Subsequent larger fires show repeated 12-byte (xyz) blocks accumulating a movement path.
+- Struct fit: `uint8_t` (client, variable) per zoneopcodes.xml. Variable size + ASCII-recognizable position floats are the OP_MovementHistory signature (the legacy `0xdc5d` Live ID was confirmed via the same pattern in 2026-05-01).
+- Ruled out: 0xf8d1 (234x C>S fixed 42b with player spawn-id + sequence number) was the closest competitor at first glance, but its fixed size + sequence-counter layout doesn't fit MovementHistory's variable accumulating-path semantics. 0xf8d1 is a different per-tick client broadcast (status / autorun heartbeat), out of 73-list scope.
+
+### 2026-05-04 — OP_DeleteSpawn = 0x6dba
+- Capture: `tests/replay/test-zone-entry.vpk`. 15 fires.
+- Method: `--dump-payload 0x6dba:`. All fires S>C, all 4 bytes.
+- Sample bytes: `63 2d 02 0a`, `67 2d 5c 0a`, `5d 2d 08 0a` — varying spawn-id prefixes (0x2d63, 0x2d67, 0x2d5d) per fire = different mobs being despawned as the player moves through tutoriala/tutorialb.
+- Struct fit: `deleteSpawnStruct` is 4 bytes (u32 spawnId historically; Test appears to use u16 spawnId + 2 trailer bytes). Direction "both" per XML; 15 fires S>C-only here = the server informing the client of mob despawns.
+- Ruled out: removeSpawnStruct=5b (already taken by OP_RemoveSpawn=0xeb88); itemPacketStruct=4b (would carry item data, not spawn-id-like values); clientTargetStruct=4b (C>S target-set, wrong direction).
 
 ### 2026-05-04 — OP_NpcMoveUpdate = 0x917c
 - Capture: `tests/replay/test-zone-entry.vpk`. 108 fires across the tutoriala/tutorialb session.
