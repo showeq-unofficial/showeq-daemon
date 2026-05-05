@@ -19,7 +19,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_LogServer — `0xb537` (2026-05-04)
 - [x] OP_ApproveWorld — `0xb8cc` (2026-05-04)
 - [x] OP_EnterWorld — `0x9bdc` (2026-05-04)
-- [ ] OP_ExpansionInfo
+- [x] OP_ExpansionInfo — `0x1a00` (2026-05-05)
 - [x] OP_SendCharInfo — `0x84f6` (2026-05-04)
 - [ ] OP_ZoneServerInfo
 - [x] OP_WorldComplete — `0xfc46` (2026-05-04)
@@ -518,3 +518,10 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Char names redacted from this log per memory; the actual values match the user's actions in the session description.
 - OP_CharacterCreate (the C>S that submits race + class + stats + final name) is still unresolved here. Best lead: 0x2078 has 2 C>S 76b fires with character names at offset 0, but fire 1 has the new char's name and fire 2 has the *main* char's name from the next login session — fits a per-session "ZoneEntryPlayer" or "ApproveWorld with this char selected" init packet, not a one-shot create. The 0x1900 single S>C 952b fire (with the new char's name at offset 487) is the SERVER's char-create *response*, but the matching C>S create request is still unidentified from this capture.
 - OP_RandomNameGenerator may be absent on Test (client-side random generation) — no dedicated opcode found for the round-trip; the candidate names that flowed through OP_ApproveName were either client-generated locally or returned via OP_ApproveName itself. Worth marking `[~]` confirmed-absent if a future targeted capture (random-button-only, no submit) shows no new opcode.
+
+### 2026-05-05 — OP_ExpansionInfo = 0x1a00
+- Capture: `tests/replay/test-char-leader.vpk` (full-from-start session covering char create, 2 logins, group play).
+- Method: `--dump-payload 0x1a00:`. 2 fires S>C, both 84 bytes, **identical bytes across fires** = static account-level config sent per login.
+- Sample bytes: `00 00 00 00 ff ff ff ff ff ff ff ff … ff ff ff ff 00 00 00 00 …` — u32 header (zero), 11 × `0xffffffff` (all expansion flags set), then trailing zeros. The "all expansions unlocked" shape matches a Test account's typical entitlement.
+- Struct fit: 84b fixed = u32 header + ~11 u32 expansion flags + reserved zero space. Once-per-login, identical-payload signature is the ExpansionInfo signature; the legacy XML's "Which expansions user has" comment matches the shape.
+- Ruled out alternative: 0x066d (4 S>C 157b, structured array of 36 int32 with mixed `1` / `-1` values, 0x02 header + sentinels) is also a flag-bitmask shape but fires 4 times (per zone session, not per world login) and varies in entry-by-entry pattern — looks more like a per-zone game-feature / class-availability config than the per-world expansion list. Worth re-classifying if a future capture shows OP_ExpansionInfo's 84b form is wrong.

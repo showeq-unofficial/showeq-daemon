@@ -33,8 +33,8 @@
     <opcode id="9bdc" name="OP_EnterWorld" updated="05/04/26">
 	    <comment>Server approval for client to enter world</comment>
     </opcode>
-    <opcode id="ffff" name="OP_ExpansionInfo">
-	    <comment>Which expansions user has</comment>
+    <opcode id="1a00" name="OP_ExpansionInfo" updated="05/05/26">
+	    <comment>Which expansions user has. Test: 84b fixed S>C, identical bytes per login = static account-level expansion bitmask (u32 header + 11 × 0xffffffff = all unlocked, then trailing zeros).</comment>
     </opcode>
     <opcode id="84f6" name="OP_SendCharInfo" updated="05/04/26">
 	    <comment>Send all chars visible @ char select</comment>
