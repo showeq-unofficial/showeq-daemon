@@ -108,7 +108,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 
 ### Inventory / items (2)
 - [ ] OP_ItemPacket — itemPacketStruct (server)
-- [ ] OP_MoveItem — moveItemStruct (client)
+- [x] OP_MoveItem — moveItemStruct (client) — `0xdee3` (2026-05-04)
 
 ### Click / interact (2)
 - [ ] OP_ClickObject — remDropStruct (both)
@@ -248,6 +248,12 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
   - 0xa958: `ae 5d 2b f4  8b 38 01 00  e9 0e 00 00  89 1d 00 00  …`
 - Confidence: high for the **set** mapping (4 names → 4 IDs, byte sizes constrain Exe→64b uniquely). Medium-high for the spell/base/skillcaps individual mapping within the 2056b trio: relies on the legacy declaration-order convention being preserved on Test, which is a reasonable but unverified assumption. Re-verify after the next capture by checking a session log for the same fire order.
 - **Re-verified 2026-05-04 against `tests/replay/test-login-2.vpk`**: same fire order (`0x2de1 → 0x289c → 0xa958` for the 2056b trio, `0x44d9` paired with SkillCaps in the next ms) reproduced in both login bursts of the new capture. The legacy-declaration-order disambiguation holds.
+
+### 2026-05-04 — OP_MoveItem = 0xdee3
+- Capture: `tests/replay/test-combat.vpk`. 40 fires (33 C>S + 7 S>C ack), all 28b — the daemon's candidate-match section already flagged this opcode as a strong moveItemStruct fit (`size@28=2 dir-match~2 dirs(C>S=2)` from the test-zone-entry stats).
+- Method: `--dump-payload 0xdee3:`. Sample (fire 1, 28b): `05 00 00 00  00 00 ff ff ff ff  00 00 00 00 00 00  23 00 ff ff ff ff  8f 56 00 00 00 00` — from-slot=5, sentinel, slot-id 0x23=35, sentinel, item-cookie 0x568f.
+- Struct fit: 28 = sizeof(moveItemStruct). C>S-dominant with S>C acks fits "client requests slot move, server confirms".
+- Ruled out: 0xa17e (481x S>C 28b but identical bytes per fire) is a static config blob; 0x202b / 0xb570 (1-2 C>S 28b) are too rare.
 
 ### 2026-05-04 — OP_Action = 0x049e
 - Capture: `tests/replay/test-combat.vpk`. 105 fires, sizes 64:71 and 88:34.
