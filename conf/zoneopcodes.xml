@@ -12,7 +12,7 @@
         <payload dir="client" typename="ClientZoneEntryStruct" sizechecktype="match"/>
     <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_TimeOfDay">
+    <opcode id="7e22" name="OP_TimeOfDay" updated="05/04/26">
         <comment>TimeOfDayCode</comment>
         <payload dir="server" typename="timeOfDayStruct" sizechecktype="match"/>
     </opcode>
@@ -74,11 +74,11 @@
         <comment>SpawnUpdateCode</comment>
         <payload dir="both" typename="SpawnUpdateStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_SpawnAppearance">
+    <opcode id="9826" name="OP_SpawnAppearance" updated="05/04/26">
         <comment>SpawnAppearanceCode</comment>
         <payload dir="both" typename="spawnAppearanceStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_Stamina">
+    <opcode id="60e7" name="OP_Stamina" updated="05/04/26">
         <comment>Server updating on hunger/thirst</comment>
         <payload dir="server" typename="staminaStruct" sizechecktype="match"/>
     </opcode>

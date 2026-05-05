@@ -51,7 +51,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 ### Zone bootstrap (8)
 - [x] OP_PlayerProfile — uint8_t (server, variable) — `0xe284` (2026-05-04)
 - [x] OP_ZoneEntry — ClientZoneEntryStruct (client) / uint8_t (server) — `0xa5bf` (2026-05-04)
-- [ ] OP_TimeOfDay — timeOfDayStruct (server)
+- [x] OP_TimeOfDay — timeOfDayStruct (server) — `0x7e22` (2026-05-04)
 - [x] OP_NewZone — uint8_t (server, variable) — `0xa923` (2026-05-04)
 - [x] OP_SpawnDoor — doorStruct (server, modulus) — `0x794d` (2026-05-04)
 - [x] OP_GroundSpawn — makeDropStruct (server) — `0x33ec` (2026-05-04)
@@ -68,7 +68,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_DeleteSpawn — deleteSpawnStruct (both) — `0x6dba` (2026-05-04)
 - [x] OP_RemoveSpawn — removeSpawnStruct (both) — `0xeb88` (2026-05-04)
 - [x] OP_Death — newCorpseStruct (server) — `0x1eb2` (2026-05-04)
-- [ ] OP_SpawnAppearance — spawnAppearanceStruct (both)
+- [x] OP_SpawnAppearance — spawnAppearanceStruct (both) — `0x9826` (2026-05-04)
 - [ ] OP_Animation — uint8_t (both)
 
 ### Combat / actions (4)
@@ -86,7 +86,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_SkillUpdate — skillIncStruct (server) — `0x6a60` (2026-05-04)
 - [x] OP_LevelUpdate — levelUpUpdateStruct (server) — `0x9426` (2026-05-04)
 - [x] OP_EndUpdate — endUpdateStruct (server) — `0x36d1` (2026-05-04)
-- [ ] OP_Stamina — staminaStruct (server) *(hunger/thirst, not endurance)*
+- [x] OP_Stamina — staminaStruct (server) — `0x60e7` (2026-05-04)
 
 ### Buffs (1)
 - [x] OP_Buff — buffStruct (both) — `0x3b54` (2026-05-04)
@@ -286,6 +286,27 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Method: `--dump-payload 0xdee3:`. Sample (fire 1, 28b): `05 00 00 00  00 00 ff ff ff ff  00 00 00 00 00 00  23 00 ff ff ff ff  8f 56 00 00 00 00` — from-slot=5, sentinel, slot-id 0x23=35, sentinel, item-cookie 0x568f.
 - Struct fit: 28 = sizeof(moveItemStruct). C>S-dominant with S>C acks fits "client requests slot move, server confirms".
 - Ruled out: 0xa17e (481x S>C 28b but identical bytes per fire) is a static config blob; 0x202b / 0xb570 (1-2 C>S 28b) are too rare.
+
+### 2026-05-04 — OP_TimeOfDay = 0x7e22
+- Capture: `tests/replay/test-zone-entry.vpk`. 2 fires, both 8b S>C.
+- Method: `--dump-payload 0x7e22:`. Anchor: bytes decode cleanly as the documented timeOfDayStruct.
+- Sample bytes:
+  - fire 1: `14 22 01 04 bf 0c 00 00` → hour=20, min=34, day=1, month=4, year=0x0cbf=3263 (Norrathian)
+  - fire 2: `15 23 01 04 bf 0c 00 00` → hour=21, min=35, day=1, month=4, year=3263 (1 in-game hour later)
+- Struct fit: 8 = sizeof(timeOfDayStruct). Year 3263 is in the right Norrathian range.
+- Ruled out: other 8b S>C 2-fire candidates (0x1f7f all-zeros; 0x5548 paired with 0x9826 SpawnAppearance shape) don't decode as time fields.
+
+### 2026-05-04 — OP_Stamina = 0x60e7
+- Capture: `tests/replay/test-combat.vpk`. 54 fires, all 8b S>C.
+- Method: `--dump-payload 0x60e7:`. Each fire is two identical u32 values that decrement in lockstep across fires (`0x1094 0x1094`, `0x1074 0x1074`, `0x1054 0x1054`, …) — `staminaStruct{food, water}` with food == water and both ticking down at -32 per fire.
+- Struct fit: 8 = sizeof(staminaStruct). Decrement rate consistent with combat-session length.
+- Ruled out: 0x9826 / 0x5548 (8b S>C with `<spawn_id, code=4>` shape) don't have the paired-decrement pattern.
+
+### 2026-05-04 — OP_SpawnAppearance = 0x9826
+- Capture: `tests/replay/test-combat.vpk`. 44 fires (43 S>C + 1 C>S — direction "both" matches XML).
+- Method: `--dump-payload 0x9826:`. Per-fire payload is `<spawn_id_u32 varying> 04 00 00 00`, i.e. a spawn-id at offset 0 with appearance value 4 in the parameter slot — fits `spawnAppearanceStruct{u16 spawnId; u16 type; u32 parameter}` reading `spawnId+0` as a u32 spawn-id (test-combat happens to keep the type byte zero, parameter=4 across all fires for whatever stand/alive code is being announced).
+- Struct fit: 8 = sizeof(spawnAppearanceStruct). High mixed-direction count fits per-spawn appearance broadcasts during combat.
+- Ruled out: 0x5548 (43x mixed 8b) is a near-twin candidate with the same payload shape — likely OP_FaceChange or OP_Animation-class (both also 8b appearance-style structs); confirming which would need a /sit /stand /face change capture sequence to differentiate. 0x60e7 is OP_Stamina (paired-decrementing pattern, distinct shape).
 
 ### 2026-05-04 — OP_ClientUpdate = 0xf8d1
 - Capture: `tests/replay/test-combat.vpk`. 4078 fires: 3212 C>S 42b + 866 S>C 24b. Highest-volume bidirectional opcode in the capture.
