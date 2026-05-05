@@ -2563,12 +2563,16 @@ struct playerSelfPosStruct
 /*0004*/ uint16_t unknown0004;                   // observed constant 0 on Test
 /*0006*/ float    y;                             // y coord (EQ runtime)
 /*0010*/
-	 signed   deltaHeading:10;               // change in heading (low 10 bits)
-	 unsigned heading:12;                    // facing direction (next 12 bits)
-	 unsigned padding00:10;                  // observed constant ~228
+	 signed   deltaHeading:10;               // low 10 bits — observed near-constant per
+	                                         // session (-12 / 51 across captures); not a
+	                                         // real per-tick deltaHeading. Kept named for
+	                                         // call-site compatibility.
+	 unsigned :1;                            // 1-bit gap before heading
+	 unsigned heading:12;                    // facing direction (bits 11-22, 12-bit scale)
+	 unsigned padding00:9;                   // bits 23-31, observed ~112
 /*0014*/ float    deltaX;                        // change in x (0 when stationary)
-/*0018*/ uint8_t  test_marker[3];                // constant "dri" — Test magic
-/*0021*/ uint8_t  animation;                     // animation id (0=idle, ~50=running)
+/*0018*/ uint8_t  animation;                     // animation id (0=idle, ~27 walking)
+/*0019*/ uint8_t  test_marker[3];                // constant "dri" — Test magic
 /*0022*/ float    z;                             // z coord
 /*0026*/ float    x;                             // x coord (EQ runtime)
 /*0030*/ float    deltaY;                        // change in y (0 when stationary)
