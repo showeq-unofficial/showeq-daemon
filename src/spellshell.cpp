@@ -28,6 +28,10 @@
 #include "spawnshell.h"
 #include "spells.h"
 #include "packetcommon.h"
+
+#ifdef SEQ_USE_RUST
+#include "seq-bridge-cxx/lib.h"
+#endif
 #include "spawn.h"
 #include "diagnosticmessages.h"
 #include <QList>
@@ -296,7 +300,25 @@ void SpellShell::buff(const uint8_t* data, size_t, uint8_t dir)
   if (dir == DIR_Client)
     return;
 
-  const buffStruct* b = (const buffStruct*)data;
+  [[maybe_unused]] buffStruct tmp;
+  const buffStruct* b = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustBuff) {
+    auto out = seq::rust::decode_buff(
+        rust::Slice<const uint8_t>{data, sizeof(buffStruct)});
+    if (out.ok) {
+      std::memset(&tmp, 0, sizeof(tmp));
+      tmp.spawnid    = out.spawn_id;
+      tmp.spellid    = out.spell_id;
+      tmp.duration   = out.duration;
+      tmp.level      = out.level;
+      tmp.spellslot  = out.spell_slot;
+      tmp.changetype = out.change_type;
+      b = &tmp;
+    }
+  }
+#endif
+  if (!b) b = (const buffStruct*)data;
 
   // if this is the second server packet then ignore it
   if (b->spellid == 0xffffffff)

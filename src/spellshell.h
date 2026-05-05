@@ -207,6 +207,10 @@ class SpellShell : public QObject
   void killSpawn(const Item* deceased);
   void timeout();
 
+ public:
+  // Stage A+5 — gate from --rust-opcodes OP_Buff
+  void setUseRustBuff(bool on) { m_useRustBuff = on; }
+
  protected:
   void deleteSpell(SpellItem *);
   SpellItem* findSpell(uint16_t spellId, 
@@ -221,6 +225,7 @@ class SpellShell : public QObject
   QList<SpellItem *> m_spellList;
   SpellItem* m_lastPlayerSpell;
   QTimer *m_timer;
+  bool m_useRustBuff = false;
 };
 
 #endif

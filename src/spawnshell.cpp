@@ -529,10 +529,22 @@ void SpawnShell::removeGroundItem(const uint8_t* data, size_t, uint8_t dir)
   if (dir != DIR_Server)
     return;
 
+  uint16_t dropId;
+#ifdef SEQ_USE_RUST
+  if (m_useRustClickObject) {
+    auto out = seq::rust::decode_click_object(
+        rust::Slice<const uint8_t>{data, sizeof(remDropStruct)});
+    if (out.ok) {
+      deleteItem(tDrop, out.drop_id);
+      return;
+    }
+  }
+#endif
   const remDropStruct *d = (const remDropStruct *)data;
-
-  if (d)
-    deleteItem(tDrop, d->dropId);
+  if (d) {
+    dropId = d->dropId;
+    deleteItem(tDrop, dropId);
+  }
 }
 
 void SpawnShell::newDoorSpawns(const uint8_t* data, size_t len, uint8_t dir)
@@ -1416,7 +1428,26 @@ void SpawnShell::renameSpawn(const uint8_t* data)
 
 void SpawnShell::illusionSpawn(const uint8_t* data)
 {
-    const spawnIllusionStruct* illusion = (const spawnIllusionStruct*)data;
+    [[maybe_unused]] spawnIllusionStruct tmp;
+    const spawnIllusionStruct* illusion = nullptr;
+#ifdef SEQ_USE_RUST
+    if (m_useRustIllusion) {
+        auto out = seq::rust::decode_illusion(
+            rust::Slice<const uint8_t>{data, sizeof(spawnIllusionStruct)});
+        if (out.ok) {
+            std::memset(&tmp, 0, sizeof(tmp));
+            tmp.spawnId = out.spawn_id;
+            std::memcpy(tmp.name, out.name.data(), 64);
+            tmp.race    = out.race;
+            tmp.gender  = out.gender;
+            tmp.texture = out.texture;
+            tmp.helm    = out.helm;
+            tmp.face    = out.face;
+            illusion = &tmp;
+        }
+    }
+#endif
+    if (!illusion) illusion = (const spawnIllusionStruct*)data;
 #ifdef SPAWNSHELL_DIAG
     seqDebug("SpawnShell::illusionSpawn(id=%d, name=%s, new race=%d)",
              illusion->spawnId, illusion->name, illusion->race);

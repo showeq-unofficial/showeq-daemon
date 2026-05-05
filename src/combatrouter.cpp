@@ -5,6 +5,11 @@
 #include "spawnshell.h"
 #include "spells.h"
 
+#ifdef SEQ_USE_RUST
+#include "seq-bridge-cxx/lib.h"
+#include <cstring>
+#endif
+
 CombatRouter::CombatRouter(SpawnShell* spawnShell, Spells* spells,
                            QObject* parent)
     : QObject(parent)
@@ -34,7 +39,24 @@ static QString lookupSpawnName(SpawnShell* shell, uint16_t id)
 void CombatRouter::action2(const uint8_t* data, size_t len, uint8_t /*dir*/)
 {
     if (!data || len < sizeof(action2Struct)) return;
-    const action2Struct* a = reinterpret_cast<const action2Struct*>(data);
+    [[maybe_unused]] action2Struct tmp;
+    const action2Struct* a = nullptr;
+#ifdef SEQ_USE_RUST
+    if (m_useRustAction2) {
+        auto out = seq::rust::decode_action2(
+            rust::Slice<const uint8_t>{data, sizeof(action2Struct)});
+        if (out.ok) {
+            std::memset(&tmp, 0, sizeof(tmp));
+            tmp.target = out.target;
+            tmp.source = out.source;
+            tmp.damage = out.damage;
+            tmp.spell  = out.spell;
+            tmp.type   = out.kind;
+            a = &tmp;
+        }
+    }
+#endif
+    if (!a) a = reinterpret_cast<const action2Struct*>(data);
 
     QString sourceName = lookupSpawnName(m_spawnShell, a->source);
     QString targetName = lookupSpawnName(m_spawnShell, a->target);

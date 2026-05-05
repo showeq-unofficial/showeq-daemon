@@ -44,6 +44,10 @@ private slots:
     void decode_spawn_rename_round_trip();
     void decode_client_target_round_trip();
     void decode_death_round_trip();
+    void decode_click_object_round_trip();
+    void decode_illusion_round_trip();
+    void decode_buff_round_trip();
+    void decode_action2_round_trip();
 };
 
 // Build a 14-byte spawnPositionUpdate buffer the same way the wire
@@ -469,6 +473,77 @@ void RustDecodeTest::decode_death_round_trip()
     QCOMPARE(out.killer_id, 222u);
     QCOMPARE(out.kind, 1);
     QCOMPARE(out.damage, 500u);
+}
+
+// Stage A+5
+void RustDecodeTest::decode_click_object_round_trip()
+{
+    remDropStruct s{};
+    s.dropId = 0xCAFE; s.spawnId = 0xBEEF;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_click_object(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.drop_id, uint16_t(0xCAFE));
+    QCOMPARE(out.spawn_id, uint16_t(0xBEEF));
+}
+
+void RustDecodeTest::decode_illusion_round_trip()
+{
+    spawnIllusionStruct s{};
+    s.spawnId = 100;
+    std::strcpy(s.name, "Goblin");
+    s.race = 75; s.gender = 1; s.texture = 5; s.helm = 2; s.face = 42;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_illusion(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.spawn_id, 100u);
+    QCOMPARE(QByteArray(reinterpret_cast<const char*>(out.name.data()), 6),
+             QByteArray("Goblin"));
+    QCOMPARE(out.race, 75u);
+    QCOMPARE(out.gender, uint8_t(1));
+    QCOMPARE(out.face, 42u);
+}
+
+void RustDecodeTest::decode_buff_round_trip()
+{
+    buffStruct s{};
+    s.spawnid = 123; s.spellid = 5024; s.duration = 3600;
+    s.level = 60; s.spellslot = 3; s.changetype = 2;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_buff(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.spawn_id, 123u);
+    QCOMPARE(out.spell_id, 5024u);
+    QCOMPARE(out.duration, 3600u);
+    QCOMPARE(out.level, int8_t(60));
+    QCOMPARE(out.spell_slot, 3u);
+    QCOMPARE(out.change_type, 2u);
+}
+
+void RustDecodeTest::decode_action2_round_trip()
+{
+    action2Struct s{};
+    s.target = 100; s.source = 200; s.damage = 42; s.spell = -1; s.type = 7;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_action2(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.target, uint16_t(100));
+    QCOMPARE(out.source, uint16_t(200));
+    QCOMPARE(out.damage, 42);
+    QCOMPARE(out.spell, -1);
+    QCOMPARE(out.kind, uint8_t(7));
 }
 
 // QTEST_GUILESS_MAIN — daemon code is headless (QCoreApplication only),

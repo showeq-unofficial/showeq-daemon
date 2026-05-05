@@ -525,6 +525,8 @@ void DaemonApp::wireSpawnShell()
                        "remDropStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(removeGroundItem(const uint8_t*, size_t, uint8_t)));
+    m_spawnShell->setUseRustClickObject(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_ClickObject")));
     m_packet->connect2("OP_SpawnDoor", SP_Zone, DIR_Server,
                        "doorStruct", SZC_Modulus,
                        m_spawnShell,
@@ -626,6 +628,8 @@ void DaemonApp::wireSpawnShell()
                        "spawnIllusionStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(illusionSpawn(const uint8_t*)));
+    m_spawnShell->setUseRustIllusion(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_Illusion")));
     m_packet->connect2("OP_SpawnAppearance", SP_Zone, DIR_Server|DIR_Client,
                        "spawnAppearanceStruct", SZC_Match,
                        m_spawnShell,
@@ -735,6 +739,8 @@ void DaemonApp::wireSpawnShell()
                        "buffStruct", SZC_Match,
                        m_spellShell,
                        SLOT(buff(const uint8_t*, size_t, uint8_t)));
+    m_spellShell->setUseRustBuff(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_Buff")));
     m_packet->connect2("OP_Action", SP_Zone, DIR_Server|DIR_Client,
                        "actionStruct", SZC_Match,
                        m_spellShell,
@@ -754,6 +760,8 @@ void DaemonApp::wireSpawnShell()
                        "action2Struct", SZC_Match,
                        m_combatRouter,
                        SLOT(action2(const uint8_t*, size_t, uint8_t)));
+    m_combatRouter->setUseRustAction2(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_Action2")));
 }
 
 static QStringList mapSearchPaths(const QString& override,

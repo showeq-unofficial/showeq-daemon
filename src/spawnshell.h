@@ -181,6 +181,9 @@ public slots:
    void setUseRustSpawnRename     (bool on) { m_useRustSpawnRename = on; }
    void setUseRustTargetMouse     (bool on) { m_useRustTargetMouse = on; }
    void setUseRustDeath           (bool on) { m_useRustDeath = on; }
+   // Stage A+5
+   void setUseRustClickObject     (bool on) { m_useRustClickObject = on; }
+   void setUseRustIllusion        (bool on) { m_useRustIllusion = on; }
 
  protected:
    void refilterSpawns(spawnItemType type);
@@ -220,6 +223,8 @@ public slots:
    bool m_useRustSpawnRename      = false;
    bool m_useRustTargetMouse      = false;
    bool m_useRustDeath            = false;
+   bool m_useRustClickObject      = false;
+   bool m_useRustIllusion         = false;
    ItemMap m_players;
 
    // timer for saving spawns

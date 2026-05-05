@@ -23,6 +23,10 @@ public slots:
     // action2Struct in everquest.h:2042.
     void action2(const uint8_t* data, size_t len, uint8_t dir);
 
+public:
+    // Stage A+5 — gate from --rust-opcodes OP_Action2
+    void setUseRustAction2(bool on) { m_useRustAction2 = on; }
+
 signals:
     void combatEvent(uint32_t sourceId, const QString& sourceName,
                      uint32_t targetId, const QString& targetName,
@@ -32,4 +36,5 @@ signals:
 private:
     SpawnShell* m_spawnShell;
     Spells*     m_spells;
+    bool        m_useRustAction2 = false;
 };
