@@ -63,14 +63,14 @@
     <opcode id="fc46" name="OP_WorldComplete" updated="05/04/26">
 	    <comment>Client telling world server it is done. World replies by disconnecting.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_DeleteCharacter">
-	    <comment>Delete character @ char select</comment>
+    <opcode id="48f9" name="OP_DeleteCharacter" updated="05/05/26">
+	    <comment>Delete character @ char select. Test: 68b C>S, name@offset 0.</comment>
     </opcode>
     <opcode id="ffff" name="OP_CharacterCreate">
 	    <comment>Create character @ char select</comment>
     </opcode>
-    <opcode id="ffff" name="OP_ApproveName">
-	    <comment>Approving new character name @ char creation</comment>
+    <opcode id="a24a" name="OP_ApproveName" updated="05/05/26">
+	    <comment>Approving new character name @ char creation. Test: 84b C>S name candidate, 1b S>C status (0x12 = available, 0x01 = committed).</comment>
     </opcode>
     <opcode id="ffff" name="OP_RandomNameGenerator">
 	    <comment>Returns a random name</comment>

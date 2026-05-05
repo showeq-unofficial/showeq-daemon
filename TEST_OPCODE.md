@@ -39,9 +39,9 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_MOTD — worldMOTDStruct (server)
 
 ### Character management (4)
-- [ ] OP_DeleteCharacter
+- [x] OP_DeleteCharacter — `0x48f9` (2026-05-05)
 - [ ] OP_CharacterCreate
-- [ ] OP_ApproveName
+- [x] OP_ApproveName — `0xa24a` (2026-05-05)
 - [ ] OP_RandomNameGenerator
 
 ---
@@ -510,3 +510,11 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Struct fit: 168b matches groupDisbandStruct's modern shape (the daemon hint said 80b but the real Test layout is 168b — same family as OP_GroupDisband / OP_GroupDisband2). Updated XML comment with the corrected size + offset.
 - Cross-capture check: in test-group-invite (no explicit /makeleader), 0xb269 fired 2 times — once per group cycle, broadcasting the implicit leader-on-formation. The +1 fire in test-char-leader matches the 2 explicit /makeleader events minus the second cycle absent here.
 - Ruled out: 0xe005 (4 S>C 80b) was the 80b candidate suggested by the legacy XML hint, but 3 of its 4 fires are nearly all-zero with a constant `4f 34 8b ff` prefix and IEEE-754 1.0f at offset 4 — looks like a periodic group-state heartbeat, not a name-bearing leader broadcast. 0x6fbb (2 S>C 80b with self-name at offset 0) fires once per zone-in / character switch, also not leader-shaped. 0x933a (1 C>S + 1 S>C 168b with target+source names) is the /maketank round-trip — same struct family, different opcode.
+
+### 2026-05-05 — OP_ApproveName = 0xa24a + OP_DeleteCharacter = 0x48f9
+- Capture: `tests/replay/test-char-leader.vpk` (user generated random names through char creation, settled on a name needing one character appended for acceptance, zoned in, logged out, deleted, then logged in as main and ran a 2-leader-change group session).
+- **OP_ApproveName = 0xa24a**: 5 C>S 84b name candidates + 5 S>C 1-byte ack responses, perfectly interleaved. The C>S payload starts with a NUL-terminated character-name candidate at offset 0; values cycle through 5 successive proposals (Tinnon, Gwin, Soun, the random-rolled name, then the appended-letter variant the user finalized). The 1-byte responses return `0x12` for the first 4 attempts (status: name OK so far) and `0x01` for the 5th (status: committed/created — fires after the user clicks final create). Method: `--dump-payload 0xa24a:` decoded as 84-byte name+padding records bidirectional with 1-byte status.
+- **OP_DeleteCharacter = 0x48f9**: 1 C>S 68b fire with the deleted character's name at offset 0. The user deleted exactly one character in this session; 68b = 64-byte char name + 4-byte flags trailer, the canonical "delete by name" shape. Method: `--dump-payload 0x48f9:`.
+- Char names redacted from this log per memory; the actual values match the user's actions in the session description.
+- OP_CharacterCreate (the C>S that submits race + class + stats + final name) is still unresolved here. Best lead: 0x2078 has 2 C>S 76b fires with character names at offset 0, but fire 1 has the new char's name and fire 2 has the *main* char's name from the next login session — fits a per-session "ZoneEntryPlayer" or "ApproveWorld with this char selected" init packet, not a one-shot create. The 0x1900 single S>C 952b fire (with the new char's name at offset 487) is the SERVER's char-create *response*, but the matching C>S create request is still unidentified from this capture.
+- OP_RandomNameGenerator may be absent on Test (client-side random generation) — no dedicated opcode found for the round-trip; the candidate names that flowed through OP_ApproveName were either client-generated locally or returned via OP_ApproveName itself. Worth marking `[~]` confirmed-absent if a future targeted capture (random-button-only, no submit) shows no new opcode.
