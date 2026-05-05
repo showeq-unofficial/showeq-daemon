@@ -619,7 +619,7 @@ void Player::removeItem(const itemItemStruct* item)
 
 void Player::increaseSkill(const uint8_t* data)
 {
-  skillIncStruct tmp;
+  [[maybe_unused]] skillIncStruct tmp;
   const skillIncStruct* skilli = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustSkillUpdate) {
@@ -646,7 +646,7 @@ void Player::increaseSkill(const uint8_t* data)
 
 void Player::manaChange(const uint8_t* data)
 {
-  manaDecrementStruct tmp;
+  [[maybe_unused]] manaDecrementStruct tmp;
   const manaDecrementStruct* mana = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustManaChange) {
@@ -719,7 +719,7 @@ void Player::updateAltExp(const uint8_t* data)
 
 void Player::updateExp(const uint8_t* data)
 {
-  expUpdateStruct tmp;
+  [[maybe_unused]] expUpdateStruct tmp;
   const expUpdateStruct* exp = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustExpUpdate) {
@@ -792,7 +792,7 @@ void Player::updateExp(const uint8_t* data)
 
 void Player::updateLevel(const uint8_t* data)
 {
-  levelUpUpdateStruct tmp;
+  [[maybe_unused]] levelUpUpdateStruct tmp;
   const levelUpUpdateStruct* levelup = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustLevelUpdate) {
@@ -862,7 +862,7 @@ void Player::updateLevel(const uint8_t* data)
 
 void Player::updateNpcHP(const uint8_t* data)
 {
-  hpNpcUpdateStruct tmp;
+  [[maybe_unused]] hpNpcUpdateStruct tmp;
   const hpNpcUpdateStruct* hpupdate = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustHPUpdate) {
@@ -922,7 +922,7 @@ void Player::updateSpawnInfo(const uint8_t* data)
 
 void Player::updateStamina(const uint8_t* data)
 {
-  staminaStruct tmp;
+  [[maybe_unused]] staminaStruct tmp;
   const staminaStruct* stam = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustStamina) {
@@ -948,7 +948,7 @@ void Player::updateStamina(const uint8_t* data)
 
 void Player::updateEndurance(const uint8_t* data)
 {
-  endUpdateStruct tmp;
+  [[maybe_unused]] endUpdateStruct tmp;
   const endUpdateStruct* upd = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustEndUpdate) {

@@ -1371,7 +1371,7 @@ void SpawnShell::updateSpawnInfo(const uint8_t* data)
 
 void SpawnShell::renameSpawn(const uint8_t* data)
 {
-    spawnRenameStruct tmp;
+    [[maybe_unused]] spawnRenameStruct tmp;
     const spawnRenameStruct* rename = nullptr;
 #ifdef SEQ_USE_RUST
     if (m_useRustSpawnRename) {
@@ -1488,7 +1488,7 @@ void SpawnShell::shroudSpawn(const uint8_t* data, size_t len, uint8_t dir)
 
 void SpawnShell::updateSpawnAppearance(const uint8_t* data)
 {
-    spawnAppearanceStruct tmp;
+    [[maybe_unused]] spawnAppearanceStruct tmp;
     const spawnAppearanceStruct* app = nullptr;
 #ifdef SEQ_USE_RUST
     if (m_useRustSpawnAppearance) {
@@ -1549,7 +1549,7 @@ void SpawnShell::updateSpawnAppearance(const uint8_t* data)
 
 void SpawnShell::updateNpcHP(const uint8_t* data)
 {
-  hpNpcUpdateStruct tmp;
+  [[maybe_unused]] hpNpcUpdateStruct tmp;
   const hpNpcUpdateStruct* hpupdate = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustHPUpdate) {
@@ -1584,7 +1584,7 @@ void SpawnShell::updateNpcHP(const uint8_t* data)
 
 void SpawnShell::updateMobHealth(const uint8_t* data)
 {
-  mobHealthStruct tmp;
+  [[maybe_unused]] mobHealthStruct tmp;
   const mobHealthStruct* mobhp = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustMobHealth) {
@@ -1640,7 +1640,7 @@ void SpawnShell::spawnWearingUpdate(const uint8_t* data)
 
 void SpawnShell::consMessage(const uint8_t* data, size_t, uint8_t dir)
 {
-  considerStruct tmp;
+  [[maybe_unused]] considerStruct tmp;
   const considerStruct* con = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustConsider) {
@@ -1701,14 +1701,12 @@ void SpawnShell::consMessage(const uint8_t* data, size_t, uint8_t dir)
 
 void SpawnShell::clientTarget(const uint8_t* data)
 {
-  uint32_t newTarget;
 #ifdef SEQ_USE_RUST
   if (m_useRustTargetMouse) {
     auto out = seq::rust::decode_client_target(
         rust::Slice<const uint8_t>{data, sizeof(clientTargetStruct)});
     if (out.ok) {
-      newTarget = out.new_target;
-      emit targetSpawn(newTarget);
+      emit targetSpawn(out.new_target);
       return;
     }
   }
@@ -1721,7 +1719,7 @@ void SpawnShell::removeSpawn(const uint8_t* data, size_t len, uint8_t dir)
 {
   if(dir==DIR_Client)
     return;
-  removeSpawnStruct tmp;
+  [[maybe_unused]] removeSpawnStruct tmp;
   const removeSpawnStruct* rmSpawn = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustRemoveSpawn) {
@@ -1814,7 +1812,7 @@ void SpawnShell::deleteSpawn(const uint8_t* data)
 
 void SpawnShell::killSpawn(const uint8_t* data)
 {
-  newCorpseStruct tmp;
+  [[maybe_unused]] newCorpseStruct tmp;
   const newCorpseStruct* deadspawn = nullptr;
 #ifdef SEQ_USE_RUST
   if (m_useRustDeath) {
