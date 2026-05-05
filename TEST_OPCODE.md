@@ -17,12 +17,12 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 ### Login / handshake (8)
 - [x] OP_SendLoginInfo — *(no payload struct; identifier only)* — `0x7b6a` (2026-05-04)
 - [x] OP_LogServer — `0xb537` (2026-05-04)
-- [ ] OP_ApproveWorld
-- [ ] OP_EnterWorld
+- [x] OP_ApproveWorld — `0xb8cc` (2026-05-04)
+- [x] OP_EnterWorld — `0x9bdc` (2026-05-04)
 - [ ] OP_ExpansionInfo
 - [x] OP_SendCharInfo — `0x84f6` (2026-05-04)
 - [ ] OP_ZoneServerInfo
-- [ ] OP_WorldComplete
+- [x] OP_WorldComplete — `0xfc46` (2026-05-04)
 
 ### Checksums / verification (4)
 - [x] OP_SendSpellChecksum — `0x2de1` (2026-05-04)
@@ -211,6 +211,12 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Sample bytes (fires 1–3): `63 2d  00 00 00 00  1c 00 00 00`, then `63 2d  01 00 00 00  1c 00 00 00`, then `63 2d  02 00 00 00  1c 00 00 00`.
 - Struct fit: endUpdateStruct{spawn_id=0x2d63=11619, cur=0/1/2/…, max=0x1c=28} — exact match. Same spawn_id as OP_HPUpdate (the local PC). cur ramps from 0 each tick; max=28 fits a lvl 1 endurance pool.
 - Ruled out: 0xf96e (10b S>C, 10 fires) was the only competitor; rejected on count gap (28 vs 10) and need to actually see the endurance ramp pattern.
+
+### 2026-05-04 — OP_ApproveWorld + OP_EnterWorld + OP_WorldComplete trio
+- Capture: `tests/replay/test-login-2.vpk`. The earlier `c7e1b6b` commit incorrectly attributed these opcodes' invisible dump output to a `decodedWorldPacket` signal-arity issue — the real cause was that `/tmp/oc` had been removed during cleanup, so `--dump-payload` writes failed with a silent "No such file or directory" qWarning. The dumper's signal connections are fine.
+- **OP_ApproveWorld = 0xb8cc**: 2x S>C 16b, identical bytes both fires: `04 00 00 00  00 00 00 00  00 00 00 00  03 00 00 00`. Static fixed-size handshake response — server approves the login with constant codes (4, 0, 0, 3).
+- **OP_EnterWorld = 0x9bdc**: 2x C>S 8b, identical bytes both fires: `41 74 cf 35  00 00 00 00`. The u32 0x35cf7441 looks like a character-id/handle that the user picks at char-select; matches across logins because the user re-entered with the same character (<charname>).
+- **OP_WorldComplete = 0xfc46**: 2x C>S 0b, empty payload — fires once per login session, fits "client tells world server it's done with the world stage" (per legacy `worldopcodes.xml` comment "Client telling world server it is done. World replies by disconnecting"). Distinguished from other 0b C>S opcodes (0x9e64/0x72b1/0xee58, each 1 fire) by the 2-per-session count.
 
 ### 2026-05-04 — OP_SendCharInfo = 0x84f6
 - Capture: `tests/replay/test-login-2.vpk` (2x S>C 784b in this small login) and `tests/replay/test-zone-entry.vpk` (1x S>C 27190b — the user's full account with extra chars).

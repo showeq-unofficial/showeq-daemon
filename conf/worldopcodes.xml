@@ -27,10 +27,10 @@
     <opcode id="b537" name="OP_LogServer" updated="05/04/26">
         <comment></comment>
     </opcode>
-    <opcode id="ffff" name="OP_ApproveWorld">
+    <opcode id="b8cc" name="OP_ApproveWorld" updated="05/04/26">
         <comment></comment>
     </opcode>
-    <opcode id="ffff" name="OP_EnterWorld">
+    <opcode id="9bdc" name="OP_EnterWorld" updated="05/04/26">
 	    <comment>Server approval for client to enter world</comment>
     </opcode>
     <opcode id="ffff" name="OP_ExpansionInfo">
@@ -60,7 +60,7 @@
     <opcode id="ffff" name="OP_ZoneServerInfo">
 	    <comment>old ZoneServerInfo</comment>
     </opcode>
-    <opcode id="ffff" name="OP_WorldComplete">
+    <opcode id="fc46" name="OP_WorldComplete" updated="05/04/26">
 	    <comment>Client telling world server it is done. World replies by disconnecting.</comment>
     </opcode>
     <opcode id="ffff" name="OP_DeleteCharacter">
