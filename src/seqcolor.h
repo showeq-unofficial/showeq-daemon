@@ -46,6 +46,9 @@ struct SeqColor
   bool operator!=(const SeqColor& o) const { return !(*this == o); }
 };
 
+// QVariant access: dispatch with `v.userType() == qMetaTypeId<SeqColor>()`
+// (runtime id, can't go in a switch `case`); construct with
+// `QVariant::fromValue<SeqColor>(v)` (the QVariant(T) ctor rejects user metatypes).
 Q_DECLARE_METATYPE(SeqColor)
 
 #endif // SEQCOLOR_H
