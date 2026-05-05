@@ -50,7 +50,7 @@
         <payload dir="server" typename="playerSpawnPosStruct" sizechecktype="match"/>
         <payload dir="both" typename="playerSelfPosStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_NpcMoveUpdate">
+    <opcode id="917c" name="OP_NpcMoveUpdate" updated="05/04/26">
         <comment>Position updates</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
@@ -634,7 +634,7 @@
     <opcode id="ffff" name="OP_VeteranRewards">
         <comment></comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendAATable">
+    <opcode id="ce3d" name="OP_SendAATable" updated="05/04/26">
         <comment>Static AA ability-definition menu sent S&gt;C on zone-in. Variable-length: u32 count + count records of base 44B + per-record prereq trailer.</comment>
     </opcode>
     <opcode id="ffff" name="OP_SendAAStats">

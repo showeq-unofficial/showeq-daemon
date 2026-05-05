@@ -60,7 +60,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 
 ### Movement / position (4)
 - [ ] OP_ClientUpdate — playerSpawnPosStruct (server)
-- [ ] OP_NpcMoveUpdate — uint8_t (server, variable)
+- [x] OP_NpcMoveUpdate — uint8_t (server, variable) — `0x917c` (2026-05-04)
 - [x] OP_MobUpdate — spawnPositionUpdate (both) — `0x4a4f` (2026-05-04)
 - [ ] OP_MovementHistory — uint8_t (client, variable)
 
@@ -121,7 +121,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_SpecialMesg — specialMessageStruct (server)
 
 ### Alternate Advancement (3)
-- [ ] OP_SendAATable — *(static ability-definition menu)*
+- [x] OP_SendAATable — *(static ability-definition menu)* — `0xce3d` (2026-05-04)
 - [ ] OP_AAAction
 - [ ] OP_RespondAA — *(per-spend response with full AA list)*
 
@@ -248,6 +248,20 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
   - 0xa958: `ae 5d 2b f4  8b 38 01 00  e9 0e 00 00  89 1d 00 00  …`
 - Confidence: high for the **set** mapping (4 names → 4 IDs, byte sizes constrain Exe→64b uniquely). Medium-high for the spell/base/skillcaps individual mapping within the 2056b trio: relies on the legacy declaration-order convention being preserved on Test, which is a reasonable but unverified assumption. Re-verify after the next capture by checking a session log for the same fire order.
 - **Re-verified 2026-05-04 against `tests/replay/test-login-2.vpk`**: same fire order (`0x2de1 → 0x289c → 0xa958` for the 2056b trio, `0x44d9` paired with SkillCaps in the next ms) reproduced in both login bursts of the new capture. The legacy-declaration-order disambiguation holds.
+
+### 2026-05-04 — OP_NpcMoveUpdate = 0x917c
+- Capture: `tests/replay/test-zone-entry.vpk`. 108 fires across the tutoriala/tutorialb session.
+- Method: `--dump-payload 0x917c:`. Variable size 15/17/18 bytes S>C.
+- Sample bytes: each fire starts with a 4-byte spawn-id (LE u32) followed by bit-packed motion deltas. Spawn-ids vary across fires (`0x5d2d`, `0x6a06`, `0xeb05`, …) — i.e. it's tracking many NPCs, not one. Tail length varies with how many delta-fields are populated.
+- Struct fit: matches `uint8_t` (server, variable) per zoneopcodes.xml. Variable size + per-NPC spawn-id prefix is the OP_NpcMoveUpdate signature.
+- Ruled out: 0x652f at S>C 18b (also 18-byte fixed) was rejected as the HPUpdate winner — its bytes match `hpNpcUpdateStruct` exactly. 0x917c's 99-fires-at-18b were the misleading lure; once size variability and the per-NPC prefix were obvious, NpcMoveUpdate fit.
+
+### 2026-05-04 — OP_SendAATable = 0xce3d
+- Capture: `tests/replay/test-zone-entry.vpk`. 175 fires.
+- Method: `--dump-payload 0xce3d:`. Variable huge S>C sizes (1006-16904 bytes).
+- Sample bytes: payload header followed by ASCII ability descriptions in plaintext: `"Benefit: Mana Regeneration 01"`, `"Benefit: Vengeance 10"`, `"Benefit: Improved Damage 01"` (one per fire). The repeated `"Benefit: …"` string per packet is the unmistakable AA-menu signature; OP_SendAATable carries the static ability definitions, one ability per packet, ~175 abilities → 175 fires.
+- Struct fit: `uint8_t` (variable) per zoneopcodes.xml.
+- Ruled out: 0xfb0a (53x S>C similar huge size) ASCII anchors are also AA-related ("Frenzy of Conquest 1 Benefit") but those are *purchased* AA grants, fitting OP_RespondAA's per-spend semantics rather than the static menu.
 
 ### 2026-05-04 — OP_NewZone = 0xa923
 - Capture: `tests/replay/test-zone-entry.vpk`. 2 fires (one per zone-in: `tutoriala` then `tutorialb`).
