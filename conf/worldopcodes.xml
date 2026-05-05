@@ -36,7 +36,7 @@
     <opcode id="ffff" name="OP_ExpansionInfo">
 	    <comment>Which expansions user has</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendCharInfo">
+    <opcode id="84f6" name="OP_SendCharInfo" updated="05/04/26">
 	    <comment>Send all chars visible @ char select</comment>
     </opcode>
     <opcode id="2de1" name="OP_SendSpellChecksum" updated="05/04/26">

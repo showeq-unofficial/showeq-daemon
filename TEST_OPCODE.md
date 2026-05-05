@@ -20,7 +20,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_ApproveWorld
 - [ ] OP_EnterWorld
 - [ ] OP_ExpansionInfo
-- [ ] OP_SendCharInfo
+- [x] OP_SendCharInfo — `0x84f6` (2026-05-04)
 - [ ] OP_ZoneServerInfo
 - [ ] OP_WorldComplete
 
@@ -211,6 +211,12 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Sample bytes (fires 1–3): `63 2d  00 00 00 00  1c 00 00 00`, then `63 2d  01 00 00 00  1c 00 00 00`, then `63 2d  02 00 00 00  1c 00 00 00`.
 - Struct fit: endUpdateStruct{spawn_id=0x2d63=11619, cur=0/1/2/…, max=0x1c=28} — exact match. Same spawn_id as OP_HPUpdate (the local PC). cur ramps from 0 each tick; max=28 fits a lvl 1 endurance pool.
 - Ruled out: 0xf96e (10b S>C, 10 fires) was the only competitor; rejected on count gap (28 vs 10) and need to actually see the endurance ramp pattern.
+
+### 2026-05-04 — OP_SendCharInfo = 0x84f6
+- Capture: `tests/replay/test-login-2.vpk` (2x S>C 784b in this small login) and `tests/replay/test-zone-entry.vpk` (1x S>C 27190b — the user's full account with extra chars).
+- Method: `--dump-payload 0x84f6:`. Payload structure: u32 header (`50 04 00 00`), per-character record array. Each record is variable-length: `u32 char-id <NUL-terminated charname> u32 server-id u32 flags…`. Multiple character names in plaintext confirm this is the char-select roster.
+- Struct fit: matches the canonical SendCharInfo layout — variable list of character entries with name strings.
+- Ruled out: only multi-char-name-bearing variable-size S>C in the world stream; 0xa925 (1704b 2x) didn't dump (decodedWorldPacket signal-arity mismatch in OpcodePayloadDumper that I can chase as a separate fix).
 
 ### 2026-05-04 — OP_SendLoginInfo = 0x7b6a
 - Capture: `tests/replay/test-login-logout.vpk` (login + camp).
