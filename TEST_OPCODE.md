@@ -82,7 +82,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_AAExpUpdate — altExpUpdateStruct (server)
 - [x] OP_HPUpdate — hpNpcUpdateStruct (both) — `0x652f` (2026-05-04)
 - [x] OP_MobHealth — mobHealthStruct (server) — `0x8d24` (2026-05-04)
-- [ ] OP_ManaChange — manaDecrementStruct (server)
+- [x] OP_ManaChange — manaDecrementStruct (server) — `0x08fb` (2026-05-05)
 - [x] OP_SkillUpdate — skillIncStruct (server) — `0x6a60` (2026-05-04)
 - [x] OP_LevelUpdate — levelUpUpdateStruct (server) — `0x9426` (2026-05-04)
 - [x] OP_EndUpdate — endUpdateStruct (server) — `0x36d1` (2026-05-04)
@@ -427,3 +427,16 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Sample bytes (fires 1–3): `63 2d 00 00 70  17 00 00 00  01 00 00 00  00`, etc. (only the unknown0001[4] byte at offset 4 varies; messageFormat and messageColor are stable across fires.)
 - Struct fit: formattedMessageStruct{unknown0000=0x63, unknown0001[4], messageFormat=0x17=23, messageColor=1, messages=∅}. 13b = the struct's fixed prefix; the variable `messages` tail is empty in these fires (zero-length notification messages). Format 23 + ChatColor 1 are consistent across all 3 inspected fires.
 - Ruled out: simpleMessageStruct (12b) has the wrong size; specialMessageStruct (23b) has the wrong size; channelMessageStruct (~2188b) has the wrong size.
+
+### 2026-05-05 — OP_ManaChange = 0x08fb
+- Capture: `tests/replay/test-combat.vpk`. 25 fires, all 20 bytes S>C.
+- Method: `--dump-payload 0x08fb:`. Decoded all 25 fires as `<i5` (5 little-endian int32s).
+- Sample fires (selected):
+  - fire 1:  newMana=61  field2=41  spellId=32790 (0x8016, zone-in seed sentinel)  off12=0  off16=-1
+  - fire 2:  newMana=51  field2=41  spellId=288   off12=0  off16=-1
+  - fire 9:  newMana=39  field2=41  spellId=341   off12=0  off16=-1
+  - fire 14: newMana=56  field2=62  spellId=341   off12=0  off16=-1
+  - fire 21: newMana=74  field2=63  spellId=346   off12=0  off16=-1
+- Struct fit: 20 = sizeof(manaDecrementStruct). newMana walks like a real lvl 1-3 Necromancer mana pool (range 26-75, decrements per cast, regen ramps back up between fires). spellId field cycles through 7 distinct early-Necro spell IDs (288, 338-346, 502 — Lifetap/Cavorting Bones/etc.). Field-2 (legacy "unknown / Looks like endurance") is **max mana** on Test, growing in 3 phases: 41 (fires 1-13) → 62 (fires 14-20) → 63 (fires 21-25), corresponding to in-session level-ups.
+- Ruled out competitors at S>C 20b: 0x1d3e (43x, leading -1/0 sentinels with no mana-pool-shaped first u32); 0xb87e (16x, leading u64=0 with small varying counter, not cast-correlated); 0x6805 (14x, mostly all-zero payload, mixed 16/20b sizes — variable, doesn't fit fixed-20b struct).
+- Note: legacy struct comment for `manaDecrementStruct.unknown` ("Looks like endurance but not sure why that'd be reported here") is wrong — the field is max mana on Test. Worth a struct-comment refinement in `everquest.h` as a follow-up split commit.
