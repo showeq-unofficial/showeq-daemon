@@ -7,7 +7,7 @@
         <comment>CharProfileCode</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_ZoneEntry">
+    <opcode id="a5bf" name="OP_ZoneEntry" updated="05/04/26">
         <comment>ZoneEntryCode</comment>
         <payload dir="client" typename="ClientZoneEntryStruct" sizechecktype="match"/>
     <payload dir="server" typename="uint8_t" sizechecktype="none"/>
@@ -20,7 +20,7 @@
         <comment>NewZoneCode</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_SpawnDoor">
+    <opcode id="794d" name="OP_SpawnDoor" updated="05/04/26">
         <comment>DoorSpawnsCode</comment>
         <payload dir="server" typename="doorStruct" sizechecktype="modulus"/>
     </opcode>
@@ -54,7 +54,7 @@
         <comment>Position updates</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_MobUpdate">
+    <opcode id="4a4f" name="OP_MobUpdate" updated="05/04/26">
         <comment>MobUpdateCode</comment>
         <payload dir="both" typename="spawnPositionUpdate" sizechecktype="match"/>
     </opcode>
@@ -62,7 +62,7 @@
         <comment>DeleteSpawnCode</comment>
         <payload dir="both" typename="deleteSpawnStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_RemoveSpawn">
+    <opcode id="eb88" name="OP_RemoveSpawn" updated="05/04/26">
         <comment>Remove spawn from zone</comment>
     <payload dir="both" typename="removeSpawnStruct" sizechecktype="none"/>
     </opcode>
@@ -99,7 +99,7 @@
         <payload dir="both" typename="actionStruct" sizechecktype="match"/>
         <payload dir="both" typename="actionAltStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_Action2">
+    <opcode id="32a9" name="OP_Action2" updated="05/04/26">
         <comment>Combat actions i.e. bash, kick etc</comment>
         <payload dir="both" typename="action2Struct" sizechecktype="match"/>
     </opcode>
@@ -676,7 +676,7 @@
     <opcode id="ffff" name="OP_InitialMobHealth">
         <comment>Initial health sent when a player clicks on the mob. Subsequent updated will be OP_MobHealth</comment>
     </opcode>
-    <opcode id="ffff" name="OP_MobHealth">
+    <opcode id="8d24" name="OP_MobHealth" updated="05/04/26">
         <comment>health sent when a player clicks on the mob</comment>
         <payload dir="server" typename="mobHealthStruct" sizechecktype="match"/>
     </opcode>
