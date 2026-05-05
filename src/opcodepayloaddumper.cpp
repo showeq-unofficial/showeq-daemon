@@ -19,7 +19,13 @@ OpcodePayloadDumper::OpcodePayloadDumper(EQPacket* packet, uint16_t opcode,
             this,
             SLOT(onDecodedZonePacket(const uint8_t*, size_t, uint8_t,
                                      uint16_t, const EQPacketOPCode*)));
-    qInfo("dump-payload: watching opcode 0x%04x, writing to %s.<N>.bin",
+    connect(packet,
+            SIGNAL(decodedWorldPacket(const uint8_t*, size_t, uint8_t,
+                                      uint16_t, const EQPacketOPCode*)),
+            this,
+            SLOT(onDecodedZonePacket(const uint8_t*, size_t, uint8_t,
+                                     uint16_t, const EQPacketOPCode*)));
+    qInfo("dump-payload: watching opcode 0x%04x on zone+world streams, writing to %s.<N>.bin",
           opcode, qUtf8Printable(basePath));
 }
 
