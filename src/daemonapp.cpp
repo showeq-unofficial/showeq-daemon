@@ -861,6 +861,11 @@ void DaemonApp::exportHandoffState(const QString& configDir) const
         m_spawnShell->saveSpawns();
         m_player->savePlayerState();
     }
+
+    // SpawnMonitor normally flushes via aboutToQuit, which _exit(75)
+    // bypasses. Flush it explicitly so the new daemon loads current data.
+    if (m_spawnMonitor)
+        m_spawnMonitor->saveSpawnPoints();
 }
 
 bool DaemonApp::importHandoffState(const QString& configDir)
@@ -879,5 +884,20 @@ bool DaemonApp::importHandoffState(const QString& configDir)
         QFile::remove(configDir + "/.hstate_Spawns.dat");
         QFile::remove(configDir + "/.hstate_Player.dat");
     }
+
+    // Reload map geometry and spawn-point list for the restored zone.
+    // These normally fire via zoneBegin/zoneChanged signals which are
+    // not emitted during a handoff restore.
+    const QString zone = m_zoneMgr ? m_zoneMgr->shortZoneName() : QString();
+    if (!zone.isEmpty() && zone != "unknown") {
+        loadZoneMap(zone);
+        // SpawnMonitor self-wired to zoneChanged in its ctor but never
+        // received one. Call the slot directly: it sets m_zoneName and
+        // calls loadSpawnPoints() without going through the signal (which
+        // would clear SpawnShell state we just restored).
+        if (m_spawnMonitor)
+            m_spawnMonitor->zoneChanged(zone);
+    }
+
     return true;
 }
