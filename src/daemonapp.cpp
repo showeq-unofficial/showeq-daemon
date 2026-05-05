@@ -850,11 +850,34 @@ void DaemonApp::exportHandoffState(const QString& configDir) const
 {
     if (m_packet)
         m_packet->exportHandoffState(configDir);
+
+    // Save zone/spawn/player state so the new binary can restore them
+    // before the web client reconnects and requests a snapshot. The
+    // ".hstate_" prefix keeps these files distinct from any normal
+    // save/restore files the user might have configured.
+    if (m_zoneMgr && m_spawnShell && m_player) {
+        showeq_params->saveRestoreBaseFilename = configDir + "/.hstate_";
+        m_zoneMgr->saveZoneState();
+        m_spawnShell->saveSpawns();
+        m_player->savePlayerState();
+    }
 }
 
 bool DaemonApp::importHandoffState(const QString& configDir)
 {
-    if (m_packet)
-        return m_packet->importHandoffState(configDir);
-    return false;
+    if (!m_packet || !m_packet->importHandoffState(configDir))
+        return false;
+
+    if (m_zoneMgr && m_spawnShell && m_player) {
+        showeq_params->saveRestoreBaseFilename = configDir + "/.hstate_";
+        // Zone must be restored first — restoreSpawns checks the zone name.
+        m_zoneMgr->restoreZoneState();
+        m_spawnShell->restoreSpawns();
+        m_player->restorePlayerState();
+        // Clean up; these files are only valid for one handoff.
+        QFile::remove(configDir + "/.hstate_Zone.dat");
+        QFile::remove(configDir + "/.hstate_Spawns.dat");
+        QFile::remove(configDir + "/.hstate_Player.dat");
+    }
+    return true;
 }

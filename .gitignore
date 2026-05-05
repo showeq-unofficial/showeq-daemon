@@ -32,6 +32,9 @@ conf/spawnpoints/
 conf/filters/
 conf/maps/
 
-# Ephemeral session-handoff blob written by the running daemon on SIGHUP
+# Ephemeral session-handoff files written by the running daemon on SIGHUP
 # and consumed by the replacement binary on startup.
 conf/.handoff
+conf/.hstate_Zone.dat
+conf/.hstate_Spawns.dat
+conf/.hstate_Player.dat
