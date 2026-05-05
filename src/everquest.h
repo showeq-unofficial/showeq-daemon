@@ -2224,11 +2224,11 @@ struct startCastStruct
 
 struct manaDecrementStruct
 {
-/*0000*/ int32_t newMana;                        // New Mana AMount
-/*0004*/ int32_t unknown;                        // Looks like endurance but not sure why that'd be reported here
+/*0000*/ int32_t newMana;                        // New Mana Amount
+/*0004*/ int32_t maxMana;                        // Max Mana (grows on level-up)
 /*0008*/ int32_t spellId;                        // Last Spell Cast
 /*0012*/ uint8_t unknown0012[4];
-/*0016*/ uint8_t unknown0016[4];                 //*** Placeholder (02/13/07)
+/*0016*/ uint8_t unknown0016[4];
 /*0020*/
 };
 

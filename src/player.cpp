@@ -658,7 +658,7 @@ void Player::manaChange(const uint8_t* data)
     if (out.ok) {
       std::memset(&tmp, 0, sizeof(tmp));
       tmp.newMana = out.new_mana;
-      tmp.unknown = out.unknown;
+      tmp.maxMana = out.max_mana;
       tmp.spellId = out.spell_id;
       mana = &tmp;
     }
