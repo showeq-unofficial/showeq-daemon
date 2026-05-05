@@ -11,7 +11,7 @@
     </opcode>
 -->
 
-    <opcode id="ffff" name="OP_GuildList">
+    <opcode id="022f" name="OP_GuildList" updated="05/04/26">
         <comment>old GuildListCode</comment>
         <payload dir="server" typename="worldGuildListStruct" sizechecktype="none"/>
     </opcode>
@@ -21,10 +21,10 @@
     </opcode>
 
 <!-- Not necessary for SEQ to run but here to name packets in logs -->
-    <opcode id="ffff" name="OP_SendLoginInfo">
+    <opcode id="7b6a" name="OP_SendLoginInfo" updated="05/04/26">
         <comment>Client starting world session by asking for login information</comment>
     </opcode>
-    <opcode id="ffff" name="OP_LogServer">
+    <opcode id="b537" name="OP_LogServer" updated="05/04/26">
         <comment></comment>
     </opcode>
     <opcode id="ffff" name="OP_ApproveWorld">

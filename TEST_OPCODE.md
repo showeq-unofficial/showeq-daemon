@@ -15,8 +15,8 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 ## World stream (20)
 
 ### Login / handshake (8)
-- [ ] OP_SendLoginInfo — *(no payload struct; identifier only)*
-- [ ] OP_LogServer
+- [x] OP_SendLoginInfo — *(no payload struct; identifier only)* — `0x7b6a` (2026-05-04)
+- [x] OP_LogServer — `0xb537` (2026-05-04)
 - [ ] OP_ApproveWorld
 - [ ] OP_EnterWorld
 - [ ] OP_ExpansionInfo
@@ -35,7 +35,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_SetChatServer2
 
 ### World content (2)
-- [ ] OP_GuildList — worldGuildListStruct (server)
+- [x] OP_GuildList — worldGuildListStruct (server) — `0x022f` (2026-05-04)
 - [ ] OP_MOTD — worldMOTDStruct (server)
 
 ### Character management (4)
@@ -211,6 +211,33 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Sample bytes (fires 1–3): `63 2d  00 00 00 00  1c 00 00 00`, then `63 2d  01 00 00 00  1c 00 00 00`, then `63 2d  02 00 00 00  1c 00 00 00`.
 - Struct fit: endUpdateStruct{spawn_id=0x2d63=11619, cur=0/1/2/…, max=0x1c=28} — exact match. Same spawn_id as OP_HPUpdate (the local PC). cur ramps from 0 each tick; max=28 fits a lvl 1 endurance pool.
 - Ruled out: 0xf96e (10b S>C, 10 fires) was the only competitor; rejected on count gap (28 vs 10) and need to actually see the endurance ramp pattern.
+
+### 2026-05-04 — OP_SendLoginInfo = 0x7b6a
+- Capture: `tests/replay/test-login-logout.vpk` (login + camp).
+- Method: `--list-events` shows `0x7b6a` is the FIRST C>S packet of every login burst (3 fires across login + camp-back). `--dump-payload 0x7b6a:` confirms.
+- Sample bytes: 9-digit ASCII account number + NUL + 10-char ASCII session key + NUL, followed by 444 bytes of padding zeros (464b total). Concrete values redacted as account secrets.
+- Struct fit: matches the canonical SendLoginInfo layout — account-id string + session-key string in a fixed 464-byte envelope.
+- Ruled out: no other C>S 464b opcode in the world stream.
+
+### 2026-05-04 — OP_GuildList = 0x022f
+- Capture: `tests/replay/test-login-logout.vpk`.
+- Method: `--dump-payload 0x022f:`. 1 fire, 341132 bytes S>C.
+- Sample bytes: 16-byte header followed by NUL-terminated guild-name strings — visible plaintext: "Storied Merchant's Loot Rucksack", "Year of Darkpaw", "A large ba…" (truncated). Hundreds of guild names follow.
+- Struct fit: matches `worldGuildListStruct` (variable list of guild entries). XML's `sizechecktype="none"` matches the variable-payload nature.
+- Ruled out: only 341KB-class packet in the world stream; size and ASCII content unambiguous.
+
+### 2026-05-04 — OP_LogServer = 0xb537
+- Capture: `tests/replay/test-login-logout.vpk`.
+- Method: `--dump-payload 0xb537:`. 2 fires, 34765 bytes S>C each.
+- Sample bytes: header `01 07 00 00 00` + ASCII timezone string "PST8PDT8PDT" + structured server config table (zone metadata + counts).
+- Struct fit: a "log server" / world-config blob carrying server-side timezone + server metadata. The TZ string is the unmistakable anchor.
+- Ruled out: no other 34KB-class S>C packet in the world stream. Note: 34KB is much larger than legacy expectations for OP_LogServer — Test may have folded zone-list / server-config data into this packet.
+
+### Pending: OP_Send{Spell,BaseData,SkillCaps,Exe}Checksum trio
+- Capture: `tests/replay/test-login-logout.vpk`.
+- Observed: three opcodes — `0x2de1`, `0x289c`, `0xa958` — fire as 2056-byte C>S packets during the login handshake (each twice: login + camp-back). All three have an 8-byte hash signature followed by a list of little-endian u32 hash values. Plus `0x44d9` fires C>S 64b twice — possibly OP_SendExeChecksum (smaller exe-only checksum).
+- Status: `OP_Send{Spell,BaseData,SkillCaps}Checksum` are 3-of-3 candidates among `{0x2de1, 0x289c, 0xa958}` but individual mapping is undetermined — same size, same direction, similar payload shape.
+- Next step: order-correlate against legacy showeq sources (the original handshake order is documented there) OR capture multiple sessions and look for fire-order stability.
 
 ### 2026-05-04 — OP_FormattedMessage = 0x0ecf
 - Capture: `tests/replay/test-zone-entry.vpk`.
