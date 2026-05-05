@@ -848,8 +848,26 @@ int32_t SpawnShell::fillSpawnStruct(spawnStruct *spawn, const uint8_t *data, siz
 
    spawn->isMercenary = netStream.readUInt8();
 
-   // unknowns
+   // Live trailing slack: ~66 bytes of unknowns that may or may not be
+   // present depending on spawn type. NetStream::skipBytes is tolerant
+   // (no-op if fewer bytes remain), so this absorbs whatever's there.
    netStream.skipBytes(66);
+
+   // Test-client trailing block (appended ~early 2026; not present on Live):
+   //   bytes  0..13 (14)  NUL-terminated placeholder string, observed as
+   //                       "0000000000000\0" on every spawn so far. Likely
+   //                       a UUID/key field reserved but unset on Test.
+   //   bytes 14..22 ( 9)  Nine 0xff bytes — sentinels for "no value"
+   //                       (probably two short IDs left unset by the server).
+   //   bytes 23..30 ( 8)  Eight zero bytes — two u32 IDs (always zero so far).
+   //   bytes 31..34 ( 4)  u32 — the only field that varies by spawn:
+   //                       NPCs/corpses always 0; PCs carry a non-zero
+   //                       value (e.g. 0x69f94e9c on the test PC). May be
+   //                       an account/character timestamp or session id.
+   //   bytes 35..61 (27)  Trailing zero padding — likely future-reserved.
+   // Read tolerantly via skipBytes for now; promote to typed reads in
+   // spawnStruct once any of these fields prove load-bearing.
+   netStream.skipBytes(62);
 
    // now we're at the end
 
