@@ -3,7 +3,7 @@
 <seqopcodes>
 
     <!-- Critical opcodes used directly by ShowEQ -->
-    <opcode id="ffff" name="OP_PlayerProfile">
+    <opcode id="e284" name="OP_PlayerProfile" updated="05/04/26">
         <comment>CharProfileCode</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
@@ -16,7 +16,7 @@
         <comment>TimeOfDayCode</comment>
         <payload dir="server" typename="timeOfDayStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_NewZone">
+    <opcode id="a923" name="OP_NewZone" updated="05/04/26">
         <comment>NewZoneCode</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>

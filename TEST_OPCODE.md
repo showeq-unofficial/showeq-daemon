@@ -49,10 +49,10 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 ## Zone stream (53)
 
 ### Zone bootstrap (8)
-- [ ] OP_PlayerProfile — uint8_t (server, variable)
+- [x] OP_PlayerProfile — uint8_t (server, variable) — `0xe284` (2026-05-04)
 - [x] OP_ZoneEntry — ClientZoneEntryStruct (client) / uint8_t (server) — `0xa5bf` (2026-05-04)
 - [ ] OP_TimeOfDay — timeOfDayStruct (server)
-- [ ] OP_NewZone — uint8_t (server, variable)
+- [x] OP_NewZone — uint8_t (server, variable) — `0xa923` (2026-05-04)
 - [x] OP_SpawnDoor — doorStruct (server, modulus) — `0x794d` (2026-05-04)
 - [ ] OP_GroundSpawn — makeDropStruct (server)
 - [ ] OP_SendZonePoints — zonePointsStruct (server)
@@ -248,6 +248,25 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
   - 0xa958: `ae 5d 2b f4  8b 38 01 00  e9 0e 00 00  89 1d 00 00  …`
 - Confidence: high for the **set** mapping (4 names → 4 IDs, byte sizes constrain Exe→64b uniquely). Medium-high for the spell/base/skillcaps individual mapping within the 2056b trio: relies on the legacy declaration-order convention being preserved on Test, which is a reasonable but unverified assumption. Re-verify after the next capture by checking a session log for the same fire order.
 - **Re-verified 2026-05-04 against `tests/replay/test-login-2.vpk`**: same fire order (`0x2de1 → 0x289c → 0xa958` for the 2056b trio, `0x44d9` paired with SkillCaps in the next ms) reproduced in both login bursts of the new capture. The legacy-declaration-order disambiguation holds.
+
+### 2026-05-04 — OP_NewZone = 0xa923
+- Capture: `tests/replay/test-zone-entry.vpk`. 2 fires (one per zone-in: `tutoriala` then `tutorialb`).
+- Method: `--dump-payload 0xa923:`. 338 bytes S>C each fire.
+- Sample bytes: starts with `74 75 74 6f 72 69 61 6c 61 00` = `"tutoriala\0"` then `"The Mines of Gloomingdeep\0"` then a duplicated short-name and zone metadata.
+- Struct fit: payload contains zone short name + long name + metadata — definitively newZoneStruct on Test (layout differs from Live `newZoneStruct` where shortName is at offset 64 after `name[64]`; on Test the leading character-name field is gone and shortName is at offset 0).
+- Verified via daemon log: replay now reports `loaded map for zone 'tutoriala'` and `loaded map for zone 'tutorialb'` as expected — the daemon's ZoneMgr handler triggers on the resolved opcode and reads the short-name correctly because Test happens to put it where the existing parser already looks (post-`name[64]` skip lands inside the unknown trailing bytes — coincidence or layout change). Worth a closer parser audit if any zone-related downstream behavior is off.
+- Ruled out: no other 338b S>C 1-2 fire opcode in the capture; the ASCII zone names are unambiguous.
+
+### 2026-05-04 — OP_PlayerProfile = 0xe284
+- Capture: `tests/replay/test-zone-entry.vpk`. 2 fires (zone-in tutoriala + zone-in tutorialb), sizes 23391b and 23331b respectively (variable).
+- Method: `--dump-payload 0xe284:`. Searched all candidate huge-S>C zone payloads for the player name; only 0xe284 contained `"<charname>\0"` (at offset 20427).
+- Anchor evidence:
+  - At offset 20 (0x14): u32 = 6 = race (Erudite, plausible for a Necromancer).
+  - At offset 24 (0x18): u32 = **11 = Necromancer class** ✓
+  - At offset 28 (0x1c): u8 = 1 in fire 1, u8 = 2 in fire 2 = **level field tracks the user's lvl 1 → 2 ding**.
+  - Same `0x69f94e9c` PC-specific u32 we saw in the spawnStruct trailing-block also appears inside the profile payload (cross-opcode self-consistency).
+- Struct fit: charProfileStruct on Test, layout shifted from Live (player name moved to ~offset 20427 instead of the legacy offset 4). The daemon's `fillProfileStruct` is called with `checkLen=false` so no warnings will fire even if parser-vs-wire layout has drifted; if downstream "char information is not showing up" persists after this XML fix, the parser itself needs an audit (start with the offsets I listed above).
+- Ruled out: 0x007d (133KB, 1 fire) was the largest 1-fire S>C zone packet but contains no ASCII strings — likely a different big bulk packet (spell book / item cache / similar, out of 73-list scope).
 
 ### Pending: legacy-comment ambiguity
 - Both `OP_SendExeChecksum` and `OP_SendBaseDataChecksum` carry the comment "Second client verification packet" in legacy `worldopcodes.xml` — likely a copy-paste from when those names were first added. It does NOT change the disambiguation above (Exe is uniquely 64b, BaseData is uniquely the middle 2056b in fire order), but worth flagging for future reviewers.
