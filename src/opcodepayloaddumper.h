@@ -25,8 +25,14 @@ public:
 private slots:
     void onDecodedZonePacket(const uint8_t* data, size_t len, uint8_t dir,
                              uint16_t opcode, const EQPacketOPCode* entry);
+    void onDecodedWorldPacket(const uint8_t* data, size_t len, uint8_t dir,
+                              uint16_t opcode, const EQPacketOPCode* entry);
 
 private:
+    void writeIfMatch(const uint8_t* data, size_t len, uint8_t dir,
+                      uint16_t opcode, const EQPacketOPCode* entry,
+                      const char* stream);
+
     uint16_t m_opcode;
     QString  m_basePath;
     int      m_count = 0;
