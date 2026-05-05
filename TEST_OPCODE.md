@@ -78,14 +78,14 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_TargetMouse — clientTargetStruct (both)
 
 ### Stats / HP / mana / xp / endurance (9)
-- [ ] OP_ExpUpdate — expUpdateStruct (server)
+- [x] OP_ExpUpdate — expUpdateStruct (server) — `0xcf53` (2026-05-04)
 - [ ] OP_AAExpUpdate — altExpUpdateStruct (server)
-- [ ] OP_HPUpdate — hpNpcUpdateStruct (both)
+- [x] OP_HPUpdate — hpNpcUpdateStruct (both) — `0x652f` (2026-05-04)
 - [x] OP_MobHealth — mobHealthStruct (server) — `0x8d24` (2026-05-04)
 - [ ] OP_ManaChange — manaDecrementStruct (server)
-- [ ] OP_SkillUpdate — skillIncStruct (server)
-- [ ] OP_LevelUpdate — levelUpUpdateStruct (server)
-- [ ] OP_EndUpdate — endUpdateStruct (server)
+- [x] OP_SkillUpdate — skillIncStruct (server) — `0x6a60` (2026-05-04)
+- [x] OP_LevelUpdate — levelUpUpdateStruct (server) — `0x9426` (2026-05-04)
+- [x] OP_EndUpdate — endUpdateStruct (server) — `0x36d1` (2026-05-04)
 - [ ] OP_Stamina — staminaStruct (server) *(hunger/thirst, not endurance)*
 
 ### Buffs (1)
@@ -116,7 +116,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 
 ### Chat / messaging (4)
 - [ ] OP_SimpleMessage — simpleMessageStruct (server)
-- [ ] OP_FormattedMessage — formattedMessageStruct (server)
+- [x] OP_FormattedMessage — formattedMessageStruct (server) — `0x0ecf` (2026-05-04)
 - [ ] OP_CommonMessage — channelMessageStruct (both)
 - [ ] OP_SpecialMesg — specialMessageStruct (server)
 
@@ -176,3 +176,45 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Method: `--opcode-stats`. 10 fires, all S>C, all 6 bytes.
 - Struct fit: 6 = sizeof(mobHealthStruct). Percent-HP broadcast on the mob during the fight.
 - Ruled out: no other opcode at S>C 6b. mobHealthStruct is the only 6-byte struct.
+
+### 2026-05-04 — OP_LevelUpdate = 0x9426
+- Capture: `tests/replay/test-zone-entry.vpk`. The lvl 1→2 ding event is the anchor.
+- Method: `--dump-payload 0x9426:`. 1 fire, 16 bytes S>C.
+- Sample bytes: `02 00 00 00  01 00 00 00  d4 6f 00 00  00 00 00 00`.
+- Struct fit: levelUpUpdateStruct{level=2, levelOld=1, exp=0x6fd4=28628, unknown=0} — exact match. The new/old level pair confirms the ding.
+- Ruled out: no competitor at S>C 16b with this structure. ExpUpdate (also 16b) shares the size band but type-field semantics differ (see 0xcf53 below).
+
+### 2026-05-04 — OP_ExpUpdate = 0xcf53
+- Capture: `tests/replay/test-zone-entry.vpk`.
+- Method: `--dump-payload 0xcf53:`. 5 fires, all 16 bytes S>C.
+- Sample bytes (fire 5): `d4 6f 00 00  00 00 00 00  02 00 00 00  00 00 00 00`.
+- Struct fit: expUpdateStruct{exp, unknown, type, unknown}. exp=0x6fd4=28628 matches the post-level-up exp seen in OP_LevelUpdate above. type field cycles 0/2 across fires (0=set, 2=update per the struct comment) — matches the observed mix of initial-set and incremental-update fires.
+- Ruled out: levelUpUpdateStruct ruled out because the type field would not show the 0/2 cycle and the level/oldLevel pair would not be 0/0 in 4 of 5 fires.
+
+### 2026-05-04 — OP_SkillUpdate = 0x6a60
+- Capture: `tests/replay/test-zone-entry.vpk`. Anchor: the Meditation skill-up to value 11.
+- Method: `--dump-payload 0x6a60:`. 1 fire, 12 bytes S>C.
+- Sample bytes: `1f 00 00 00  0b 00 00 00  01 00 00 00`.
+- Struct fit: skillIncStruct{skillId=31, value=11, unknown=1}. `src/skills.h:55` lists slot 31 as "Meditate". Value=11 matches the in-game skill rank reached.
+- Ruled out: altExpUpdateStruct (12b) — at level 1 the player has 0 AA, so AA-xp updates wouldn't fire here. simpleMessageStruct (12b) — would not have a small skill-id-shaped first u32. remDropStruct (12b) — needs a clickObject event, none observed.
+
+### 2026-05-04 — OP_HPUpdate = 0x652f
+- Capture: `tests/replay/test-zone-entry.vpk`. Anchor: HP movement during the mob fight.
+- Method: `--dump-payload 0x652f:`. 18 fires, all 18 bytes S>C.
+- Sample bytes (fires 1–3): `63 2d 1d 00 00 00  00 00 00 00 1d 00 00 00  00 00 00 00`, then `63 2d 16 00 ...` and `63 2d 18 00 ...`.
+- Struct fit: hpNpcUpdateStruct{spawnId=0x2d63=11619, curHP, unknown, maxHP=29, unknown}. curHP varies 22-29 across fires (combat damage + regen ramp); maxHP stays 29 (lvl 1 player). spawnId 11619 is the local PC, consistent with the same prefix appearing in OP_EndUpdate / OP_FormattedMessage dumps.
+- Ruled out: 0x917c was the higher-count (99x) competitor at S>C 18b; rejected on byte layout — its u16 prefix doesn't move like a curHP value, and its size is variable (15/17/18) which fits OP_NpcMoveUpdate (uint8_t variable) better than the fixed-18b hpNpcUpdateStruct.
+
+### 2026-05-04 — OP_EndUpdate = 0x36d1
+- Capture: `tests/replay/test-zone-entry.vpk`. Anchor: endurance regen ramp from 0 toward max.
+- Method: `--dump-payload 0x36d1:`. 28 fires, all 10 bytes S>C.
+- Sample bytes (fires 1–3): `63 2d  00 00 00 00  1c 00 00 00`, then `63 2d  01 00 00 00  1c 00 00 00`, then `63 2d  02 00 00 00  1c 00 00 00`.
+- Struct fit: endUpdateStruct{spawn_id=0x2d63=11619, cur=0/1/2/…, max=0x1c=28} — exact match. Same spawn_id as OP_HPUpdate (the local PC). cur ramps from 0 each tick; max=28 fits a lvl 1 endurance pool.
+- Ruled out: 0xf96e (10b S>C, 10 fires) was the only competitor; rejected on count gap (28 vs 10) and need to actually see the endurance ramp pattern.
+
+### 2026-05-04 — OP_FormattedMessage = 0x0ecf
+- Capture: `tests/replay/test-zone-entry.vpk`.
+- Method: `--dump-payload 0x0ecf:`. 9 fires, all 13 bytes S>C.
+- Sample bytes (fires 1–3): `63 2d 00 00 70  17 00 00 00  01 00 00 00  00`, etc. (only the unknown0001[4] byte at offset 4 varies; messageFormat and messageColor are stable across fires.)
+- Struct fit: formattedMessageStruct{unknown0000=0x63, unknown0001[4], messageFormat=0x17=23, messageColor=1, messages=∅}. 13b = the struct's fixed prefix; the variable `messages` tail is empty in these fires (zero-length notification messages). Format 23 + ChatColor 1 are consistent across all 3 inspected fires.
+- Ruled out: simpleMessageStruct (12b) has the wrong size; specialMessageStruct (23b) has the wrong size; channelMessageStruct (~2188b) has the wrong size.

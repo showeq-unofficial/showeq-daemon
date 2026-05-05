@@ -37,7 +37,7 @@
       <comment>Receiving AA experience. Also when percent to AA changes.</comment>
       <payload dir="server" typename="altExpUpdateStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_ExpUpdate">
+    <opcode id="cf53" name="OP_ExpUpdate" updated="05/04/26">
         <comment>ExpUpdateCode</comment>
         <payload dir="server" typename="expUpdateStruct" sizechecktype="match"/>
     </opcode>
@@ -82,7 +82,7 @@
         <comment>Server updating on hunger/thirst</comment>
         <payload dir="server" typename="staminaStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_HPUpdate">
+    <opcode id="652f" name="OP_HPUpdate" updated="05/04/26">
         <comment>NpcHpUpdateCode Update HP % of a PC or NPC</comment>
         <payload dir="both" typename="hpNpcUpdateStruct" sizechecktype="match"/>
     </opcode>
@@ -195,7 +195,7 @@
         <comment>SimpleMessageCode</comment>
         <payload dir="server" typename="simpleMessageStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_FormattedMessage">
+    <opcode id="0ecf" name="OP_FormattedMessage" updated="05/04/26">
         <comment>FormattedMessageCode i.e. pet dismissed etc</comment>
         <payload dir="server" typename="formattedMessageStruct" sizechecktype="none"/>
     </opcode>
@@ -240,11 +240,11 @@
         <comment>MoneyOnCorpseCode</comment>
         <payload dir="server" typename="moneyOnCorpseStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_SkillUpdate">
+    <opcode id="6a60" name="OP_SkillUpdate" updated="05/04/26">
         <comment>Skill up code</comment>
         <payload dir="server" typename="skillIncStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_LevelUpdate">
+    <opcode id="9426" name="OP_LevelUpdate" updated="05/04/26">
         <comment>LevelUpUpdateCode</comment>
         <payload dir="server" typename="levelUpUpdateStruct" sizechecktype="match"/>
     </opcode>
@@ -315,7 +315,7 @@
     <comment>Mana Update opcode - 10 bytes</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_EndUpdate">
+    <opcode id="36d1" name="OP_EndUpdate" updated="05/04/26">
         <comment>Endurance Update opcode - 10 bytes (spawn_id u16, cur u32, max u32)</comment>
         <payload dir="server" typename="endUpdateStruct" sizechecktype="match"/>
     </opcode>
