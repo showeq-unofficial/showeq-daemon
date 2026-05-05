@@ -60,7 +60,8 @@ void messageHandler(QtMsgType type, const QMessageLogContext& ctx,
 // a QSocketNotifier on the read end dispatches on the main thread. This
 // gives us clean Qt teardown (FileSink flush, OpcodeStatsLogger report,
 // WsServer session drop) on Ctrl-C, `systemctl stop`, and SIGHUP reload.
-int g_signalFd[2] = {-1, -1};
+int  g_signalFd[2]       = {-1, -1};
+bool g_handoffRequested  = false;
 
 void sigQuit(int /*sig*/)
 {
@@ -247,17 +248,21 @@ int main(int argc, char** argv)
         if (b == 'H') {
             qInfo("SIGHUP: exporting session handoff state");
             daemon.exportHandoffState(cfg.configDir);
-            // Exit 75 (EX_TEMPFAIL) signals up.py to restart rather than
-            // treat this as a crash — the running up.py checks this code.
-            QCoreApplication::exit(75);
+            // Set flag so main() can return 75 (EX_TEMPFAIL) after the
+            // normal Qt teardown completes. Calling exit(75) directly
+            // from within a slot triggers a crash in some Qt teardown
+            // paths; always using quit() keeps teardown identical to
+            // the SIGTERM path and avoids the issue.
+            g_handoffRequested = true;
         } else {
             qInfo("shutdown signal received, exiting");
-            QCoreApplication::quit();
         }
+        QCoreApplication::quit();
     });
 
     if (daemon.importHandoffState(cfg.configDir))
         qInfo("session resumed from handoff state");
 
-    return app.exec();
+    app.exec();
+    return g_handoffRequested ? 75 : 0;
 }
