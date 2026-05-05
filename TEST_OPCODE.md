@@ -107,11 +107,11 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_GuildsInZoneList — guildsInZoneListStruct (server)
 
 ### Inventory / items (2)
-- [ ] OP_ItemPacket — itemPacketStruct (server)
+- [x] OP_ItemPacket — itemPacketStruct (server) — `0xe8bc` (2026-05-04)
 - [x] OP_MoveItem — moveItemStruct (client) — `0xdee3` (2026-05-04)
 
 ### Click / interact (2)
-- [ ] OP_ClickObject — remDropStruct (both)
+- [x] OP_ClickObject — remDropStruct (both) — `0xab5e` (2026-05-04)
 - [ ] OP_Find — uint8_t (server, variable)
 
 ### Chat / messaging (4)
@@ -248,6 +248,19 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
   - 0xa958: `ae 5d 2b f4  8b 38 01 00  e9 0e 00 00  89 1d 00 00  …`
 - Confidence: high for the **set** mapping (4 names → 4 IDs, byte sizes constrain Exe→64b uniquely). Medium-high for the spell/base/skillcaps individual mapping within the 2056b trio: relies on the legacy declaration-order convention being preserved on Test, which is a reasonable but unverified assumption. Re-verify after the next capture by checking a session log for the same fire order.
 - **Re-verified 2026-05-04 against `tests/replay/test-login-2.vpk`**: same fire order (`0x2de1 → 0x289c → 0xa958` for the 2056b trio, `0x44d9` paired with SkillCaps in the next ms) reproduced in both login bursts of the new capture. The legacy-declaration-order disambiguation holds.
+
+### 2026-05-04 — OP_ItemPacket = 0xe8bc
+- Capture: `tests/replay/test-combat.vpk`. 55 fires, all S>C, sizes 949-1018b (variable per item).
+- Method: `--dump-payload 0xe8bc:`. Each payload starts with a u32 type/count prefix then a NUL-terminated item-serial ASCII string (`"vTeS004000090000"`), structured stat fields, then NUL-terminated item name + description.
+- Sample bytes (fire 1, head): `6b 00 00 00 "vTeS004000090000\0" 00 01 00 00 00 05 00 00 00 00 00 ff ff ff ff …`. Plaintext strings: `"Gloomingdeep Kobold Cloth Sleeves"` + `"Worn by the kobolds in Gloomingdeep Mines"`.
+- Struct fit: `itemPacketStruct` per zoneopcodes.xml. 55 fires fits an inventory burst (55+ equipped/inventory items).
+- Ruled out: 0x2b01 (48x S>C ~700-1000b similar size) carries quest descriptions ("Join the revolution!", `<c "#F0F000">…`) — that's OP_TaskDescription, out of 73-list scope.
+
+### 2026-05-04 — OP_ClickObject = 0xab5e
+- Capture: `tests/replay/test-combat.vpk`. 7 fires (3 C>S + 4 S>C), all 12b — direction "both" matches XML.
+- Method: `--dump-payload 0xab5e:`. Sample fires: `5e 00 00 00  e2 09 00 00  00 00 00 00` and `69 00 00 00  e2 09 00 00  00 00 00 00`.
+- Struct fit: 12 = sizeof(remDropStruct). Layout matches: u16 dropId (0x5e=94, 0x69=105 — different ground spawns clicked) at offset 0, u16 spawnId (0x09e2 = <charname>, the clicker) at offset 4, trailing 4 zero bytes.
+- Ruled out: other 12b candidates (0x14dc heartbeat, 0x098d per-mob updates, etc.) lack the dropId+spawnId pair pattern.
 
 ### 2026-05-04 — OP_MoveItem = 0xdee3
 - Capture: `tests/replay/test-combat.vpk`. 40 fires (33 C>S + 7 S>C ack), all 28b — the daemon's candidate-match section already flagged this opcode as a strong moveItemStruct fit (`size@28=2 dir-match~2 dirs(C>S=2)` from the test-zone-entry stats).

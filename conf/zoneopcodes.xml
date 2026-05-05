@@ -90,7 +90,7 @@
         <comment>Info regarding guild members</comment>
         <payload dir="server" typename="GuildMemberUpdate" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_ClickObject">
+    <opcode id="ab5e" name="OP_ClickObject" updated="05/04/26">
         <comment>Items dropped on the ground</comment>
         <payload dir="both" typename="remDropStruct" sizechecktype="match"/>
     </opcode>
@@ -281,7 +281,7 @@
         <comment>old CorpseLocCode:</comment>
         <payload dir="server" typename="corpseLocStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_ItemPacket">
+    <opcode id="e8bc" name="OP_ItemPacket" updated="05/04/26">
         <comment>S>C variable-length serialized item delivery; resolved via inventory.opcodestats.txt where 34 fires carried inline ASCII item names ("Whitened Treant Fists", etc.) verifiable against the player's loadout. Per-item, fires on slot move and zone-in pickup; the legacy bulk OP_ItemPlayerPacket appears obsolete on current Live.</comment>
         <payload dir="server" typename="itemPacketStruct" sizechecktype="none"/>
     </opcode>
