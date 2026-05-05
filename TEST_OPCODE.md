@@ -31,7 +31,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_SendSkillCapsChecksum — `0xa958` (2026-05-04)
 
 ### Chat servers (2)
-- [ ] OP_SetChatServer
+- [x] OP_SetChatServer — `0xf22b` (2026-05-05)
 - [ ] OP_SetChatServer2
 
 ### World content (2)
@@ -525,3 +525,10 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Sample bytes: `00 00 00 00 ff ff ff ff ff ff ff ff … ff ff ff ff 00 00 00 00 …` — u32 header (zero), 11 × `0xffffffff` (all expansion flags set), then trailing zeros. The "all expansions unlocked" shape matches a Test account's typical entitlement.
 - Struct fit: 84b fixed = u32 header + ~11 u32 expansion flags + reserved zero space. Once-per-login, identical-payload signature is the ExpansionInfo signature; the legacy XML's "Which expansions user has" comment matches the shape.
 - Ruled out alternative: 0x066d (4 S>C 157b, structured array of 36 int32 with mixed `1` / `-1` values, 0x02 header + sentinels) is also a flag-bitmask shape but fires 4 times (per zone session, not per world login) and varies in entry-by-entry pattern — looks more like a per-zone game-feature / class-availability config than the per-world expansion list. Worth re-classifying if a future capture shows OP_ExpansionInfo's 84b form is wrong.
+
+### 2026-05-05 — OP_SetChatServer = 0xf22b
+- Capture: `tests/replay/test-char-leader.vpk` (full-from-start handshake covering 2 logins).
+- Method: `--list-events` showed 0xf22b firing as S>C 1464b in the early world handshake (between OP_SendLoginInfo and OP_LogServer), then `--dump-payload 0xf22b:` to inspect content.
+- Anchor evidence: payload contains ~18 plaintext Daybreak service URLs in NUL-terminated record form. Critical: `https://auth.daybreakgames.com/rest/client/session/create` (the actual chat session endpoint) plus a full catalog of auth/account/commerce/support endpoints (loginWithoutTicket, fundWallet, getpaymentinfo, purchase, redeemcode, finalizesteamtransaction, session/touch, help.daybreakgames.com, etc.). The legacy single-URL chat-server form has been replaced with a multi-URL service catalog on Test.
+- Struct fit: 1464b variable size, fires once per world login (2 fires for 2 logins). The "set chat server" semantic still applies — server tells client where chat/auth services live — but the modern shape is a service catalog instead of a single host:port:key tuple.
+- OP_SetChatServer2 deferred. The legacy duplicate (mail server vs chat server split) doesn't have an obvious twin opcode here; closest candidate is 0xdeb6 (1188b S>C 2 fires) which contains `https://www.everquest.com/membership` plus binary, but the service-overlap with 0xf22b makes the role-assignment unclear. Worth a closer compare across captures.

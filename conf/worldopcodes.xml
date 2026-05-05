@@ -51,8 +51,8 @@
     <opcode id="a958" name="OP_SendSkillCapsChecksum" updated="05/04/26">
 	    <comment>Third client verification packet</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SetChatServer">
-	    <comment>Chatserver? IP,Port,servername.Charname,password(?)</comment>
+    <opcode id="f22b" name="OP_SetChatServer" updated="05/05/26">
+	    <comment>Chat / auth / commerce service URLs. Test: 1464b S>C, ~18 plaintext URLs including auth.daybreakgames.com/rest/client/session/create (the chat session endpoint), login, account, commerce, support — replaces the legacy IP/Port/servername host-config form with a multi-URL service catalog.</comment>
     </opcode>
     <opcode id="ffff" name="OP_SetChatServer2">
 	    <comment>Chatserver? IP,Port,servername.Charname,password(?)</comment>
