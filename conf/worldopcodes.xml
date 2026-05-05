@@ -11,68 +11,68 @@
     </opcode>
 -->
 
-    <opcode id="3ad6" name="OP_GuildList" updated="11/16/16">
+    <opcode id="ffff" name="OP_GuildList">
         <comment>old GuildListCode</comment>
         <payload dir="server" typename="worldGuildListStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="08B3" name="OP_MOTD" updated="12/12/12">
+    <opcode id="ffff" name="OP_MOTD">
         <comment>old MOTDCode Server message of the day</comment>
         <payload dir="server" typename="worldMOTDStruct" sizechecktype="none"/>
     </opcode>
 
 <!-- Not necessary for SEQ to run but here to name packets in logs -->
-    <opcode id="6893" name="OP_SendLoginInfo" updated="11/07/10">
+    <opcode id="ffff" name="OP_SendLoginInfo">
         <comment>Client starting world session by asking for login information</comment>
     </opcode>
-    <opcode id="3288" name="OP_LogServer" updated="11/07/10">
+    <opcode id="ffff" name="OP_LogServer">
         <comment></comment>
     </opcode>
-    <opcode id="115A" name="OP_ApproveWorld" updated="11/07/08">
+    <opcode id="ffff" name="OP_ApproveWorld">
         <comment></comment>
     </opcode>
-    <opcode id="3288" name="OP_EnterWorld" updated="11/07/10">
+    <opcode id="ffff" name="OP_EnterWorld">
 	    <comment>Server approval for client to enter world</comment>
     </opcode>
-    <opcode id="1771" name="OP_ExpansionInfo" updated="11/07/10">
+    <opcode id="ffff" name="OP_ExpansionInfo">
 	    <comment>Which expansions user has</comment>
     </opcode>
-    <opcode id="6685" name="OP_SendCharInfo" updated="07/18/12">
+    <opcode id="ffff" name="OP_SendCharInfo">
 	    <comment>Send all chars visible @ char select</comment>
     </opcode>
-    <opcode id="3C2D" name="OP_SendSpellChecksum" updated="11/07/10">
+    <opcode id="ffff" name="OP_SendSpellChecksum">
 	    <comment>Contains a snippet of spell data</comment>
     </opcode>
-    <opcode id="30E2" name="OP_SendExeChecksum" updated="11/07/10">
+    <opcode id="ffff" name="OP_SendExeChecksum">
 	    <comment>Second client verification packet</comment>
     </opcode>
-    <opcode id="2B5F" name="OP_SendBaseDataChecksum" updated="11/07/10">
+    <opcode id="ffff" name="OP_SendBaseDataChecksum">
 	    <comment>Second client verification packet</comment>
     </opcode>
-    <opcode id="2874" name="OP_SendSkillCapsChecksum" updated="11/07/10">
+    <opcode id="ffff" name="OP_SendSkillCapsChecksum">
 	    <comment>Third client verification packet</comment>
     </opcode>
-    <opcode id="28d4" name="OP_SetChatServer" updated="06/27/12">
+    <opcode id="ffff" name="OP_SetChatServer">
 	    <comment>Chatserver? IP,Port,servername.Charname,password(?)</comment>
     </opcode>
-    <opcode id="75f5" name="OP_SetChatServer2" updated="06/27/12">
+    <opcode id="ffff" name="OP_SetChatServer2">
 	    <comment>Chatserver? IP,Port,servername.Charname,password(?)</comment>
     </opcode>
-    <opcode id="777c" name="OP_ZoneServerInfo" updated="06/27/12">
+    <opcode id="ffff" name="OP_ZoneServerInfo">
 	    <comment>old ZoneServerInfo</comment>
     </opcode>
-    <opcode id="72F3" name="OP_WorldComplete" updated="11/07/10">
+    <opcode id="ffff" name="OP_WorldComplete">
 	    <comment>Client telling world server it is done. World replies by disconnecting.</comment>
     </opcode>
-    <opcode id="2730" name="OP_DeleteCharacter" updated="11/07/10">
+    <opcode id="ffff" name="OP_DeleteCharacter">
 	    <comment>Delete character @ char select</comment>
     </opcode>
-    <opcode id="49B6" name="OP_CharacterCreate" updated="11/07/10">
+    <opcode id="ffff" name="OP_CharacterCreate">
 	    <comment>Create character @ char select</comment>
     </opcode>
-    <opcode id="6E97" name="OP_ApproveName" updated="11/07/10">
+    <opcode id="ffff" name="OP_ApproveName">
 	    <comment>Approving new character name @ char creation</comment>
     </opcode>
-    <opcode id="0005" name="OP_RandomNameGenerator" updated="11/07/10">
+    <opcode id="ffff" name="OP_RandomNameGenerator">
 	    <comment>Returns a random name</comment>
     </opcode>
 </seqopcodes>
