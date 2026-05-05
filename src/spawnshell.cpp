@@ -1473,7 +1473,21 @@ void SpawnShell::shroudSpawn(const uint8_t* data, size_t len, uint8_t dir)
 
 void SpawnShell::updateSpawnAppearance(const uint8_t* data)
 {
-    const spawnAppearanceStruct* app = (const spawnAppearanceStruct*)data;
+    spawnAppearanceStruct tmp;
+    const spawnAppearanceStruct* app = nullptr;
+#ifdef SEQ_USE_RUST
+    if (m_useRustSpawnAppearance) {
+        auto out = seq::rust::decode_spawn_appearance(
+            rust::Slice<const uint8_t>{data, sizeof(spawnAppearanceStruct)});
+        if (out.ok) {
+            tmp.spawnId   = out.spawn_id;
+            tmp.type      = out.kind;
+            tmp.parameter = out.parameter;
+            app = &tmp;
+        }
+    }
+#endif
+    if (!app) app = (const spawnAppearanceStruct*)data;
 #ifdef SPAWNSHELL_DIAG
     seqDebug("SpawnShell::updateSpawnAppearance(id=%d, sub=%d, parm=%08x)",
              app->spawnId, app->type, app->parameter);
@@ -1520,7 +1534,24 @@ void SpawnShell::updateSpawnAppearance(const uint8_t* data)
 
 void SpawnShell::updateNpcHP(const uint8_t* data)
 {
-  const hpNpcUpdateStruct* hpupdate = (const hpNpcUpdateStruct*)data;
+  hpNpcUpdateStruct tmp;
+  const hpNpcUpdateStruct* hpupdate = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustHPUpdate) {
+    auto out = seq::rust::decode_hp_update(
+        rust::Slice<const uint8_t>{data, sizeof(hpNpcUpdateStruct)});
+    if (out.ok) {
+      // Placeholders unknown0006 / unknown0014 stay zero — neither
+      // path reads them.
+      std::memset(&tmp, 0, sizeof(tmp));
+      tmp.spawnId = out.spawn_id;
+      tmp.curHP   = out.cur_hp;
+      tmp.maxHP   = out.max_hp;
+      hpupdate = &tmp;
+    }
+  }
+#endif
+  if (!hpupdate) hpupdate = (const hpNpcUpdateStruct*)data;
 #ifdef SPAWNSHELL_DIAG
    seqDebug("SpawnShell::updateNpcHP(id=%d, maxhp=%d hp=%d)",
 	  hpupdate->spawnId, hpupdate->maxHP, hpupdate->curHP);
@@ -1538,7 +1569,21 @@ void SpawnShell::updateNpcHP(const uint8_t* data)
 
 void SpawnShell::updateMobHealth(const uint8_t* data)
 {
-  const mobHealthStruct* mobhp = (const mobHealthStruct*)data;
+  mobHealthStruct tmp;
+  const mobHealthStruct* mobhp = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustMobHealth) {
+    auto out = seq::rust::decode_mob_health(
+        rust::Slice<const uint8_t>{data, sizeof(mobHealthStruct)});
+    if (out.ok) {
+      tmp.spawnId   = out.spawn_id;
+      tmp.hpPercent = out.hp_percent;
+      mobhp = &tmp;
+    }
+  }
+#endif
+  if (!mobhp) mobhp = (const mobHealthStruct*)data;
+
   Item* item = m_spawns.value(mobhp->spawnId, nullptr);
   if (item == NULL)
     return;
@@ -1632,7 +1677,20 @@ void SpawnShell::removeSpawn(const uint8_t* data, size_t len, uint8_t dir)
 {
   if(dir==DIR_Client)
     return;
-  const removeSpawnStruct* rmSpawn = (const removeSpawnStruct*)data;
+  removeSpawnStruct tmp;
+  const removeSpawnStruct* rmSpawn = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustRemoveSpawn) {
+    auto out = seq::rust::decode_remove_spawn(
+        rust::Slice<const uint8_t>{data, sizeof(removeSpawnStruct)});
+    if (out.ok) {
+      tmp.spawnId     = out.spawn_id;
+      tmp.removeSpawn = out.remove_spawn;
+      rmSpawn = &tmp;
+    }
+  }
+#endif
+  if (!rmSpawn) rmSpawn = (const removeSpawnStruct*)data;
 #ifdef SPAWNSHELL_DIAG
   seqDebug("SpawnShell::removeSpawn(id=%d)", rmSpawn->spawnId);
 #endif

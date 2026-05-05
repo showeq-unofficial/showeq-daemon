@@ -226,12 +226,24 @@ public:
   void guildChanged();
   void playerUpdate(const uint8_t* data, size_t len, uint8_t dir);
 
+ public:
+   // Stage A+3 Rust-decoder gates — one per opcode, set from
+   // DaemonApp when the corresponding name is in --rust-opcodes.
+   void setUseRustHPUpdate    (bool on) { m_useRustHPUpdate = on; }
+   void setUseRustExpUpdate   (bool on) { m_useRustExpUpdate = on; }
+   void setUseRustLevelUpdate (bool on) { m_useRustLevelUpdate = on; }
+   void setUseRustSkillUpdate (bool on) { m_useRustSkillUpdate = on; }
+
  protected:
   void fillConTable();
-  
+
  private:
   ZoneMgr* m_zoneMgr;
   GuildMgr* m_guildMgr;
+  bool m_useRustHPUpdate    = false;
+  bool m_useRustExpUpdate   = false;
+  bool m_useRustLevelUpdate = false;
+  bool m_useRustSkillUpdate = false;
 
   // The default values are set either by info showeq_params.
   // We keep a second copy in case the player levels while playing.

@@ -549,10 +549,14 @@ void DaemonApp::wireSpawnShell()
                        "hpNpcUpdateStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(updateNpcHP(const uint8_t*)));
+    m_spawnShell->setUseRustHPUpdate(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_HPUpdate")));
     m_packet->connect2("OP_MobHealth", SP_Zone, DIR_Server,
                        "mobHealthStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(updateMobHealth(const uint8_t*)));
+    m_spawnShell->setUseRustMobHealth(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_MobHealth")));
 
     // Player-vital wirings. Each handler filters by spawnId == self
     // so the same opcodes route through both SpawnShell (any-spawn
@@ -564,6 +568,8 @@ void DaemonApp::wireSpawnShell()
                        "hpNpcUpdateStruct", SZC_Match,
                        m_player,
                        SLOT(updateNpcHP(const uint8_t*)));
+    m_player->setUseRustHPUpdate(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_HPUpdate")));
     m_packet->connect2("OP_ManaChange", SP_Zone, DIR_Server,
                        "manaDecrementStruct", SZC_Match,
                        m_player,
@@ -580,14 +586,20 @@ void DaemonApp::wireSpawnShell()
                        "expUpdateStruct", SZC_Match,
                        m_player,
                        SLOT(updateExp(const uint8_t*)));
+    m_player->setUseRustExpUpdate(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_ExpUpdate")));
     m_packet->connect2("OP_LevelUpdate", SP_Zone, DIR_Server,
                        "levelUpUpdateStruct", SZC_Match,
                        m_player,
                        SLOT(updateLevel(const uint8_t*)));
+    m_player->setUseRustLevelUpdate(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_LevelUpdate")));
     m_packet->connect2("OP_SkillUpdate", SP_Zone, DIR_Server,
                        "skillIncStruct", SZC_Match,
                        m_player,
                        SLOT(increaseSkill(const uint8_t*)));
+    m_player->setUseRustSkillUpdate(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_SkillUpdate")));
     m_packet->connect2("OP_WearChange", SP_Zone, DIR_Server|DIR_Client,
                        "SpawnUpdateStruct", SZC_Match,
                        m_player,
@@ -610,6 +622,8 @@ void DaemonApp::wireSpawnShell()
                        "spawnAppearanceStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(updateSpawnAppearance(const uint8_t*)));
+    m_spawnShell->setUseRustSpawnAppearance(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_SpawnAppearance")));
     m_packet->connect2("OP_Death", SP_Zone, DIR_Server,
                        "newCorpseStruct", SZC_Match,
                        m_spawnShell,
@@ -622,6 +636,8 @@ void DaemonApp::wireSpawnShell()
                        "removeSpawnStruct", SZC_None,
                        m_spawnShell,
                        SLOT(removeSpawn(const uint8_t*, size_t, uint8_t)));
+    m_spawnShell->setUseRustRemoveSpawn(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_RemoveSpawn")));
     m_packet->connect2("OP_Consider", SP_Zone, DIR_Server|DIR_Client,
                        "considerStruct", SZC_Match,
                        m_spawnShell,

@@ -23,6 +23,10 @@
 #include "player.h"
 #include "util.h"
 #include "packetcommon.h"
+
+#ifdef SEQ_USE_RUST
+#include "seq-bridge-cxx/lib.h"
+#endif
 #include "diagnosticmessages.h"
 #include "guild.h"
 #include "zonemgr.h"
@@ -615,7 +619,21 @@ void Player::removeItem(const itemItemStruct* item)
 
 void Player::increaseSkill(const uint8_t* data)
 {
-  const skillIncStruct* skilli = (const skillIncStruct*)data;
+  skillIncStruct tmp;
+  const skillIncStruct* skilli = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustSkillUpdate) {
+    auto out = seq::rust::decode_skill_update(
+        rust::Slice<const uint8_t>{data, sizeof(skillIncStruct)});
+    if (out.ok) {
+      std::memset(&tmp, 0, sizeof(tmp));
+      tmp.skillId = out.skill_id;
+      tmp.value   = out.value;
+      skilli = &tmp;
+    }
+  }
+#endif
+  if (!skilli) skilli = (const skillIncStruct*)data;
   // save the new skill value
   m_playerSkills[skilli->skillId] = skilli->value;
 
@@ -686,7 +704,22 @@ void Player::updateAltExp(const uint8_t* data)
 
 void Player::updateExp(const uint8_t* data)
 {
-  const expUpdateStruct* exp = (const expUpdateStruct*)data;
+  expUpdateStruct tmp;
+  const expUpdateStruct* exp = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustExpUpdate) {
+    auto out = seq::rust::decode_exp_update(
+        rust::Slice<const uint8_t>{data, sizeof(expUpdateStruct)});
+    if (out.ok) {
+      tmp.exp         = out.exp;
+      tmp.unknown0004 = out.unknown0;
+      tmp.type        = out.kind;
+      tmp.unknown0012 = out.unknown1;
+      exp = &tmp;
+    }
+  }
+#endif
+  if (!exp) exp = (const expUpdateStruct*)data;
 
   // if this is just setting the percentage, then do nothing (use info from
   //   player packet).
@@ -744,7 +777,22 @@ void Player::updateExp(const uint8_t* data)
 
 void Player::updateLevel(const uint8_t* data)
 {
-  const levelUpUpdateStruct *levelup = (const levelUpUpdateStruct *)data;
+  levelUpUpdateStruct tmp;
+  const levelUpUpdateStruct* levelup = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustLevelUpdate) {
+    auto out = seq::rust::decode_level_update(
+        rust::Slice<const uint8_t>{data, sizeof(levelUpUpdateStruct)});
+    if (out.ok) {
+      tmp.level       = out.level;
+      tmp.levelOld    = out.level_old;
+      tmp.exp         = out.exp;
+      tmp.unknown0012 = out.unknown0;
+      levelup = &tmp;
+    }
+  }
+#endif
+  if (!levelup) levelup = (const levelUpUpdateStruct*)data;
 
   // cache previous experience for later calculations
   uint32_t prevExp = m_currentExp;
@@ -799,7 +847,22 @@ void Player::updateLevel(const uint8_t* data)
 
 void Player::updateNpcHP(const uint8_t* data)
 {
-  const hpNpcUpdateStruct* hpupdate = (const hpNpcUpdateStruct*)data;
+  hpNpcUpdateStruct tmp;
+  const hpNpcUpdateStruct* hpupdate = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustHPUpdate) {
+    auto out = seq::rust::decode_hp_update(
+        rust::Slice<const uint8_t>{data, sizeof(hpNpcUpdateStruct)});
+    if (out.ok) {
+      std::memset(&tmp, 0, sizeof(tmp));
+      tmp.spawnId = out.spawn_id;
+      tmp.curHP   = out.cur_hp;
+      tmp.maxHP   = out.max_hp;
+      hpupdate = &tmp;
+    }
+  }
+#endif
+  if (!hpupdate) hpupdate = (const hpNpcUpdateStruct*)data;
 
   if (hpupdate->spawnId != id())
     return;

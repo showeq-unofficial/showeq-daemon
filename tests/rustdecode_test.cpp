@@ -30,6 +30,13 @@ private slots:
     void decode_delete_spawn_bad_length_returns_not_ok();
     void decode_spawn_field_layout_round_trip();
     void decode_spawn_truncated_returns_not_ok();
+    void decode_remove_spawn_round_trip();
+    void decode_hp_update_round_trip();
+    void decode_mob_health_round_trip();
+    void decode_spawn_appearance_round_trip();
+    void decode_exp_update_round_trip();
+    void decode_level_update_round_trip();
+    void decode_skill_update_round_trip();
 };
 
 // Build a 14-byte spawnPositionUpdate buffer the same way the wire
@@ -226,6 +233,124 @@ void RustDecodeTest::decode_spawn_truncated_returns_not_ok()
     auto out = seq::rust::decode_spawn(
         rust::Slice<const uint8_t>{data, static_cast<size_t>(buf.size())});
     QVERIFY(!out.ok);
+}
+
+// Stage A+3 — one round-trip case per opcode. Each builds the
+// payload by populating the C struct and memcpy'ing, then asserts
+// the cxx-bridged Rust output reads the same fields. Bad-length
+// behavior is already covered by the cargo unit tests; the FFI-side
+// concern these guard against is layout drift in the std::array
+// fields and accidental sign-extension or padding mismatches.
+
+void RustDecodeTest::decode_remove_spawn_round_trip()
+{
+    removeSpawnStruct s{};
+    s.spawnId = 42;
+    s.removeSpawn = 1;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_remove_spawn(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.spawn_id, 42u);
+    QCOMPARE(out.remove_spawn, uint8_t(1));
+}
+
+void RustDecodeTest::decode_hp_update_round_trip()
+{
+    hpNpcUpdateStruct s{};
+    s.spawnId = 0xBEEF;
+    s.curHP = -1234;
+    s.maxHP = 5678;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_hp_update(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.spawn_id, uint16_t(0xBEEF));
+    QCOMPARE(out.cur_hp, -1234);
+    QCOMPARE(out.max_hp, 5678);
+}
+
+void RustDecodeTest::decode_mob_health_round_trip()
+{
+    mobHealthStruct s{};
+    s.spawnId = 199;
+    s.hpPercent = 100;  // value is a percentage, not raw HP
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_mob_health(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.spawn_id, uint16_t(199));
+    QCOMPARE(out.hp_percent, 100);
+}
+
+void RustDecodeTest::decode_spawn_appearance_round_trip()
+{
+    spawnAppearanceStruct s{};
+    s.spawnId = 50;
+    s.type = 14;          // anim subcommand
+    s.parameter = 110;    // sitting
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_spawn_appearance(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.spawn_id, uint16_t(50));
+    QCOMPARE(out.kind, uint16_t(14));
+    QCOMPARE(out.parameter, 110u);
+}
+
+void RustDecodeTest::decode_exp_update_round_trip()
+{
+    expUpdateStruct s{};
+    s.exp = 97900;        // pre-level sample from confirmation log
+    s.type = 2;           // 0=set, 2=update
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_exp_update(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.exp, 97900u);
+    QCOMPARE(out.kind, 2u);
+}
+
+void RustDecodeTest::decode_level_update_round_trip()
+{
+    levelUpUpdateStruct s{};
+    s.level = 2;
+    s.levelOld = 1;
+    s.exp = 814;          // post-level sample from confirmation log
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_level_update(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.level, 2u);
+    QCOMPARE(out.level_old, 1u);
+    QCOMPARE(out.exp, 814u);
+}
+
+void RustDecodeTest::decode_skill_update_round_trip()
+{
+    skillIncStruct s{};
+    s.skillId = 30;       // H2H
+    s.value = 12;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_skill_update(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.skill_id, 30u);
+    QCOMPARE(out.value, 12);
 }
 
 // QTEST_GUILESS_MAIN — daemon code is headless (QCoreApplication only),
