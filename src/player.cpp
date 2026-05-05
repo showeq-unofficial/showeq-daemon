@@ -302,15 +302,18 @@ void Player::loadProfile(const playerProfileStruct& player)
   fillConTable();
   emit levelChanged(level());
 
-  // Due to the delayed decode, we must reset
-  // maxplayer on zone and accumulate all totals.
-  m_maxSTR += player.STR;
-  m_maxSTA += player.STA;
-  m_maxCHA += player.CHA;
-  m_maxDEX += player.DEX;
-  m_maxINT += player.INT;
-  m_maxAGI += player.AGI;
-  m_maxWIS += player.WIS;
+  // Reset to the profile's base stats. wearItem() accumulates equipment
+  // bonuses on top via +=, and a fresh OP_ItemPacket burst re-arrives
+  // after every OP_PlayerProfile (i.e. on every zone-in), so a multi-
+  // zone session would otherwise stack the base stats — observed as
+  // doubled str/sta/etc. after a tutoriala -> tutorialb hop.
+  m_maxSTR = player.STR;
+  m_maxSTA = player.STA;
+  m_maxCHA = player.CHA;
+  m_maxDEX = player.DEX;
+  m_maxINT = player.INT;
+  m_maxAGI = player.AGI;
+  m_maxWIS = player.WIS;
   
   emit statChanged (LIST_STR, m_maxSTR, m_maxSTR);
   emit statChanged (LIST_STA, m_maxSTA, m_maxSTA);
