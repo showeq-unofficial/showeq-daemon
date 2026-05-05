@@ -23,15 +23,30 @@ OpcodePayloadDumper::OpcodePayloadDumper(EQPacket* packet, uint16_t opcode,
             SIGNAL(decodedWorldPacket(const uint8_t*, size_t, uint8_t,
                                       uint16_t, const EQPacketOPCode*)),
             this,
-            SLOT(onDecodedZonePacket(const uint8_t*, size_t, uint8_t,
-                                     uint16_t, const EQPacketOPCode*)));
-    qInfo("dump-payload: watching opcode 0x%04x on zone+world streams, writing to %s.<N>.bin",
+            SLOT(onDecodedWorldPacket(const uint8_t*, size_t, uint8_t,
+                                      uint16_t, const EQPacketOPCode*)));
+    qInfo("dump-payload: watching opcode 0x%04x, writing to %s.<N>.bin",
           opcode, qUtf8Printable(basePath));
 }
 
 void OpcodePayloadDumper::onDecodedZonePacket(const uint8_t* data, size_t len,
                                               uint8_t dir, uint16_t opcode,
                                               const EQPacketOPCode* entry)
+{
+    writeIfMatch(data, len, dir, opcode, entry, "zone");
+}
+
+void OpcodePayloadDumper::onDecodedWorldPacket(const uint8_t* data, size_t len,
+                                               uint8_t dir, uint16_t opcode,
+                                               const EQPacketOPCode* entry)
+{
+    writeIfMatch(data, len, dir, opcode, entry, "world");
+}
+
+void OpcodePayloadDumper::writeIfMatch(const uint8_t* data, size_t len,
+                                       uint8_t dir, uint16_t opcode,
+                                       const EQPacketOPCode* entry,
+                                       const char* stream)
 {
     if (opcode != m_opcode) return;
     ++m_count;
@@ -46,8 +61,8 @@ void OpcodePayloadDumper::onDecodedZonePacket(const uint8_t* data, size_t len,
         f.write(reinterpret_cast<const char*>(data),
                 static_cast<qint64>(len));
     }
-    qInfo("dump-payload: wrote %s (%s, dir=%u, %zu bytes)",
+    qInfo("dump-payload: wrote %s (%s, stream=%s, dir=%u, %zu bytes)",
           qUtf8Printable(path),
           qUtf8Printable(entry ? entry->name() : QStringLiteral("unknown")),
-          dir, len);
+          stream, dir, len);
 }
