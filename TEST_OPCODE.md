@@ -115,7 +115,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_Find — uint8_t (server, variable)
 
 ### Chat / messaging (4)
-- [ ] OP_SimpleMessage — simpleMessageStruct (server)
+- [x] OP_SimpleMessage — simpleMessageStruct (server) — `0x098d` (2026-05-05)
 - [x] OP_FormattedMessage — formattedMessageStruct (server) — `0x0ecf` (2026-05-04)
 - [x] OP_CommonMessage — channelMessageStruct (both) — `0x498b` (2026-05-04)
 - [x] OP_SpecialMesg — specialMessageStruct (server) — `0x7162` (2026-05-04)
@@ -440,3 +440,16 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Struct fit: 20 = sizeof(manaDecrementStruct). newMana walks like a real lvl 1-3 Necromancer mana pool (range 26-75, decrements per cast, regen ramps back up between fires). spellId field cycles through 7 distinct early-Necro spell IDs (288, 338-346, 502 — Lifetap/Cavorting Bones/etc.). Field-2 (legacy "unknown / Looks like endurance") is **max mana** on Test, growing in 3 phases: 41 (fires 1-13) → 62 (fires 14-20) → 63 (fires 21-25), corresponding to in-session level-ups.
 - Ruled out competitors at S>C 20b: 0x1d3e (43x, leading -1/0 sentinels with no mana-pool-shaped first u32); 0xb87e (16x, leading u64=0 with small varying counter, not cast-correlated); 0x6805 (14x, mostly all-zero payload, mixed 16/20b sizes — variable, doesn't fit fixed-20b struct).
 - Note: legacy struct comment for `manaDecrementStruct.unknown` ("Looks like endurance but not sure why that'd be reported here") is wrong — the field is max mana on Test. Worth a struct-comment refinement in `everquest.h` as a follow-up split commit.
+
+### 2026-05-05 — OP_SimpleMessage = 0x098d
+- Capture: `tests/replay/test-combat.vpk`. 12 fires, all 12 bytes S>C.
+- Method: `--dump-payload 0x098d:`. Decoded as `<3I` (3 little-endian u32).
+- Sample fires:
+  - fire 1:  format=2553  color=1  field3=10945
+  - fire 2:  format=2553  color=0  field3=208
+  - fire 3:  format=2601  color=1  field3=3
+  - fire 5:  format=2601  color=1  field3=9
+  - fire 9:  format=2686  color=1  field3=10945
+  - fire 11: format=2702  color=1  field3=10945
+- Struct fit: 12 = sizeof(simpleMessageStruct{messageFormat, messageColor, unknown}). 4 distinct format IDs across 12 fires (2553, 2601, 2686, 2702) all sit in the eqstr message-format range (just above the older eqstr_us.txt's 2459 ceiling — Test's eqstr table has been extended). Color cycles 0/1 = ChatColor enum values. Fires arrive in pairs (color=1 then color=0) per event — the SimpleMessage broadcast pattern where each system event emits a primary-colored line plus a default-colored variant.
+- Ruled out competitors at S>C 12b: 0x14dc (100x heartbeat with constant `3b 60 f9 69` session-handle tail and counter); 0xa139 (40x static `(-9191, 0, 0)` heartbeat, identical bytes every fire); 0x92a5 (40x static `(0, 1, 42)` heartbeat, identical bytes every fire); 0xab5e already taken (OP_ClickObject). 0x098d is the only 12b S>C opcode in the capture with a varying format-id-shaped first u32.

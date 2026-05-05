@@ -191,7 +191,7 @@
         <comment>EmoteTextCode</comment>
         <payload dir="both" typename="emoteTextStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_SimpleMessage">
+    <opcode id="098d" name="OP_SimpleMessage" updated="05/05/26">
         <comment>SimpleMessageCode</comment>
         <payload dir="server" typename="simpleMessageStruct" sizechecktype="match"/>
     </opcode>
