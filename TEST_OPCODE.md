@@ -21,7 +21,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_EnterWorld — `0x9bdc` (2026-05-04)
 - [x] OP_ExpansionInfo — `0x1a00` (2026-05-05)
 - [x] OP_SendCharInfo — `0x84f6` (2026-05-04)
-- [ ] OP_ZoneServerInfo
+- [x] OP_ZoneServerInfo — `0xf21f` (2026-05-05)
 - [x] OP_WorldComplete — `0xfc46` (2026-05-04)
 
 ### Checksums / verification (4)
@@ -31,8 +31,8 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_SendSkillCapsChecksum — `0xa958` (2026-05-04)
 
 ### Chat servers (2)
-- [x] OP_SetChatServer — `0xf22b` (2026-05-05)
-- [ ] OP_SetChatServer2
+- [x] OP_SetChatServer — `0xbb67` (2026-05-05, revised from 0xf22b)
+- [x] OP_SetChatServer2 — `0xf22b` (2026-05-05)
 
 ### World content (2)
 - [x] OP_GuildList — worldGuildListStruct (server) — `0x022f` (2026-05-04)
@@ -532,3 +532,11 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Anchor evidence: payload contains ~18 plaintext Daybreak service URLs in NUL-terminated record form. Critical: `https://auth.daybreakgames.com/rest/client/session/create` (the actual chat session endpoint) plus a full catalog of auth/account/commerce/support endpoints (loginWithoutTicket, fundWallet, getpaymentinfo, purchase, redeemcode, finalizesteamtransaction, session/touch, help.daybreakgames.com, etc.). The legacy single-URL chat-server form has been replaced with a multi-URL service catalog on Test.
 - Struct fit: 1464b variable size, fires once per world login (2 fires for 2 logins). The "set chat server" semantic still applies — server tells client where chat/auth services live — but the modern shape is a service catalog instead of a single host:port:key tuple.
 - OP_SetChatServer2 deferred. The legacy duplicate (mail server vs chat server split) doesn't have an obvious twin opcode here; closest candidate is 0xdeb6 (1188b S>C 2 fires) which contains `https://www.everquest.com/membership` plus binary, but the service-overlap with 0xf22b makes the role-assignment unclear. Worth a closer compare across captures.
+
+### 2026-05-05 — OP_ZoneServerInfo = 0xf21f + OP_SetChatServer revised
+- Capture: `tests/replay/test-zone.vpk` (<charname> zoned out from tutorial → crescent reach, then logged out — full zone-handoff world handshake captured).
+- Method: `--list-events` showed the post-zone-change world handshake re-running (OP_SendLoginInfo through OP_EnterWorld), with new opcodes 0xf21f (130b S>C) and 0xbb67 (56b S>C) firing in the post-OP_SendSpellChecksum band.
+- **OP_ZoneServerInfo = 0xf21f** (130b S>C, 2 fires for the 2 zone-handoffs in this session): payload starts with `eqzone-31.everquest.com\0` (NUL-padded hostname, 24 bytes), then session/key fields, then `0x0879` u16 port (= 2169) at offset 128. Definitively the zone-server pointer.
+- **OP_SetChatServer = 0xbb67** (56b S>C, 2 fires): payload is the legacy comma-separated chat-server tuple — `lvseq-chat01.everquest.com,9879,test.<charname>,<sessionkey>,0` (sessionkey redacted). This is the original "IP/Port/servername.charname/password" form the legacy XML described, untouched on Test.
+- **OP_SetChatServer revised**: previously committed as 0xf22b based on the URL-rich content alone. With 0xbb67 now showing the canonical legacy chat-server tuple format, that's the better match for OP_SetChatServer; 0xf22b's multi-URL service catalog is more accurately OP_SetChatServer2 (the secondary chat-related config slot, expanded on Test from a single mail-server tuple to a full Daybreak service catalog covering auth/account/commerce/support).
+- Cross-validation in test-zone.vpk: 0xf21f and 0xbb67 each fire once per world-handshake cycle — exactly what's expected for per-login zone-server-pointer + per-login chat-server-config opcodes.

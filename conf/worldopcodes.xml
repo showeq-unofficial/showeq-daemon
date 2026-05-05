@@ -51,14 +51,14 @@
     <opcode id="a958" name="OP_SendSkillCapsChecksum" updated="05/04/26">
 	    <comment>Third client verification packet</comment>
     </opcode>
-    <opcode id="f22b" name="OP_SetChatServer" updated="05/05/26">
-	    <comment>Chat / auth / commerce service URLs. Test: 1464b S>C, ~18 plaintext URLs including auth.daybreakgames.com/rest/client/session/create (the chat session endpoint), login, account, commerce, support — replaces the legacy IP/Port/servername host-config form with a multi-URL service catalog.</comment>
+    <opcode id="bb67" name="OP_SetChatServer" updated="05/05/26">
+	    <comment>Chat server connection: 56b S>C carrying the legacy comma-separated tuple `host,port,server.charname,sessionkey,N` (e.g. lvseq-chat01.everquest.com,9879,test.Charname,&lt;key&gt;,0) — the original IP/Port/servername.charname/password format Test still uses.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SetChatServer2">
-	    <comment>Chatserver? IP,Port,servername.Charname,password(?)</comment>
+    <opcode id="f22b" name="OP_SetChatServer2" updated="05/05/26">
+	    <comment>Secondary chat / account / commerce service catalog: 1464b S>C, ~18 plaintext Daybreak service URLs (auth, account, commerce, support, premium). Replaces the legacy second-chat-server tuple with a multi-URL service catalog on Test.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_ZoneServerInfo">
-	    <comment>old ZoneServerInfo</comment>
+    <opcode id="f21f" name="OP_ZoneServerInfo" updated="05/05/26">
+	    <comment>Zone server connection info: 130b S>C with the zone server hostname (e.g. eqzone-31.everquest.com) at offset 0 and port (u16 at offset 128). Fires after the zone-handoff world handshake to point the client at the next zone server.</comment>
     </opcode>
     <opcode id="fc46" name="OP_WorldComplete" updated="05/04/26">
 	    <comment>Client telling world server it is done. World replies by disconnecting.</comment>
