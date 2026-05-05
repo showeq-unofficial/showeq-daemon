@@ -1271,6 +1271,32 @@ void EQPacketStream::close(uint32_t sessionId, EQStreamID streamId,
 uint16_t EQPacketStream::calculateCRC(EQProtocolPacket& packet)
 {
   // CRC is at the end of the raw payload, 2 bytes.
-  return ::calcCRC16(packet.rawPacket(), packet.rawPacketLength()-2, 
+  return ::calcCRC16(packet.rawPacket(), packet.rawPacketLength()-2,
     m_sessionKey);
+}
+
+EQPacketStream::StreamHandoff EQPacketStream::exportState() const
+{
+  StreamHandoff s{};
+  s.sessionId  = m_sessionId;
+  s.sessionKey = m_sessionKey;
+  s.clientIP   = m_sessionClientIP;
+  s.clientPort = m_sessionClientPort;
+  s.maxLength  = m_maxLength;
+  s.arqSeqExp  = m_arqSeqExp;
+  s.decodeKey  = m_decodeKey;
+  s.validKey   = m_validKey ? 1 : 0;
+  return s;
+}
+
+void EQPacketStream::importState(const StreamHandoff& s)
+{
+  m_sessionId         = s.sessionId;
+  m_sessionKey        = s.sessionKey;
+  m_sessionClientIP   = s.clientIP;
+  m_sessionClientPort = s.clientPort;
+  m_maxLength         = s.maxLength;
+  m_arqSeqExp         = s.arqSeqExp;
+  m_decodeKey         = s.decodeKey;
+  m_validKey          = s.validKey != 0;
 }

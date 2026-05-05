@@ -31,3 +31,7 @@ conf/spawnpoints/
 # --config-dir <conf>.
 conf/filters/
 conf/maps/
+
+# Ephemeral session-handoff blob written by the running daemon on SIGHUP
+# and consumed by the replacement binary on startup.
+conf/.handoff

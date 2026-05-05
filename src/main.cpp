@@ -55,19 +55,25 @@ void messageHandler(QtMsgType type, const QMessageLogContext& ctx,
     }
 }
 
-// SIGINT/SIGTERM bridged into the Qt event loop via a socketpair. The
-// signal handler writes one byte; a QSocketNotifier on the read end fires
-// QCoreApplication::quit() on the main thread. This gets us clean Qt
-// teardown (FileSink dtor flushes, OpcodeStatsLogger dtor writes the
-// report, WsServer drops sessions) on Ctrl-C and `systemctl stop`,
-// instead of the kernel SIGINT-default of "exit immediately".
+// SIGINT/SIGTERM/SIGHUP bridged into the Qt event loop via a socketpair.
+// Signal handlers write one byte ('Q' for quit, 'H' for handoff+quit);
+// a QSocketNotifier on the read end dispatches on the main thread. This
+// gives us clean Qt teardown (FileSink flush, OpcodeStatsLogger report,
+// WsServer session drop) on Ctrl-C, `systemctl stop`, and SIGHUP reload.
 int g_signalFd[2] = {-1, -1};
 
-void posixSignalHandler(int /*sig*/)
+void sigQuit(int /*sig*/)
 {
-    char b = 1;
+    char b = 'Q';
     ssize_t r = ::write(g_signalFd[0], &b, 1);
-    (void)r;  // signal handler — nothing we can do about a failed write.
+    (void)r;
+}
+
+void sigHup(int /*sig*/)
+{
+    char b = 'H';
+    ssize_t r = ::write(g_signalFd[0], &b, 1);
+    (void)r;
 }
 
 void installSignalBridge()
@@ -77,21 +83,15 @@ void installSignalBridge()
         return;
     }
     struct sigaction sa{};
-    sa.sa_handler = &posixSignalHandler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART;
+    sa.sa_handler = &sigQuit;
     ::sigaction(SIGINT, &sa, nullptr);
     ::sigaction(SIGTERM, &sa, nullptr);
-
-    auto* notifier = new QSocketNotifier(g_signalFd[1], QSocketNotifier::Read,
-                                         QCoreApplication::instance());
-    QObject::connect(notifier, &QSocketNotifier::activated, [] {
-        char b;
-        ssize_t r = ::read(g_signalFd[1], &b, 1);
-        (void)r;
-        qInfo("shutdown signal received, exiting");
-        QCoreApplication::quit();
-    });
+    sa.sa_handler = &sigHup;
+    ::sigaction(SIGHUP, &sa, nullptr);
+    // QSocketNotifier is set up in main() after DaemonApp is constructed
+    // so its activated lambda can capture the daemon for handoff export.
 }
 
 } // namespace
@@ -235,5 +235,29 @@ int main(int argc, char** argv)
     if (!daemon.start()) {
         return 1;
     }
+
+    // Wire signal bytes to actions now that daemon is alive and can be
+    // captured by the lambda. 'Q' → graceful quit; 'H' → export session
+    // handoff state then quit (new binary reads it on startup).
+    auto* notifier = new QSocketNotifier(g_signalFd[1], QSocketNotifier::Read, &app);
+    QObject::connect(notifier, &QSocketNotifier::activated, [&daemon, &cfg] {
+        char b = 'Q';
+        ssize_t r = ::read(g_signalFd[1], &b, 1);
+        (void)r;
+        if (b == 'H') {
+            qInfo("SIGHUP: exporting session handoff state");
+            daemon.exportHandoffState(cfg.configDir);
+            // Exit 75 (EX_TEMPFAIL) signals up.py to restart rather than
+            // treat this as a crash — the running up.py checks this code.
+            QCoreApplication::exit(75);
+        } else {
+            qInfo("shutdown signal received, exiting");
+            QCoreApplication::quit();
+        }
+    });
+
+    if (daemon.importHandoffState(cfg.configDir))
+        qInfo("session resumed from handoff state");
+
     return app.exec();
 }

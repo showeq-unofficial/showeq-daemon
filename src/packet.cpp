@@ -31,6 +31,8 @@
 #endif
 #include <netinet/if_ether.h>
 
+#include <QDir>
+#include <QFile>
 #include <QTimer>
 #include <QFileInfo>
 
@@ -1177,4 +1179,78 @@ uint32_t EQPacket::currentMaxLength(int streamId)
 uint16_t EQPacket::serverSeqExp(int stream)
 {
   return m_streams[stream]->arqSeqExp();
+}
+
+// ---------------------------------------------------------------------------
+// Session handoff: persist/restore the 4 stream states across a process
+// restart triggered by SIGHUP. The file lives in configDir so both the
+// outgoing and incoming daemon use the same --config-dir value.
+
+namespace {
+  static const uint32_t HANDOFF_MAGIC   = 0x45514853; // "SHEQ"
+  static const uint32_t HANDOFF_VERSION = 1;
+  struct HandoffFile {
+    uint32_t magic;
+    uint32_t version;
+    EQPacketStream::StreamHandoff streams[MAXSTREAMS];
+  };
+
+  QString handoffPath(const QString& configDir)
+  {
+    if (!configDir.isEmpty())
+      return configDir + "/.handoff";
+    return QDir::homePath() + "/.showeq/daemon/.handoff";
+  }
+} // namespace
+
+void EQPacket::exportHandoffState(const QString& configDir) const
+{
+  HandoffFile hf{};
+  hf.magic   = HANDOFF_MAGIC;
+  hf.version = HANDOFF_VERSION;
+  for (int i = 0; i < MAXSTREAMS; ++i)
+    hf.streams[i] = m_streams[i]->exportState();
+
+  const QString path = handoffPath(configDir);
+  QFile f(path);
+  if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+    qWarning("handoff: failed to write %s: %s",
+             qUtf8Printable(path), qUtf8Printable(f.errorString()));
+    return;
+  }
+  f.write(reinterpret_cast<const char*>(&hf), sizeof(hf));
+  qInfo("handoff: session state written to %s", qUtf8Printable(path));
+}
+
+bool EQPacket::importHandoffState(const QString& configDir)
+{
+  const QString path = handoffPath(configDir);
+  QFile f(path);
+  if (!f.exists())
+    return false;
+  if (!f.open(QIODevice::ReadOnly)) {
+    qWarning("handoff: failed to read %s: %s",
+             qUtf8Printable(path), qUtf8Printable(f.errorString()));
+    return false;
+  }
+  HandoffFile hf{};
+  if (f.read(reinterpret_cast<char*>(&hf), sizeof(hf)) != sizeof(hf)) {
+    qWarning("handoff: truncated handoff file %s — ignoring",
+             qUtf8Printable(path));
+    f.close();
+    QFile::remove(path);
+    return false;
+  }
+  f.close();
+  QFile::remove(path);
+
+  if (hf.magic != HANDOFF_MAGIC || hf.version != HANDOFF_VERSION) {
+    qWarning("handoff: bad magic/version in %s — ignoring",
+             qUtf8Printable(path));
+    return false;
+  }
+  for (int i = 0; i < MAXSTREAMS; ++i)
+    m_streams[i]->importState(hf.streams[i]);
+  qInfo("handoff: session state restored from %s", qUtf8Printable(path));
+  return true;
 }

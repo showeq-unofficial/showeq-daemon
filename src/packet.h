@@ -109,6 +109,9 @@ class EQPacket : public QObject
    void setSnapLen(int len) { m_snaplen = len; }
    void setBufferSize(int size) { m_buffersize = size; }
 
+   void exportHandoffState(const QString& configDir) const;
+   bool importHandoffState(const QString& configDir);
+
  public slots:
    void processPackets(void);
    void processPlaybackPackets(void);

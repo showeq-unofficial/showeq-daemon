@@ -101,6 +101,17 @@ public:
     // config files).
     bool start();
 
+    // Write session state to configDir/.handoff so the next binary can
+    // restore it without rezoning. Call before QCoreApplication::quit()
+    // on SIGHUP. No-op if the capture pipeline was never started.
+    void exportHandoffState(const QString& configDir) const;
+
+    // Read and apply configDir/.handoff if it exists. Call after start()
+    // but before app.exec() — pcap fires via Qt signals so no packets
+    // are processed until the event loop begins. Returns true if state
+    // was restored, false if no handoff file was present.
+    bool importHandoffState(const QString& configDir);
+
 private slots:
     // Mirrors showeq/src/map.cpp:370 — MapMgr::loadZoneMap. Called on every
     // ZoneMgr::zoneChanged so SessionAdapter has fresh geometry to stream.

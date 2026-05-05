@@ -94,7 +94,23 @@ class EQPacketStream : public QObject
   uint16_t calculateCRC(EQProtocolPacket& packet);
   uint32_t getSessionKey() const { return m_sessionKey; }
   uint32_t getMaxLength() const { return m_maxLength; }
-  
+
+  struct StreamHandoff {
+    uint32_t sessionId;
+    uint32_t sessionKey;
+    uint32_t clientIP;
+    uint16_t clientPort;
+    uint16_t _pad;
+    uint32_t maxLength;
+    uint16_t arqSeqExp;
+    uint16_t _pad2;
+    int64_t  decodeKey;
+    uint8_t  validKey;
+    uint8_t  _pad3[7];
+  };
+  StreamHandoff exportState() const;
+  void importState(const StreamHandoff& s);
+
  public slots:
   void handlePacket(EQUDPIPPacketFormat& pf);
   

@@ -845,3 +845,16 @@ void DaemonApp::loadZoneMap(const QString& shortZoneName)
           qUtf8Printable(shortZoneName), (long long)files.size(),
           qUtf8Printable(QFileInfo(files.first()).absolutePath()));
 }
+
+void DaemonApp::exportHandoffState(const QString& configDir) const
+{
+    if (m_packet)
+        m_packet->exportHandoffState(configDir);
+}
+
+bool DaemonApp::importHandoffState(const QString& configDir)
+{
+    if (m_packet)
+        return m_packet->importHandoffState(configDir);
+    return false;
+}
