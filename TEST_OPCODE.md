@@ -56,7 +56,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_SpawnDoor — doorStruct (server, modulus) — `0x794d` (2026-05-04)
 - [ ] OP_GroundSpawn — makeDropStruct (server)
 - [ ] OP_SendZonePoints — zonePointsStruct (server)
-- [ ] OP_ZoneChange — zoneChangeStruct (both)
+- [x] OP_ZoneChange — zoneChangeStruct (both) — `0x9148` (2026-05-04)
 
 ### Movement / position (4)
 - [ ] OP_ClientUpdate — playerSpawnPosStruct (server)
@@ -248,6 +248,13 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
   - 0xa958: `ae 5d 2b f4  8b 38 01 00  e9 0e 00 00  89 1d 00 00  …`
 - Confidence: high for the **set** mapping (4 names → 4 IDs, byte sizes constrain Exe→64b uniquely). Medium-high for the spell/base/skillcaps individual mapping within the 2056b trio: relies on the legacy declaration-order convention being preserved on Test, which is a reasonable but unverified assumption. Re-verify after the next capture by checking a session log for the same fire order.
 - **Re-verified 2026-05-04 against `tests/replay/test-login-2.vpk`**: same fire order (`0x2de1 → 0x289c → 0xa958` for the 2056b trio, `0x44d9` paired with SkillCaps in the next ms) reproduced in both login bursts of the new capture. The legacy-declaration-order disambiguation holds.
+
+### 2026-05-04 — OP_ZoneChange = 0x9148
+- Capture: `tests/replay/test-zone-entry.vpk`. 2 fires (one C>S + one S>C, matching the XML's "both" direction).
+- Method: `--dump-payload 0x9148:`. Both fires 100 bytes — exactly `sizeof(zoneChangeStruct)`.
+- Sample bytes: starts with `"<charname>\0"` at offset 0, then a Windows TZ-resource string fragment (`"t.z.r.e.s...d.l.l.,.-.2.1.1."` — Test's wire leaks UTF-16 from the client's locale resource), then sentinels and IEEE-754 floats at offsets 0x4c-0x58 (`-61.0, -160.0, 17.0` — destination position).
+- Struct fit: 100 = sizeof(zoneChangeStruct). The leading player name + destination floats + zone metadata are unmistakable.
+- Ruled out: only 100b S>C/C>S opcode in the capture; size and content unambiguous.
 
 ### 2026-05-04 — OP_RespondAA = 0xfb0a
 - Capture: `tests/replay/test-zone-entry.vpk`. 53 fires.
