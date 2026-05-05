@@ -19,7 +19,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_LogServer — `0xb537` (2026-05-04)
 - [x] OP_ApproveWorld — `0xb8cc` (2026-05-04)
 - [x] OP_EnterWorld — `0x9bdc` (2026-05-04)
-- [x] OP_ExpansionInfo — `0x1a00` (2026-05-05)
+- [x] OP_ExpansionInfo — `0x6bcf` (2026-05-05, revised from 0x1a00)
 - [x] OP_SendCharInfo — `0x84f6` (2026-05-04)
 - [x] OP_ZoneServerInfo — `0xf21f` (2026-05-05)
 - [x] OP_WorldComplete — `0xfc46` (2026-05-04)
@@ -548,3 +548,9 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Struct fit: 176 bytes is a fixed buffer (24-byte zonePointStruct + ~6 empty slots × 24b + trailer), not a packed variable-length list as in the legacy zonePointsStruct. Same struct family but Test pads to a fixed maximum capacity rather than truncating.
 - 2 fires across the capture: once in tutorialb (announcing the exit-to-Crescent portal) and once in crescent (announcing the return / zone-points visible from the new zone). One zone-point per zone × two zones = the expected count.
 - No competing 176b S>C fires in this capture.
+
+### 2026-05-05 — OP_ExpansionInfo revised: 0x1a00 → 0x6bcf
+- Capture: `tests/replay/test-zone.vpk` (full-from-start capture with `--list-events`).
+- Issue with prior 0x1a00 assignment: the events log shows 0x1a00 firing in the **zone stream** (right after OP_ZoneEntry / OP_TimeOfDay during per-zone init), not the world handshake. OP_ExpansionInfo is a world-stage opcode by definition, so the prior confirmation was incorrect.
+- New candidate **0x6bcf** (64b S>C, 2 fires per session): fires in the post-OP_LogServer / pre-OP_ApproveWorld world handshake band — the right phase for an expansion-bitmask broadcast. Payload starts with `0x08` (= 8, expansion count?) then a u32-array bitmask region with `0xffffffff` sentinels and per-login session id at offset 36, then `0x07 0x02` tier markers in the trailer. Per-login fires are nearly identical except for the session-id byte difference, fitting "mostly-static account-level expansion bitmask + session marker".
+- Confidence: moderate. The shape and timing fit OP_ExpansionInfo, but the legacy bitmask-of-flags interpretation isn't a perfect 1-to-1 mapping with the observed 0x6bcf payload. Worth re-verifying if the daemon's downstream "available expansions" UI behaves correctly with this opcode wired in.
