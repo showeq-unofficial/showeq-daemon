@@ -24,7 +24,7 @@
         <comment>DoorSpawnsCode</comment>
         <payload dir="server" typename="doorStruct" sizechecktype="modulus"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroundSpawn">
+    <opcode id="33ec" name="OP_GroundSpawn" updated="05/04/26">
         <comment>MakeDropCode</comment>
         <payload dir="server" typename="makeDropStruct" sizechecktype="none"/>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
@@ -199,7 +199,7 @@
         <comment>FormattedMessageCode i.e. pet dismissed etc</comment>
         <payload dir="server" typename="formattedMessageStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_CommonMessage">
+    <opcode id="498b" name="OP_CommonMessage" updated="05/04/26">
         <comment>ChannelMessageCode i.e. /tell /ooc /shout etc</comment>
         <payload dir="both" typename="channelMessageStruct" sizechecktype="none"/>
     </opcode>

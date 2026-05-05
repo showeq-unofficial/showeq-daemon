@@ -54,7 +54,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_TimeOfDay — timeOfDayStruct (server)
 - [x] OP_NewZone — uint8_t (server, variable) — `0xa923` (2026-05-04)
 - [x] OP_SpawnDoor — doorStruct (server, modulus) — `0x794d` (2026-05-04)
-- [ ] OP_GroundSpawn — makeDropStruct (server)
+- [x] OP_GroundSpawn — makeDropStruct (server) — `0x33ec` (2026-05-04)
 - [ ] OP_SendZonePoints — zonePointsStruct (server)
 - [x] OP_ZoneChange — zoneChangeStruct (both) — `0x9148` (2026-05-04)
 
@@ -117,7 +117,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 ### Chat / messaging (4)
 - [ ] OP_SimpleMessage — simpleMessageStruct (server)
 - [x] OP_FormattedMessage — formattedMessageStruct (server) — `0x0ecf` (2026-05-04)
-- [ ] OP_CommonMessage — channelMessageStruct (both)
+- [x] OP_CommonMessage — channelMessageStruct (both) — `0x498b` (2026-05-04)
 - [x] OP_SpecialMesg — specialMessageStruct (server) — `0x7162` (2026-05-04)
 
 ### Alternate Advancement (3)
