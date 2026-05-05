@@ -112,7 +112,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 
 ### Click / interact (2)
 - [x] OP_ClickObject — remDropStruct (both) — `0xab5e` (2026-05-04)
-- [ ] OP_Find — uint8_t (server, variable)
+- [x] OP_Find — uint8_t (server, variable) — `0x695f` (2026-05-05)
 
 ### Chat / messaging (4)
 - [x] OP_SimpleMessage — simpleMessageStruct (server) — `0x098d` (2026-05-05)
@@ -484,3 +484,10 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Struct fit: 168 = modern groupDisbandStruct (legacy was 152b; Test added 16 trailer bytes). The split (self vs peer name in the same offset) is what distinguishes the two opcodes here — same struct, different opcode IDs, different fill semantics.
 - Ruled out competitors at S>C 168b: 0x4396 (2 fires with BOTH names populated — different shape, likely a different group-related event); 0x7324 / 0xb269 (2 fires each but with denser non-zero content beyond just a name — likely buff-class 168b struct, since OP_Buff was already confirmed at 0x3b54 with the same size).
 - OP_GroupLeader (80b S>C) deferred — no leadership change happened in this session (each cycle's inviter was leader by default; no /makeleader was issued), so 0xe005 (2 S>C 80b with float/pointer-shaped payload) is the leading 80b candidate but doesn't carry a name and doesn't pattern-match a leader-change broadcast. Needs a session with explicit /makeleader.
+
+### 2026-05-05 — OP_Find = 0x695f
+- Capture: `tests/replay/test-group-invite.vpk` (the user opened the Ctrl+F find window and issued 2 finds with cooldown wait between them).
+- Method: `--dump-payload 0x695f:`. 4 fires S>C, sizes 831 / 86 / 86 / 86.
+- Anchor evidence: fire 2 (831 bytes) contains an array of plaintext tutorial NPC name + find-category pairs — "Arias / Revolt Leader", "Frizznik / Tradeskills", "Prathun / Grouping and Communication", "Rytan / Spells", "Xenaida / Maps", "McKenzie the Younger / Augmentations", "Scribe Farquard / Achievements", and ~10 more — exactly the modern Ctrl+F find window's category-based finder list for the Mines of Gloomingdeep tutorial zone. The 3 smaller 86-byte fires are find-action responses (cooldown denial + find acknowledgements).
+- Struct fit: variable per the legacy XML (`uint8_t (server, variable)`). The 830-byte list-on-open + small per-action fires layout matches the modern find window's two-phase contract (initial list, then per-find responses).
+- Ruled out: 0x312a (6 S>C variable 59-179b) — wider size variance, doesn't have NPC-name strings; 0x5b40 (3 S>C 50-51b) — too narrow size band, no plaintext anchors; 0xed85 (5 C>S 40b fixed) — wrong direction (find list is server-pushed). 0x695f is the only S>C variable opcode in the capture with plaintext find-category labels.

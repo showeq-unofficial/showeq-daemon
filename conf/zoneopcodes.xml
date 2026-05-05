@@ -595,8 +595,8 @@
         <comment>Free to play nags and other data - Variable length</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_Find">
-        <comment>Find window data - variable length, 24 min</comment>
+    <opcode id="695f" name="OP_Find" updated="05/05/26">
+        <comment>Find window data - variable length. Test: ~830b list-payload of NPC name + category pairs on Ctrl+F open; ~86b smaller responses for individual find requests.</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_ConsiderCorpse">
