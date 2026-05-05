@@ -28,6 +28,8 @@ private slots:
     void decode_delete_spawn_matches_cpp_path();
     void decode_delete_spawn_max_id();
     void decode_delete_spawn_bad_length_returns_not_ok();
+    void decode_spawn_field_layout_round_trip();
+    void decode_spawn_truncated_returns_not_ok();
 };
 
 // Build a 14-byte spawnPositionUpdate buffer the same way the wire
@@ -133,6 +135,96 @@ void RustDecodeTest::decode_delete_spawn_bad_length_returns_not_ok()
     const uint8_t buf[3] = {0};
     auto out = seq::rust::decode_delete_spawn(
         rust::Slice<const uint8_t>{buf, sizeof(buf)});
+    QVERIFY(!out.ok);
+}
+
+// Build the smallest plausible NPC spawn payload by hand, decode it
+// via Rust, and check that the FFI struct round-trips a few
+// representative fields. The payload shape is the same construction
+// the cargo tests exercise — this case's job is to confirm that the
+// cxx-bridged std::array<*, *> field layouts agree with what Rust
+// wrote, since that's the only thing this test catches that
+// `cargo test` doesn't.
+void RustDecodeTest::decode_spawn_field_layout_round_trip()
+{
+    QByteArray buf;
+    auto u32le = [&](uint32_t v) {
+        buf.append(static_cast<char>(v & 0xFF));
+        buf.append(static_cast<char>((v >> 8) & 0xFF));
+        buf.append(static_cast<char>((v >> 16) & 0xFF));
+        buf.append(static_cast<char>((v >> 24) & 0xFF));
+    };
+    auto u8 = [&](uint8_t v) { buf.append(static_cast<char>(v)); };
+    auto pad = [&](size_t n) { buf.append(QByteArray(n, '\0')); };
+
+    buf.append("a goblin\0", 9);
+    u32le(0xCAFEBABE);   // spawnId
+    u8(40);              // level
+    pad(16);
+    u8(1);               // NPC
+    u32le(0xDEADBEEF);   // miscData
+    u8(0);               // otherData (no aura/title/suffix)
+    pad(8);
+    u8(0);               // charProperties (=0 → bodytype stays 0)
+    u8(95);              // curHp
+    pad(35);
+    u32le(50);           // race (>12, not in special list)
+    u8(7);               // holding
+    u32le(3);            // deity
+    u32le(111);          // guildID
+    u32le(222);          // guildServerID
+    u32le(5);            // class_
+    u8(0);               // skip 1
+    u8(11);              // state
+    u8(2);               // light
+    u8(0);               // skip 1
+    buf.append('\0');    // empty lastName
+    pad(2);
+    u32le(777);          // petOwnerId
+    pad(49);             // NPC=1 → skip 49
+    pad(20);             // abridged equipment skip 20
+    // slots 7 + 8 — 10 u32s.
+    for (uint32_t v : {70u, 71u, 72u, 73u, 74u, 80u, 81u, 82u, 83u, 84u}) u32le(v);
+    for (uint32_t v : {1u, 2u, 3u, 4u, 5u, 6u}) u32le(v);  // posData
+    pad(8);              // unknowns
+    u8(1);               // isMercenary
+    pad(66);             // tail unknowns
+
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_spawn(
+        rust::Slice<const uint8_t>{data, static_cast<size_t>(buf.size())});
+
+    QVERIFY(out.ok);
+    QCOMPARE(out.spawn_id, 0xCAFEBABEu);
+    QCOMPARE(out.level, uint8_t(40));
+    QCOMPARE(out.npc, uint8_t(1));
+    QCOMPARE(out.misc_data, 0xDEADBEEFu);
+    QCOMPARE(out.race, 50u);
+    QCOMPARE(out.guild_server_id, 222u);
+    QCOMPARE(out.class_, 5u);
+    QCOMPARE(out.is_mercenary, uint8_t(1));
+    QCOMPARE(out.bytes_consumed, static_cast<uint32_t>(buf.size()));
+    // Equipment in slot 7 (offset 35..40) populated; earlier slots zero.
+    QCOMPARE(out.equip_data[0], 0u);
+    QCOMPARE(out.equip_data[35], 70u);
+    QCOMPARE(out.equip_data[44], 84u);
+    // posData laid out in payload order.
+    QCOMPARE(out.pos_data[0], 1u);
+    QCOMPARE(out.pos_data[5], 6u);
+    // Name preserved up to first NUL.
+    QCOMPARE(QByteArray(reinterpret_cast<const char*>(out.name.data()), 8),
+             QByteArray("a goblin"));
+}
+
+void RustDecodeTest::decode_spawn_truncated_returns_not_ok()
+{
+    // Just a name + spawnId, then EOF — not enough for the rest of
+    // the parser. Rust path must signal `ok=false` so the daemon can
+    // fall back to fillSpawnStruct.
+    QByteArray buf("name\0\x01\x00\x00\x00", 9);
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_spawn(
+        rust::Slice<const uint8_t>{data, static_cast<size_t>(buf.size())});
     QVERIFY(!out.ok);
 }
 

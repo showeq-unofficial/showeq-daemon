@@ -533,6 +533,8 @@ void DaemonApp::wireSpawnShell()
                        "uint8_t", SZC_None,
                        m_spawnShell,
                        SLOT(zoneEntry(const uint8_t*, size_t)));
+    m_spawnShell->setUseRustZoneEntry(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_ZoneEntry")));
     m_packet->connect2("OP_MobUpdate", SP_Zone, DIR_Server|DIR_Client,
                        "spawnPositionUpdate", SZC_Match,
                        m_spawnShell,

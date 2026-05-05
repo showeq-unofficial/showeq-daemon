@@ -851,6 +851,60 @@ int32_t SpawnShell::fillSpawnStruct(spawnStruct *spawn, const uint8_t *data, siz
    return retVal;
 }
 
+#ifdef SEQ_USE_RUST
+// Translate the cxx-bridged `SpawnOut` into the daemon's spawnStruct.
+// Field order, padding, and equipment-array layout match
+// fillSpawnStruct + everquest.h:1056+ exactly so a switched-on Rust
+// path produces byte-identical envelopes downstream.
+static void applySpawnOut(spawnStruct* spawn,
+                          const seq::rust::SpawnOut& out)
+{
+    auto copyStr = [](char* dst, size_t cap, const auto& src) {
+        size_t n = 0;
+        while (n + 1 < cap && n < src.size() && src[n] != 0) {
+            dst[n] = static_cast<char>(src[n]);
+            ++n;
+        }
+        dst[n] = '\0';
+    };
+    copyStr(spawn->name,     sizeof(spawn->name),     out.name);
+    copyStr(spawn->lastName, sizeof(spawn->lastName), out.last_name);
+    copyStr(spawn->title,    sizeof(spawn->title),    out.title);
+    copyStr(spawn->suffix,   sizeof(spawn->suffix),   out.suffix);
+
+    spawn->spawnId        = out.spawn_id;
+    spawn->miscData       = out.misc_data;
+    spawn->bodytype       = out.body_type;
+    spawn->race           = out.race;
+    spawn->deity          = out.deity;
+    spawn->guildID        = out.guild_id;
+    spawn->guildServerID  = out.guild_server_id;
+    spawn->guildstatus    = 0;  // disappeared 2018-11-14
+    spawn->class_         = out.class_;
+    spawn->petOwnerId     = out.pet_owner_id;
+    spawn->level          = out.level;
+    spawn->NPC            = out.npc;
+    spawn->otherData      = out.other_data;
+    spawn->charProperties = out.char_properties;
+    spawn->curHp          = out.cur_hp;
+    spawn->holding        = out.holding;
+    spawn->state          = out.state;
+    spawn->light          = out.light;
+    spawn->isMercenary    = out.is_mercenary;
+
+    // Equipment + posData layouts are bit-for-bit identical between
+    // the FFI struct and spawnStruct, so a memcpy is correct.
+    static_assert(sizeof(spawn->equipment) == 45 * sizeof(uint32_t),
+                  "EquipStruct array layout drift");
+    static_assert(sizeof(spawn->posData) == 6 * sizeof(uint32_t),
+                  "posData layout drift");
+    std::memcpy(&spawn->equipment[0], out.equip_data.data(),
+                sizeof(spawn->equipment));
+    std::memcpy(&spawn->posData[0], out.pos_data.data(),
+                sizeof(spawn->posData));
+}
+#endif
+
 void SpawnShell::zoneEntry(const uint8_t* data, size_t len)
 {
   // Zone Entry. Sent when players are added to the zone.
@@ -859,7 +913,20 @@ void SpawnShell::zoneEntry(const uint8_t* data, size_t len)
 
   memset(spawn,0,sizeof(spawnStruct));
 
-  fillSpawnStruct(spawn,data,len,true);
+#ifdef SEQ_USE_RUST
+  bool rustOk = false;
+  if (m_useRustZoneEntry) {
+    auto out = seq::rust::decode_spawn(rust::Slice<const uint8_t>{data, len});
+    if (out.ok) {
+      applySpawnOut(spawn, out);
+      rustOk = true;
+    }
+  }
+  if (!rustOk)
+#endif
+  {
+    fillSpawnStruct(spawn,data,len,true);
+  }
 
  #ifdef SPAWNSHELL_DIAG
   seqDebug("SpawnShell::zoneEntry(spawnStruct *(name='%s'))", spawn->name);

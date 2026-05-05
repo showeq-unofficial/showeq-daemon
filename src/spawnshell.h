@@ -169,6 +169,8 @@ public slots:
    void setUseRustMobUpdate(bool on) { m_useRustMobUpdate = on; }
    // Stage A+1 — same pattern for OP_DeleteSpawn.
    void setUseRustDeleteSpawn(bool on) { m_useRustDeleteSpawn = on; }
+   // Stage A+2 — variable-length spawn payload (OP_ZoneEntry server-side).
+   void setUseRustZoneEntry(bool on) { m_useRustZoneEntry = on; }
 
  protected:
    void refilterSpawns(spawnItemType type);
@@ -196,10 +198,11 @@ public slots:
    ItemMap m_drops;
    ItemMap m_doors;
 
-   // Stage A / A+1 Rust-decoder gates — see setUseRustMobUpdate() /
-   // setUseRustDeleteSpawn().
-   bool m_useRustMobUpdate  = false;
+   // Stage A / A+1 / A+2 Rust-decoder gates — see setUseRustMobUpdate() /
+   // setUseRustDeleteSpawn() / setUseRustZoneEntry().
+   bool m_useRustMobUpdate   = false;
    bool m_useRustDeleteSpawn = false;
+   bool m_useRustZoneEntry   = false;
    ItemMap m_players;
 
    // timer for saving spawns
