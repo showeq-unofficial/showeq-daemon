@@ -66,7 +66,7 @@
         <comment>Remove spawn from zone</comment>
     <payload dir="both" typename="removeSpawnStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_Death">
+    <opcode id="1eb2" name="OP_Death" updated="05/04/26">
         <comment>old NewCorpseCode</comment>
         <payload dir="server" typename="newCorpseStruct" sizechecktype="match"/>
     </opcode>
@@ -94,7 +94,7 @@
         <comment>Items dropped on the ground</comment>
         <payload dir="both" typename="remDropStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_Action">
+    <opcode id="049e" name="OP_Action" updated="05/04/26">
         <comment>Spells cast etc</comment>
         <payload dir="both" typename="actionStruct" sizechecktype="match"/>
         <payload dir="both" typename="actionAltStruct" sizechecktype="match"/>
@@ -103,11 +103,11 @@
         <comment>Combat actions i.e. bash, kick etc</comment>
         <payload dir="both" typename="action2Struct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_Consider">
+    <opcode id="a1e7" name="OP_Consider" updated="05/04/26">
         <comment>ConsiderCode</comment>
         <payload dir="both" typename="considerStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_TargetMouse">
+    <opcode id="1994" name="OP_TargetMouse" updated="05/04/26">
         <comment>Targeting a person - old ClientTargetCode</comment>
         <payload dir="both" typename="clientTargetStruct" sizechecktype="match"/>
     </opcode>
@@ -163,7 +163,7 @@
         <comment>Group leader change (modern: 80 bytes)</comment>
         <payload dir="server" typename="groupLeaderChangeStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_Buff">
+    <opcode id="3b54" name="OP_Buff" updated="05/04/26">
         <comment>old BuffDropCode</comment>
         <payload dir="both" typename="buffStruct" sizechecktype="match"/>
     </opcode>

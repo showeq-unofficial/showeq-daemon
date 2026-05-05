@@ -67,15 +67,15 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 ### Spawn lifecycle / appearance (5)
 - [x] OP_DeleteSpawn — deleteSpawnStruct (both) — `0x6dba` (2026-05-04)
 - [x] OP_RemoveSpawn — removeSpawnStruct (both) — `0xeb88` (2026-05-04)
-- [ ] OP_Death — newCorpseStruct (server)
+- [x] OP_Death — newCorpseStruct (server) — `0x1eb2` (2026-05-04)
 - [ ] OP_SpawnAppearance — spawnAppearanceStruct (both)
 - [ ] OP_Animation — uint8_t (both)
 
 ### Combat / actions (4)
-- [ ] OP_Action — actionStruct (both)
+- [x] OP_Action — actionStruct (both) — `0x049e` (2026-05-04)
 - [x] OP_Action2 — action2Struct (both) — `0x32a9` (2026-05-04)
-- [ ] OP_Consider — considerStruct (both)
-- [ ] OP_TargetMouse — clientTargetStruct (both)
+- [x] OP_Consider — considerStruct (both) — `0xa1e7` (2026-05-04)
+- [x] OP_TargetMouse — clientTargetStruct (both) — `0x1994` (2026-05-04)
 
 ### Stats / HP / mana / xp / endurance (9)
 - [x] OP_ExpUpdate — expUpdateStruct (server) — `0xcf53` (2026-05-04)
@@ -89,7 +89,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_Stamina — staminaStruct (server) *(hunger/thirst, not endurance)*
 
 ### Buffs (1)
-- [ ] OP_Buff — buffStruct (both)
+- [x] OP_Buff — buffStruct (both) — `0x3b54` (2026-05-04)
 
 ### Group (6)
 - [ ] OP_GroupInvite — groupInviteStruct (both)
@@ -248,6 +248,39 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
   - 0xa958: `ae 5d 2b f4  8b 38 01 00  e9 0e 00 00  89 1d 00 00  …`
 - Confidence: high for the **set** mapping (4 names → 4 IDs, byte sizes constrain Exe→64b uniquely). Medium-high for the spell/base/skillcaps individual mapping within the 2056b trio: relies on the legacy declaration-order convention being preserved on Test, which is a reasonable but unverified assumption. Re-verify after the next capture by checking a session log for the same fire order.
 - **Re-verified 2026-05-04 against `tests/replay/test-login-2.vpk`**: same fire order (`0x2de1 → 0x289c → 0xa958` for the 2056b trio, `0x44d9` paired with SkillCaps in the next ms) reproduced in both login bursts of the new capture. The legacy-declaration-order disambiguation holds.
+
+### 2026-05-04 — OP_Action = 0x049e
+- Capture: `tests/replay/test-combat.vpk`. 105 fires, sizes 64:71 and 88:34.
+- Method: `--dump-payload 0x049e:`. Mostly 64b matching `sizeof(actionStruct)`; 88b extended variant carries spell metadata.
+- Sample bytes (fire 1, 64b): `e2 09  e2 09  16 80 00 00  04 00 00 00  …  00 00 80 3f  00 e0 b5 43  e7 02 00 00  10 00 00 00  19 00 ff ff ff ff` — target_id=src_id=0x09e2 (self-buff); spell flags 0x8016; float 1.0 (duration multiplier); spell-id range value 0x2e7=743 (early-game range).
+- Struct fit: 64 = sizeof(actionStruct). Direction "both" per XML; combat-driven 105 fires fits the player's spell/melee actions during the fight.
+- Ruled out: 0x3f37 / 0xf921 (1-3 fires each at 64b) — too low count for primary action stream; likely OP_Action2-like aux fires or non-combat 64b structs.
+
+### 2026-05-04 — OP_Death = 0x1eb2
+- Capture: `tests/replay/test-combat.vpk`. 54 fires, all 40b S>C.
+- Method: `--dump-payload 0x1eb2:`. Each fire shows two u32 spawn-ids at offsets 0 and 4 (`8f 06`/`b6 09`, `b9 09`/`88 06`, …) — victim + killer pair — followed by combat metadata + sentinel.
+- Struct fit: 40 = sizeof(newCorpseStruct). 54 deaths over a combat session matches the user fighting a chain of mobs.
+- Ruled out: only 40b S>C in the capture with non-trivial fire count.
+
+### 2026-05-04 — OP_Buff = 0x3b54
+- Capture: `tests/replay/test-combat.vpk`. 7 fires, all 168b S>C.
+- Method: `--dump-payload 0x3b54:`. Payload starts with spawn-id `e2 09 00 00`, then a sequence of `ff ff ff ff <float>` 16-byte rows (buff slot data with effect floats `-858.21, 2.085, …`), then `e5 da 1c 00 01 00 00 00` (timestamp/buff-id), then `16 80 00 00` (same spell-flag value seen in OP_Action), then `00 00 80 3f` (1.0 duration mod).
+- Struct fit: 168 = sizeof(buffStruct). 7 fires = buffs applying during combat.
+- Ruled out: 0x4396 / 0x7324 / 0xb269 (1 fire each at 168b) — too rare; likely related-but-distinct buff sub-opcodes or one-shot system events.
+
+### 2026-05-04 — OP_Consider = 0xa1e7
+- Capture: `tests/replay/test-combat.vpk`. 34 fires (17 S>C + 17 C>S — perfect request/response pair count).
+- Method: `--dump-payload 0xa1e7:`. 28b each fire. Decoded against considerStruct layout:
+  - Fire 2: `playerId=0x09e2, targetId=0x2e57, faction=5, level=6, curHp=0, maxHp=0, pvpcon=0, targetType=6(NPC), spareData=1000` — clean fit.
+  - Fire 4: same player, targetId=0x3124, level=7, NPC.
+- Struct fit: 28 = sizeof(considerStruct). The level field jumping per /con + matching faction byte + NPC type confirm.
+- Ruled out: 0xa17e (481x S>C 28b but identical bytes per fire) is a static config blob, not Consider; 0xdee3 / 0x7957 at 28b have wrong direction balance.
+
+### 2026-05-04 — OP_TargetMouse = 0x1994
+- Capture: `tests/replay/test-combat.vpk`. 85 fires, all C>S 4b.
+- Method: `--dump-payload 0x1994:`. Fires alternate `00 00 00 00` (clear target) and a 4-byte spawn-id (e.g. `57 2e 00 00` = 0x2e57 = the same target spawn-id seen in OP_Consider fire 2).
+- Struct fit: 4 = sizeof(clientTargetStruct). Direction "both" per XML; this capture only shows the C>S "client sets target" half.
+- Ruled out: 0x7159 (100x S>C 4b but all-zero bytes) is a heartbeat, not target broadcast; 0x6854 / 0x4c14 (smaller counts at 4b) are ambient.
 
 ### 2026-05-04 — OP_ZoneChange = 0x9148
 - Capture: `tests/replay/test-zone-entry.vpk`. 2 fires (one C>S + one S>C, matching the XML's "both" direction).
