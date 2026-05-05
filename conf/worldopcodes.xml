@@ -21,6 +21,9 @@
     </opcode>
 
 <!-- Not necessary for SEQ to run but here to name packets in logs -->
+    <opcode id="001A" name="OP_LoginServerInfo" updated="05/05/26">
+        <comment>Login-server&#x2192;client server-list entry (one per available world). Test: 219b S&gt;C login-stage. Body shape: leading u32 + 8 bytes + zstring hostname (eqworldNN.everquest.com) + 8 bytes + u32 length-of-locale-block + u32 count + null-separated locale strings (e.g. "Test\0EN\0US\0Standard (Live Environment)\0&lt;disclaimer&gt;\0"). Daemon does not currently dispatch this packet at app-op level — see TEST_OPCODE.md 2026-05-05 entry.</comment>
+    </opcode>
     <opcode id="7b6a" name="OP_SendLoginInfo" updated="05/04/26">
         <comment>Client starting world session by asking for login information</comment>
     </opcode>
