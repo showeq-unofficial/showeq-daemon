@@ -159,8 +159,8 @@
         <comment>Other member disbanded (modern: 168 bytes; membername=peer at offset 64)</comment>
         <payload dir="server" typename="groupDisbandStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupLeader">
-        <comment>Group leader change (modern: 80 bytes)</comment>
+    <opcode id="b269" name="OP_GroupLeader" updated="05/05/26">
+        <comment>Group leader change (modern: 168 bytes; new leader's name at offset 64). Fires on group formation (implicit leader) and on every /makeleader broadcast.</comment>
         <payload dir="server" typename="groupLeaderChangeStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="3b54" name="OP_Buff" updated="05/04/26">

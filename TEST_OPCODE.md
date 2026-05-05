@@ -97,7 +97,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_GroupUpdate — uint8_t (both, variable) — `0xccfc` (2026-05-05)
 - [x] OP_GroupDisband — groupDisbandStruct (server) — `0x8a85` (2026-05-05)
 - [x] OP_GroupDisband2 — groupDisbandStruct (server) — `0x2c76` (2026-05-05)
-- [ ] OP_GroupLeader — groupLeaderChangeStruct (server)
+- [x] OP_GroupLeader — groupLeaderChangeStruct (server) — `0xb269` (2026-05-05)
 
 ### Guild (5)
 - [ ] OP_GuildMOTD — guildMOTDStruct (server)
@@ -499,3 +499,14 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Struct fit: `uint8_t` (variable per legacy XML); Test uses a fixed 6-byte form. Size grew from legacy's 4-byte form (legacy comment mentioned "4 bytes"). Updated the daemon's XML comment with the modern shape.
 - Ruled out competitors at S>C 6b: 0xc57c (5 fires, codes mostly 0 or 100=0x64 — low-entropy percentage broadcast, likely a status pulse); 0x9dbe (3 fires, same low-entropy percentage shape); 0x8271 / 0xa3e0 (2 fires each, similar shape but only 2 samples). Only 0xdd87 has the varying anim-code entropy pattern AND scales 10× from idle session to combat session, which is the OP_Animation signature.
 - Note: in this capture only S>C fires are observed; the C>S half of `dir=both` from the user's `/em wave` action wasn't captured — Test may route the user's own animation through OP_SpawnAppearance (stance field) and only broadcast OP_Animation server-side. Worth re-verifying when a more controlled emote-only capture is available.
+
+### 2026-05-05 — OP_GroupLeader = 0xb269
+- Capture: `tests/replay/test-char-leader.vpk` (<charname> invited <charname>, made <charname> leader, <charname> made <charname> leader, then <charname> made <charname> main tank).
+- Method: `--dump-payload 0xb269:`. 3 fires S>C, all 168 bytes.
+- Anchor evidence: name@offset 64 reads as the *new leader* in the right order across fires:
+  - fire 1: name@64 = self (initial leader broadcast on group formation, since the user was the inviter)
+  - fire 2: name@64 = peer (after the first /makeleader changed leadership to the peer)
+  - fire 3: name@64 = self (after the peer's /makeleader handed leadership back)
+- Struct fit: 168b matches groupDisbandStruct's modern shape (the daemon hint said 80b but the real Test layout is 168b — same family as OP_GroupDisband / OP_GroupDisband2). Updated XML comment with the corrected size + offset.
+- Cross-capture check: in test-group-invite (no explicit /makeleader), 0xb269 fired 2 times — once per group cycle, broadcasting the implicit leader-on-formation. The +1 fire in test-char-leader matches the 2 explicit /makeleader events minus the second cycle absent here.
+- Ruled out: 0xe005 (4 S>C 80b) was the 80b candidate suggested by the legacy XML hint, but 3 of its 4 fires are nearly all-zero with a constant `4f 34 8b ff` prefix and IEEE-754 1.0f at offset 4 — looks like a periodic group-state heartbeat, not a name-bearing leader broadcast. 0x6fbb (2 S>C 80b with self-name at offset 0) fires once per zone-in / character switch, also not leader-shaped. 0x933a (1 C>S + 1 S>C 168b with target+source names) is the /maketank round-trip — same struct family, different opcode.
