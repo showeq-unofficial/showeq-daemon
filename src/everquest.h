@@ -2512,6 +2512,11 @@ struct randomStruct
 ** Length: 28 Octets
 ** OpCode: PlayerPosCode
 */
+// Test client uses the legacy 24-byte playerSpawnPosStruct (Live grew it
+// to 28 bytes in 2026 by adding a trailing deltaX:13 + padding word; Test
+// hasn't followed). Layout below mirrors the bit-field block that was
+// already documented in spawnshell.cpp:1124 as the working pre-grow form,
+// with deltaX omitted relative to the 28b Live definition.
 struct playerSpawnPosStruct
 {
 /*0000*/ uint16_t spawnId;
@@ -2521,23 +2526,21 @@ struct playerSpawnPosStruct
          signed   y:19;                            // y coord (2nd loc value)
          unsigned padding00:1;
 /*0008*/
-         unsigned heading:12;                      // heading
-         signed   animation:10;                    // current animation
-         unsigned padding01:10;
-/*0012*/
          signed   x:19;                            // x coord (1st loc value)
-         unsigned padding02:13;
-/*0016*/
-         signed   z:19;                            // z coord (3rd loc value)
-         signed   deltaZ:13;                       // change in z
-/*0020*/
-         signed   deltaHeading:10;                 // change in heading
-         signed   deltaY:13;                       // change in y
-         unsigned padding04:9;
-/*0024*/
          signed   deltaX:13;                       // change in x
-         unsigned padding05:19;
-/*0028*/
+/*0012*/
+         signed   deltaHeading:10;                 // change in heading
+         signed   z:19;                            // z coord (3rd loc value)
+         unsigned padding01:3;
+/*0016*/
+         unsigned heading:12;                      // heading
+         signed   animation:10;                    // velocity / animation
+         unsigned padding02:10;
+/*0020*/
+         signed   deltaY:13;                       // change in y
+         signed   deltaZ:13;                       // change in z
+         unsigned padding03:6;
+/*0024*/
 };
 
 /*

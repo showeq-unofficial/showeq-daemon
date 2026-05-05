@@ -497,9 +497,11 @@ void DaemonApp::wireZoneMgr()
     // Player's own per-tick movement. Mirrors showeq/src/interface.cpp:1000.
     // OP_ClientUpdate is overloaded — DIR_Server uses playerSpawnPosStruct
     // (other players' updates, wired in wireSpawnShell), DIR_Client uses
-    // playerSelfPosStruct (this user's movement). Both feed the Player
-    // object's own changeItem signal.
-    m_packet->connect2("OP_ClientUpdate", SP_Zone, DIR_Server|DIR_Client,
+    // playerSelfPosStruct (this user's movement). On Test the two sides
+    // have different sizes (24b S>C vs 42b C>S), so this route MUST be
+    // DIR_Client only — otherwise a 24b S>C packet would be read past
+    // its end as a 42b struct.
+    m_packet->connect2("OP_ClientUpdate", SP_Zone, DIR_Client,
                        "playerSelfPosStruct", SZC_Match,
                        m_player,
                        SLOT(playerUpdateSelf(const uint8_t*, size_t, uint8_t)));
