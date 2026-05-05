@@ -55,7 +55,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_NewZone — uint8_t (server, variable) — `0xa923` (2026-05-04)
 - [x] OP_SpawnDoor — doorStruct (server, modulus) — `0x794d` (2026-05-04)
 - [x] OP_GroundSpawn — makeDropStruct (server) — `0x33ec` (2026-05-04)
-- [ ] OP_SendZonePoints — zonePointsStruct (server)
+- [x] OP_SendZonePoints — zonePointsStruct (server) — `0xc547` (2026-05-05)
 - [x] OP_ZoneChange — zoneChangeStruct (both) — `0x9148` (2026-05-04)
 
 ### Movement / position (4)
@@ -540,3 +540,11 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - **OP_SetChatServer = 0xbb67** (56b S>C, 2 fires): payload is the legacy comma-separated chat-server tuple — `lvseq-chat01.everquest.com,9879,test.<charname>,<sessionkey>,0` (sessionkey redacted). This is the original "IP/Port/servername.charname/password" form the legacy XML described, untouched on Test.
 - **OP_SetChatServer revised**: previously committed as 0xf22b based on the URL-rich content alone. With 0xbb67 now showing the canonical legacy chat-server tuple format, that's the better match for OP_SetChatServer; 0xf22b's multi-URL service catalog is more accurately OP_SetChatServer2 (the secondary chat-related config slot, expanded on Test from a single mail-server tuple to a full Daybreak service catalog covering auth/account/commerce/support).
 - Cross-validation in test-zone.vpk: 0xf21f and 0xbb67 each fire once per world-handshake cycle — exactly what's expected for per-login zone-server-pointer + per-login chat-server-config opcodes.
+
+### 2026-05-05 — OP_SendZonePoints = 0xc547
+- Capture: `tests/replay/test-zone.vpk` (<charname> zoned out from tutorialb to crescent reach via the tutorial's exit portal).
+- Method: `--list-events` showed 0xc547 firing as S>C 176b in the moments BEFORE the C>S OP_ZoneChange — the canonical "server announces this zone-point's destination" timing for OP_SendZonePoints.
+- Anchor evidence: payload at offset 0 holds a single zonePointStruct entry (`uint32 trigger=189, uint32 sentinel, float y=-146.0, float z=2.0, float x=17.0, float heading=432.0, uint16 zoneId=11, uint16 instance=1`) followed by 144 bytes of zeros (slots for additional zone points, all empty here since the tutorial exit only has one destination — Crescent Reach). The y/x/heading match the player's location near the tutorial-exit portal at the moment of the broadcast.
+- Struct fit: 176 bytes is a fixed buffer (24-byte zonePointStruct + ~6 empty slots × 24b + trailer), not a packed variable-length list as in the legacy zonePointsStruct. Same struct family but Test pads to a fixed maximum capacity rather than truncating.
+- 2 fires across the capture: once in tutorialb (announcing the exit-to-Crescent portal) and once in crescent (announcing the return / zone-points visible from the new zone). One zone-point per zone × two zones = the expected count.
+- No competing 176b S>C fires in this capture.

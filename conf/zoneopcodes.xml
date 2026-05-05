@@ -29,8 +29,8 @@
         <payload dir="server" typename="makeDropStruct" sizechecktype="none"/>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_SendZonePoints">
-        <comment>Coords in a zone that will port you to another zone</comment>
+    <opcode id="c547" name="OP_SendZonePoints" updated="05/05/26">
+        <comment>Coords in a zone that will port you to another zone. Test: 176b S>C, single zonePointStruct entry (24b: trigger, y, z, x, heading, zoneId, instance) padded with zeros — fires when the player approaches an active zone-out trigger.</comment>
         <payload dir="server" typename="zonePointsStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_AAExpUpdate">
