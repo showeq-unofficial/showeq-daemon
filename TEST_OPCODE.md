@@ -554,3 +554,24 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Issue with prior 0x1a00 assignment: the events log shows 0x1a00 firing in the **zone stream** (right after OP_ZoneEntry / OP_TimeOfDay during per-zone init), not the world handshake. OP_ExpansionInfo is a world-stage opcode by definition, so the prior confirmation was incorrect.
 - New candidate **0x6bcf** (64b S>C, 2 fires per session): fires in the post-OP_LogServer / pre-OP_ApproveWorld world handshake band — the right phase for an expansion-bitmask broadcast. Payload starts with `0x08` (= 8, expansion count?) then a u32-array bitmask region with `0xffffffff` sentinels and per-login session id at offset 36, then `0x07 0x02` tier markers in the trailer. Per-login fires are nearly identical except for the session-id byte difference, fitting "mostly-static account-level expansion bitmask + session marker".
 - Confidence: moderate. The shape and timing fit OP_ExpansionInfo, but the legacy bitmask-of-flags interpretation isn't a perfect 1-to-1 mapping with the observed 0x6bcf payload. Worth re-verifying if the daemon's downstream "available expansions" UI behaves correctly with this opcode wired in.
+
+### 2026-05-05 — OP_LoginServerInfo `0x001A` (incidental; daemon currently drops it)
+
+While chasing OP_MOTD via the test-server "Live Environment" disclaimer text in `tests/replay/test-zone.vpk`, byte-level session decode of record 29 (login server 69.174.201.232:15900 → client) revealed app opcode **`0x001a`** carrying a 219-byte server-list payload:
+
+```
+06 00 00 00 00 00 00 00 00 00 01 67 00 00 00 00 01 00 00 00
+"eqworldNN.everquest.com" \0
+28 23 00 00 00 00 00 00
+22 01 00 00 01 00 00 00
+"Test" \0 "EN" \0 "US" \0 "Standard (Live Environment)" \0
+"Content and code on this server may be in progress and may not be representative of the final product." \0
+```
+
+Shape: u32 + 8 bytes + zstring hostname + 8 bytes + u32 length-of-locale-block (0x122) + u32 count (1) + null-separated locale strings (locale code, region, language, label, disclaimer). Classic login-server server-list listing — **not** OP_MOTD as initially suspected; the disclaimer rides along here, not in a post-EnterWorld MOTD packet. **Real OP_MOTD remains unconfirmed** — chase it in a CharSelect→ZoneIn capture, not via this string.
+
+Not in the 73-opcode rediscovery list (incidental discovery). Registered in `worldopcodes.xml` as a candidate so future stats reports name it; n=1 across all current `.vpk` fixtures but body shape is unambiguous.
+
+**Daemon decoder bug**: `0x001a` never reaches `dispatchPacket`. Verified via both `--list-events` (zero entries for `0x001a`) and `--dump-payload 0x001a:/tmp/x` (zero `.bin` files written) on `test-zone.vpk`, even though the packet is plainly present in the `.vpk` and SessionResponse precedes it (rec 14, vs the 0x001a fire at rec 29). Most likely cause: seq-window logic in `EQPacketStream::processPacket` for `OP_Packet` (packetstream.cpp:789) caches future-seq packets but the session is `SessionDisconnect`'d (rec 42-43) before the missing earlier seqs arrive, so the cached entry is dropped without dispatch. Less likely: CRC validation against the not-yet-established session key. Worth a short investigation pass to either (a) deliver cached pre-disconnect packets at `SessionDisconnect` time, or (b) confirm the drop is intentional and document it.
+
+**MOTD hunt status after this work**: dumped four small single-fire S>C world-stream candidates from `test-zone-entry.vpk` — `0xa97f` (72b, sparse-zero init shape with float 1.0 trailer), `0x3ef4` (12b, server-time/sync), `0x0afa` (33b, char-list entry: zone+name length-prefixed strings → likely a CharSelect helper, not MOTD), `0xef12` (24b, fires on both streams = ack/heartbeat class). None match an OP_MOTD shape. Live OP_MOTD is probably either a string-table reference packet (small, no free text) or absent entirely on Test from the current capture set. Next attempt should be a fresh login → CharSelect → ZoneIn capture targeted explicitly at the post-EnterWorld scrollback message.
