@@ -92,11 +92,11 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_Buff — buffStruct (both) — `0x3b54` (2026-05-04)
 
 ### Group (6)
-- [ ] OP_GroupInvite — groupInviteStruct (both)
-- [ ] OP_GroupFollow — groupFollowStruct (server)
-- [ ] OP_GroupUpdate — uint8_t (both, variable)
-- [ ] OP_GroupDisband — groupDisbandStruct (server)
-- [ ] OP_GroupDisband2 — groupDisbandStruct (server)
+- [x] OP_GroupInvite — groupInviteStruct (both) — `0x67a4` (2026-05-05)
+- [x] OP_GroupFollow — groupFollowStruct (server) — `0x01dc` (2026-05-05)
+- [x] OP_GroupUpdate — uint8_t (both, variable) — `0xccfc` (2026-05-05)
+- [x] OP_GroupDisband — groupDisbandStruct (server) — `0x8a85` (2026-05-05)
+- [x] OP_GroupDisband2 — groupDisbandStruct (server) — `0x2c76` (2026-05-05)
 - [ ] OP_GroupLeader — groupLeaderChangeStruct (server)
 
 ### Guild (5)
@@ -453,3 +453,34 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
   - fire 11: format=2702  color=1  field3=10945
 - Struct fit: 12 = sizeof(simpleMessageStruct{messageFormat, messageColor, unknown}). 4 distinct format IDs across 12 fires (2553, 2601, 2686, 2702) all sit in the eqstr message-format range (just above the older eqstr_us.txt's 2459 ceiling — Test's eqstr table has been extended). Color cycles 0/1 = ChatColor enum values. Fires arrive in pairs (color=1 then color=0) per event — the SimpleMessage broadcast pattern where each system event emits a primary-colored line plus a default-colored variant.
 - Ruled out competitors at S>C 12b: 0x14dc (100x heartbeat with constant `3b 60 f9 69` session-handle tail and counter); 0xa139 (40x static `(-9191, 0, 0)` heartbeat, identical bytes every fire); 0x92a5 (40x static `(0, 1, 42)` heartbeat, identical bytes every fire); 0xab5e already taken (OP_ClickObject). 0x098d is the only 12b S>C opcode in the capture with a varying format-id-shaped first u32.
+
+### 2026-05-05 — OP_GroupFollow = 0x01dc
+- Capture: `tests/replay/test-group-invite.vpk` (2 invite/accept/disband cycles + tutorial NPC re-additions).
+- Method: `--dump-payload 0x01dc:`. 5 fires, all 68 bytes S>C.
+- Sample bytes: each fire has a NUL-terminated character name at offset 0 (16 bytes), then 8 bytes of session-handle / timestamp, then zeros, then 16 bytes of pointer-shaped trailing data (Test client memory leaks into the trailer, same pattern seen in OP_ZoneChange's UTF-16 locale-resource leak). Names redacted; values match the inviter, invitee, and self at the expected event boundaries.
+- Struct fit: 68 = the daemon's pre-existing "modern: 68 bytes, name at offset 0" hint for groupFollowStruct, which the parser already expects. Names are at offset 0, not at the legacy offset 64 — Test layout drops the legacy `unknown0000[64]` placeholder and writes the invitee name straight into offset 0.
+- Ruled out: only 68b S>C in the capture.
+
+### 2026-05-05 — OP_GroupInvite = 0x67a4 (and OP_GroupInvite2 = 0xee64)
+- Capture: `tests/replay/test-group-invite.vpk`.
+- Method: `--dump-payload`. Each opcode fires once at 176 bytes; the user issued one outgoing invite and received one incoming invite delivery in this session.
+- 0x67a4 (1 C>S 176b): payload starts with a NUL-terminated target name (the invitee — redacted). The user's outgoing invite carries the *target* name at offset 0.
+- 0xee64 (1 S>C 176b): payload starts with a NUL-terminated recipient name (self — redacted). The server's invite delivery carries the *recipient* name at offset 0.
+- Struct fit: 176 = modern groupInviteStruct on Test (the legacy 152b layout has been padded by 24 bytes; trailer is zeros). Names are at offset 0, not at the legacy offsets 0/64 for inviter+invitee — Test split the bidirectional opcode into two direction-specific IDs and reduced each to a single name.
+- Note: the legacy XML's OP_GroupInvite vs OP_GroupInvite2 distinction was ungrouped-vs-grouped inviter state. On Test the split is by direction (C>S vs S>C). For the 73-list, OP_GroupInvite (0x67a4) is the canonical user-action ID; OP_GroupInvite2 (0xee64) is recorded as the S>C delivery half so the daemon's dir=both routing covers both wire opcodes.
+- Ruled out: only 176b opcodes in the capture; both have plaintext char names at offset 0.
+
+### 2026-05-05 — OP_GroupUpdate = 0xccfc
+- Capture: `tests/replay/test-group-invite.vpk`. Cumulative across the 2 zone-session stats blocks: 6 fires S>C, all 92 bytes.
+- Method: `--dump-payload 0xccfc:`. Layout: name@offset 0 (64 bytes), then 4 bytes session/timestamp, then `<u32 spawn-id> <u32 sentinel=-1> <u32 flag> <u32 small int>` slot-payload. Some fires have an empty name@0 (slot empty) and some have self-name (active slot).
+- Struct fit: 92 = the daemon's pre-existing "modern: 92 bytes, recipient name + slot" hint for OP_GroupUpdate. Slot index visible in the trailing u32 pair, name in the leading 64b field.
+- Ruled out: only 92b S>C opcode in the capture.
+
+### 2026-05-05 — OP_GroupDisband / OP_GroupDisband2 = 0x8a85 / 0x2c76
+- Capture: `tests/replay/test-group-invite.vpk`. The user self-disbanded from both group cycles, so OP_GroupDisband (self-disband notification) should fire twice and OP_GroupDisband2 (peer-disbanded notification) should also fire twice — once per cycle, once for self-confirm and once for the peer-leave broadcast.
+- Method: `--dump-payload`. Both opcodes fire 2 times S>C at 168 bytes — the daemon's pre-existing "modern: 168 bytes; membername at offset 64" hint matches.
+- 0x8a85 (2 S>C 168b): name@offset 64 = self in BOTH fires → fits the daemon's "membername=self at offset 64" comment for OP_GroupDisband (self-disband self-confirm).
+- 0x2c76 (2 S>C 168b): name@offset 64 = peer name (the other group member) in BOTH fires — different peer per cycle → fits "membername=peer at offset 64" for OP_GroupDisband2 (peer-leave broadcast).
+- Struct fit: 168 = modern groupDisbandStruct (legacy was 152b; Test added 16 trailer bytes). The split (self vs peer name in the same offset) is what distinguishes the two opcodes here — same struct, different opcode IDs, different fill semantics.
+- Ruled out competitors at S>C 168b: 0x4396 (2 fires with BOTH names populated — different shape, likely a different group-related event); 0x7324 / 0xb269 (2 fires each but with denser non-zero content beyond just a name — likely buff-class 168b struct, since OP_Buff was already confirmed at 0x3b54 with the same size).
+- OP_GroupLeader (80b S>C) deferred — no leadership change happened in this session (each cycle's inviter was leader by default; no /makeleader was issued), so 0xe005 (2 S>C 80b with float/pointer-shaped payload) is the leading 80b candidate but doesn't carry a name and doesn't pattern-match a leader-change broadcast. Needs a session with explicit /makeleader.

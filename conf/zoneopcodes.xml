@@ -127,19 +127,19 @@
         <comment>old ZoneChangeCode</comment>
         <payload dir="both" typename="zoneChangeStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupInvite">
+    <opcode id="67a4" name="OP_GroupInvite" updated="05/05/26">
         <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
-        <comment>You invite someone while ungrouped or get invited by someone ungrouped </comment>
+        <comment>Outgoing invite: 176 bytes, target name at offset 0.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_GroupInvite2">
+    <opcode id="ee64" name="OP_GroupInvite2" updated="05/05/26">
         <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
-        <comment>You're inviting someone and you are grouped or get invited by a group</comment>
+        <comment>Incoming invite delivery: 176 bytes, recipient name at offset 0. Test split OP_GroupInvite by direction; the legacy "ungrouped vs grouped" distinction does not apply here.</comment>
     </opcode>
     <opcode id="ffff" name="OP_GroupCancelInvite">
         <payload dir="both" typename="groupDeclineStruct" sizechecktype="match"/>
         <comment>Declining to join a group</comment>
     </opcode>
-    <opcode id="ffff" name="OP_GroupFollow">
+    <opcode id="01dc" name="OP_GroupFollow" updated="05/05/26">
         <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
         <comment>Member added (modern: 68 bytes, name at offset 0).</comment>
     </opcode>
@@ -147,15 +147,15 @@
         <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
         <comment>Player joins your group</comment>
     </opcode>
-    <opcode id="ffff" name="OP_GroupUpdate">
+    <opcode id="ccfc" name="OP_GroupUpdate" updated="05/05/26">
         <comment>Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow.</comment>
         <payload dir="both" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupDisband">
+    <opcode id="8a85" name="OP_GroupDisband" updated="05/05/26">
         <comment>Your group dissolved (modern: 168 bytes; membername=self at offset 64)</comment>
         <payload dir="server" typename="groupDisbandStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupDisband2">
+    <opcode id="2c76" name="OP_GroupDisband2" updated="05/05/26">
         <comment>Other member disbanded (modern: 168 bytes; membername=peer at offset 64)</comment>
         <payload dir="server" typename="groupDisbandStruct" sizechecktype="none"/>
     </opcode>
