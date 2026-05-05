@@ -45,10 +45,10 @@
         <comment>GuildMOTD</comment>
         <payload dir="server" typename="guildMOTDStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_ClientUpdate">
-        <comment>Position updates</comment>
-        <payload dir="server" typename="playerSpawnPosStruct" sizechecktype="match"/>
-        <payload dir="both" typename="playerSelfPosStruct" sizechecktype="match"/>
+    <opcode id="f8d1" name="OP_ClientUpdate" updated="05/04/26">
+        <comment>Position updates — Test wire is 42b C>S (self) and 24b S>C (broadcast); legacy playerSpawnPosStruct is 28b. Size check relaxed until the struct is updated for Test.</comment>
+        <payload dir="server" typename="playerSpawnPosStruct" sizechecktype="none"/>
+        <payload dir="both" typename="playerSelfPosStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="917c" name="OP_NpcMoveUpdate" updated="05/04/26">
         <comment>Position updates</comment>

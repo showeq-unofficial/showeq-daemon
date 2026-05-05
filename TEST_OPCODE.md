@@ -59,7 +59,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_ZoneChange — zoneChangeStruct (both) — `0x9148` (2026-05-04)
 
 ### Movement / position (4)
-- [ ] OP_ClientUpdate — playerSpawnPosStruct (server)
+- [x] OP_ClientUpdate — playerSpawnPosStruct (server) — `0xf8d1` (2026-05-04, sizechecktype relaxed to none)
 - [x] OP_NpcMoveUpdate — uint8_t (server, variable) — `0x917c` (2026-05-04)
 - [x] OP_MobUpdate — spawnPositionUpdate (both) — `0x4a4f` (2026-05-04)
 - [x] OP_MovementHistory — uint8_t (client, variable) — `0x9e21` (2026-05-04)
@@ -286,6 +286,22 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Method: `--dump-payload 0xdee3:`. Sample (fire 1, 28b): `05 00 00 00  00 00 ff ff ff ff  00 00 00 00 00 00  23 00 ff ff ff ff  8f 56 00 00 00 00` — from-slot=5, sentinel, slot-id 0x23=35, sentinel, item-cookie 0x568f.
 - Struct fit: 28 = sizeof(moveItemStruct). C>S-dominant with S>C acks fits "client requests slot move, server confirms".
 - Ruled out: 0xa17e (481x S>C 28b but identical bytes per fire) is a static config blob; 0x202b / 0xb570 (1-2 C>S 28b) are too rare.
+
+### 2026-05-04 — OP_ClientUpdate = 0xf8d1
+- Capture: `tests/replay/test-combat.vpk`. 4078 fires: 3212 C>S 42b + 866 S>C 24b. Highest-volume bidirectional opcode in the capture.
+- Method: `--dump-payload 0xf8d1:`. C>S samples (selected from across the run): `36 01  e2 09 00 00  00 00 12 c3 00 00  6c 31 00 00 00 00 00  64 72 69 [varying]  88 41 00 00 00 40 00 00  00 00 00 00 f7 7f 00 00 00 00`. Layout breakdown:
+  - bytes 0-1: per-fire counter (sequence number, increments)
+  - bytes 2-3: spawn-id `0x09e2` = <charname> (constant)
+  - bytes 4-7: zeros / spawn-id-2 placeholder
+  - bytes 8-15: bit-packed position fields (varying per fire — heading, pos)
+  - bytes 16-21: zeros + ASCII fragment `64 72 69` ("dri") that's constant across all 3212 fires followed by a varying byte (looks like a fixed 4-byte field, possibly an autorun-state code or feature-flag block)
+  - bytes 22-29: position floats (varying)
+  - bytes 30-37: zeros
+  - bytes 38-39: `f7 7f` Test-infra sentinel (we've seen `f6 7f` / `f7 7f` recur)
+  - bytes 40-41: zeros
+- The 24b S>C side (e.g. fire 10): `b6 09 00 00  4c e0 1e 00  00 00 00 00  dd fe 2f 02  00 e0 f6 fc  00 40 e8 fe` — `b6 09` is a non-player spawn id, then bit-packed pos. Server broadcasts other spawns' positions in this shorter format.
+- Struct fit: legacy `playerSpawnPosStruct` is 28b; Test grew the C>S side to 42b (more state fields) and uses 24b S>C (slightly compressed). XML's `sizechecktype` was relaxed to `"none"` so the daemon stops dropping size-mismatched packets at routing time. Downstream parser still reads only the legacy fields — a follow-up to extend the struct definition is in scope.
+- Ruled out: 0xa17e (481x S>C 28b but identical bytes per fire) was static config, not position broadcast; 0x9e21 was OP_MovementHistory (variable C>S, accumulates floats). 0xf8d1 is the high-frequency player-tick stream.
 
 ### 2026-05-04 — OP_Action = 0x049e
 - Capture: `tests/replay/test-combat.vpk`. 105 fires, sizes 64:71 and 88:34.
