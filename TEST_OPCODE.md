@@ -25,10 +25,10 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_WorldComplete
 
 ### Checksums / verification (4)
-- [ ] OP_SendSpellChecksum
-- [ ] OP_SendExeChecksum
-- [ ] OP_SendBaseDataChecksum
-- [ ] OP_SendSkillCapsChecksum
+- [x] OP_SendSpellChecksum — `0x2de1` (2026-05-04)
+- [x] OP_SendExeChecksum — `0x44d9` (2026-05-04)
+- [x] OP_SendBaseDataChecksum — `0x289c` (2026-05-04)
+- [x] OP_SendSkillCapsChecksum — `0xa958` (2026-05-04)
 
 ### Chat servers (2)
 - [ ] OP_SetChatServer
@@ -233,11 +233,23 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Struct fit: a "log server" / world-config blob carrying server-side timezone + server metadata. The TZ string is the unmistakable anchor.
 - Ruled out: no other 34KB-class S>C packet in the world stream. Note: 34KB is much larger than legacy expectations for OP_LogServer — Test may have folded zone-list / server-config data into this packet.
 
-### Pending: OP_Send{Spell,BaseData,SkillCaps,Exe}Checksum trio
+### 2026-05-04 — OP_Send{Spell,BaseData,SkillCaps,Exe}Checksum quartet
 - Capture: `tests/replay/test-login-logout.vpk`.
-- Observed: three opcodes — `0x2de1`, `0x289c`, `0xa958` — fire as 2056-byte C>S packets during the login handshake (each twice: login + camp-back). All three have an 8-byte hash signature followed by a list of little-endian u32 hash values. Plus `0x44d9` fires C>S 64b twice — possibly OP_SendExeChecksum (smaller exe-only checksum).
-- Status: `OP_Send{Spell,BaseData,SkillCaps}Checksum` are 3-of-3 candidates among `{0x2de1, 0x289c, 0xa958}` but individual mapping is undetermined — same size, same direction, similar payload shape.
-- Next step: order-correlate against legacy showeq sources (the original handshake order is documented there) OR capture multiple sessions and look for fire-order stability.
+- Method: `--list-events` for fire-ordering + `--dump-payload` for size/shape, disambiguated against legacy `../showeq/conf/worldopcodes.xml` declaration order. Neither legacy showeq nor the daemon has a code handler for these opcodes (registered for naming only), so the legacy XML declaration order — Spell → Exe → BaseData → SkillCaps — is the authoritative ordering hint.
+- Observed in capture: three opcodes fire as C>S 2056b in this fire order during each login handshake — `0x2de1` first, then `0x289c`, then `0xa958`. A fourth opcode `0x44d9` fires C>S 64b in the same handshake.
+- Disambiguation:
+  - **OP_SendSpellChecksum = 0x2de1** — 1st in legacy XML and 1st observed in fire order. Legacy comment "Contains a snippet of spell data" confirms it leads the verification handshake.
+  - **OP_SendBaseDataChecksum = 0x289c** — 2nd 2056b packet (legacy lists Exe between Spell and BaseData, but Exe is the 64b packet, so among the three 2056b packets BaseData takes the 2nd slot).
+  - **OP_SendSkillCapsChecksum = 0xa958** — 3rd in legacy declaration order ("Third client verification packet") and 3rd observed.
+  - **OP_SendExeChecksum = 0x44d9** — the only checksum-shaped C>S packet at a non-2056b size (64b). Payload starts with `04 00 00 00` followed by 60 bytes of binary hash data, fitting an exe-only checksum (smaller fixed binary digest vs. the larger spell/base-data/skill-cap tables).
+- Sample bytes (each 2056b packet has a unique 8-byte signature followed by an array of little-endian u32 hash entries):
+  - 0x2de1: `fa a5 d2 74  78 fc e6 00  78 a7 1f 00  8a 6b 14 00  …`
+  - 0x289c: `3b 6e 98 4b  46 26 13 00  c0 b2 02 00  5c e5 00 00  …`
+  - 0xa958: `ae 5d 2b f4  8b 38 01 00  e9 0e 00 00  89 1d 00 00  …`
+- Confidence: high for the **set** mapping (4 names → 4 IDs, byte sizes constrain Exe→64b uniquely). Medium-high for the spell/base/skillcaps individual mapping within the 2056b trio: relies on the legacy declaration-order convention being preserved on Test, which is a reasonable but unverified assumption. Re-verify after the next capture by checking a session log for the same fire order.
+
+### Pending: legacy-comment ambiguity
+- Both `OP_SendExeChecksum` and `OP_SendBaseDataChecksum` carry the comment "Second client verification packet" in legacy `worldopcodes.xml` — likely a copy-paste from when those names were first added. It does NOT change the disambiguation above (Exe is uniquely 64b, BaseData is uniquely the middle 2056b in fire order), but worth flagging for future reviewers.
 
 ### 2026-05-04 — OP_FormattedMessage = 0x0ecf
 - Capture: `tests/replay/test-zone-entry.vpk`.

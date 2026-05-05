@@ -39,16 +39,16 @@
     <opcode id="ffff" name="OP_SendCharInfo">
 	    <comment>Send all chars visible @ char select</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendSpellChecksum">
+    <opcode id="2de1" name="OP_SendSpellChecksum" updated="05/04/26">
 	    <comment>Contains a snippet of spell data</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendExeChecksum">
+    <opcode id="44d9" name="OP_SendExeChecksum" updated="05/04/26">
 	    <comment>Second client verification packet</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendBaseDataChecksum">
+    <opcode id="289c" name="OP_SendBaseDataChecksum" updated="05/04/26">
 	    <comment>Second client verification packet</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendSkillCapsChecksum">
+    <opcode id="a958" name="OP_SendSkillCapsChecksum" updated="05/04/26">
 	    <comment>Third client verification packet</comment>
     </opcode>
     <opcode id="ffff" name="OP_SetChatServer">
