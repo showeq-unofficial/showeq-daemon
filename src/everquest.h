@@ -2548,33 +2548,33 @@ struct playerSpawnPosStruct
 ** Length: 42 Octets
 ** OpCode: PlayerPosCode
 */
+// Test-client layout (audited 2026-05-04 against tests/replay/test-combat.vpk).
+// Y/X/Z floats anchored against the user's in-game /loc reading:
+//   /loc=(y=-146, x=2, z=17.16) -> fire 1 wire: y@6=-146.0, x@26=2.0, z@22=17.0.
+// Floats are EQ runtime convention (positive y = north, positive x = west);
+// the daemon flips X+Y to screen convention downstream.
+//
+// The "dri" ASCII fragment at offset 19-21 is Test-specific and constant
+// across all 3212 captured C>S fires; treated as opaque marker bytes.
 struct playerSelfPosStruct
 {
-/*0000*/ uint16_t unknown0000;                   // ***Placeholder (update time counter?)
+/*0000*/ uint16_t timestamp;                     // increments per-fire (wall-clock-ish)
 /*0002*/ uint16_t spawnId;                       // Player's spawn id
-/*0004*/ uint16_t unknown0004;                   // ***Placeholder
-/*0006*/
-	 unsigned pitch:12;                  // pitch (up/down heading)
-	 unsigned padding00:20;
+/*0004*/ uint16_t unknown0004;                   // observed constant 0 on Test
+/*0006*/ float    y;                             // y coord (EQ runtime)
 /*0010*/
-	 float    deltaX;                    // change in x
-/*0014*/
-	 float    z;                         // z coord (3rd loc value)
-/*0018*/
-	 float    y;                         // y coord (2nd loc value)
-/*0022*/
-	 float    deltaZ;                    // change in z
-/*0026*/
-	 signed   animation:10;              // current animation
-	 unsigned heading:12;                // heading
-	 unsigned padding05:10;
-/*0030*/
-	 float    deltaY;                    // change in y
-/*0034*/
-	 signed   deltaHeading:10;           // change in heading
-	 unsigned padding07:22;
-/*0038*/
-	 float    x;                         // x coord (1st loc value)
+	 unsigned heading:12;                    // facing direction
+	 signed   deltaHeading:10;               // change in heading
+	 unsigned padding00:10;
+/*0014*/ float    deltaX;                        // change in x (0 when stationary)
+/*0018*/ uint8_t  animation;                     // animation id (0=idle, ~27=walking)
+/*0019*/ uint8_t  test_marker[3];                // constant "dri" — Test magic
+/*0022*/ float    z;                             // z coord
+/*0026*/ float    x;                             // x coord (EQ runtime)
+/*0030*/ float    deltaY;                        // change in y (0 when stationary)
+/*0034*/ int16_t  deltaZ;                        // change in z (small int)
+/*0036*/ uint16_t test_sentinel;                 // constant 0x7ff7 — Test marker
+/*0038*/ uint32_t trailing;                      // observed zero
 /*0042*/
 };
 
