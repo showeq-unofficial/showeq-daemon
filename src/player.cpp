@@ -1092,10 +1092,13 @@ struct pos
   m_validPos = true;
   updateLast();
 
-  m_headingDegrees = 360 - ((pupdate->heading * 360) >> 11);
+  // Test: heading is a 12-bit field (0-4095 = full turn), so divide by 4096.
+  // Legacy clients stored only 11 effective bits in the 12-bit slot; Test
+  // uses the full range, so >>11 doubled the displayed angle.
+  m_headingDegrees = 360 - ((pupdate->heading * 360) >> 12);
   emit headingChanged(m_headingDegrees);
 
-  emit posChanged(x(), y(), z(), 
+  emit posChanged(x(), y(), z(),
 		  deltaX(), deltaY(), deltaZ(), m_headingDegrees);
 
   updateLastChanged();
