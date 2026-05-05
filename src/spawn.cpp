@@ -36,6 +36,7 @@
 
 #include <climits>
 #include <cmath>
+#include <cstring>
 
 #include <QRegularExpression>
 
@@ -416,12 +417,23 @@ Spawn::Spawn(uint16_t id,
 Spawn::Spawn(QDataStream& d, uint16_t id)
   : Item(tSpawn, id)
 {
-  // restore Spawn info
-  d.readRawData((char*)this, sizeof(EQPoint));
-  d.readRawData((char*)&m_lastUpdate, 
-		 ((char*)this + sizeof(Item)) - (char*)&m_lastUpdate);
+  // EQPoint = Point3D<int16_t> has a virtual destructor, so it carries a
+  // vtable pointer at offset 0. The constructor chain above just set it
+  // correctly for this binary. readRawData would overwrite it with the
+  // pointer from the saving process (which may be a different binary with
+  // different load addresses), corrupting all subsequent virtual dispatch.
+  // Save the correct vtable pointer and restore it after the raw read.
+  // Use char* to avoid -Wclass-memaccess on the non-trivially-copyable Spawn.
+  char* raw = reinterpret_cast<char*>(this);
+  void* vptr;
+  std::memcpy(&vptr, raw, sizeof(vptr));
+  d.readRawData(raw, sizeof(EQPoint));
+  std::memcpy(raw, &vptr, sizeof(vptr));
+
+  d.readRawData((char*)&m_lastUpdate,
+		 (raw + sizeof(Item)) - (char*)&m_lastUpdate);
   d.readRawData((char*)&m_petOwnerID,
-		 ((char*)this + sizeof(Spawn)) - (char*)&m_petOwnerID);
+		 (raw + sizeof(Spawn)) - (char*)&m_petOwnerID);
   d >> m_name;
   d >> m_lastName;
 
