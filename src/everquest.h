@@ -1116,32 +1116,51 @@ struct spawnStruct
 /*0000*/ uint8_t  light;
 /*0000*/ char     lastName[32];
 /*0000*/ uint32_t petOwnerId;
+         // Test client posData layout (audited 2026-05-05 against test-zone.vpk
+         // with <charname> anchor at /loc x=-2 y=146 z=18):
+         //   word 0 — constant 0x01400000 (NPC) / 0x01800000 (PC); state flags
+         //   word 1 — observed 0
+         //   word 2 — z:19 in low bits (×8 wire scale, kept), high 13 bits vary
+         //            and probably hold heading or pitch (not yet decoded)
+         //   word 3 — low 13 bits are 0; y:19 lives at bits 13-31
+         //   word 4 — low 13 bits are 0; x:19 lives at bits 13-31
+         //   word 5 — observed 0
+         // Field names retained for call-site compatibility (spawn.cpp's
+         // ctor reads s->heading / s->animation / s->deltaX...). On Test those
+         // come back zero / placeholder; movement deltas arrive via
+         // OP_NpcMoveUpdate, and heading via OP_MobUpdate, so the spawn-struct
+         // values for those fields aren't load-bearing.
          union
          {
            struct
            {
+              // word 0
+              unsigned pitch:12;
+              unsigned padding00:20;
 
-              unsigned pitch:12;                          // pitch (up/down heading)
-              signed   y:19;                              // y coord (2nd loc value)
-              unsigned padding00:1;
-
-              unsigned heading:12;                        // heading
-              signed   animation:10;                      // current animation
+              // word 1
+              unsigned heading:12;
+              signed   animation:10;
               unsigned padding01:10;
 
-              signed   x:19;                              // x coord (1st loc value)
+              // word 2
+              signed   z:19;                              // bits 0-18 (×8 wire scale)
               unsigned padding02:13;
 
-              signed   z:19;                              // z coord (3rd loc value)
-              signed   deltaZ:13;                         // change in z
+              // word 3
+              unsigned padding03:13;
+              signed   y:19;                              // bits 13-31 (×8 wire scale)
 
-              signed   deltaHeading:10;                   // change in heading
-              signed   deltaY:13;                         // change in y
-              unsigned padding04:9;
+              // word 4
+              unsigned padding04:13;
+              signed   x:19;                              // bits 13-31 (×8 wire scale)
 
-              signed   deltaX:13;                         // change in x
-              unsigned padding05:19;
-
+              // word 5 — placeholders to keep call sites compiling; values not
+              // load-bearing on Test (deltas come from OP_NpcMoveUpdate).
+              signed   deltaX:13;
+              signed   deltaY:13;
+              signed   deltaZ:3;
+              signed   deltaHeading:3;
            };
            int32_t posData[6];
          };
@@ -2517,29 +2536,40 @@ struct randomStruct
 // hasn't followed). Layout below mirrors the bit-field block that was
 // already documented in spawnshell.cpp:1124 as the working pre-grow form,
 // with deltaX omitted relative to the 28b Live definition.
+// Test client layout (audited 2026-05-05 against teleport-debug.vpk;
+// Heahdan @ snapshot (x=1981, y=535, z=-128) decoded against PSP fire's
+// w3=0xfde9a00e/w4=0xf843bfe0/w2=0x1baffc01). Position fields land at the
+// SAME word-and-offset as the spawnStruct posData rewrite (z@w2:0-18,
+// y@w3:13-31, x@w4:13-31). All other field names retained as placeholders
+// so callers in spawnshell.cpp:1110+ keep compiling — values for
+// heading/animation/delta* aren't load-bearing here on Test (heading
+// ships via OP_MobUpdate, deltas via OP_NpcMoveUpdate).
 struct playerSpawnPosStruct
 {
 /*0000*/ uint16_t spawnId;
 /*0002*/ uint16_t spawnId2;
 /*0004*/
-         unsigned pitch:12;                        // pitch (up/down heading)
-         signed   y:19;                            // y coord (2nd loc value)
-         unsigned padding00:1;
+         // word 0 — pitch + state flags (constant per PC/NPC)
+         unsigned pitch:12;
+         unsigned padding00:10;
+         unsigned heading:10;                      // placeholder; not load-bearing on Test
 /*0008*/
-         signed   x:19;                            // x coord (1st loc value)
-         signed   deltaX:13;                       // change in x
+         // word 1 — observed 0; placeholders for caller compat
+         signed   animation:10;
+         unsigned padding01:10;
+         signed   deltaHeading:12;
 /*0012*/
-         signed   deltaHeading:10;                 // change in heading
-         signed   z:19;                            // z coord (3rd loc value)
-         unsigned padding01:3;
+         // word 2 — z at bits 0-18, ×8 wire scale (caller does >>3)
+         signed   z:19;
+         signed   deltaZ:13;                       // placeholder
 /*0016*/
-         unsigned heading:12;                      // heading
-         signed   animation:10;                    // velocity / animation
-         unsigned padding02:10;
+         // word 3 — y at bits 13-31
+         signed   deltaY:13;                       // placeholder
+         signed   y:19;
 /*0020*/
-         signed   deltaY:13;                       // change in y
-         signed   deltaZ:13;                       // change in z
-         unsigned padding03:6;
+         // word 4 — x at bits 13-31
+         signed   deltaX:13;                       // placeholder
+         signed   x:19;
 /*0024*/
 };
 
