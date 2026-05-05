@@ -118,7 +118,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_SimpleMessage — simpleMessageStruct (server)
 - [x] OP_FormattedMessage — formattedMessageStruct (server) — `0x0ecf` (2026-05-04)
 - [ ] OP_CommonMessage — channelMessageStruct (both)
-- [ ] OP_SpecialMesg — specialMessageStruct (server)
+- [x] OP_SpecialMesg — specialMessageStruct (server) — `0x7162` (2026-05-04)
 
 ### Alternate Advancement (3)
 - [x] OP_SendAATable — *(static ability-definition menu)* — `0xce3d` (2026-05-04)
@@ -248,6 +248,13 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
   - 0xa958: `ae 5d 2b f4  8b 38 01 00  e9 0e 00 00  89 1d 00 00  …`
 - Confidence: high for the **set** mapping (4 names → 4 IDs, byte sizes constrain Exe→64b uniquely). Medium-high for the spell/base/skillcaps individual mapping within the 2056b trio: relies on the legacy declaration-order convention being preserved on Test, which is a reasonable but unverified assumption. Re-verify after the next capture by checking a session log for the same fire order.
 - **Re-verified 2026-05-04 against `tests/replay/test-login-2.vpk`**: same fire order (`0x2de1 → 0x289c → 0xa958` for the 2056b trio, `0x44d9` paired with SkillCaps in the next ms) reproduced in both login bursts of the new capture. The legacy-declaration-order disambiguation holds.
+
+### 2026-05-04 — OP_SpecialMesg = 0x7162
+- Capture: `tests/replay/test-combat.vpk`. 93 fires, S>C, sizes 57-235b (variable per message).
+- Method: `--dump-payload 0x7162:`. Payload header (~12b flags/color/spawn-id), then NUL-terminated speaker name, then NUL-terminated message text.
+- Sample bytes (fire 1): `01 01 00 33 01 00 00 e2 09 00 00 41 72 69 61 73 00 …` followed by message string `"We found the other slaves!  Not bad, my friend, not bad.  No matter what happens in the mines, you should always be able to find your way back here.  If you seek allies in other instances of these mines, I can send you there if you [wish]."` Speaker = `"Arias"` — the tutorial NPC.
+- Struct fit: `specialMessageStruct` with embedded sayer + variable text matches the modern Live wire format (sayer-name lets clients tag the message with the speaker; OP_FormattedMessage doesn't carry a sayer).
+- Ruled out: 0x0ecf (already confirmed as OP_FormattedMessage at 13b fixed S>C, no sayer name).
 
 ### 2026-05-04 — OP_ItemPacket = 0xe8bc
 - Capture: `tests/replay/test-combat.vpk`. 55 fires, all S>C, sizes 949-1018b (variable per item).

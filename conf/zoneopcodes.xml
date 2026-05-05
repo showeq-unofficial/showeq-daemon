@@ -203,7 +203,7 @@
         <comment>ChannelMessageCode i.e. /tell /ooc /shout etc</comment>
         <payload dir="both" typename="channelMessageStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_SpecialMesg">
+    <opcode id="7162" name="OP_SpecialMesg" updated="05/04/26">
         <comment>Communicate textual info to client including hail responses etc</comment>
         <payload dir="server" typename="specialMessageStruct" sizechecktype="none"/>
     </opcode>
