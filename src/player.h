@@ -233,6 +233,10 @@ public:
    void setUseRustExpUpdate   (bool on) { m_useRustExpUpdate = on; }
    void setUseRustLevelUpdate (bool on) { m_useRustLevelUpdate = on; }
    void setUseRustSkillUpdate (bool on) { m_useRustSkillUpdate = on; }
+   // Stage A+4
+   void setUseRustManaChange  (bool on) { m_useRustManaChange = on; }
+   void setUseRustStamina     (bool on) { m_useRustStamina = on; }
+   void setUseRustEndUpdate   (bool on) { m_useRustEndUpdate = on; }
 
  protected:
   void fillConTable();
@@ -244,6 +248,9 @@ public:
   bool m_useRustExpUpdate   = false;
   bool m_useRustLevelUpdate = false;
   bool m_useRustSkillUpdate = false;
+  bool m_useRustManaChange  = false;
+  bool m_useRustStamina     = false;
+  bool m_useRustEndUpdate   = false;
 
   // The default values are set either by info showeq_params.
   // We keep a second copy in case the player levels while playing.

@@ -574,14 +574,20 @@ void DaemonApp::wireSpawnShell()
                        "manaDecrementStruct", SZC_Match,
                        m_player,
                        SLOT(manaChange(const uint8_t*)));
+    m_player->setUseRustManaChange(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_ManaChange")));
     m_packet->connect2("OP_Stamina", SP_Zone, DIR_Server,
                        "staminaStruct", SZC_Match,
                        m_player,
                        SLOT(updateStamina(const uint8_t*)));
+    m_player->setUseRustStamina(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_Stamina")));
     m_packet->connect2("OP_EndUpdate", SP_Zone, DIR_Server,
                        "endUpdateStruct", SZC_Match,
                        m_player,
                        SLOT(updateEndurance(const uint8_t*)));
+    m_player->setUseRustEndUpdate(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_EndUpdate")));
     m_packet->connect2("OP_ExpUpdate", SP_Zone, DIR_Server,
                        "expUpdateStruct", SZC_Match,
                        m_player,
@@ -614,6 +620,8 @@ void DaemonApp::wireSpawnShell()
                        "spawnRenameStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(renameSpawn(const uint8_t*)));
+    m_spawnShell->setUseRustSpawnRename(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_SpawnRename")));
     m_packet->connect2("OP_Illusion", SP_Zone, DIR_Server|DIR_Client,
                        "spawnIllusionStruct", SZC_Match,
                        m_spawnShell,
@@ -628,6 +636,8 @@ void DaemonApp::wireSpawnShell()
                        "newCorpseStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(killSpawn(const uint8_t*)));
+    m_spawnShell->setUseRustDeath(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_Death")));
     m_packet->connect2("OP_Shroud", SP_Zone, DIR_Server,
                        "spawnShroudSelf", SZC_None,
                        m_spawnShell,
@@ -642,10 +652,14 @@ void DaemonApp::wireSpawnShell()
                        "considerStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(consMessage(const uint8_t*, size_t, uint8_t)));
+    m_spawnShell->setUseRustConsider(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_Consider")));
     m_packet->connect2("OP_TargetMouse", SP_Zone, DIR_Server|DIR_Client,
                        "clientTargetStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(clientTarget(const uint8_t*)));
+    m_spawnShell->setUseRustTargetMouse(
+        m_cfg.rustOpcodes.contains(QStringLiteral("OP_TargetMouse")));
     m_packet->connect2("OP_NpcMoveUpdate", SP_Zone, DIR_Server,
                        "uint8_t", SZC_None,
                        m_spawnShell,

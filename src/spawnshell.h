@@ -176,6 +176,11 @@ public slots:
    void setUseRustHPUpdate        (bool on) { m_useRustHPUpdate = on; }
    void setUseRustMobHealth       (bool on) { m_useRustMobHealth = on; }
    void setUseRustSpawnAppearance (bool on) { m_useRustSpawnAppearance = on; }
+   // Stage A+4
+   void setUseRustConsider        (bool on) { m_useRustConsider = on; }
+   void setUseRustSpawnRename     (bool on) { m_useRustSpawnRename = on; }
+   void setUseRustTargetMouse     (bool on) { m_useRustTargetMouse = on; }
+   void setUseRustDeath           (bool on) { m_useRustDeath = on; }
 
  protected:
    void refilterSpawns(spawnItemType type);
@@ -203,7 +208,7 @@ public slots:
    ItemMap m_drops;
    ItemMap m_doors;
 
-   // Stage A / A+1 / A+2 / A+3 Rust-decoder gates.
+   // Stage A through A+4 Rust-decoder gates.
    bool m_useRustMobUpdate        = false;
    bool m_useRustDeleteSpawn      = false;
    bool m_useRustZoneEntry        = false;
@@ -211,6 +216,10 @@ public slots:
    bool m_useRustHPUpdate         = false;
    bool m_useRustMobHealth        = false;
    bool m_useRustSpawnAppearance  = false;
+   bool m_useRustConsider         = false;
+   bool m_useRustSpawnRename      = false;
+   bool m_useRustTargetMouse      = false;
+   bool m_useRustDeath            = false;
    ItemMap m_players;
 
    // timer for saving spawns

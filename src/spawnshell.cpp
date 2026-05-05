@@ -1371,7 +1371,22 @@ void SpawnShell::updateSpawnInfo(const uint8_t* data)
 
 void SpawnShell::renameSpawn(const uint8_t* data)
 {
-    const spawnRenameStruct* rename = (const spawnRenameStruct*)data;
+    spawnRenameStruct tmp;
+    const spawnRenameStruct* rename = nullptr;
+#ifdef SEQ_USE_RUST
+    if (m_useRustSpawnRename) {
+        auto out = seq::rust::decode_spawn_rename(
+            rust::Slice<const uint8_t>{data, sizeof(spawnRenameStruct)});
+        if (out.ok) {
+            std::memset(&tmp, 0, sizeof(tmp));
+            std::memcpy(tmp.old_name,       out.old_name.data(),       64);
+            std::memcpy(tmp.old_name_again, out.old_name_again.data(), 64);
+            std::memcpy(tmp.new_name,       out.new_name.data(),       64);
+            rename = &tmp;
+        }
+    }
+#endif
+    if (!rename) rename = (const spawnRenameStruct*)data;
 #ifdef SPAWNSHELL_DIAG
     seqDebug("SpawnShell::renameSpawn(oldname=%s, newname=%s)",
              rename->old_name, rename->new_name);
@@ -1623,9 +1638,26 @@ void SpawnShell::spawnWearingUpdate(const uint8_t* data)
   }
 }
 
-void SpawnShell::consMessage(const uint8_t* data, size_t, uint8_t dir) 
+void SpawnShell::consMessage(const uint8_t* data, size_t, uint8_t dir)
 {
-  const considerStruct * con = (const considerStruct*)data;
+  considerStruct tmp;
+  const considerStruct* con = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustConsider) {
+    auto out = seq::rust::decode_consider(
+        rust::Slice<const uint8_t>{data, sizeof(considerStruct)});
+    if (out.ok) {
+      std::memset(&tmp, 0, sizeof(tmp));
+      tmp.playerid = out.player_id;
+      tmp.targetid = out.target_id;
+      tmp.faction  = out.faction;
+      tmp.level    = out.level;
+      con = &tmp;
+    }
+  }
+#endif
+  if (!con) con = (const considerStruct*)data;
+
   Item* item;
   Spawn* spawn;
 
@@ -1669,6 +1701,18 @@ void SpawnShell::consMessage(const uint8_t* data, size_t, uint8_t dir)
 
 void SpawnShell::clientTarget(const uint8_t* data)
 {
+  uint32_t newTarget;
+#ifdef SEQ_USE_RUST
+  if (m_useRustTargetMouse) {
+    auto out = seq::rust::decode_client_target(
+        rust::Slice<const uint8_t>{data, sizeof(clientTargetStruct)});
+    if (out.ok) {
+      newTarget = out.new_target;
+      emit targetSpawn(newTarget);
+      return;
+    }
+  }
+#endif
   const clientTargetStruct* cts = (const clientTargetStruct*)data;
   emit targetSpawn(cts->newTarget);
 }
@@ -1770,7 +1814,27 @@ void SpawnShell::deleteSpawn(const uint8_t* data)
 
 void SpawnShell::killSpawn(const uint8_t* data)
 {
-  const newCorpseStruct* deadspawn = (const newCorpseStruct*)data;
+  newCorpseStruct tmp;
+  const newCorpseStruct* deadspawn = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustDeath) {
+    auto out = seq::rust::decode_death(
+        rust::Slice<const uint8_t>{data, sizeof(newCorpseStruct)});
+    if (out.ok) {
+      std::memset(&tmp, 0, sizeof(tmp));
+      tmp.spawnId      = out.spawn_id;
+      tmp.killerId     = out.killer_id;
+      tmp.corpseid     = out.corpse_id;
+      tmp.type         = out.kind;
+      tmp.spellId      = out.spell_id;
+      tmp.zoneId       = out.zone_id;
+      tmp.zoneInstance = out.zone_instance;
+      tmp.damage       = out.damage;
+      deadspawn = &tmp;
+    }
+  }
+#endif
+  if (!deadspawn) deadspawn = (const newCorpseStruct*)data;
 #ifdef SPAWNSHELL_DIAG
    seqDebug("SpawnShell::killSpawn(id=%d, kid=%d)", 
 	  deadspawn->spawnId, deadspawn->killerId);

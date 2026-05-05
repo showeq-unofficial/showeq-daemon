@@ -37,6 +37,13 @@ private slots:
     void decode_exp_update_round_trip();
     void decode_level_update_round_trip();
     void decode_skill_update_round_trip();
+    void decode_mana_change_round_trip();
+    void decode_stamina_round_trip();
+    void decode_end_update_round_trip();
+    void decode_consider_round_trip();
+    void decode_spawn_rename_round_trip();
+    void decode_client_target_round_trip();
+    void decode_death_round_trip();
 };
 
 // Build a 14-byte spawnPositionUpdate buffer the same way the wire
@@ -351,6 +358,117 @@ void RustDecodeTest::decode_skill_update_round_trip()
     QVERIFY(out.ok);
     QCOMPARE(out.skill_id, 30u);
     QCOMPARE(out.value, 12);
+}
+
+// Stage A+4 round-trip cases — same shape as A+3 round-trips: build
+// the C struct, memcpy, decode via Rust, compare a representative
+// subset of fields. cargo tests cover bad-length and edge cases.
+
+void RustDecodeTest::decode_mana_change_round_trip()
+{
+    manaDecrementStruct s{};
+    s.newMana = -100;
+    s.spellId = 42;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_mana_change(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.new_mana, -100);
+    QCOMPARE(out.spell_id, 42);
+}
+
+void RustDecodeTest::decode_stamina_round_trip()
+{
+    staminaStruct s{};
+    s.food = 127; s.water = 0;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_stamina(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.food, 127u);
+    QCOMPARE(out.water, 0u);
+}
+
+void RustDecodeTest::decode_end_update_round_trip()
+{
+    endUpdateStruct s{};
+    s.spawn_id = 0x1234;
+    s.cur = 94; s.max = 100;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_end_update(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.spawn_id, uint16_t(0x1234));
+    QCOMPARE(out.cur, 94u);
+    QCOMPARE(out.max, 100u);
+}
+
+void RustDecodeTest::decode_consider_round_trip()
+{
+    considerStruct s{};
+    s.playerid = 100; s.targetid = 200; s.faction = -1; s.level = 50;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_consider(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.player_id, 100u);
+    QCOMPARE(out.faction, -1);
+}
+
+void RustDecodeTest::decode_spawn_rename_round_trip()
+{
+    spawnRenameStruct s{};
+    std::strcpy(s.old_name,       "Foo");
+    std::strcpy(s.old_name_again, "Foo");
+    std::strcpy(s.new_name,       "Bar");
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_spawn_rename(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(QByteArray(reinterpret_cast<const char*>(out.old_name.data()), 3),
+             QByteArray("Foo"));
+    QCOMPARE(QByteArray(reinterpret_cast<const char*>(out.new_name.data()), 3),
+             QByteArray("Bar"));
+}
+
+void RustDecodeTest::decode_client_target_round_trip()
+{
+    clientTargetStruct s{};
+    s.newTarget = 0xDEADBEEFu;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_client_target(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.new_target, 0xDEADBEEFu);
+}
+
+void RustDecodeTest::decode_death_round_trip()
+{
+    newCorpseStruct s{};
+    s.spawnId = 111; s.killerId = 222; s.corpseid = 333; s.type = 1;
+    s.spellId = 666; s.zoneId = 77; s.zoneInstance = 8; s.damage = 500;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_death(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.spawn_id, 111u);
+    QCOMPARE(out.killer_id, 222u);
+    QCOMPARE(out.kind, 1);
+    QCOMPARE(out.damage, 500u);
 }
 
 // QTEST_GUILESS_MAIN — daemon code is headless (QCoreApplication only),

@@ -646,7 +646,22 @@ void Player::increaseSkill(const uint8_t* data)
 
 void Player::manaChange(const uint8_t* data)
 {
-  const manaDecrementStruct *mana = (const manaDecrementStruct*)data;
+  manaDecrementStruct tmp;
+  const manaDecrementStruct* mana = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustManaChange) {
+    auto out = seq::rust::decode_mana_change(
+        rust::Slice<const uint8_t>{data, sizeof(manaDecrementStruct)});
+    if (out.ok) {
+      std::memset(&tmp, 0, sizeof(tmp));
+      tmp.newMana = out.new_mana;
+      tmp.unknown = out.unknown;
+      tmp.spellId = out.spell_id;
+      mana = &tmp;
+    }
+  }
+#endif
+  if (!mana) mana = (const manaDecrementStruct*)data;
   // update the players mana
   m_mana = mana->newMana;
 
@@ -907,7 +922,20 @@ void Player::updateSpawnInfo(const uint8_t* data)
 
 void Player::updateStamina(const uint8_t* data)
 {
-  const staminaStruct *stam = (const staminaStruct *)data;
+  staminaStruct tmp;
+  const staminaStruct* stam = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustStamina) {
+    auto out = seq::rust::decode_stamina(
+        rust::Slice<const uint8_t>{data, sizeof(staminaStruct)});
+    if (out.ok) {
+      tmp.food  = out.food;
+      tmp.water = out.water;
+      stam = &tmp;
+    }
+  }
+#endif
+  if (!stam) stam = (const staminaStruct*)data;
   m_food = stam->food;
   m_water = stam->water;
   m_validStam = true;
@@ -920,7 +948,21 @@ void Player::updateStamina(const uint8_t* data)
 
 void Player::updateEndurance(const uint8_t* data)
 {
-  const endUpdateStruct* upd = (const endUpdateStruct*)data;
+  endUpdateStruct tmp;
+  const endUpdateStruct* upd = nullptr;
+#ifdef SEQ_USE_RUST
+  if (m_useRustEndUpdate) {
+    auto out = seq::rust::decode_end_update(
+        rust::Slice<const uint8_t>{data, sizeof(endUpdateStruct)});
+    if (out.ok) {
+      tmp.spawn_id = out.spawn_id;
+      tmp.cur      = out.cur;
+      tmp.max      = out.max;
+      upd = &tmp;
+    }
+  }
+#endif
+  if (!upd) upd = (const endUpdateStruct*)data;
   m_enduranceCur = upd->cur;
   m_enduranceMax = upd->max;
 
