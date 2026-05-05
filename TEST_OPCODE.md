@@ -69,7 +69,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_RemoveSpawn — removeSpawnStruct (both) — `0xeb88` (2026-05-04)
 - [x] OP_Death — newCorpseStruct (server) — `0x1eb2` (2026-05-04)
 - [x] OP_SpawnAppearance — spawnAppearanceStruct (both) — `0x9826` (2026-05-04)
-- [ ] OP_Animation — uint8_t (both)
+- [x] OP_Animation — uint8_t (both) — `0xdd87` (2026-05-05)
 
 ### Combat / actions (4)
 - [x] OP_Action — actionStruct (both) — `0x049e` (2026-05-04)
@@ -491,3 +491,11 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Anchor evidence: fire 2 (831 bytes) contains an array of plaintext tutorial NPC name + find-category pairs — "Arias / Revolt Leader", "Frizznik / Tradeskills", "Prathun / Grouping and Communication", "Rytan / Spells", "Xenaida / Maps", "McKenzie the Younger / Augmentations", "Scribe Farquard / Achievements", and ~10 more — exactly the modern Ctrl+F find window's category-based finder list for the Mines of Gloomingdeep tutorial zone. The 3 smaller 86-byte fires are find-action responses (cooldown denial + find acknowledgements).
 - Struct fit: variable per the legacy XML (`uint8_t (server, variable)`). The 830-byte list-on-open + small per-action fires layout matches the modern find window's two-phase contract (initial list, then per-find responses).
 - Ruled out: 0x312a (6 S>C variable 59-179b) — wider size variance, doesn't have NPC-name strings; 0x5b40 (3 S>C 50-51b) — too narrow size band, no plaintext anchors; 0xed85 (5 C>S 40b fixed) — wrong direction (find list is server-pushed). 0x695f is the only S>C variable opcode in the capture with plaintext find-category labels.
+
+### 2026-05-05 — OP_Animation = 0xdd87
+- Capture: `tests/replay/test-group-invite.vpk` (user issued /sit /stand /em wave plus jumps; ambient tutorial NPCs idle).
+- Method: `--dump-payload 0xdd87:`. 31 fires S>C, all 6 bytes. Cross-referenced against test-combat.vpk: same opcode fires 355 times in a combat session — fits per-melee-swing animation broadcasts on Live.
+- Layout: `<u32 spawn-id> <u16 anim-code>`. Spawn-ids cycle through PCs and nearby NPCs. Anim codes have high entropy across fires: 0x10, 0x1d, 0x32, 0x35, 0 — different animations being broadcast (sit/stand/wave/idle/walk variants).
+- Struct fit: `uint8_t` (variable per legacy XML); Test uses a fixed 6-byte form. Size grew from legacy's 4-byte form (legacy comment mentioned "4 bytes"). Updated the daemon's XML comment with the modern shape.
+- Ruled out competitors at S>C 6b: 0xc57c (5 fires, codes mostly 0 or 100=0x64 — low-entropy percentage broadcast, likely a status pulse); 0x9dbe (3 fires, same low-entropy percentage shape); 0x8271 / 0xa3e0 (2 fires each, similar shape but only 2 samples). Only 0xdd87 has the varying anim-code entropy pattern AND scales 10× from idle session to combat session, which is the OP_Animation signature.
+- Note: in this capture only S>C fires are observed; the C>S half of `dir=both` from the user's `/em wave` action wasn't captured — Test may route the user's own animation through OP_SpawnAppearance (stance field) and only broadcast OP_Animation server-side. Worth re-verifying when a more controlled emote-only capture is available.

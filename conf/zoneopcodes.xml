@@ -415,8 +415,8 @@
         <comment>List of available titles - 1520 bytes</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_Animation">
-        <comment>Combat animation, emote animations etc - 4 bytes</comment>
+    <opcode id="dd87" name="OP_Animation" updated="05/05/26">
+        <comment>Combat animation, emote animations etc. Test: 6 bytes (u32 spawn-id + u16 anim-code).</comment>
         <payload dir="both" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_WhoAllRequest">
