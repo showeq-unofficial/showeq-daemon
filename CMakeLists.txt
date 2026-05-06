@@ -131,6 +131,7 @@ set(SEQ_DAEMON_EXTRACTED_SOURCES
   src/category.cpp
   src/datalocationmgr.cpp
   src/datetimemgr.cpp
+  src/dbstrings.cpp
   src/diagnosticmessages.cpp
   src/eqstr.cpp
   src/filter.cpp

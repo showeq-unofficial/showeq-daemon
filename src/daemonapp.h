@@ -28,6 +28,7 @@ class Messages;
 class Player;
 class PrefsBroker;
 class SessionAdapter;
+class DbStrings;
 class SpellMessages;
 class Spells;
 class SpawnMonitor;
@@ -131,6 +132,7 @@ private:
     EQPacket*                       m_packet        = nullptr;
     Spells*                         m_spells        = nullptr;
     SpellMessages*                  m_spellMessages = nullptr;
+    DbStrings*                      m_dbStrings     = nullptr;
     EQStr*                          m_eqStrings     = nullptr;
     ZoneMgr*                        m_zoneMgr       = nullptr;
     GuildMgr*                       m_guildMgr      = nullptr;

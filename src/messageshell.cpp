@@ -27,6 +27,7 @@
 #include "everquest.h"
 #include "spells.h"
 #include "spellmessages.h"
+#include "dbstrings.h"
 #include "zonemgr.h"
 #include "spawnshell.h"
 #include "player.h"
@@ -80,6 +81,7 @@ QString stripEqItemLinks(const QString& in)
 // MessageShell
 MessageShell::MessageShell(Messages* messages, EQStr* eqStrings,
 			   Spells* spells, SpellMessages* spellMessages,
+			   DbStrings* dbStrings,
 			   ZoneMgr* zoneMgr,
 			   SpawnShell* spawnShell, Player* player,
                            QObject* parent, const char* name)
@@ -88,6 +90,7 @@ MessageShell::MessageShell(Messages* messages, EQStr* eqStrings,
     m_eqStrings(eqStrings),
     m_spells(spells),
     m_spellMessages(spellMessages),
+    m_dbStrings(dbStrings),
     m_zoneMgr(zoneMgr),
     m_spawnShell(spawnShell),
     m_player(player)
@@ -337,12 +340,25 @@ void MessageShell::formattedMessage(const uint8_t* data, size_t len, uint8_t dir
   }
 
   if (text.isEmpty()) {
-    const size_t argsLen =
-        len - ((uint8_t*)&fmsg->args[0] - (uint8_t*)fmsg);
-    text = m_eqStrings->formatMessage(fmsg->messageFormat,
-                                      fmsg->argCount,
-                                      fmsg->args,
-                                      argsLen);
+    // System-broadcast (target = 0x09e2) eqstr template-substitution
+    // path. If eqstr doesn't have a template for this format ID, try
+    // the dbstr fallback before giving up — modern EQ keeps a lot of
+    // /time-style status text and faction-name strings in dbstr_us.txt
+    // that legacy eqstr never had. Only id1s with a SINGLE entry in
+    // dbstr are looked up; multi-entry id1s have multiple meanings
+    // and we can't disambiguate without the wire-side id2.
+    if (m_eqStrings->find(fmsg->messageFormat).isEmpty() &&
+        m_dbStrings && m_dbStrings->isLoaded()) {
+      text = m_dbStrings->uniqueText(fmsg->messageFormat);
+    }
+    if (text.isEmpty()) {
+      const size_t argsLen =
+          len - ((uint8_t*)&fmsg->args[0] - (uint8_t*)fmsg);
+      text = m_eqStrings->formatMessage(fmsg->messageFormat,
+                                        fmsg->argCount,
+                                        fmsg->args,
+                                        argsLen);
+    }
   }
 
   text = stripEqItemLinks(text);

@@ -36,6 +36,7 @@
 #include "spawnshell.h"
 #include "spells.h"
 #include "spellmessages.h"
+#include "dbstrings.h"
 #include "spellshell.h"
 #include "wsserver.h"
 #include "xmlpreferences.h"
@@ -152,6 +153,23 @@ bool DaemonApp::start()
         qInfo("no spells_us_str.txt found — spell text will fall through to eqstr");
     }
 
+    // dbstr_us.txt — modern EQ's dynamic-content text table. Used as a
+    // last-resort lookup for formattedMessage IDs that aren't in eqstr
+    // and aren't spell-effect fires (e.g. /time output, faction names,
+    // splash strings). Same search cascade.
+    m_dbStrings = new DbStrings();
+    QFileInfo dbstrFile =
+        m_dataLocationMgr->findExistingFile(".", "dbstr_us.txt");
+    if (!dbstrFile.exists()) {
+        QFileInfo fi(QStringLiteral("/usr/local/share/showeq/dbstr_us.txt"));
+        if (fi.exists()) dbstrFile = fi;
+    }
+    if (dbstrFile.exists()) {
+        m_dbStrings->load(dbstrFile.absoluteFilePath());
+    } else {
+        qInfo("no dbstr_us.txt found — system-broadcast text outside eqstr will read \"Unknown: <id>\"");
+    }
+
     // EQPacket reads `[VPacket] Filename` from pSEQPrefs to decide where
     // to record/playback. Set it before constructing EQPacket so both
     // the recordPackets and playbackPackets paths can find their file.
@@ -246,7 +264,7 @@ bool DaemonApp::start()
     m_messages = new Messages(m_dateTimeMgr, m_messageFilters,
                               this, "messages");
     m_messageShell = new MessageShell(m_messages, m_eqStrings, m_spells,
-                                      m_spellMessages,
+                                      m_spellMessages, m_dbStrings,
                                       m_zoneMgr, m_spawnShell, m_player,
                                       this, "messageShell");
 
