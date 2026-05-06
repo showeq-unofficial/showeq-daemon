@@ -159,6 +159,7 @@ set(SEQ_DAEMON_EXTRACTED_SOURCES
   src/spawnlog.cpp
   src/spawnmonitor.cpp
   src/spawnshell.cpp
+  src/spellmessages.cpp
   src/spells.cpp
   src/spellshell.cpp
   src/util.cpp

@@ -26,6 +26,7 @@
 #include "messages.h"
 #include "everquest.h"
 #include "spells.h"
+#include "spellmessages.h"
 #include "zonemgr.h"
 #include "spawnshell.h"
 #include "player.h"
@@ -37,6 +38,17 @@
 #include <QRegularExpression>
 
 namespace {
+
+// Test wire packs char/merc names as "<displayName><spawnId>" (e.g.
+// "<charname>"). The EQ client strips the trailing digits at render
+// time. Mirror that — chat lines should read "<charname> has joined the
+// group." not "<charname> has joined the group."
+QString stripNameSuffix(const QString& in)
+{
+    int i = in.size();
+    while (i > 0 && in.at(i - 1).isDigit()) --i;
+    return in.left(i);
+}
 
 // EQ wraps inline item references in chat / system text with the
 // 0x12 (DC2) control byte: \x12<binary item header><item name>\x12.
@@ -67,13 +79,15 @@ QString stripEqItemLinks(const QString& in)
 //----------------------------------------------------------------------
 // MessageShell
 MessageShell::MessageShell(Messages* messages, EQStr* eqStrings,
-			   Spells* spells, ZoneMgr* zoneMgr, 
-			   SpawnShell* spawnShell, Player* player, 
+			   Spells* spells, SpellMessages* spellMessages,
+			   ZoneMgr* zoneMgr,
+			   SpawnShell* spawnShell, Player* player,
                            QObject* parent, const char* name)
   : QObject(parent),
     m_messages(messages),
     m_eqStrings(eqStrings),
     m_spells(spells),
+    m_spellMessages(spellMessages),
     m_zoneMgr(zoneMgr),
     m_spawnShell(spawnShell),
     m_player(player)
@@ -297,10 +311,36 @@ void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)
     return;
 
   const simpleMessageStruct* smsg = (const simpleMessageStruct*)data;
-  QString tempStr;
 
   const MessageType mt = chatColor2MessageType(smsg->messageColor);
-  const QString text = stripEqItemLinks(m_eqStrings->message(smsg->messageFormat));
+
+  // Spell-text dispatch. On Test these messageFormat IDs are category
+  // selectors into spells_us_str.txt (column per category) rather than
+  // eqstr keys; param0 carries the spell ID. Audit log: format=2553 +
+  // spell 10945 ("clawstriker's flurry") matches CASTEDMETXT, etc.
+  // Mappings for 2686/2702 are best-guess until confirmed against
+  // a fresh capture — fall through to eqstr if the column is empty.
+  QString text;
+  if (m_spellMessages && m_spellMessages->isLoaded()) {
+    SpellMessages::Field field = static_cast<SpellMessages::Field>(0);
+    switch (smsg->messageFormat) {
+      case 2553: field = SpellMessages::CastedMe;    break;
+      case 2601: field = SpellMessages::CastedOther; break;
+      case 2686: field = SpellMessages::CasterOther; break;
+      case 2702: field = SpellMessages::SpellGone;   break;
+      default: break;
+    }
+    if (static_cast<int>(field) > 0) {
+      text = m_spellMessages->text(smsg->param0, field);
+    }
+  }
+
+  if (text.isEmpty()) {
+    text = stripEqItemLinks(m_eqStrings->message(smsg->messageFormat));
+  } else {
+    text = stripEqItemLinks(text);
+  }
+
   m_messages->addMessage(mt, text);
   emit chatMessage(static_cast<uint32_t>(mt), QString(), QString(), text,
                    static_cast<uint32_t>(smsg->messageColor));
@@ -527,14 +567,20 @@ void MessageShell::zoneBegin(const QString& shortZoneName)
   m_messages->addMessage(MT_Zone, tempStr);
 }
 
-void MessageShell::zoneEnd(const QString& shortZoneName, 
+void MessageShell::zoneEnd(const QString& shortZoneName,
 			   const QString& longZoneName)
 {
-  QString tempStr;
-  tempStr = QString("Entered: ShortName = '") + shortZoneName +
-                    "' LongName = " + longZoneName;
+  m_messages->addMessage(MT_Zone,
+      QString("Entered: ShortName = '") + shortZoneName +
+      "' LongName = " + longZoneName);
 
-  m_messages->addMessage(MT_Zone, tempStr);
+  // Web chat: EQ prints "You have entered <long zone name>." locally on
+  // zone-completion — there's no chat text on the wire. Synthesize so
+  // the panel matches eqlog.
+  const QString text =
+      QStringLiteral("You have entered %1.").arg(longZoneName);
+  emit chatMessage(static_cast<uint32_t>(MT_Zone), QString(), QString(),
+                   text, 0);
 }
 
 void MessageShell::zoneChanged(const QString& shortZoneName)
@@ -822,31 +868,43 @@ void MessageShell::groupDecline(const uint8_t* data)
 void MessageShell::groupFollow(const uint8_t* data)
 {
   const groupFollowStruct* gFollow = (const groupFollowStruct*)data;
-  QString tempStr;
-
-  if(!strcmp(gFollow->invitee, m_player->name().toLatin1().data()))
-     tempStr = "Follow: You have joined the group";
-  else
-     tempStr = QString::asprintf("Follow: %s has joined the group", gFollow->invitee);
-  m_messages->addMessage(MT_Group, tempStr);
+  // Modern EQ renders "X has joined the group." / "You have joined the
+  // group." client-side from the OP_GroupFollow event — there's no chat
+  // text on the wire. Synthesize the EQ-canonical line so the web chat
+  // panel matches what the user reads in eqlog.
+  const QString invitee = stripNameSuffix(QString::fromUtf8(gFollow->invitee));
+  const bool self = (invitee == stripNameSuffix(m_player->name()));
+  const QString text = self
+      ? QStringLiteral("You have joined the group.")
+      : QStringLiteral("%1 has joined the group.").arg(invitee);
+  m_messages->addMessage(MT_Group, text);
+  emit chatMessage(static_cast<uint32_t>(MT_Group), QString(), QString(),
+                   text, 0);
 }
 
 void MessageShell::groupDisband(const uint8_t* data)
 {
   const groupDisbandStruct* gmem = (const groupDisbandStruct*)data;
-  QString tempStr;
-
-  tempStr = QString::asprintf ("Disband: %s disbands from the group", gmem->membername);
-  m_messages->addMessage(MT_Group, tempStr);
+  // EQ-canonical: "X has left the group." (or "Y has removed X from the
+  // group." — current wire only carries the leaving member's name).
+  const QString text = QStringLiteral("%1 has left the group.")
+      .arg(stripNameSuffix(QString::fromUtf8(gmem->membername)));
+  m_messages->addMessage(MT_Group, text);
+  emit chatMessage(static_cast<uint32_t>(MT_Group), QString(), QString(),
+                   text, 0);
 }
 
 void MessageShell::groupLeaderChange(const uint8_t* data)
 {
    const groupLeaderChangeStruct *gmem = (const groupLeaderChangeStruct*)data;
-   QString tempStr;
-   tempStr = QString::asprintf("Update: %s is now the leader of the group", 
-                    gmem->membername);
-   m_messages->addMessage(MT_Group, tempStr);
+   const QString member = stripNameSuffix(QString::fromUtf8(gmem->membername));
+   const bool self = (member == stripNameSuffix(m_player->name()));
+   const QString text = self
+       ? QStringLiteral("You are now the leader of your group.")
+       : QStringLiteral("%1 is now the leader of your group.").arg(member);
+   m_messages->addMessage(MT_Group, text);
+   emit chatMessage(static_cast<uint32_t>(MT_Group), QString(), QString(),
+                    text, 0);
 }
 
 void MessageShell::player(const charProfileStruct* player)

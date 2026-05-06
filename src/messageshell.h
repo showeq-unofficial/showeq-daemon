@@ -37,6 +37,7 @@ class QDateTime;
 
 class EQStr;
 class Spells;
+class SpellMessages;
 class ZoneMgr;
 class SpawnShell;
 class Item;
@@ -54,7 +55,8 @@ class MessageShell : public QObject
   Q_OBJECT
  public:
   MessageShell(Messages* messages, EQStr* eqStrings, Spells* spells,
-	       ZoneMgr* zoneMgr, SpawnShell* spawnShell, 
+	       SpellMessages* spellMessages,
+	       ZoneMgr* zoneMgr, SpawnShell* spawnShell,
                Player* player, QObject* parent = 0, const char* name = 0);
 
  public slots:
@@ -134,6 +136,7 @@ class MessageShell : public QObject
    Messages* m_messages;
    EQStr* m_eqStrings;
    Spells* m_spells;
+   SpellMessages* m_spellMessages;
    ZoneMgr* m_zoneMgr;
    SpawnShell* m_spawnShell;
    Player* m_player;

@@ -35,6 +35,7 @@
 #include "spawnmonitor.h"
 #include "spawnshell.h"
 #include "spells.h"
+#include "spellmessages.h"
 #include "spellshell.h"
 #include "wsserver.h"
 #include "xmlpreferences.h"
@@ -113,9 +114,7 @@ bool DaemonApp::start()
         QFileInfo fi(QStringLiteral("/usr/local/share/showeq/spells_us.txt"));
         if (fi.exists()) spellsFile = fi;
     }
-    if (spellsFile.exists()) {
-        qInfo("loaded spells from %s", qUtf8Printable(spellsFile.absoluteFilePath()));
-    } else {
+    if (!spellsFile.exists()) {
         qInfo("no spells_us.txt found — spell names + durations will be empty");
     }
     m_spells    = new Spells(spellsFile.exists()
@@ -134,9 +133,23 @@ bool DaemonApp::start()
     }
     if (eqstrFile.exists()) {
         m_eqStrings->load(eqstrFile.absoluteFilePath());
-        qInfo("loaded eqstr from %s", qUtf8Printable(eqstrFile.absoluteFilePath()));
     } else {
         qInfo("no eqstr_us.txt found — formatted system messages will read \"Unknown: <id>\"");
+    }
+
+    // Spell-text table for OP_SimpleMessage spell-flavored fires (cast-on-you,
+    // cast-on-other, wears-off). Same search cascade as spells_us.txt.
+    m_spellMessages = new SpellMessages();
+    QFileInfo spellStrFile =
+        m_dataLocationMgr->findExistingFile(".", "spells_us_str.txt");
+    if (!spellStrFile.exists()) {
+        QFileInfo fi(QStringLiteral("/usr/local/share/showeq/spells_us_str.txt"));
+        if (fi.exists()) spellStrFile = fi;
+    }
+    if (spellStrFile.exists()) {
+        m_spellMessages->load(spellStrFile.absoluteFilePath());
+    } else {
+        qInfo("no spells_us_str.txt found — spell text will fall through to eqstr");
     }
 
     // EQPacket reads `[VPacket] Filename` from pSEQPrefs to decide where
@@ -233,6 +246,7 @@ bool DaemonApp::start()
     m_messages = new Messages(m_dateTimeMgr, m_messageFilters,
                               this, "messages");
     m_messageShell = new MessageShell(m_messages, m_eqStrings, m_spells,
+                                      m_spellMessages,
                                       m_zoneMgr, m_spawnShell, m_player,
                                       this, "messageShell");
 
@@ -494,6 +508,12 @@ void DaemonApp::wireZoneMgr()
     connect(m_zoneMgr, SIGNAL(playerProfile(const charProfileStruct*)),
             m_player,  SLOT(player(const charProfileStruct*)));
 
+    // ZoneMgr → MessageShell so the web chat panel sees a synthesized
+    // "You have entered <long name>." line on zone-completion (matches
+    // eqlog; there's no wire text on Test for this).
+    connect(m_zoneMgr,     SIGNAL(zoneEnd(const QString&, const QString&)),
+            m_messageShell, SLOT(zoneEnd(const QString&, const QString&)));
+
     // Player's own per-tick movement. Mirrors showeq/src/interface.cpp:1000.
     // OP_ClientUpdate is overloaded — DIR_Server uses playerSpawnPosStruct
     // (other players' updates, wired in wireSpawnShell), DIR_Client uses
@@ -723,14 +743,33 @@ void DaemonApp::wireSpawnShell()
                        "groupFollowStruct", SZC_None,
                        m_groupMgr,
                        SLOT(addGroupMember(const uint8_t*)));
+    m_packet->connect2("OP_GroupFollow", SP_Zone, DIR_Server,
+                       "groupFollowStruct", SZC_None,
+                       m_messageShell,
+                       SLOT(groupFollow(const uint8_t*)));
     m_packet->connect2("OP_GroupDisband", SP_Zone, DIR_Server,
+                       "groupDisbandStruct", SZC_None,
+                       m_groupMgr,
+                       SLOT(removeGroupMember(const uint8_t*)));
+    m_packet->connect2("OP_GroupDisband", SP_Zone, DIR_Server,
+                       "groupDisbandStruct", SZC_None,
+                       m_messageShell,
+                       SLOT(groupDisband(const uint8_t*)));
+    m_packet->connect2("OP_GroupDisband2", SP_Zone, DIR_Server,
                        "groupDisbandStruct", SZC_None,
                        m_groupMgr,
                        SLOT(removeGroupMember(const uint8_t*)));
     m_packet->connect2("OP_GroupDisband2", SP_Zone, DIR_Server,
                        "groupDisbandStruct", SZC_None,
-                       m_groupMgr,
-                       SLOT(removeGroupMember(const uint8_t*)));
+                       m_messageShell,
+                       SLOT(groupDisband(const uint8_t*)));
+    // OP_GroupLeader carries leader changes — no current GroupMgr slot,
+    // but MessageShell synthesizes the EQ-canonical "X is now the leader"
+    // chat line for the web client.
+    m_packet->connect2("OP_GroupLeader", SP_Zone, DIR_Server,
+                       "groupLeaderChangeStruct", SZC_None,
+                       m_messageShell,
+                       SLOT(groupLeaderChange(const uint8_t*)));
 
     // SpellShell — mirrors showeq/src/interface.cpp:973-988.
     m_packet->connect2("OP_CastSpell", SP_Zone, DIR_Server|DIR_Client,

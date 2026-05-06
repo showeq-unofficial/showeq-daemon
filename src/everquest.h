@@ -1811,9 +1811,12 @@ struct formattedMessageStruct
 
 struct simpleMessageStruct
 {
-/*0000*/ uint32_t  messageFormat;                // Indicates the message format
+/*0000*/ uint32_t  messageFormat;                // category dispatch ID — eqstr lookup,
+                                                 //   or column selector for spell-text
+                                                 //   fires (2553 / 2601 / 2686 / 2702)
 /*0004*/ ChatColor messageColor;                 // Message color
-/*0008*/ uint32_t  unknown;                      // ***Placeholder
+/*0008*/ uint32_t  param0;                       // spell ID for spell-text fires;
+                                                 //   semantics for non-spell fires unconfirmed
 /*0012*/
 };
 
@@ -1957,14 +1960,18 @@ struct groupDeclineStruct
 ** Opcode OP_GroupFollow
 */
 
+// Test wire layout audited 2026-05-06 against test-login-chat.vpk
+// (g.1.bin, 68 bytes). The legacy 152-byte struct (invitee at offset 64,
+// fixed-64-char name field) doesn't apply.
 struct groupFollowStruct
 {
-/*0000*/ char     unknown0000[64];               // ***Placeholder (zeros)
-/*0064*/ char     invitee[64];                   // Invitee's Member Name
-/*0128*/ uint8_t  unknown0128[4];                // ***Placeholder
-/*0132*/ uint32_t level;                         // Invitee's level
-/*0136*/ uint8_t  unknown0136[16];               // ***Placeholder (zeros)
-/*0152*/
+/*0000*/ char     invitee[16];                   // Member name (null-padded)
+/*0016*/ uint8_t  unknown0016[16];               // 8 bytes of refs (spawn-id-like) +
+                                                 //   8 zero bytes
+/*0032*/ uint32_t level;                          // Invitee's level (verified: 14 for merc)
+/*0036*/ uint8_t  unknown0036[32];                // pointer-shaped trailers + flags
+                                                 //   (likely client-side memory bleed)
+/*0068*/
 };
 
 /*
