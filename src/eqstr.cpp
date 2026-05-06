@@ -137,52 +137,45 @@ QString EQStr::message(uint32_t formatid) const
   return QString("Unknown: ") + QString::number(formatid, 16);
 }
 
-QString EQStr::formatMessage(uint32_t formatid, 
+QString EQStr::formatMessage(uint32_t formatid, uint32_t argCount,
 			     const char* arguments, size_t argsLen) const
 {
   QString formatStringRes = m_messageStrings.value(formatid, QString());
+
+  // Args wire (Test, 2026-05): argCount repetitions of
+  //   <16-byte preamble> <NUL-terminated UTF-8 string>
+  // The preamble's leading u32 is an arg index (0..argCount-1); the other
+  // 12 bytes look like spawn-id / sub-format-id refs that may drive %T
+  // substitution — treated as opaque for now.
+  QVector<QString> argList;
+  argList.reserve(argCount);
+  {
+      const char* p = arguments;
+      const char* end = arguments + argsLen;
+      for (uint32_t i = 0; i < argCount; ++i) {
+          if (p + 16 > end) break;
+          p += 16;
+          if (p >= end) break;
+          const char* nul = (const char*) memchr(p, 0, end - p);
+          if (!nul) break;
+          argList.push_back(QString::fromUtf8(p, nul - p));
+          p = nul + 1;
+      }
+  }
 
   QString tempStr;
 
     if (formatStringRes.isEmpty())
     {
-	uint32_t arg_len;
-	unsigned char *cp;
 	tempStr = QString::asprintf( "Unknown: %04x:", formatid);
-	cp = (unsigned char *) arguments;
-	while (cp < ((unsigned char *) &arguments[argsLen] - sizeof(uint32_t)*sizeof(unsigned char))) {
-	    arg_len = (cp[0] << 0) | (cp[1] << 8) | (cp[2] << 16) | (cp[3] << 24);
-	    cp += 4;
-	    if (arg_len == 0 || arg_len > argsLen)
-		break;
+	for (const QString& a : argList) {
 	    tempStr += " ";
-	    tempStr += QString::fromUtf8((const char *) cp, arg_len);
-	    cp += arg_len;
+	    tempStr += a;
 	}
 	return tempStr;
     }
     else
     {
-	QVector<QString> argList;
-	argList.reserve(5); // reserve space for 5 elements to handle most common sizes
-
-	//Adjusted to handle prepended string length 05/28/2019
-	size_t totalArgsLen = 0;
-	const char* curArg;
-        uint32_t curSize = 0;
-	while (totalArgsLen < argsLen)
-	{
-	    curArg = arguments + totalArgsLen;
-            curSize = eqtohuint32((const uint8_t*) curArg);
-            curArg += 4;
-
-            if (curSize > 0) {
-	        // insert argument into the argument list
-	        argList.push_back(QString::fromUtf8(curArg, curSize));
-            }
-
-	    totalArgsLen += curSize + 4;
-	}
 
 	bool ok;
 	int curPos;

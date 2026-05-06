@@ -274,12 +274,13 @@ void MessageShell::formattedMessage(const uint8_t* data, size_t len, uint8_t dir
   const formattedMessageStruct* fmsg = (const formattedMessageStruct*)data;
   QString tempStr;
 
-  size_t messagesLen = len - ((uint8_t*)&fmsg->messages[0] - (uint8_t*)fmsg);
-  const MessageType mt = chatColor2MessageType(fmsg->messageColor);
+  size_t argsLen = len - ((uint8_t*)&fmsg->args[0] - (uint8_t*)fmsg);
+  const MessageType mt = chatColor2MessageType((ChatColor)fmsg->messageColor);
   const QString text = stripEqItemLinks(
       m_eqStrings->formatMessage(fmsg->messageFormat,
-                                 fmsg->messages,
-                                 messagesLen));
+                                 fmsg->argCount,
+                                 fmsg->args,
+                                 argsLen));
   m_messages->addMessage(mt, text);
   // Forward to the websocket as a system-flavored chatMessage so the web
   // chat panel sees NPC speech, system warnings, exp ticks, etc. Pass

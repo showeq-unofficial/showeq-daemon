@@ -41,7 +41,7 @@ class EQStr
   bool load(const QString& eqstrFile);
   QString find(uint32_t formatid) const;
   QString message(uint32_t formatid) const;
-  QString formatMessage(uint32_t formatid, 
+  QString formatMessage(uint32_t formatid, uint32_t argCount,
 			const char* arguments, size_t argslen) const;
 
  protected:

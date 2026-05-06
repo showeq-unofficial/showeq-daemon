@@ -1792,12 +1792,15 @@ struct channelMessageStruct
 
 struct formattedMessageStruct
 {
-/*0000*/ uint8_t  unknown0000;
-/*0001*/ uint8_t  unknown0001[4];                // ***Placeholder
-/*0005*/ uint32_t messageFormat;                 // Indicates the message format
-/*0009*/ ChatColor messageColor;                 // Message color
-/*0013*/ char     messages[0];                   // no longer null terminated
-						 // repeat (4-bytes len, string of len)
+/*0000*/ uint32_t target;                        // target/topic ref (spawnId in zone-entry,
+                                                 //   constant 0x9e2 in combat broadcasts)
+/*0004*/ uint32_t messageFormat;                 // eqstr lookup key
+/*0008*/ uint8_t  messageColor;                  // ChatColor (single byte on Test;
+                                                 //   was u32 on legacy)
+/*0009*/ uint8_t  argCount;                      // number of args in tail
+/*0010*/ uint8_t  unknown0010;                   // padding (observed 0)
+/*0011*/ char     args[0];                       // argCount × (16-byte preamble +
+                                                 //   NUL-terminated string)
 };
 
 /*

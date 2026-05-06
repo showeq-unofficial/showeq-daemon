@@ -575,3 +575,48 @@ Not in the 73-opcode rediscovery list (incidental discovery). Registered in `wor
 **Daemon decoder bug**: `0x001a` never reaches `dispatchPacket`. Verified via both `--list-events` (zero entries for `0x001a`) and `--dump-payload 0x001a:/tmp/x` (zero `.bin` files written) on `test-zone.vpk`, even though the packet is plainly present in the `.vpk` and SessionResponse precedes it (rec 14, vs the 0x001a fire at rec 29). Most likely cause: seq-window logic in `EQPacketStream::processPacket` for `OP_Packet` (packetstream.cpp:789) caches future-seq packets but the session is `SessionDisconnect`'d (rec 42-43) before the missing earlier seqs arrive, so the cached entry is dropped without dispatch. Less likely: CRC validation against the not-yet-established session key. Worth a short investigation pass to either (a) deliver cached pre-disconnect packets at `SessionDisconnect` time, or (b) confirm the drop is intentional and document it.
 
 **MOTD hunt status after this work**: dumped four small single-fire S>C world-stream candidates from `test-zone-entry.vpk` — `0xa97f` (72b, sparse-zero init shape with float 1.0 trailer), `0x3ef4` (12b, server-time/sync), `0x0afa` (33b, char-list entry: zone+name length-prefixed strings → likely a CharSelect helper, not MOTD), `0xef12` (24b, fires on both streams = ack/heartbeat class). None match an OP_MOTD shape. Live OP_MOTD is probably either a string-table reference packet (small, no free text) or absent entirely on Test from the current capture set. Next attempt should be a fresh login → CharSelect → ZoneIn capture targeted explicitly at the post-EnterWorld scrollback message.
+
+### 2026-05-05 — OP_FormattedMessage (0x0ecf) layout audit + parser rewrite
+
+The 2026-05-04 entry above was right about the opcode but wrong about the struct: `formattedMessageStruct{unknown0000, unknown0001[4], messageFormat@5, messageColor@9, messages@13}` from legacy `everquest.h` only "fit" `test-zone-entry.vpk` because all 9 fires there were short (13b, zero-arg notifications) and offset 5 happened to land on benign bytes. Re-running on `test-combat.vpk` (129 fires, sizes 13–160b, varied content) decoded as 102/272 chat envelopes showing `Unknown: 1000017:` / `1000002:` / `1000006:` — the 0x01XXXXXX high-bit pattern is the smoking gun: bytes 5–8 of the wire = `<low-3-of-format> <messageColor=0x01>`, so the legacy reader was splicing the color byte into the messageFormat read.
+
+**Test wire layout** (verified across all 129 fires):
+```
+/*0000*/ uint32_t target;        // u32 — spawnId in zone-entry (player ID), constant 0x9e2 in
+                                 //   combat broadcasts (channel/topic ref?), varies in others
+/*0004*/ uint32_t messageFormat; // eqstr lookup key
+/*0008*/ uint8_t  messageColor;  // ChatColor (single byte on Test; was u32 on legacy)
+/*0009*/ uint8_t  argCount;
+/*0010*/ uint8_t  unknown0010;   // padding (always 0 in samples)
+/*0011*/ char     args[0];       // argCount × (16-byte preamble + NUL-terminated UTF-8 string)
+```
+Header is **11 bytes** (not 12, not 13). Args section repeats `argCount` times: 16-byte preamble (leading u32 = arg index 0..argCount-1; remaining 12 bytes look like spawn-id / sub-format-id refs — opaque for now, may matter for `%T` template substitution) followed by a NUL-terminated string.
+
+**Sample bytes** (`test-combat.vpk` fmsg.106.bin, 93b, 3 args):
+```
+0000  e2 09 00 00 70 17 00 00 01 03 00                  ← header (target=0x9e2, format=0x1770,
+                                                          color=1, argCount=3)
+000b  00 00 00 00 00 0b 00 00 00 49 00 00 00 00 00 00   ← arg 0 preamble (counter=0)
+001b  "<redacted player name>\0"
+0029  01 00 00 00 20 01 00 00 17 00 00 00 00 00 00 00   ← arg 1 preamble (counter=1)
+0039  "<redacted player name>\0"
+0043  02 00 00 00 1e 14 00 00 57 00 00 00 00 00 00 00   ← arg 2 preamble (counter=2)
+0053  "<redacted player name>\0"
+```
+(Char names redacted in-doc per repo convention.)
+
+**Parser rewrite landed**:
+- `src/everquest.h:1793` — replaced legacy `formattedMessageStruct` with the layout above.
+- `src/eqstr.h:44` + `src/eqstr.cpp:140` — `EQStr::formatMessage` now takes `argCount` and walks `<16B preamble><NUL string>` repeated, instead of legacy `<u32 length><bytes>` repeated.
+- `src/messageshell.cpp:268-290` — passes `fmsg->argCount` and uses the new `args[]` field name.
+- `conf/zoneopcodes.xml` — entry already at `sizechecktype="none"` (variable), no change needed.
+
+**Verification** (`test-combat.vpk` replay → pbstream chat envelopes):
+- Total: 272 chat envelopes (unchanged — same fire count, just better-decoded).
+- Real text resolved: 195/272 (72%) — full substitution working, e.g. `"Greetings, <playername>. We're glad you found your way to our camp."`, `"Your guild has received <playername> favor for your tribute!"`, `"Hail, Guard Rahtiz"`.
+- Remaining 77 `Unknown:` entries are **eqstr table gaps**, not parser failures:
+  - simpleMessage IDs `0x9f9` / `0xa29` / `0xa7e` / `0xa8e` (4+4+2+2) — Test-extended IDs above the current `eqstr_us.txt`'s 2459 ceiling. Live Apr-2026 client `eqstr_us.txt` (4/6/26, 437KB) does not contain them — they may live in `dbstr_us.txt` or another resource.
+  - `Unknown: 0000:` (7×, formatid=0, empty args) — looks like a wire sentinel/heartbeat; not necessarily a bug.
+  - Misc formattedMessage IDs (e.g. `0x0909` = 2313) where the args decode perfectly but the format string isn't in the current eqstr table.
+
+**Open**: 16-byte arg preamble's middle 12 bytes are opaque; if downstream `%T` template substitutions ever look wrong, decode preamble as `<u32 argIndex> <u32 spawnIdRef?> <u32 subFormatId?> <u32 zero>` and route the middle u32s through `m_messageStrings.value(...)` like the legacy `%T` handler did.
