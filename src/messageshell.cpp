@@ -286,15 +286,66 @@ void MessageShell::formattedMessage(const uint8_t* data, size_t len, uint8_t dir
     return;
 
   const formattedMessageStruct* fmsg = (const formattedMessageStruct*)data;
-  QString tempStr;
-
-  size_t argsLen = len - ((uint8_t*)&fmsg->args[0] - (uint8_t*)fmsg);
   const MessageType mt = chatColor2MessageType((ChatColor)fmsg->messageColor);
-  const QString text = stripEqItemLinks(
-      m_eqStrings->formatMessage(fmsg->messageFormat,
-                                 fmsg->argCount,
-                                 fmsg->args,
-                                 argsLen));
+  QString text;
+
+  // Test formattedMessage dispatches by `target`. Two interpretations
+  // share the same wire shape; the target field tells them apart:
+  //
+  //  - target == 0x09e2 (the "system broadcast" topic constant —
+  //    confirmed across test-combat.vpk fires) → eqstr template-
+  //    substitution fire (legacy path: format is an eqstr key, args
+  //    fill %N placeholders).
+  //
+  //  - target != 0x09e2 (spawn ID reference) → spell-effect fire
+  //    (format is a spell ID into spells_us_str.txt; column chosen
+  //    by self-vs-other check via target).
+  //
+  // The IDs collide (e.g. eqstr 6000 = "Your guild has received %1
+  // favor for your tribute!" while spell 6000 = "You are covered in
+  // dancing flames"), so picking the wrong path renders the wrong
+  // text. The target field is the disambiguator. We can't reliably
+  // self-vs-other off m_player->id() alone — during zone entry the
+  // player gets re-id'd (initial <charname>@17423 → settled
+  // <charname>@17433) and spawn fires may reference an ID the
+  // SpawnShell hasn't received yet. So fall back to the spawnshell-
+  // derived name only if available, else use a generic placeholder.
+  constexpr uint32_t kSystemBroadcastTarget = 0x09e2;
+  const bool isSystemBroadcast = (fmsg->target == kSystemBroadcastTarget);
+
+  if (!isSystemBroadcast && m_spellMessages && m_spellMessages->isLoaded()) {
+    const uint16_t targetId = static_cast<uint16_t>(fmsg->target & 0xffff);
+    const bool isPlayerSelf = m_player && (targetId == m_player->id());
+    const SpellMessages::Field field = isPlayerSelf
+        ? SpellMessages::CastedMe
+        : SpellMessages::CastedOther;
+    text = m_spellMessages->text(fmsg->messageFormat, field);
+    if (!text.isEmpty() && !isPlayerSelf) {
+      const Item* targetSpawn =
+          m_spawnShell ? m_spawnShell->findID(tSpawn, targetId) : nullptr;
+      const QString targetName = targetSpawn
+          ? stripNameSuffix(targetSpawn->name())
+          : QStringLiteral("Someone");
+      text = targetName + text;
+    }
+    // Spawn-targeted fire with no column text (silent zone-entry buff,
+    // etc.) — the EQ client filters these from chat too. Drop instead
+    // of rendering "Unknown: NNNN".
+    if (text.isEmpty()) {
+      return;
+    }
+  }
+
+  if (text.isEmpty()) {
+    const size_t argsLen =
+        len - ((uint8_t*)&fmsg->args[0] - (uint8_t*)fmsg);
+    text = m_eqStrings->formatMessage(fmsg->messageFormat,
+                                      fmsg->argCount,
+                                      fmsg->args,
+                                      argsLen);
+  }
+
+  text = stripEqItemLinks(text);
   m_messages->addMessage(mt, text);
   // Forward to the websocket as a system-flavored chatMessage so the web
   // chat panel sees NPC speech, system warnings, exp ticks, etc. Pass
