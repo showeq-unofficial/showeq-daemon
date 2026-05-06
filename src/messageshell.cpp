@@ -340,17 +340,53 @@ void MessageShell::formattedMessage(const uint8_t* data, size_t len, uint8_t dir
   }
 
   if (text.isEmpty()) {
-    // System-broadcast (target = 0x09e2) eqstr template-substitution
-    // path. If eqstr doesn't have a template for this format ID, try
-    // the dbstr fallback before giving up — modern EQ keeps a lot of
-    // /time-style status text and faction-name strings in dbstr_us.txt
-    // that legacy eqstr never had. Only id1s with a SINGLE entry in
-    // dbstr are looked up; multi-entry id1s have multiple meanings
-    // and we can't disambiguate without the wire-side id2.
-    if (m_eqStrings->find(fmsg->messageFormat).isEmpty() &&
-        m_dbStrings && m_dbStrings->isLoaded()) {
-      text = m_dbStrings->uniqueText(fmsg->messageFormat);
+    // System-broadcast (target = 0x09e2) — try eqstr template
+    // substitution first. If the format ID isn't in eqstr, walk a
+    // cascade of fallbacks before giving up:
+    //   1. dbstr id2=0 lookup (/time output, splash strings)
+    //   2. spells_us_str cast-broadcast: format is a spell ID, arg[0]
+    //      is the caster name → " casts Bind Affinity." → "<charname>
+    //      casts Bind Affinity." (CASTEROTHERTXT). If that column is
+    //      empty but CASTEDOTHERTXT has text (" is bound to the
+    //      area."), use the last arg as the target instead.
+    if (m_eqStrings->find(fmsg->messageFormat).isEmpty()) {
+      if (m_dbStrings && m_dbStrings->isLoaded()) {
+        text = m_dbStrings->uniqueText(fmsg->messageFormat);
+      }
+
+      if (text.isEmpty() && m_spellMessages && m_spellMessages->isLoaded()
+          && fmsg->argCount > 0) {
+        // Decode args inline to grab arg[0] (caster) or arg[N-1] (target).
+        const char* p = fmsg->args;
+        const char* end = reinterpret_cast<const char*>(data) + len;
+        QStringList argList;
+        for (uint32_t i = 0; i < fmsg->argCount; ++i) {
+          if (p + 16 > end) break;
+          p += 16;
+          if (p >= end) break;
+          const char* nul = static_cast<const char*>(
+              memchr(p, 0, end - p));
+          if (!nul) break;
+          argList.append(stripNameSuffix(QString::fromUtf8(p, nul - p)));
+          p = nul + 1;
+        }
+
+        if (!argList.isEmpty()) {
+          QString casterOther =
+              m_spellMessages->text(fmsg->messageFormat,
+                                    SpellMessages::CasterOther);
+          QString castedOther =
+              m_spellMessages->text(fmsg->messageFormat,
+                                    SpellMessages::CastedOther);
+          if (!casterOther.isEmpty()) {
+            text = argList.first() + casterOther;
+          } else if (!castedOther.isEmpty()) {
+            text = argList.last() + castedOther;
+          }
+        }
+      }
     }
+
     if (text.isEmpty()) {
       const size_t argsLen =
           len - ((uint8_t*)&fmsg->args[0] - (uint8_t*)fmsg);
