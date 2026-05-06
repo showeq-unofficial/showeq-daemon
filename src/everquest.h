@@ -1809,14 +1809,27 @@ struct formattedMessageStruct
 ** OpCode: SimpleMessageCode
 */
 
+// Test wire layout audited 2026-05-06 across test-combat.vpk and
+// test-login-events.vpk: the leading u32 is a SPAWN ID (the target of
+// the spell-effect / event), not a format-table key. Column dispatch
+// (CASTEDMETXT vs CASTEDOTHERTXT) is determined by whether the spawn
+// matches the player's own ID. Legacy interpretation (messageFormat
+// = eqstr key for spell-failure responses like "Your target has no
+// mana ...") is retained as an alias for SpellShell::simpleMessage,
+// which gracefully no-ops on Test because Test spawn IDs don't
+// collide with the legacy 191/239/etc. failure-message IDs.
 struct simpleMessageStruct
 {
-/*0000*/ uint32_t  messageFormat;                // category dispatch ID — eqstr lookup,
-                                                 //   or column selector for spell-text
-                                                 //   fires (2553 / 2601 / 2686 / 2702)
-/*0004*/ ChatColor messageColor;                 // Message color
-/*0008*/ uint32_t  param0;                       // spell ID for spell-text fires;
-                                                 //   semantics for non-spell fires unconfirmed
+/*0000*/ union {
+  uint32_t  targetSpawnId;                       // Test: recipient spawn
+  uint32_t  messageFormat;                       // legacy alias
+};
+/*0004*/ ChatColor messageColor;                 // 0/1 observed on Test;
+                                                 //   meaning beyond self/other dispatch unconfirmed
+/*0008*/ union {
+  uint32_t  spellId;                             // Test: spells_us_str.txt key
+  uint32_t  unknown;                             // legacy placeholder
+};
 /*0012*/
 };
 

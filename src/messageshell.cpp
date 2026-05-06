@@ -312,35 +312,48 @@ void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)
 
   const simpleMessageStruct* smsg = (const simpleMessageStruct*)data;
 
+  // Test simpleMessage layout (audited across test-combat.vpk and
+  // test-login-events.vpk): targetSpawnId @0, color @4, spellId @8.
+  // Column dispatch into spells_us_str.txt is by self-vs-other:
+  //   target == player → CASTEDMETXT  ("You feel ...")
+  //   target != player → CASTEDOTHERTXT (" feels ..." with target name
+  //                                       prepended)
+  // CASTERMETXT / CASTEROTHERTXT / SPELLGONE columns appear to come
+  // over different opcodes (or with different colors); not yet wired.
+  // EQ filters silent merc auto-buffs from the chat log — when the
+  // resolved column is empty we drop the line rather than emit a
+  // confusing "Unknown:" placeholder.
   const MessageType mt = chatColor2MessageType(smsg->messageColor);
-
-  // Spell-text dispatch. On Test these messageFormat IDs are category
-  // selectors into spells_us_str.txt (column per category) rather than
-  // eqstr keys; param0 carries the spell ID. Audit log: format=2553 +
-  // spell 10945 ("clawstriker's flurry") matches CASTEDMETXT, etc.
-  // Mappings for 2686/2702 are best-guess until confirmed against
-  // a fresh capture — fall through to eqstr if the column is empty.
   QString text;
+
   if (m_spellMessages && m_spellMessages->isLoaded()) {
-    SpellMessages::Field field = static_cast<SpellMessages::Field>(0);
-    switch (smsg->messageFormat) {
-      case 2553: field = SpellMessages::CastedMe;    break;
-      case 2601: field = SpellMessages::CastedOther; break;
-      case 2686: field = SpellMessages::CasterOther; break;
-      case 2702: field = SpellMessages::SpellGone;   break;
-      default: break;
-    }
-    if (static_cast<int>(field) > 0) {
-      text = m_spellMessages->text(smsg->param0, field);
+    const uint16_t targetId = static_cast<uint16_t>(smsg->targetSpawnId & 0xffff);
+    const bool self = (m_player && targetId == m_player->id());
+    const SpellMessages::Field field = self
+        ? SpellMessages::CastedMe
+        : SpellMessages::CastedOther;
+    text = m_spellMessages->text(smsg->spellId, field);
+
+    if (!text.isEmpty() && !self) {
+      // CASTEDOTHERTXT entries start with a leading space and expect
+      // the target's display name prepended (e.g. " feels much better.").
+      const Item* target =
+          m_spawnShell ? m_spawnShell->findID(tSpawn, targetId) : nullptr;
+      const QString targetName = target
+          ? stripNameSuffix(target->name())
+          : QStringLiteral("Someone");
+      text = targetName + text;
     }
   }
 
   if (text.isEmpty()) {
-    text = stripEqItemLinks(m_eqStrings->message(smsg->messageFormat));
-  } else {
-    text = stripEqItemLinks(text);
+    // Drop silently. The wire fire is real but the EQ client doesn't
+    // render it (e.g. merc auto-buffs at zone-entry). Emitting an
+    // "Unknown: <id>" line here just adds noise to the chat panel.
+    return;
   }
 
+  text = stripEqItemLinks(text);
   m_messages->addMessage(mt, text);
   emit chatMessage(static_cast<uint32_t>(mt), QString(), QString(), text,
                    static_cast<uint32_t>(smsg->messageColor));
