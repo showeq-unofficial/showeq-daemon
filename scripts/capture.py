@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Record a tier-2 replay fixture: runs setcap then the daemon with
---record-vpk + --opcode-stats + --no-listen, writing to tests/replay/.
+--record-vpk + --opcode-stats + --list-events + --no-listen, writing to
+tests/replay/.
 
 Usage:  scripts/capture.py <name>          # e.g. aa_progress, inventory-worn
 
-Ctrl-C to stop the recording — the daemon finalizes the .vpk and the
-opcode-stats report on shutdown.
+Ctrl-C to stop the recording — the daemon finalizes the .vpk, opcode-stats
+report, and per-packet event timeline on shutdown.
 """
 
 import argparse
@@ -29,6 +30,8 @@ def main() -> int:
     parser.add_argument("--device", default=DEVICE, help=f"capture device (default: {DEVICE})")
     parser.add_argument("--no-stats", action="store_true",
                         help="skip --opcode-stats output")
+    parser.add_argument("--no-events", action="store_true",
+                        help="skip --list-events output")
     parser.add_argument("--force", "-f", action="store_true",
                         help="overwrite existing fixture without prompting")
     args = parser.parse_args()
@@ -40,6 +43,7 @@ def main() -> int:
 
     vpk = REPLAY_DIR / f"{args.name}.vpk"
     stats = REPLAY_DIR / f"{args.name}.opcodestats.txt"
+    events = REPLAY_DIR / f"{args.name}.events.txt"
 
     if vpk.exists() and not args.force:
         resp = input(f"{vpk.relative_to(DAEMON_DIR)} exists — overwrite? [y/N] ")
@@ -65,11 +69,15 @@ def main() -> int:
     ]
     if not args.no_stats:
         cmd.extend(["--opcode-stats", str(stats)])
+    if not args.no_events:
+        cmd.extend(["--list-events", str(events)])
 
     print()
     print(f"=> recording to {vpk.relative_to(DAEMON_DIR)}")
     if not args.no_stats:
         print(f"=> opcode stats to {stats.relative_to(DAEMON_DIR)}")
+    if not args.no_events:
+        print(f"=> event timeline to {events.relative_to(DAEMON_DIR)}")
     print(f"=> device: {args.device}    Ctrl-C to stop")
     print()
 
