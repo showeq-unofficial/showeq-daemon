@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE seqopcodes SYSTEM "seqopcodes.dtd">
 <seqopcodes>
-    <!-- OLD OPCODES - these need updating still post 1/26/2005 
+    <!-- OLD OPCODES - these need updating still post 1/26/2005
 
     <opcode id="02a5" name="OP_UserCompInfo" updated="02/10/04">
         <comment>User submitted computer information</comment>
@@ -11,68 +11,68 @@
     </opcode>
 -->
 
-    <opcode id="3ad6" name="OP_GuildList" updated="11/16/16">
-        <comment>old GuildListCode</comment>
+    <opcode id="ffff" name="OP_GuildList">
+        <comment>old GuildListCode. Live candidates from world handshake: S&gt;C 1932b (0xeb30) early in handshake, or S&gt;C 36805b (0x627f) catalog dump — needs payload inspection.</comment>
         <payload dir="server" typename="worldGuildListStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="08B3" name="OP_MOTD" updated="12/12/12">
-        <comment>old MOTDCode Server message of the day</comment>
+    <opcode id="ffff" name="OP_MOTD">
+        <comment>old MOTDCode Server message of the day. Live candidates: S&gt;C 157b (0x08aa) or 1188b (0x0fe3); not yet payload-confirmed.</comment>
         <payload dir="server" typename="worldMOTDStruct" sizechecktype="none"/>
     </opcode>
 
 <!-- Not necessary for SEQ to run but here to name packets in logs -->
-    <opcode id="6893" name="OP_SendLoginInfo" updated="11/07/10">
-        <comment>Client starting world session by asking for login information</comment>
+    <opcode id="db0d" name="OP_SendLoginInfo" updated="05/06/26">
+        <comment>Client starting world session by asking for login information. Live: 464b C&gt;S, first packet of every world session (5/5 confirmations).</comment>
     </opcode>
-    <opcode id="3288" name="OP_LogServer" updated="11/07/10">
-        <comment></comment>
+    <opcode id="ffff" name="OP_LogServer">
+        <comment>Live candidate: S&gt;C 24b (0x7f8e), fires immediately after OP_SendLoginInfo in the handshake band.</comment>
     </opcode>
-    <opcode id="115A" name="OP_ApproveWorld" updated="11/07/08">
-        <comment></comment>
+    <opcode id="ffff" name="OP_ApproveWorld">
+        <comment>Live candidate: small S&gt;C in handshake band; not isolated yet.</comment>
     </opcode>
-    <opcode id="3288" name="OP_EnterWorld" updated="11/07/10">
-	    <comment>Server approval for client to enter world</comment>
+    <opcode id="ffff" name="OP_EnterWorld">
+	    <comment>Server approval for client to enter world. Live candidate: post-checksum C&gt;S, fires just before OP_ZoneServerInfo handoff.</comment>
     </opcode>
-    <opcode id="1771" name="OP_ExpansionInfo" updated="11/07/10">
-	    <comment>Which expansions user has</comment>
+    <opcode id="35b0" name="OP_ExpansionInfo" updated="05/06/26">
+	    <comment>Which expansions user has. Live: 64b fixed S&gt;C in the post-LogServer / pre-ApproveWorld handshake band (5/5 confirmations).</comment>
     </opcode>
-    <opcode id="6685" name="OP_SendCharInfo" updated="07/18/12">
-	    <comment>Send all chars visible @ char select</comment>
+    <opcode id="22c9" name="OP_SendCharInfo" updated="05/06/26">
+	    <comment>Send all chars visible @ char select. Live: 14176b S&gt;C (variable with character roster size), fires once early in world handshake.</comment>
     </opcode>
-    <opcode id="3C2D" name="OP_SendSpellChecksum" updated="11/07/10">
-	    <comment>Contains a snippet of spell data</comment>
+    <opcode id="ffff" name="OP_SendSpellChecksum">
+        <comment>Live candidate: one of the C&gt;S 2056b triplet (0xb7a6 / 0x8070 / 0xb903) that fires right after server initial dump. Quartet has 4th member at 64b (0x3855); mapping to Spell/Exe/BaseData/SkillCaps not yet resolved.</comment>
     </opcode>
-    <opcode id="30E2" name="OP_SendExeChecksum" updated="11/07/10">
-	    <comment>Second client verification packet</comment>
+    <opcode id="ffff" name="OP_SendExeChecksum">
+        <comment>Live candidate: see OP_SendSpellChecksum note (one of 0xb7a6 / 0x8070 / 0xb903 / 0x3855).</comment>
     </opcode>
-    <opcode id="2B5F" name="OP_SendBaseDataChecksum" updated="11/07/10">
-	    <comment>Second client verification packet</comment>
+    <opcode id="ffff" name="OP_SendBaseDataChecksum">
+        <comment>Live candidate: see OP_SendSpellChecksum note.</comment>
     </opcode>
-    <opcode id="2874" name="OP_SendSkillCapsChecksum" updated="11/07/10">
-	    <comment>Third client verification packet</comment>
+    <opcode id="ffff" name="OP_SendSkillCapsChecksum">
+        <comment>Live candidate: see OP_SendSpellChecksum note.</comment>
     </opcode>
-    <opcode id="28d4" name="OP_SetChatServer" updated="06/27/12">
-	    <comment>Chatserver? IP,Port,servername.Charname,password(?)</comment>
+    <opcode id="ffff" name="OP_SetChatServer">
+	    <comment>Legacy chatserver tuple. May be obsolete on Live — handshake capture shows only the SetChatServer2 catalog (no 56b S&gt;C tuple observed, unlike Test).</comment>
     </opcode>
-    <opcode id="75f5" name="OP_SetChatServer2" updated="06/27/12">
-	    <comment>Chatserver? IP,Port,servername.Charname,password(?)</comment>
+    <opcode id="560e" name="OP_SetChatServer2" updated="05/06/26">
+	    <comment>Secondary chat / account / commerce service catalog. Live: 1464b S&gt;C in handshake band (3/3 confirmations); ~18 plaintext Daybreak service URLs.</comment>
     </opcode>
-    <opcode id="777c" name="OP_ZoneServerInfo" updated="06/27/12">
-	    <comment>old ZoneServerInfo</comment>
+    <opcode id="55e6" name="OP_ZoneServerInfo" updated="05/06/26">
+	    <comment>Zone server connection info. Live: 130b S&gt;C, fires on world-&gt;zone handoff (zone server hostname + port). 2/2 confirmations.</comment>
     </opcode>
-    <opcode id="72F3" name="OP_WorldComplete" updated="11/07/10">
-	    <comment>Client telling world server it is done. World replies by disconnecting.</comment>
+    <opcode id="0bbd" name="OP_WorldComplete" updated="05/06/26">
+	    <comment>Client telling world server it is done. Live: 0b C&gt;S, last C&gt;S packet of session immediately after OP_ZoneServerInfo. World replies by disconnecting. 2/2 confirmations.</comment>
     </opcode>
-    <opcode id="2730" name="OP_DeleteCharacter" updated="11/07/10">
-	    <comment>Delete character @ char select</comment>
+    <opcode id="f768" name="OP_DeleteCharacter" updated="05/06/26">
+	    <comment>Delete character @ char select. Live: 68b C&gt;S, name@offset 0. 1/1 confirmation (fired exactly when user deleted a freshly-created char).</comment>
     </opcode>
-    <opcode id="49B6" name="OP_CharacterCreate" updated="11/07/10">
-	    <comment>Create character @ char select</comment>
+    <opcode id="b677" name="OP_CharacterCreate" updated="05/06/26">
+	    <comment>Create character @ char select. Live: 168b C&gt;S, fires once per submitted creation right after OP_ApproveName response.</comment>
     </opcode>
-    <opcode id="6E97" name="OP_ApproveName" updated="11/07/10">
-	    <comment>Approving new character name @ char creation</comment>
+    <opcode id="4451" name="OP_ApproveName" updated="05/06/26">
+	    <comment>Approving new character name @ char creation. Live: 84b C&gt;S name candidate, 1b S&gt;C status (taken vs available). 2/2 confirmations across reject + accept cycle.</comment>
     </opcode>
-    <opcode id="0005" name="OP_RandomNameGenerator" updated="11/07/10">
-	    <comment>Returns a random name</comment>
+    <opcode id="ffff" name="OP_RandomNameGenerator">
+	    <comment>Returns a random name. May be obsolete on Live — repeated random-button presses during char creation produced no isolated wire request/response; names likely come pre-baked in char-select catalog dump.</comment>
     </opcode>
 </seqopcodes>
