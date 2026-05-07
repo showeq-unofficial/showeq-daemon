@@ -1,0 +1,2202 @@
+# Canonical source for showeq-daemon opcodes.
+# XML in conf/zoneopcodes.xml and conf/worldopcodes.xml is regenerated
+# from this file by tools/toml_to_xml.py (run via CMake on build).
+
+[[zone]]
+id      = "db56"
+name    = "OP_PlayerProfile"
+updated = "2026-04-16"
+comment = "CharProfileCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "f19a"
+name    = "OP_ZoneEntry"
+updated = "2026-04-16"
+comment = "ZoneEntryCode"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "ClientZoneEntryStruct"
+  sizechecktype = "match"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "816a"
+name    = "OP_TimeOfDay"
+updated = "2026-04-16"
+comment = "TimeOfDayCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "timeOfDayStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "db83"
+name    = "OP_NewZone"
+updated = "2026-04-16"
+comment = "NewZoneCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "f724"
+name    = "OP_SpawnDoor"
+updated = "2026-04-16"
+comment = "DoorSpawnsCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "doorStruct"
+  sizechecktype = "modulus"
+
+[[zone]]
+id      = "4cc4"
+name    = "OP_GroundSpawn"
+updated = "2026-04-16"
+comment = "MakeDropCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "makeDropStruct"
+  sizechecktype = "none"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "395b"
+name    = "OP_SendZonePoints"
+updated = "2026-04-16"
+comment = "Coords in a zone that will port you to another zone"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "zonePointsStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "bf67"
+name    = "OP_AAExpUpdate"
+updated = "2026-04-16"
+comment = "Receiving AA experience. Also when percent to AA changes."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "altExpUpdateStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "6961"
+name    = "OP_ExpUpdate"
+updated = "2026-05-01"
+comment = "ExpUpdateCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "expUpdateStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "86fa"
+name    = "OP_GuildMOTD"
+updated = "2026-04-16"
+comment = "GuildMOTD"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "guildMOTDStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "0aa7"
+name    = "OP_ClientUpdate"
+updated = "2026-04-16"
+comment = "Position updates"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "playerSpawnPosStruct"
+  sizechecktype = "match"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "playerSelfPosStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "7c8c"
+name    = "OP_NpcMoveUpdate"
+updated = "2026-04-16"
+comment = "Position updates"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "73da"
+name    = "OP_MobUpdate"
+updated = "2026-04-16"
+comment = "MobUpdateCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "spawnPositionUpdate"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "6965"
+name    = "OP_DeleteSpawn"
+updated = "2026-04-16"
+comment = "DeleteSpawnCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "deleteSpawnStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "6aa0"
+name    = "OP_RemoveSpawn"
+updated = "2026-04-16"
+comment = "Remove spawn from zone"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "removeSpawnStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "c7c6"
+name    = "OP_Death"
+updated = "2026-04-16"
+comment = "old NewCorpseCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "newCorpseStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_WearChange"
+updated = "2023-07-19"
+comment = "SpawnUpdateCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "SpawnUpdateStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ca91"
+name    = "OP_SpawnAppearance"
+updated = "2026-04-16"
+comment = "SpawnAppearanceCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "spawnAppearanceStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "4b67"
+name    = "OP_Stamina"
+updated = "2026-04-28"
+comment = "Server updating on hunger/thirst"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "staminaStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "8f45"
+name    = "OP_HPUpdate"
+updated = "2026-04-25"
+comment = "NpcHpUpdateCode Update HP % of a PC or NPC"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "hpNpcUpdateStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "84c3"
+name    = "OP_GuildMemberUpdate"
+updated = "2026-04-16"
+comment = "Info regarding guild members"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "GuildMemberUpdate"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "0dcd"
+name    = "OP_ClickObject"
+updated = "2026-04-16"
+comment = "Items dropped on the ground"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "remDropStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "a366"
+name    = "OP_Action"
+updated = "2026-04-16"
+comment = "Spells cast etc"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "actionStruct"
+  sizechecktype = "match"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "actionAltStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "61f2"
+name    = "OP_Action2"
+updated = "2026-04-25"
+comment = "Combat actions i.e. bash, kick etc"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "action2Struct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ae23"
+name    = "OP_Consider"
+updated = "2026-04-16"
+comment = "ConsiderCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "considerStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "5727"
+name    = "OP_TargetMouse"
+updated = "2026-04-16"
+comment = "Targeting a person - old ClientTargetCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "clientTargetStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_SpawnRename"
+updated = "2023-07-19"
+comment = "Spawns getting renamed after initial NewSpawn"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "spawnRenameStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Illusion"
+updated = "2023-07-19"
+comment = "Spawn being illusioned (changing forms)"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "spawnIllusionStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Shroud"
+updated = "2023-07-19"
+comment = "Server putting players into shroud form"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "spawnShroudSelf"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "f996"
+name    = "OP_ZoneChange"
+updated = "2026-04-16"
+comment = "old ZoneChangeCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "zoneChangeStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "7380"
+name    = "OP_GroupInvite"
+updated = "2026-04-26"
+comment = "You invite someone while ungrouped or get invited by someone ungrouped"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "groupInviteStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GroupInvite2"
+updated = "2021-02-17"
+comment = "You're inviting someone and you are grouped or get invited by a group"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "groupInviteStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GroupCancelInvite"
+updated = "2021-02-17"
+comment = "Declining to join a group"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "groupDeclineStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "1bcd"
+name    = "OP_GroupFollow"
+updated = "2026-04-26"
+comment = "Member added (modern: 68 bytes, name at offset 0)."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "groupFollowStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GroupFollow2"
+updated = "2021-02-17"
+comment = "Player joins your group"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "groupFollowStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "6890"
+name    = "OP_GroupUpdate"
+updated = "2026-04-26"
+comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow."
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "02a6"
+name    = "OP_GroupDisband"
+updated = "2026-04-26"
+comment = "Your group dissolved (modern: 168 bytes; membername=self at offset 64)"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "groupDisbandStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "6c57"
+name    = "OP_GroupDisband2"
+updated = "2026-04-26"
+comment = "Other member disbanded (modern: 168 bytes; membername=peer at offset 64)"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "groupDisbandStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "2f41"
+name    = "OP_GroupLeader"
+updated = "2026-04-26"
+comment = "Group leader change (modern: 80 bytes)"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "groupLeaderChangeStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "55b9"
+name    = "OP_Buff"
+updated = "2026-04-25"
+comment = "old BuffDropCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "buffStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_BeginCast"
+updated = "2023-07-19"
+comment = "BeginCastCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "beginCastStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_CastSpell"
+updated = "2023-12-05"
+comment = "StartCastCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "startCastStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_SwapSpell"
+updated = "2023-07-19"
+comment = "TradeSpellBookSlotsCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "tradeSpellBookSlotsStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_MemorizeSpell"
+updated = "2023-07-19"
+comment = "MemSpellCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "memSpellStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_InspectAnswer"
+updated = "2023-07-19"
+comment = "InspectDataCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "inspectDataStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Emote"
+updated = "2023-07-19"
+comment = "EmoteTextCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "emoteTextStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "6660"
+name    = "OP_SimpleMessage"
+updated = "2026-04-16"
+comment = "SimpleMessageCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "simpleMessageStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "302b"
+name    = "OP_FormattedMessage"
+updated = "2026-04-16"
+comment = "FormattedMessageCode i.e. pet dismissed etc"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "formattedMessageStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "dd47"
+name    = "OP_CommonMessage"
+updated = "2026-04-16"
+comment = "ChannelMessageCode i.e. /tell /ooc /shout etc"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "channelMessageStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "1940"
+name    = "OP_SpecialMesg"
+updated = "2026-04-16"
+comment = "Communicate textual info to client including hail responses etc"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "specialMessageStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_RandomReq"
+updated = "2023-07-19"
+comment = "RandomReqCode"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "randomReqStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_RandomReply"
+updated = "2023-07-19"
+comment = "RandomCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "randomStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ConsentResponse"
+updated = "2021-02-17"
+comment = "Server replying with consent information after /consent"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "consentResponseStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_DenyResponse"
+updated = "2021-02-17"
+comment = "Server replying with deny information after /deny"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "consentResponseStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "130c"
+name    = "OP_ManaChange"
+updated = "2026-04-25"
+comment = "Mana change. Bards send this up with no size. Casters receive this for mana updates."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "manaDecrementStruct"
+  sizechecktype = "match"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_BazaarSearchRequest"
+updated = "2023-07-19"
+comment = "Bazaar search request"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "bazaarSearchQueryStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_BazaarSearchResponse"
+updated = "2023-07-19"
+comment = "Bazaar search Response - Struct incorrect"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "bazaarSearchResponseStruct"
+  sizechecktype = "modulus"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_MoneyOnCorpse"
+updated = "2023-07-19"
+comment = "MoneyOnCorpseCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "moneyOnCorpseStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "6f75"
+name    = "OP_SkillUpdate"
+updated = "2026-05-01"
+comment = "Skill up code"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "skillIncStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "7a97"
+name    = "OP_LevelUpdate"
+updated = "2026-05-01"
+comment = "LevelUpUpdateCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "levelUpUpdateStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_DzSwitchInfo"
+updated = "2023-07-19"
+comment = "Expedition compass etc"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "dzSwitchInfo"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_DzInfo"
+updated = "2023-07-19"
+comment = "Expedition Information"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "dzInfo"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_EnvDamage"
+updated = "2021-02-17"
+comment = "Environmental Damage"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "environmentDamageStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_SetRunMode"
+updated = "2023-07-19"
+comment = "old cRunToggleCode"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "cRunToggleStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Trader"
+updated = "2023-07-19"
+comment = "PC's turning trader on and off"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "bazaarTraderRequest"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ItemLinkResponse"
+updated = "2019-06-19"
+comment = "ItemInfoCode"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "itemInfoStruct"
+  sizechecktype = "none"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "itemInfoReqStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_BuffFadeMsg"
+updated = "2015-11-20"
+comment = "SpellFadeCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "spellFadedStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_CorpseLocResponse"
+updated = "2012-12-12"
+comment = "old CorpseLocCode:"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "corpseLocStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "3f3b"
+name    = "OP_ItemPacket"
+updated = "2026-05-02"
+comment = "S>C variable-length serialized item delivery; resolved via inventory.opcodestats.txt where 34 fires carried inline ASCII item names (\"Whitened Treant Fists\", etc.) verifiable against the player's loadout. Per-item, fires on slot move and zone-in pickup; the legacy bulk OP_ItemPlayerPacket appears obsolete on current Live."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "itemPacketStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LeaderExpUpdate"
+updated = "2013-12-11"
+comment = "Leadership AA Exp Update"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "leadExpUpdateStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "dc5d"
+name    = "OP_MovementHistory"
+updated = "2026-05-01"
+comment = "Movement history for speed/movement hack detection"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Logout"
+updated = "2012-12-12"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_UIUpdate"
+updated = "2014-05-21"
+comment = "Seems to be sent to handle a variety of UI updates - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GroupMemberList"
+updated = "2013-01-16"
+comment = "List of group members -  Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "be23"
+name    = "OP_GuildMemberList"
+updated = "2026-04-16"
+comment = "List of guild members - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ManaUpdate"
+updated = "2023-07-19"
+comment = "Mana Update opcode - 10 bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "6d58"
+name    = "OP_EndUpdate"
+updated = "2026-04-28"
+comment = "Endurance Update opcode - 10 bytes (spawn_id u16, cur u32, max u32)"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "endUpdateStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Marketplace"
+updated = "2012-11-28"
+comment = "Marketplace data - Guessing variable length 11444 bytes as of 11/28/12"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_MarketplaceSelect"
+updated = "2012-11-28"
+comment = "Sent when highlighting an item in Marketplace - 80 bytes"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_DzMembers"
+updated = "2012-11-28"
+comment = "Expedition Members - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Campfire"
+updated = "2012-11-28"
+comment = "Fellowship campfire information - 1076 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_SelectCampfire"
+updated = "2013-01-16"
+comment = "Fellowship campfire Choices - Guessing variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Claims"
+updated = "2012-11-28"
+comment = "Contents of claims window. /claim then refresh to capture packet - Guessing variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_VoiceChat"
+updated = "2015-11-20"
+comment = "Voice chat server info - Variable length (Data sent when joining group,raid etc)"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_PollQuestions"
+updated = "2015-11-20"
+comment = "SOE in-game player poll questions - Variable length"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_PollResponses"
+updated = "2015-11-20"
+comment = "Poll response choices - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ShroudProgression"
+updated = "2015-11-20"
+comment = "Unlocked shrouds - 293 bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ShroudTemplates"
+updated = "2012-10-23"
+comment = "Shroud templates to choose from on shroud NPC - 18983 bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Fellowship"
+updated = "2019-03-13"
+comment = "Fellowship information - 2576 bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "773b"
+name    = "OP_ExpandedGuildInfo"
+updated = "2026-04-16"
+comment = "Guild ranks and other misc guild data - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GuildBank"
+updated = "2015-11-20"
+comment = "Guild bank contents - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_OpenTradeskillContainer"
+updated = "2012-11-28"
+comment = "Opens forge, kiln etc - 92 Bytes"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TradeskillRecipes"
+updated = "2012-11-28"
+comment = "Learned recipes - 84 Bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TradeSkillCombine"
+updated = "2012-11-28"
+comment = "Tradeskill combine using new tradeskill window - 40 Bytes"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TradeSkillResult"
+updated = "2012-11-28"
+comment = "Packets sent when tradeskill combine successful equals # of ingredients used in combine?- 12 Bytes"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TradeSkillCombineOld"
+updated = "2012-11-28"
+comment = "Tradeskill combine using old tradeskill window - 24 Bytes"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ItemPlayerPacket"
+updated = "2015-11-20"
+comment = "Inventory/bank items coming over during zone - Variable length"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TaskDescription"
+updated = "2015-11-20"
+comment = "Task descriptions coming down for task window - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TaskActivity"
+updated = "2015-11-20"
+comment = "Task activity descriptions coming down for task window - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_CompletedTasks"
+updated = "2015-11-20"
+comment = "Task history for task window - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_CustomTitles"
+updated = "2015-11-20"
+comment = "List of available titles - 1520 bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "3d3d"
+name    = "OP_Animation"
+updated = "2026-05-01"
+comment = "Combat animation, emote animations etc - 4 bytes"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_WhoAllRequest"
+updated = "2012-11-28"
+comment = "WhoAllReqCode - 156 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_WhoAllResponse"
+updated = "2012-11-28"
+comment = "WhoAllOutputCode - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_InspectRequest"
+updated = "2012-11-28"
+comment = "InspectRequestCode - 8 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GetGuildMOTD"
+updated = "2012-11-28"
+comment = "Request guildMOTD - 648 Bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TradeRequest"
+updated = "2012-11-28"
+comment = "You request trade session - 8 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TradeDeny"
+updated = "2012-11-28"
+comment = "Target not ready to trade - 12 bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TradeRequestAck"
+updated = "2012-11-28"
+comment = "Trade request recipient is acknowledging they are able to trade - 8 bytes"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_CancelTrade"
+updated = "2012-11-28"
+comment = "Cancel a trade window - 8 bytes"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_FinishTrade"
+updated = "2012-11-28"
+comment = "Trade is over - 12 bytes"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TradeCoins"
+updated = "2012-11-28"
+comment = "You put coins put in a trade window - 20 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TradeCoins2"
+updated = "2012-11-28"
+comment = "Someone else puts coins put in your trade window - 12 bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TradeAcceptClick"
+updated = "2012-11-28"
+comment = "One side clicks Accept on the trade 8 bytes"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ItemLinkClick"
+updated = "2012-11-28"
+comment = "Click on itemlinks - 52 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LootRequest"
+updated = "2012-11-28"
+comment = "LootCorpseCode - 4 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LootItem"
+updated = "2012-11-28"
+comment = "Loot item from corpse - 20 bytes"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_EndLootRequest"
+updated = "2012-11-28"
+comment = "DoneLootingCode - 4 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Track"
+updated = "2012-11-28"
+comment = "Tracking data - Variable length"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_AutoAttack"
+updated = "2012-11-28"
+comment = "Attack on/off - 4 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_AutoAttack2"
+updated = "2012-11-28"
+comment = "Attack on/off appears to be same as OP_AutoAttack - 4 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ClickDoor"
+updated = "2012-11-28"
+comment = "DoorOpenCode click request from client - 16 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_MoveDoor"
+updated = "2012-11-28"
+comment = "DoorClickCode response from server - 2 bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "cb03"
+name    = "OP_MoveItem"
+updated = "2026-05-02"
+comment = "Client moving an item from one slot to another - 28 bytes. Resolved via inventory.opcodestats.txt: 30 C>S fires at exactly 28 bytes during a slot-swap session, no competing unknown opcode at that size+direction. Wire layout: two 12-byte invSlotStruct descriptors + uint32 stack count."
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "moveItemStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Jump"
+updated = "2012-11-28"
+comment = "JumpCode - 0 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TGB"
+updated = "2012-11-28"
+comment = "Client telling server to set targetgroupbuff - 4 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Lockouts"
+updated = "2014-10-28"
+comment = "Expedition lockouts"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_RaidInvite"
+updated = "2012-11-28"
+comment = "Client side raid invite requests 140 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_RaidJoin"
+updated = "2014-02-21"
+comment = "Server side raid information - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Feedback"
+updated = "2012-07-18"
+comment = "Client sending feedback to server - 1148 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GuildsList"
+updated = "2012-11-28"
+comment = "Listing of all guilds. Can be triggered by /lfg search?"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "4e57"
+name    = "OP_GuildsInZoneList"
+updated = "2026-04-16"
+comment = "Listing of guild names present in the current zone.  Generally seen on zoning"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "guildsInZoneListStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_NewGuildInZone"
+updated = "2023-07-19"
+comment = "An additional guild name has appeared in the current zone. Seen when a guilded player enters the current zone"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "newGuildInZoneStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LFGGetMatchesRequest"
+updated = "2012-11-28"
+comment = "LFG/LFP client request - 16 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LFGGetMatchesResponse"
+updated = "2012-11-28"
+comment = "LFG/LFP server response - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_MercenaryList"
+updated = "2015-11-20"
+comment = "Listing of hired mercenaries - 648 bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ClickInventory"
+updated = "2012-11-28"
+comment = "Click items from inventory or armor - 16 bytes 5th byte is Slot ID"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ClickInventoryAck"
+updated = "2012-11-28"
+comment = "Server acknowledges click from inventory or armor - 20 bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_BuffWindow"
+updated = "2012-11-28"
+comment = "Changes to buff window or song window - 100 bytes"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ClickBuffOff"
+updated = "2012-11-28"
+comment = "Client clicks off buff - 8 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_HouseAddress"
+updated = "2015-11-20"
+comment = "House and guildhall address information - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_HouseContents"
+updated = "2015-11-20"
+comment = "Server sending house information and contents - variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_FriendsList"
+updated = "2012-11-28"
+comment = "Server sending friends list contents - variable length (Sent when choosing \"Welcome\" from EQ button)"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_FriendsOnline"
+updated = "2012-11-28"
+comment = "Friends currently online - variable length (Sent when choosing \"Welcome\" form EQ button)"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Rewards"
+updated = "2012-11-28"
+comment = "Server sending pending rewards - variable length"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_FTPNags"
+updated = "2015-11-20"
+comment = "Free to play nags and other data - Variable length"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "cf5c"
+name    = "OP_Find"
+updated = "2026-04-16"
+comment = "Find window data - variable length, 24 min"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ConsiderCorpse"
+updated = "2012-11-28"
+comment = "ConCorpseCode - 20 bytes"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TributeUpdate"
+updated = "2012-11-28"
+comment = "Tribute and trophy skills - Variable length"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Unknown1"
+updated = "2013-04-17"
+comment = "3 byte opcode that spam logs seemingly only when you have someone targeted. Marked here to make reading logs easier"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Unknown2"
+updated = "2013-04-17"
+comment = "3 byte opcode that spam logs seemingly only when you have someone targeted. Marked here to make reading logs easier"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Unknown3"
+updated = "2013-04-17"
+comment = "3 byte opcode that spam logs seemingly only when you have someone targeted. Marked here to make reading logs easier"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_RequestZoneChange"
+updated = "2007-10-20"
+comment = "Send by server when a click causes zone. Also, origin"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "requestZoneChangeStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_WelcomeScreenTitle"
+updated = "2011-05-16"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_VeteranRewards"
+updated = "2011-04-18"
+
+[[zone]]
+id      = "a30a"
+name    = "OP_SendAATable"
+updated = "2026-05-03"
+comment = "Static AA ability-definition menu sent S>C on zone-in. Variable-length: u32 count + count records of base 44B + per-record prereq trailer."
+
+[[zone]]
+id      = "ffff"
+name    = "OP_SendAAStats"
+updated = "2009-08-12"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_AckPacket"
+updated = "2007-03-14"
+comment = "Appears to be generic ack at the presentation level"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Weather"
+updated = "2007-03-14"
+comment = "old WeatherCode"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ReqNewZone"
+updated = "2007-03-14"
+comment = "Client requesting NewZone_Struct"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ReqClientSpawn"
+updated = "2007-03-14"
+comment = "Client requesting spawn data"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_SendExpZonein"
+updated = "2007-03-14"
+comment = "Both directions. Negotiating sending of exp info."
+
+[[zone]]
+id      = "773e"
+name    = "OP_AAAction"
+updated = "2026-05-02"
+comment = "C>S 16-byte aaActionStruct {action, ability, unknown, exp_value}; resolved by time-correlating 4 buys (1 Mend Pet + 3 Run Speed ranks) against OP_PlayerProfile aa_spent transition."
+
+[[zone]]
+id      = "ffff"
+name    = "OP_SetServerFilter"
+updated = "2007-03-14"
+comment = "Client telling server /filter information"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ClientReady"
+updated = "2007-03-14"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GuildTributeStatus"
+updated = "2007-03-14"
+comment = "Guild tribute stats send on zone"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GuildTributeInfo"
+updated = "2006-06-13"
+comment = "Guild tribute loadout, only if on"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_RespawnWindow"
+updated = "2007-03-14"
+comment = "Server telling client enough to populate the respawn window when you die"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_InitialMobHealth"
+updated = "2012-06-27"
+comment = "Initial health sent when a player clicks on the mob. Subsequent updated will be OP_MobHealth"
+
+[[zone]]
+id      = "2171"
+name    = "OP_MobHealth"
+updated = "2026-05-01"
+comment = "health sent when a player clicks on the mob"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "mobHealthStruct"
+  sizechecktype = "match"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_DeltaCheck"
+updated = "2007-03-14"
+comment = "Client sending server delta information."
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LoadSpellSet"
+updated = "2007-02-13"
+comment = "/mem spellsetname"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Dye"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Consume"
+updated = "2005-12-07"
+comment = "Client force feeding food/drink"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Begging"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LFGCommand"
+updated = "2005-10-27"
+comment = "old LFGReqCode"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Bug"
+updated = "2005-10-27"
+comment = "/bug"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Save"
+updated = "2006-04-19"
+comment = "Client asking server to save user state"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Camp"
+updated = "2007-02-13"
+comment = "old cStartCampingCode"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ShopPlayerSell"
+updated = "2005-10-27"
+comment = "old SellItemCode"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_PetCommands"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_SaveOnZoneReq"
+updated = "2007-03-14"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ShopEnd"
+updated = "2005-10-27"
+comment = "old CloseVendorCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_SenseTraps"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_SenseHeading"
+updated = "2005-10-27"
+comment = "old cSenseHeadingCode"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LootComplete"
+updated = "2005-12-07"
+comment = "old sDoneLootingCode"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Split"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Surname"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ShopRequest"
+updated = "2005-10-27"
+comment = "old OpenVendorCode"
+
+  [[zone.payloads]]
+  dir           = "both"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_FaceChange"
+updated = "2005-10-27"
+comment = "/face"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Sneak"
+updated = "2005-06-29"
+comment = "Clicked sneak"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Hide"
+updated = "2005-06-29"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_DisarmTraps"
+updated = "2005-05-11"
+comment = "Clicked disarm traps"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Forage"
+updated = "2005-10-27"
+comment = "old ForageCode"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_BoardBoat"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LeaveBoat"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LFPGetMatchesRequest"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GMKill"
+updated = "2005-10-27"
+comment = "GM /kill - Insta kill mob/pc"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GuildPublicNote"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_YellForHelp"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ShopPlayerBuy"
+updated = "2005-05-11"
+comment = "old BuyItemCode"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LFPCommand"
+updated = "2005-10-27"
+comment = "looking for players"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_ConfirmDelete"
+updated = "2005-10-27"
+comment = "Client sends this to server to confirm op_deletespawn"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Report"
+updated = "2005-06-29"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TargetCommand"
+updated = "2007-02-13"
+comment = "Target user"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_LFPGetMatchesResponse"
+updated = "2007-02-13"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_FindPersonRequest"
+updated = "2007-02-13"
+comment = "Control-F Find"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_FindResponse"
+updated = "2007-02-13"
+comment = "Response to control-F"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_GMLastName"
+updated = "2005-10-27"
+comment = "GM /lastname - Change user lastname"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_Mend"
+updated = "2005-10-27"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_MendHPUpdate"
+updated = "2005-05-11"
+
+[[zone]]
+id      = "ffff"
+name    = "OP_TributeInfo"
+updated = "2007-02-13"
+comment = "Tribute information"
+
+[[zone]]
+id      = "a1e1"
+name    = "OP_RespondAA"
+updated = "2026-05-03"
+comment = "Server response to OP_AAAction; carries 12B records (ability_id, rank, _) for player's full AA list incl. auto-grants and purchased ranks"
+
+[[world]]
+id      = "3ad6"
+name    = "OP_GuildList"
+updated = "2016-11-16"
+comment = "old GuildListCode"
+
+  [[world.payloads]]
+  dir           = "server"
+  typename      = "worldGuildListStruct"
+  sizechecktype = "none"
+
+[[world]]
+id      = "08B3"
+name    = "OP_MOTD"
+updated = "2012-12-12"
+comment = "old MOTDCode Server message of the day"
+
+  [[world.payloads]]
+  dir           = "server"
+  typename      = "worldMOTDStruct"
+  sizechecktype = "none"
+
+[[world]]
+id      = "6893"
+name    = "OP_SendLoginInfo"
+updated = "2010-11-07"
+comment = "Client starting world session by asking for login information"
+
+[[world]]
+id      = "3288"
+name    = "OP_LogServer"
+updated = "2010-11-07"
+
+[[world]]
+id      = "115A"
+name    = "OP_ApproveWorld"
+updated = "2008-11-07"
+
+[[world]]
+id      = "3288"
+name    = "OP_EnterWorld"
+updated = "2010-11-07"
+comment = "Server approval for client to enter world"
+
+[[world]]
+id      = "1771"
+name    = "OP_ExpansionInfo"
+updated = "2010-11-07"
+comment = "Which expansions user has"
+
+[[world]]
+id      = "6685"
+name    = "OP_SendCharInfo"
+updated = "2012-07-18"
+comment = "Send all chars visible @ char select"
+
+[[world]]
+id      = "3C2D"
+name    = "OP_SendSpellChecksum"
+updated = "2010-11-07"
+comment = "Contains a snippet of spell data"
+
+[[world]]
+id      = "30E2"
+name    = "OP_SendExeChecksum"
+updated = "2010-11-07"
+comment = "Second client verification packet"
+
+[[world]]
+id      = "2B5F"
+name    = "OP_SendBaseDataChecksum"
+updated = "2010-11-07"
+comment = "Second client verification packet"
+
+[[world]]
+id      = "2874"
+name    = "OP_SendSkillCapsChecksum"
+updated = "2010-11-07"
+comment = "Third client verification packet"
+
+[[world]]
+id      = "28d4"
+name    = "OP_SetChatServer"
+updated = "2012-06-27"
+comment = "Chatserver? IP,Port,servername.Charname,password(?)"
+
+[[world]]
+id      = "75f5"
+name    = "OP_SetChatServer2"
+updated = "2012-06-27"
+comment = "Chatserver? IP,Port,servername.Charname,password(?)"
+
+[[world]]
+id      = "777c"
+name    = "OP_ZoneServerInfo"
+updated = "2012-06-27"
+comment = "old ZoneServerInfo"
+
+[[world]]
+id      = "72F3"
+name    = "OP_WorldComplete"
+updated = "2010-11-07"
+comment = "Client telling world server it is done. World replies by disconnecting."
+
+[[world]]
+id      = "2730"
+name    = "OP_DeleteCharacter"
+updated = "2010-11-07"
+comment = "Delete character @ char select"
+
+[[world]]
+id      = "49B6"
+name    = "OP_CharacterCreate"
+updated = "2010-11-07"
+comment = "Create character @ char select"
+
+[[world]]
+id      = "6E97"
+name    = "OP_ApproveName"
+updated = "2010-11-07"
+comment = "Approving new character name @ char creation"
+
+[[world]]
+id      = "0005"
+name    = "OP_RandomNameGenerator"
+updated = "2010-11-07"
+comment = "Returns a random name"
