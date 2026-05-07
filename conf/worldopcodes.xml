@@ -30,8 +30,8 @@
     <opcode id="ffff" name="OP_ApproveWorld">
         <comment>Live candidate: small S&gt;C in handshake band; not isolated yet.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_EnterWorld">
-	    <comment>Server approval for client to enter world. Live candidate: post-checksum C&gt;S, fires just before OP_ZoneServerInfo handoff.</comment>
+    <opcode id="0839" name="OP_EnterWorld" updated="05/06/26">
+	    <comment>Client tells world server to enter world with selected char. Live: 72b C&gt;S, char name (zero-padded) at offset 0 + 64b zeros + 0xffffffff trailer. 4/4 confirmations across char-create + login flows. Server reuses 0x0839 with shorter S&gt;C variants (1b ack, 7b name echo) — XML maps the opcode to OP_EnterWorld for log naming.</comment>
     </opcode>
     <opcode id="35b0" name="OP_ExpansionInfo" updated="05/06/26">
 	    <comment>Which expansions user has. Live: 64b fixed S&gt;C in the post-LogServer / pre-ApproveWorld handshake band (5/5 confirmations).</comment>
@@ -39,17 +39,17 @@
     <opcode id="22c9" name="OP_SendCharInfo" updated="05/06/26">
 	    <comment>Send all chars visible @ char select. Live: 14176b S&gt;C (variable with character roster size), fires once early in world handshake.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendSpellChecksum">
-        <comment>Live candidate: one of the C&gt;S 2056b triplet (0xb7a6 / 0x8070 / 0xb903) that fires right after server initial dump. Quartet has 4th member at 64b (0x3855); mapping to Spell/Exe/BaseData/SkillCaps not yet resolved.</comment>
+    <opcode id="8070" name="OP_SendSpellChecksum" updated="05/06/26">
+        <comment>Contains a snippet of spell data. Live: 2056b C&gt;S, payload tail shows caret-delimited spell-data text (matches spells_us.txt format). Capture-order position 2 of 4 in the post-handshake checksum burst.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendExeChecksum">
-        <comment>Live candidate: see OP_SendSpellChecksum note (one of 0xb7a6 / 0x8070 / 0xb903 / 0x3855).</comment>
+    <opcode id="b7a6" name="OP_SendExeChecksum" updated="05/06/26">
+        <comment>Client-side eqgame.exe checksum sample. Live: 2056b C&gt;S, payload tail shows binary code-style content. Capture-order position 1 of 4 in the post-handshake checksum burst.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendBaseDataChecksum">
-        <comment>Live candidate: see OP_SendSpellChecksum note.</comment>
+    <opcode id="b903" name="OP_SendBaseDataChecksum" updated="05/06/26">
+        <comment>Client-side base-data file sample. Live: 2056b C&gt;S, payload tail shows caret-delimited text records. Capture-order position 3 of 4 in the post-handshake checksum burst. Mapping to BaseData (vs another text-format file) inferred by elimination + position.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendSkillCapsChecksum">
-        <comment>Live candidate: see OP_SendSpellChecksum note.</comment>
+    <opcode id="3855" name="OP_SendSkillCapsChecksum" updated="05/06/26">
+        <comment>Client-side skillcaps checksum. Live: 64b C&gt;S, opaque hash-style payload. Capture-order position 4 of 4 in the post-handshake checksum burst — the only one not at 2056b, fits the smaller skillcaps data table.</comment>
     </opcode>
     <opcode id="ffff" name="OP_SetChatServer">
 	    <comment>Legacy chatserver tuple. May be obsolete on Live — handshake capture shows only the SetChatServer2 catalog (no 56b S&gt;C tuple observed, unlike Test).</comment>
