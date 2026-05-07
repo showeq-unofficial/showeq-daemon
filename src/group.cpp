@@ -117,7 +117,7 @@ void GroupMgr::addGroupMember(const uint8_t* data)
    // member's name as a null-terminated string at offset 0 (max 64
    // bytes). The legacy groupFollowStruct laid out invitee[64] at
    // offset 64 with a leading zero block — that shape is gone.
-   char nameBuf[64];
+   [[maybe_unused]] char nameBuf[64];
    const char* nameBytes = nullptr;
 #ifdef SEQ_USE_RUST
    if (m_useRustGroupFollow) {
