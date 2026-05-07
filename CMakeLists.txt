@@ -182,10 +182,34 @@ set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/itemcache.cpp
 )
 
+# Regenerate conf/{zone,world}opcodes.xml from conf/opcodes.toml whenever the
+# TOML changes. opcodes.toml is the canonical source; the XML files are kept
+# in-tree for compatibility with the runtime QXmlStreamReader and any external
+# tooling (legacy showeq, IDE indexing) that already expects them.
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+set(_seq_opcodes_toml      "${CMAKE_CURRENT_SOURCE_DIR}/conf/opcodes.toml")
+set(_seq_zoneopcodes_xml   "${CMAKE_CURRENT_SOURCE_DIR}/conf/zoneopcodes.xml")
+set(_seq_worldopcodes_xml  "${CMAKE_CURRENT_SOURCE_DIR}/conf/worldopcodes.xml")
+set(_seq_toml_to_xml       "${CMAKE_CURRENT_SOURCE_DIR}/tools/toml_to_xml.py")
+add_custom_command(
+  OUTPUT ${_seq_zoneopcodes_xml} ${_seq_worldopcodes_xml}
+  COMMAND ${Python3_EXECUTABLE} ${_seq_toml_to_xml}
+          ${_seq_opcodes_toml}
+          ${_seq_zoneopcodes_xml}
+          ${_seq_worldopcodes_xml}
+  DEPENDS ${_seq_opcodes_toml} ${_seq_toml_to_xml}
+  COMMENT "Regenerating opcode XML from conf/opcodes.toml"
+  VERBATIM
+)
+add_custom_target(seq-opcode-xml ALL
+  DEPENDS ${_seq_zoneopcodes_xml} ${_seq_worldopcodes_xml}
+)
+
 add_library(seq-daemon-core STATIC
   ${SEQ_DAEMON_EXTRACTED_SOURCES}
   ${SEQ_DAEMON_CORE_NEW_SOURCES}
 )
+add_dependencies(seq-daemon-core seq-opcode-xml)
 
 target_include_directories(seq-daemon-core PUBLIC
   src
