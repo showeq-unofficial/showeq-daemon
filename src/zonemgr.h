@@ -65,7 +65,8 @@ class ZoneMgr : public QObject
   QString dzLongName() { return m_dzLongName; }
   uint32_t dzType() { return m_dzType; }
 
-  // Stage A+6 — gate from --rust-opcodes
+  // Per-opcode Rust-decoder gates — DaemonApp flips them on together
+  // when --use-rust-decoder is set.
   void setUseRustZoneChange (bool on) { m_useRustZoneChange = on; }
   void setUseRustDzInfo     (bool on) { m_useRustDzInfo = on; }
   void setUseRustDzSwitch   (bool on) { m_useRustDzSwitch = on; }

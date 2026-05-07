@@ -162,29 +162,22 @@ public slots:
 
    void updateGuildTag(uint32_t guildId);
 
-   // Routes future updateSpawns() calls through the Rust seq-bridge
-   // decoder when true. Stage A of the C++→Rust hybrid migration —
-   // off by default; set from DaemonApp when --rust-opcodes contains
-   // OP_MobUpdate.
+   // Per-opcode Rust-decoder gates — DaemonApp flips them all on
+   // together when --use-rust-decoder is set. Each handler still falls
+   // back to its C++ struct cast on ok=false from seq-bridge.
    void setUseRustMobUpdate(bool on) { m_useRustMobUpdate = on; }
-   // Stage A+1 — same pattern for OP_DeleteSpawn.
    void setUseRustDeleteSpawn(bool on) { m_useRustDeleteSpawn = on; }
-   // Stage A+2 — variable-length spawn payload (OP_ZoneEntry server-side).
    void setUseRustZoneEntry(bool on) { m_useRustZoneEntry = on; }
-   // Stage A+3 — small fixed-size opcodes that ride SpawnShell handlers.
    void setUseRustRemoveSpawn     (bool on) { m_useRustRemoveSpawn = on; }
    void setUseRustHPUpdate        (bool on) { m_useRustHPUpdate = on; }
    void setUseRustMobHealth       (bool on) { m_useRustMobHealth = on; }
    void setUseRustSpawnAppearance (bool on) { m_useRustSpawnAppearance = on; }
-   // Stage A+4
    void setUseRustConsider        (bool on) { m_useRustConsider = on; }
    void setUseRustSpawnRename     (bool on) { m_useRustSpawnRename = on; }
    void setUseRustTargetMouse     (bool on) { m_useRustTargetMouse = on; }
    void setUseRustDeath           (bool on) { m_useRustDeath = on; }
-   // Stage A+5
    void setUseRustClickObject     (bool on) { m_useRustClickObject = on; }
    void setUseRustIllusion        (bool on) { m_useRustIllusion = on; }
-   // Stage A+6
    void setUseRustWearChange      (bool on) { m_useRustWearChange = on; }
    void setUseRustCorpseLoc       (bool on) { m_useRustCorpseLoc = on; }
 

@@ -111,17 +111,16 @@ for vpk in "${vpks[@]}"; do
         continue
     fi
 
-    # Second pass: rerun with the Stage A Rust decoder routing
-    # OP_MobUpdate through seq-bridge. Output must still byte-match
-    # the same golden — that's the cross-decoder guarantee. Add more
-    # opcode names here as further stages adopt them.
+    # Second pass: rerun with --use-rust-decoder so every Rust-implemented
+    # opcode handler routes through seq-bridge. Output must still byte-match
+    # the same golden — that's the cross-decoder guarantee.
     rust_check="${TMPDIR_RUN}/${name}.rust.pbstream"
     PORT=$((PORT+1))
     if ! "${DAEMON}" \
             --replay "${vpk}" \
             --config-dir "${CONF_DIR}" \
             --record-golden "${rust_check}" \
-            --rust-opcodes OP_MobUpdate,OP_DeleteSpawn,OP_ZoneEntry,OP_RemoveSpawn,OP_HPUpdate,OP_MobHealth,OP_SpawnAppearance,OP_ExpUpdate,OP_LevelUpdate,OP_SkillUpdate,OP_ManaChange,OP_Stamina,OP_EndUpdate,OP_Consider,OP_SpawnRename,OP_TargetMouse,OP_Death,OP_ClickObject,OP_Illusion,OP_Buff,OP_Action2,OP_WearChange,OP_ZoneChange,OP_DzInfo,OP_DzSwitchInfo,OP_CastSpell,OP_Action,OP_GroupDisband,OP_GroupDisband2,OP_GroupFollow,OP_CorpseLocResponse \
+            --use-rust-decoder \
             --listen "127.0.0.1:${PORT}" >>"${log}" 2>&1; then
         echo "FAIL ${name} [Rust] (daemon exited non-zero — see ${log})"
         fail=$((fail+1))

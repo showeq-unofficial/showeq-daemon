@@ -60,7 +60,8 @@ class GroupMgr: public QObject
   
   unsigned long totalLevels();
 
-  // Stage A+6 — gate from --rust-opcodes
+  // Per-opcode Rust-decoder gates — DaemonApp flips them on together
+  // when --use-rust-decoder is set.
   void setUseRustGroupDisband(bool on) { m_useRustGroupDisband = on; }
   void setUseRustGroupFollow (bool on) { m_useRustGroupFollow = on; }
 

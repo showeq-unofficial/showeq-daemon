@@ -227,17 +227,15 @@ public:
   void playerUpdate(const uint8_t* data, size_t len, uint8_t dir);
 
  public:
-   // Stage A+3 Rust-decoder gates — one per opcode, set from
-   // DaemonApp when the corresponding name is in --rust-opcodes.
+   // Per-opcode Rust-decoder gates — DaemonApp flips them on together
+   // when --use-rust-decoder is set.
    void setUseRustHPUpdate    (bool on) { m_useRustHPUpdate = on; }
    void setUseRustExpUpdate   (bool on) { m_useRustExpUpdate = on; }
    void setUseRustLevelUpdate (bool on) { m_useRustLevelUpdate = on; }
    void setUseRustSkillUpdate (bool on) { m_useRustSkillUpdate = on; }
-   // Stage A+4
    void setUseRustManaChange  (bool on) { m_useRustManaChange = on; }
    void setUseRustStamina     (bool on) { m_useRustStamina = on; }
    void setUseRustEndUpdate   (bool on) { m_useRustEndUpdate = on; }
-   // Stage A+6
    void setUseRustWearChange  (bool on) { m_useRustWearChange = on; }
 
  protected:

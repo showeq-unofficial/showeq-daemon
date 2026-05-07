@@ -208,9 +208,9 @@ class SpellShell : public QObject
   void timeout();
 
  public:
-  // Stage A+5 — gate from --rust-opcodes OP_Buff
+  // Per-opcode Rust-decoder gates — DaemonApp flips them on together
+  // when --use-rust-decoder is set.
   void setUseRustBuff(bool on) { m_useRustBuff = on; }
-  // Stage A+6 — gate from --rust-opcodes
   void setUseRustCastSpell(bool on) { m_useRustCastSpell = on; }
   void setUseRustAction   (bool on) { m_useRustAction = on; }
 

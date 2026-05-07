@@ -145,10 +145,10 @@ int main(int argc, char** argv)
         "where no client connects: --record-vpk live captures, "
         "--replay + --record-golden runs, --opcode-stats diagnostics. "
         "Also avoids port-bind conflicts alongside another daemon.");
-    QCommandLineOption rustOpcodesOpt(QStringList{"rust-opcodes"},
-        "Comma-separated opcode names handed off to the Rust decoder "
-        "(seq-bridge). Stage A: only OP_MobUpdate is recognized.",
-        "names", "");
+    QCommandLineOption useRustDecoderOpt(QStringList{"use-rust-decoder"},
+        "Route every Rust-implemented opcode handler through the seq-bridge "
+        "decoder instead of the C++ struct cast. Off by default; takes effect "
+        "only when the binary was built with -DSEQ_USE_RUST=ON.");
     QCommandLineOption dumpPayloadOpt(QStringList{"dump-payload"},
         "Recon: write raw payload bytes of a chosen zone opcode to disk "
         "every time it fires. Format OPCODE:PATH (e.g. 0xdb56:/tmp/profile). "
@@ -169,7 +169,7 @@ int main(int argc, char** argv)
     parser.addOption(recordGoldenOpt);
     parser.addOption(opcodeStatsOpt);
     parser.addOption(noListenOpt);
-    parser.addOption(rustOpcodesOpt);
+    parser.addOption(useRustDecoderOpt);
     parser.addOption(dumpPayloadOpt);
     parser.addOption(listEventsOpt);
     parser.process(app);
@@ -183,15 +183,14 @@ int main(int argc, char** argv)
     cfg.recordGolden = parser.value(recordGoldenOpt);
     cfg.opcodeStats  = parser.value(opcodeStatsOpt);
     cfg.noListen     = parser.isSet(noListenOpt);
-    cfg.rustOpcodes  = parser.value(rustOpcodesOpt)
-                             .split(QLatin1Char(','), Qt::SkipEmptyParts);
+    cfg.useRustDecoder = parser.isSet(useRustDecoderOpt);
     cfg.dumpPayload  = parser.values(dumpPayloadOpt);
     cfg.listEvents   = parser.value(listEventsOpt);
 #ifndef SEQ_USE_RUST
-    if (!cfg.rustOpcodes.isEmpty()) {
-        qWarning("--rust-opcodes ignored: this binary was built without "
+    if (cfg.useRustDecoder) {
+        qWarning("--use-rust-decoder ignored: this binary was built without "
                  "SEQ_USE_RUST. Reconfigure with -DSEQ_USE_RUST=ON to enable.");
-        cfg.rustOpcodes.clear();
+        cfg.useRustDecoder = false;
     }
 #endif
 

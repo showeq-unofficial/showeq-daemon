@@ -82,8 +82,8 @@ set_target_properties(seq-proto PROPERTIES AUTOMOC OFF AUTORCC OFF AUTOUIC OFF)
 # --- Rust decoder bridge (opt-in) --------------------------------------------
 # showeq-decoder-rs is a sibling repo. seq-bridge is a cxx staticlib that
 # exposes per-opcode parsers from seq-decode to C++. Per-opcode adoption
-# is gated by the daemon's --rust-opcodes runtime flag; the C++ path is
-# primary and the build default.
+# is gated by the daemon's --use-rust-decoder runtime flag; the C++ path
+# is primary and the build default.
 #
 # Default OFF: normal builds don't need a Rust toolchain or the
 # showeq-decoder-rs sibling checkout. Pass -DSEQ_USE_RUST=ON to wire in

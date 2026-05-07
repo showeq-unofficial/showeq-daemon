@@ -24,7 +24,7 @@ public slots:
     void action2(const uint8_t* data, size_t len, uint8_t dir);
 
 public:
-    // Stage A+5 — gate from --rust-opcodes OP_Action2
+    // Rust-decoder gate — DaemonApp flips it on with --use-rust-decoder.
     void setUseRustAction2(bool on) { m_useRustAction2 = on; }
 
 signals:
