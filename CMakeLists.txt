@@ -182,6 +182,7 @@ set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/seqcolor.cpp
   src/itempacket.cpp
   src/itemcache.cpp
+  src/zoneservermgr.cpp
 )
 
 add_library(seq-daemon-core STATIC

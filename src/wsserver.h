@@ -11,6 +11,7 @@ class QWebSocket;
 class QWebSocketServer;
 class CategoryMgr;
 class CombatRouter;
+class DateTimeMgr;
 class FilterMgr;
 class GroupMgr;
 class IEnvelopeSink;
@@ -24,6 +25,7 @@ class SpawnMonitor;
 class SpawnShell;
 class SpellShell;
 class ZoneMgr;
+class ZoneServerMgr;
 
 // WsServer owns a QWebSocketServer on the same event loop as the capture
 // pipeline. It also brokers session resume:
@@ -49,7 +51,8 @@ public:
     void setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
                   MessageShell* ms, GroupMgr* gm, SpellShell* sps,
                   CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
-                  PrefsBroker* pb, SpawnMonitor* sm, ItemCache* ic);
+                  PrefsBroker* pb, SpawnMonitor* sm, ItemCache* ic,
+                  DateTimeMgr* dtm, ZoneServerMgr* zsm);
 
     bool listen(const QHostAddress& host, quint16 port);
 
@@ -98,4 +101,6 @@ private:
     PrefsBroker*   m_prefsBroker   = nullptr;
     SpawnMonitor*  m_spawnMonitor  = nullptr;
     ItemCache*     m_itemCache     = nullptr;
+    DateTimeMgr*   m_dateTimeMgr   = nullptr;
+    ZoneServerMgr* m_zoneServerMgr = nullptr;
 };

@@ -13,6 +13,7 @@ extern "C" { // pcap headers aren't c++-clean
 
 #include "category.h"
 #include "combatrouter.h"
+#include "datetimemgr.h"
 #include "envelopesink.h"
 #include "filtermgr.h"
 #include "group.h"
@@ -28,24 +29,27 @@ extern "C" { // pcap headers aren't c++-clean
 #include "spawnshell.h"
 #include "spellshell.h"
 #include "zonemgr.h"
+#include "zoneservermgr.h"
 
 #include "seq/v1/client.pb.h"
 
 SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
-                               SpawnShell*   spawnShell,
-                               ZoneMgr*      zoneMgr,
-                               Player*       player,
-                               MapData*      mapData,
-                               MessageShell* messageShell,
-                               GroupMgr*     groupMgr,
-                               SpellShell*   spellShell,
-                               CombatRouter* combatRouter,
-                               CategoryMgr*  categoryMgr,
-                               FilterMgr*    filterMgr,
-                               PrefsBroker*  prefsBroker,
-                               SpawnMonitor* spawnMonitor,
-                               ItemCache*    itemCache,
-                               QObject*      parent)
+                               SpawnShell*    spawnShell,
+                               ZoneMgr*       zoneMgr,
+                               Player*        player,
+                               MapData*       mapData,
+                               MessageShell*  messageShell,
+                               GroupMgr*      groupMgr,
+                               SpellShell*    spellShell,
+                               CombatRouter*  combatRouter,
+                               CategoryMgr*   categoryMgr,
+                               FilterMgr*     filterMgr,
+                               PrefsBroker*   prefsBroker,
+                               SpawnMonitor*  spawnMonitor,
+                               ItemCache*     itemCache,
+                               DateTimeMgr*   dateTimeMgr,
+                               ZoneServerMgr* zoneServerMgr,
+                               QObject*       parent)
     : QObject(parent)
     , m_sink(sink)
     , m_spawnShell(spawnShell)
@@ -61,6 +65,8 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
     , m_prefsBroker(prefsBroker)
     , m_spawnMonitor(spawnMonitor)
     , m_itemCache(itemCache)
+    , m_dateTimeMgr(dateTimeMgr)
+    , m_zoneServerMgr(zoneServerMgr)
 {
 }
 
@@ -411,6 +417,17 @@ void SessionAdapter::startStreaming()
                 this,           &SessionAdapter::onSpawnPointsCleared);
     }
 
+    if (m_dateTimeMgr) {
+        // Sync-point only — see SessionAdapter::onEqTimeSync header note.
+        connect(m_dateTimeMgr, &DateTimeMgr::syncDateTime,
+                this,          &SessionAdapter::onEqTimeSync);
+    }
+
+    if (m_zoneServerMgr) {
+        connect(m_zoneServerMgr, &ZoneServerMgr::zoneServerChanged,
+                this,            &SessionAdapter::onZoneServerChanged);
+    }
+
     if (m_itemCache) {
         connect(m_itemCache, &ItemCache::itemLearned,
                 this,        &SessionAdapter::onItemLearned);
@@ -565,6 +582,27 @@ void SessionAdapter::sendSnapshot()
         seq::encode::fillItemTotals(snap->mutable_item_totals(),
                                      *m_itemCache);
         seq::encode::fillWornSet(snap->mutable_worn_set(), *m_itemCache);
+    }
+
+    // Norrath time + zone server endpoint, both populated only after
+    // their first wire arrival. Empty fields stay absent on the wire so
+    // deterministic goldens don't shift before the relevant opcodes are
+    // observed in the fixture.
+    if (m_dateTimeMgr) {
+        const QDateTime& dt = m_dateTimeMgr->eqDateTime();
+        if (dt.isValid()) {
+            auto* sync = snap->mutable_eq_time_sync();
+            sync->set_year(dt.date().year());
+            sync->set_month(dt.date().month());
+            sync->set_day(dt.date().day());
+            sync->set_hour(dt.time().hour());
+            sync->set_minute(dt.time().minute());
+        }
+    }
+    if (m_zoneServerMgr && m_zoneServerMgr->hasInfo()) {
+        auto* zs = snap->mutable_zone_server();
+        zs->set_host(m_zoneServerMgr->host().toStdString());
+        zs->set_port(m_zoneServerMgr->port());
     }
 
     emitEnvelope(std::move(env));
@@ -918,4 +956,26 @@ void SessionAdapter::onWornSlotsChanged()
     seq::v1::Envelope envTotals;
     seq::encode::fillItemTotals(envTotals.mutable_item_totals(), *m_itemCache);
     sendOrBuffer(std::move(envTotals));
+}
+
+void SessionAdapter::onEqTimeSync(const QDateTime& dt)
+{
+    if (!dt.isValid()) return;
+    seq::v1::Envelope env;
+    auto* sync = env.mutable_eq_time_sync();
+    sync->set_year(dt.date().year());
+    sync->set_month(dt.date().month());
+    sync->set_day(dt.date().day());
+    sync->set_hour(dt.time().hour());
+    sync->set_minute(dt.time().minute());
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onZoneServerChanged(const QString& host, quint16 port)
+{
+    seq::v1::Envelope env;
+    auto* zs = env.mutable_zone_server();
+    zs->set_host(host.toStdString());
+    zs->set_port(port);
+    sendOrBuffer(std::move(env));
 }

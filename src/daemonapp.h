@@ -36,6 +36,7 @@ class SpawnShell;
 class SpellShell;
 class WsServer;
 class ZoneMgr;
+class ZoneServerMgr;
 
 // DaemonApp is the top-level wiring hub for the daemon. It owns the packet
 // capture + decoder + state managers and the WebSocket server that exposes
@@ -129,6 +130,7 @@ private:
 
     std::unique_ptr<DataLocationMgr> m_dataLocationMgr;
     DateTimeMgr*                    m_dateTimeMgr   = nullptr;
+    ZoneServerMgr*                  m_zoneServerMgr = nullptr;
     EQPacket*                       m_packet        = nullptr;
     Spells*                         m_spells        = nullptr;
     SpellMessages*                  m_spellMessages = nullptr;
