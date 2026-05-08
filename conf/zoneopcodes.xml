@@ -143,8 +143,8 @@
         <comment>Member added (modern: 68 bytes, name at offset 0).</comment>
         <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupFollow2" updated="02/17/21">
-        <comment>Player joins your group</comment>
+    <opcode id="e92d" name="OP_GroupFollow2" updated="05/07/26">
+        <comment>Player joins your group (modern: 168 bytes; member name at offset 64, leading 64 bytes zero)</comment>
         <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="6890" name="OP_GroupUpdate" updated="04/26/26">
@@ -308,9 +308,9 @@
         <comment>List of guild members - Variable length</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_ManaUpdate" updated="07/19/23">
-        <comment>Mana Update opcode - 10 bytes</comment>
-        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+    <opcode id="37ad" name="OP_ManaUpdate" updated="05/07/26">
+        <comment>Mana Update opcode - 10 bytes (spawn_id u16, cur u32, max u32). Parallel to OP_EndUpdate; fires per regen tick.</comment>
+        <payload dir="server" typename="manaUpdateStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="6d58" name="OP_EndUpdate" updated="04/28/26">
         <comment>Endurance Update opcode - 10 bytes (spawn_id u16, cur u32, max u32)</comment>

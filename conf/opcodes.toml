@@ -397,10 +397,10 @@ comment = "Member added (modern: 68 bytes, name at offset 0)."
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "e92d"
 name    = "OP_GroupFollow2"
-updated = "2021-02-17"
-comment = "Player joins your group"
+updated = "2026-05-07"
+comment = "Player joins your group (modern: 168 bytes; member name at offset 64, leading 64 bytes zero)"
 
   [[zone.payloads]]
   dir           = "server"
@@ -857,15 +857,15 @@ comment = "List of guild members - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "37ad"
 name    = "OP_ManaUpdate"
-updated = "2023-07-19"
-comment = "Mana Update opcode - 10 bytes"
+updated = "2026-05-07"
+comment = "Mana Update opcode - 10 bytes (spawn_id u16, cur u32, max u32). Parallel to OP_EndUpdate; fires per regen tick."
 
   [[zone.payloads]]
   dir           = "server"
-  typename      = "uint8_t"
-  sizechecktype = "none"
+  typename      = "manaUpdateStruct"
+  sizechecktype = "match"
 
 [[zone]]
 id      = "6d58"

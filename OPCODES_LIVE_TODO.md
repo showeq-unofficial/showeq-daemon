@@ -1,6 +1,6 @@
 # Unresolved opcodes (live)
 
-`showeq-daemon/conf/zoneopcodes.xml` has **226 of 275** zone opcodes still set to `id="ffff"`. `worldopcodes.xml` is clean.
+`showeq-daemon/conf/zoneopcodes.xml` has **224 of 275** zone opcodes still set to `id="ffff"`. `worldopcodes.xml` is clean.
 
 Target server: **live EQ** (Tasks/AA/DZ/Tribute/Fellowship/Marketplace/Mercenaries/etc. all in scope).
 
@@ -31,7 +31,7 @@ Checkbox legend: `[ ]` unresolved, `[x]` resolved, `[~]` superseded / obsolete o
 ### Stats / HP / mana / xp (10)
 - [x] OP_ExpUpdate — `0x6961` (2026-05-01)
 - [x] OP_LevelUpdate — `0x7a97` (2026-05-01)
-- [ ] OP_ManaUpdate
+- [x] OP_ManaUpdate — `0x37ad` (2026-05-07)
 - [x] OP_SkillUpdate — `0x6f75` (2026-05-01)
 - [ ] OP_LeaderExpUpdate
 - [x] OP_MobHealth — `0x2171` (2026-05-01)
@@ -91,7 +91,7 @@ Checkbox legend: `[ ]` unresolved, `[x]` resolved, `[~]` superseded / obsolete o
 ### Group / raid / pet / target (8)
 - [ ] OP_GroupInvite2
 - [ ] OP_GroupCancelInvite
-- [ ] OP_GroupFollow2
+- [x] OP_GroupFollow2 — `0xe92d` (2026-05-07)
 - [ ] OP_GroupMemberList
 - [ ] OP_RaidInvite
 - [ ] OP_RaidJoin
@@ -730,3 +730,45 @@ So **OP_SendAAStats does not fire on zone-in in current Live**, at least not as 
 **Round-N ideas**:
 - Capture a fresh login (just-zoned-in, mid-session reconnect) where the player already has spent AAs, to verify nothing else carries the per-ability breakdown. If confirmed, the daemon's "AA tab" view is fundamentally limited to in-session spends unless we also persist the OP_RespondAA snapshot to disk like the item cache.
 - Decode the leading 4 u32s of `0xa1e1` more carefully — `last_action_progress` might actually be "rank within most-recent series" and the constant `5` at +12 might be a per-character constant worth understanding.
+
+### 2026-05-07 — sweep over existing captures: OP_ManaUpdate + OP_GroupFollow2
+
+Replayed `combat.vpk`, `buffs.vpk`, `group-form.vpk`, `group-disband.vpk`, plus the existing `inventory-mana.opcodestats.txt`, into `--opcode-stats` + `--list-events`. Two solid finds, several medium-confidence leads.
+
+- **OP_ManaUpdate = `0x37ad`** (S>C, 10 B, n=28 in `inventory-mana.vpk`; also dominant 10-byte S>C unknown in `combat.vpk` at n=43). Decode as `{u16 spawn_id, u32 cur, u32 max}` — exact wire-shape parallel to OP_EndUpdate. Sample bytes from `inventory-mana.vpk` show classic regen monotonicity for a single spawn:
+  - fire #5 onward: spawn=0x20d6, cur=5243→5253→5263→5273→5283→5293→5303→5313→5323→5333, max=5379 throughout — +10/tick mana regen.
+  - Reference OP_EndUpdate fires from the same capture: spawn=0x20d6, cur=3516→3544→3572→3600→…→3766, max=3766 — same player, parallel endurance ticks at +28/tick.
+
+  Wire layout adopted as `manaUpdateStruct` in everquest.h, registered in s_everquest.h, mirrored to legacy showeq. Distinct from already-resolved `OP_ManaChange` (0x130c, 20 B, fires post-cast with manaDecrementStruct).
+
+- **OP_GroupFollow2 = `0xe92d`** (S>C, 168 B, n=1 in `group-form.vpk`). Disambiguated from two same-size siblings by *content fingerprint*. In `group-form.vpk`, three S>C 168-byte unknowns fire in the same millisecond burst as `C>S OP_GroupInvite (0x7380)` and `S>C OP_GroupFollow (0x1bcd)`:
+
+  | opcode | name1 (offset 0..63) | name2 (offset 64..127) | trailer fingerprint |
+  |--------|----------------------|------------------------|---------------------|
+  | 0xe92d | empty                | **member** (the joiner) | sparse, single u32 at +132 |
+  | 0x59ab | empty                | leader (self)           | sparse              |
+  | 0xb7c6 | empty                | leader (self)           | rich (multiple non-zero u32s) |
+
+  0xe92d is the only one that names the new member, matching the documented purpose of OP_GroupFollow2 ("Player joins your group"). Negative control: `grep` over every events.txt I have shows 0xe92d, 0x59ab, 0xb7c6 *only* fire in `group-form.vpk` — purely group-formation-bound.
+
+  Wired with `groupFollowStruct` typename + `sizechecktype="none"` (wire is the modern 168-byte expansion of the 152-byte legacy struct, same scheme as OP_GroupDisband / OP_GroupLeader).
+
+**Unresolved 168-byte group-family fires (4 ops, need follow-up captures):**
+
+| op | dir | capture | name pattern | hypothesis |
+|----|-----|---------|--------------|------------|
+| 0x59ab | S>C | group-form | name=leader, sparse trailer | OP_GroupInvite2 or OP_GroupMemberList |
+| 0xb7c6 | S>C | group-form | name=leader, rich trailer | OP_GroupMemberList more likely (rich state) |
+| 0xbf04 | C>S | group-disband | self+self | client-side leave-group request (unmapped — no entry on the unresolved list matches semantically) |
+| 0x1325 | S>C | group-disband | name=self at offset 64 | possible OP_GroupDisband2 — but currently-mapped 0x6c57 didn't fire here, so verdict pending |
+
+Disambiguation requires:
+- A 3+ member group capture (separates Invite2 / MemberList by per-member record count in the rich trailer).
+- A capture from the *invitee's* perspective (different burst pattern; might collapse 0x59ab/0xb7c6 into a single op).
+- A capture where a *peer* (not the leader-self) leaves the group — that would fire the real OP_GroupDisband2 and let us confirm whether 0x6c57 (currently mapped) or 0x1325 is correct. Until that, leaving the 0x6c57 mapping from commit `964e493` in place — leader-self-disband legitimately wouldn't fire OP_GroupDisband2.
+
+**Combat / buffs — too noisy without an event window**
+
+`combat.vpk` and `buffs.vpk` had three to four competing 16-byte S>C unknowns each (e.g. 0xe42f, 0x15b4, 0xcace, 0x11b8) at sizes that match buff/spell-action structs. None of these are confirmable by count alone — all require time-correlated event marks (e.g. `--list-events` correlated to known cast/attack moments). Round-N: re-capture with a script that logs "I just hit auto-attack on/off at T_n" so we can window the C>S tally at exact moments. Same for buff click-off vs server-emitted buff fade.
+
+**Generalizable lesson**: when one capture has multiple unknowns at the same size+direction, the count-based confirmation bar is the wrong tool. Switch to *content fingerprinting* — what does the payload actually carry? OP_GroupFollow2 was solved by noticing 0xe92d was the only one of the three carrying the *invitee's* name vs. self's name, which decoded the function purely from the byte content.
