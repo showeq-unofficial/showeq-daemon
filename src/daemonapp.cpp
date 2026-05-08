@@ -468,11 +468,12 @@ bool DaemonApp::startCapture()
 
     const bool hasReplay = !m_cfg.replay.isEmpty();
     const bool wantRecord = !m_cfg.recordVpk.isEmpty();
-    // Mirror --device: CLI was already applied, fall back to XML so the
-    // operator's saved preference picks up. Empty / sentinel string ==
-    // auto-detect next session, same semantics as showeq.
-    QString clientIp =
-        pSEQPrefs->getPrefString("IP", "Network", AUTOMATIC_CLIENT_IP);
+    // CLI --ip wins, then XML pref, then sentinel. Empty / sentinel
+    // string == auto-detect next session, same semantics as showeq.
+    QString clientIp = m_cfg.ip;
+    if (clientIp.isEmpty()) {
+        clientIp = pSEQPrefs->getPrefString("IP", "Network", AUTOMATIC_CLIENT_IP);
+    }
     if (clientIp.isEmpty()) clientIp = AUTOMATIC_CLIENT_IP;
     m_packet = new EQPacket(
         worldOpcodes.absoluteFilePath(),

@@ -114,6 +114,12 @@ int main(int argc, char** argv)
     QCommandLineOption deviceOpt(QStringList{"d", "device"},
         "Network device to capture on (e.g. eth0). Required for live capture.",
         "device");
+    QCommandLineOption ipOpt(QStringList{"ip"},
+        "EQ client IP to capture (sets the pcap BPF filter). Defaults to "
+        "auto-detect on the first session handshake; set explicitly when "
+        "multiple EQ clients share the LAN so two simultaneous captures "
+        "don't both lock onto the same client.",
+        "ip");
     QCommandLineOption listenOpt(QStringList{"l", "listen"},
         "Address:port to serve WebSocket clients on (default 127.0.0.1:9090).",
         "host:port", "127.0.0.1:9090");
@@ -161,6 +167,7 @@ int main(int argc, char** argv)
         "file");
 
     parser.addOption(deviceOpt);
+    parser.addOption(ipOpt);
     parser.addOption(listenOpt);
     parser.addOption(replayOpt);
     parser.addOption(configDirOpt);
@@ -176,6 +183,7 @@ int main(int argc, char** argv)
 
     DaemonApp::Config cfg;
     cfg.device       = parser.value(deviceOpt);
+    cfg.ip           = parser.value(ipOpt);
     cfg.replay       = parser.value(replayOpt);
     cfg.configDir    = parser.value(configDirOpt);
     cfg.mapsDir      = parser.value(mapsDirOpt);
