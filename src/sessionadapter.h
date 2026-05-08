@@ -12,6 +12,7 @@
 class IEnvelopeSink;
 class CategoryMgr;
 class CombatRouter;
+class DateTimeMgr;
 class FilterMgr;
 class GroupMgr;
 class Item;
@@ -27,6 +28,7 @@ class SpawnShell;
 class SpellItem;
 class SpellShell;
 class ZoneMgr;
+class ZoneServerMgr;
 
 // SessionAdapter is the per-client bridge between in-process QObject signals
 // (SpawnShell::addItem, ZoneMgr::zoneChanged, Player::posChanged, ...) and
@@ -47,20 +49,22 @@ class SessionAdapter : public QObject {
     Q_OBJECT
 public:
     SessionAdapter(IEnvelopeSink* sink,
-                   SpawnShell*   spawnShell,
-                   ZoneMgr*      zoneMgr,
-                   Player*       player,
-                   MapData*      mapData,
-                   MessageShell* messageShell,
-                   GroupMgr*     groupMgr,
-                   SpellShell*   spellShell,
-                   CombatRouter* combatRouter,
-                   CategoryMgr*  categoryMgr,
-                   FilterMgr*    filterMgr,
-                   PrefsBroker*  prefsBroker,
-                   SpawnMonitor* spawnMonitor,
-                   ItemCache*    itemCache,
-                   QObject*      parent = nullptr);
+                   SpawnShell*    spawnShell,
+                   ZoneMgr*       zoneMgr,
+                   Player*        player,
+                   MapData*       mapData,
+                   MessageShell*  messageShell,
+                   GroupMgr*      groupMgr,
+                   SpellShell*    spellShell,
+                   CombatRouter*  combatRouter,
+                   CategoryMgr*   categoryMgr,
+                   FilterMgr*     filterMgr,
+                   PrefsBroker*   prefsBroker,
+                   SpawnMonitor*  spawnMonitor,
+                   ItemCache*     itemCache,
+                   DateTimeMgr*   dateTimeMgr,
+                   ZoneServerMgr* zoneServerMgr,
+                   QObject*       parent = nullptr);
     ~SessionAdapter() override;
 
     // Inbound client traffic. WsServer wires QWebSocket::textMessageReceived
@@ -154,6 +158,16 @@ private slots:
     // a recomputed ItemCacheTotals (totals are worn-only, see proto).
     void onWornSlotsChanged();
 
+    // DateTimeMgr::syncDateTime handler. Caches the most recent OP_TimeOfDay
+    // and emits an EqTimeSync envelope. We deliberately do NOT subscribe to
+    // updatedDateTime — that signal fires on the daemon's internal timer
+    // and would flood every connected client; clients extrapolate locally.
+    void onEqTimeSync(const QDateTime& dt);
+
+    // ZoneServerMgr::zoneServerChanged handler. Caches the new endpoint
+    // and emits a ZoneServer envelope.
+    void onZoneServerChanged(const QString& host, quint16 port);
+
 private:
     void startStreaming();
     void sendSnapshot();
@@ -180,6 +194,8 @@ private:
     PrefsBroker*                 m_prefsBroker  = nullptr;
     SpawnMonitor*                m_spawnMonitor = nullptr;
     ItemCache*                   m_itemCache    = nullptr;
+    DateTimeMgr*                 m_dateTimeMgr  = nullptr;
+    ZoneServerMgr*               m_zoneServerMgr = nullptr;
 
     QString                      m_sessionId;
     bool                         m_subscribed = false;

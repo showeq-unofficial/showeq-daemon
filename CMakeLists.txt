@@ -180,6 +180,7 @@ set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/seqcolor.cpp
   src/itempacket.cpp
   src/itemcache.cpp
+  src/zoneservermgr.cpp
 )
 
 # Regenerate conf/{zone,world}opcodes.xml from conf/opcodes.toml whenever the

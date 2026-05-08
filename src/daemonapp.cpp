@@ -39,6 +39,7 @@
 #include "wsserver.h"
 #include "xmlpreferences.h"
 #include "zonemgr.h"
+#include "zoneservermgr.h"
 
 #include "seq/v1/client.pb.h"
 
@@ -107,6 +108,7 @@ bool DaemonApp::start()
     //   2. /usr/local/share/showeq/ (parallel showeq install — daemon
     //      doesn't ship its own copy of spells_us.txt)
     m_dateTimeMgr = new DateTimeMgr(this, "datetimemgr");
+    m_zoneServerMgr = new ZoneServerMgr(this);
     QFileInfo spellsFile =
         m_dataLocationMgr->findExistingFile(".", "spells_us.txt");
     if (!spellsFile.exists()) {
@@ -314,7 +316,8 @@ bool DaemonApp::start()
     m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get(),
                    m_messageShell, m_groupMgr, m_spellShell,
                    m_combatRouter, m_categoryMgr, m_filterMgr,
-                   m_prefsBroker, m_spawnMonitor, m_itemCache);
+                   m_prefsBroker, m_spawnMonitor, m_itemCache,
+                   m_dateTimeMgr, m_zoneServerMgr);
 
     // --record-golden: spin up an internal SessionAdapter writing into a
     // FileSink. Subscribe is synthesized immediately so the on-disk
@@ -331,7 +334,9 @@ bool DaemonApp::start()
                                              m_groupMgr, m_spellShell,
                                              m_combatRouter, m_categoryMgr,
                                              m_filterMgr, m_prefsBroker,
-                                             m_spawnMonitor, m_itemCache, this);
+                                             m_spawnMonitor, m_itemCache,
+                                             m_dateTimeMgr, m_zoneServerMgr,
+                                             this);
         // The golden adapter writes the regression-harness .pbstream;
         // strip wall-clock fields so the tier-2 byte-cmp is stable
         // across runs.
@@ -519,6 +524,19 @@ void DaemonApp::wireZoneMgr()
                        "uint8_t", SZC_None,
                        m_itemCache,
                        SLOT(onItemPacket(const uint8_t*, size_t, uint8_t)));
+
+    // Norrath-time + zone-server-endpoint plumbing for the seq.v1
+    // EqTimeSync / ZoneServer envelope events. OP_TimeOfDay lands on the
+    // zone stream (legacy parity); OP_ZoneServerInfo is world-stream and
+    // fires once per world->zone handoff.
+    m_packet->connect2("OP_TimeOfDay", SP_Zone, DIR_Server,
+                       "timeOfDayStruct", SZC_Match,
+                       m_dateTimeMgr,
+                       SLOT(timeOfDay(const uint8_t*)));
+    m_packet->connect2("OP_ZoneServerInfo", SP_World, DIR_Server,
+                       "zoneServerInfoStruct", SZC_Match,
+                       m_zoneServerMgr,
+                       SLOT(zoneServerInfo(const uint8_t*)));
 }
 
 void DaemonApp::wireSpawnShell()
