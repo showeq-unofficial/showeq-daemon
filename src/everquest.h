@@ -2150,6 +2150,26 @@ struct endUpdateStruct
 };
 
 /*
+** Mana Update
+** Length: 10 Octets
+** OpCode: OP_ManaUpdate
+**
+** Per-tick mana regen update for the local player. Wire shape is
+** identical to endUpdateStruct (spawn_id u16, cur u32, max u32);
+** distinct opcode because EQ paints mana on its own bar. Resolved
+** 2026-05-07 from the --opcode-stats sweep on inventory-mana.vpk
+** (n=28, dominant 10-byte S>C unknown, monotonic +10/tick).
+*/
+
+struct manaUpdateStruct
+{
+/*0000*/ uint16_t spawn_id;                      // owner of the mana bar (player)
+/*0002*/ uint32_t cur;                           // current mana
+/*0006*/ uint32_t max;                           // max mana at current level
+/*0010*/
+};
+
+/*
 ** Battle Code
 ** Length: 30 Octets
 ** OpCode: ActionCode

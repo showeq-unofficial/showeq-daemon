@@ -83,6 +83,7 @@ AddStruct(environmentDamageStruct);
 AddStruct(moneyOnCorpseStruct);
 AddStruct(staminaStruct);
 AddStruct(endUpdateStruct);
+AddStruct(manaUpdateStruct);
 AddStruct(action2Struct);
 AddStruct(actionStruct);
 AddStruct(actionAltStruct);
