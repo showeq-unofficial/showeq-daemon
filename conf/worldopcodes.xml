@@ -49,6 +49,7 @@
     </opcode>
     <opcode id="55e6" name="OP_ZoneServerInfo" updated="05/06/26">
         <comment>Zone server connection info. Live: 130b S>C, fires on world->zone handoff (zone server hostname + port). 2/2 confirmations.</comment>
+        <payload dir="server" typename="zoneServerInfoStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="0bbd" name="OP_WorldComplete" updated="05/06/26">
         <comment>Client telling world server it is done. Live: 0b C>S, last C>S packet of session immediately after OP_ZoneServerInfo. World replies by disconnecting. 2/2 confirmations.</comment>

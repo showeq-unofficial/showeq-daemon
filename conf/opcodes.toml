@@ -2168,6 +2168,11 @@ name    = "OP_ZoneServerInfo"
 updated = "2026-05-06"
 comment = "Zone server connection info. Live: 130b S>C, fires on world->zone handoff (zone server hostname + port). 2/2 confirmations."
 
+  [[world.payloads]]
+  dir           = "server"
+  typename      = "zoneServerInfoStruct"
+  sizechecktype = "match"
+
 [[world]]
 id      = "0bbd"
 name    = "OP_WorldComplete"
