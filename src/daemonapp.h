@@ -49,6 +49,12 @@ class DaemonApp : public QObject {
 public:
     struct Config {
         QString      device;
+        // EQ client IP filter for the pcap BPF. Empty = read from XML
+        // pref (Network/IP) which itself defaults to AUTOMATIC_CLIENT_IP
+        // (auto-detect on first session handshake). Set explicitly when
+        // multiple EQ clients share a LAN — the auto-detect path locks
+        // onto whichever client's session it sees first.
+        QString      ip;
         QString      replay;
         // If set, opcode XML and other shared data is read from this
         // directory. Convenient for running against the in-tree conf/

@@ -28,6 +28,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("name", help="capture name (e.g. aa_progress, inventory-worn)")
     parser.add_argument("--device", default=DEVICE, help=f"capture device (default: {DEVICE})")
+    parser.add_argument("--ip", default=None,
+                        help="EQ client IP to capture (default: auto-detect). "
+                             "Set explicitly when two EQ clients share the LAN.")
     parser.add_argument("--no-stats", action="store_true",
                         help="skip --opcode-stats output")
     parser.add_argument("--no-events", action="store_true",
@@ -67,6 +70,8 @@ def main() -> int:
         "--record-vpk", str(vpk),
         "--no-listen",
     ]
+    if args.ip:
+        cmd.extend(["--ip", args.ip])
     if not args.no_stats:
         cmd.extend(["--opcode-stats", str(stats)])
     if not args.no_events:
@@ -78,7 +83,7 @@ def main() -> int:
         print(f"=> opcode stats to {stats.relative_to(DAEMON_DIR)}")
     if not args.no_events:
         print(f"=> event timeline to {events.relative_to(DAEMON_DIR)}")
-    print(f"=> device: {args.device}    Ctrl-C to stop")
+    print(f"=> device: {args.device}    ip: {args.ip or 'auto-detect'}    Ctrl-C to stop")
     print()
 
     try:
