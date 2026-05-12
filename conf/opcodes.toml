@@ -367,10 +367,10 @@ comment = "You invite someone while ungrouped or get invited by someone ungroupe
 id      = "0d97"
 name    = "OP_GroupInvite2"
 updated = "2026-05-11"
-comment = "C>S invite while already grouped: {char inviter[64], char invitee[64], u8[40]}"
+comment = "Grouped invite: C>S 168B (inviter sends) / S>C 176B (server relays to invitee). Same opcode both dirs, size differs."
 
   [[zone.payloads]]
-  dir           = "client"
+  dir           = "both"
   typename      = "groupInviteStruct"
   sizechecktype = "none"
 
@@ -432,8 +432,8 @@ comment = "Your group dissolved (modern: 168 bytes; membername=self at offset 64
 [[zone]]
 id      = "6c57"
 name    = "OP_GroupDisband2"
-updated = "2026-04-26"
-comment = "Other member disbanded (modern: 168 bytes; membername=peer at offset 64)"
+updated = "2026-05-11"
+comment = "S>C to all STAYERS when any member departs (not leader-only). 168 bytes; membername=peer at offset 64."
 
   [[zone.payloads]]
   dir           = "server"
@@ -442,9 +442,20 @@ comment = "Other member disbanded (modern: 168 bytes; membername=peer at offset 
 
 [[zone]]
 id      = "59ab"
-name    = "OP_GroupInviteSent"
+name    = "OP_GroupInviteAccepted"
 updated = "2026-05-11"
-comment = "S>C to inviter only after OP_GroupInvite2: server confirms invite was relayed to invitee. 168 bytes; invitee name at offset 64, name1 empty."
+comment = "S>C to inviter when invitee accepts ungrouped invite. Fires in same bundle as OP_GroupMemberList + OP_GroupFollow2 (join-complete). 168 bytes; invitee name at offset 64."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "groupInviteStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "e2b7"
+name    = "OP_GroupInvite2Sent"
+updated = "2026-05-11"
+comment = "S>C to leader immediately when grouped invite (OP_GroupInvite2) is sent — fires before invitee accepts. Leader-only. 168 bytes; both names filled (leader at 0, invitee at 64)."
 
   [[zone.payloads]]
   dir           = "server"

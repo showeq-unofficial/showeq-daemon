@@ -132,8 +132,8 @@
         <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="0d97" name="OP_GroupInvite2" updated="05/11/26">
-        <comment>C>S invite while already grouped: {char inviter[64], char invitee[64], u8[40]}</comment>
-        <payload dir="client" typename="groupInviteStruct" sizechecktype="none"/>
+        <comment>Grouped invite: C>S 168B (inviter sends) / S>C 176B (server relays to invitee). Same opcode both dirs, size differs.</comment>
+        <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="bf04" name="OP_GroupCancelInvite" updated="05/07/26">
         <comment>Client-side decline-invite OR leave/disband-group request (modern: 168 bytes; name fields = self+self when leaving). C>S only in observed captures.</comment>
@@ -155,12 +155,16 @@
         <comment>Your group dissolved (modern: 168 bytes; membername=self at offset 64)</comment>
         <payload dir="server" typename="groupDisbandStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="6c57" name="OP_GroupDisband2" updated="04/26/26">
-        <comment>Other member disbanded (modern: 168 bytes; membername=peer at offset 64)</comment>
+    <opcode id="6c57" name="OP_GroupDisband2" updated="05/11/26">
+        <comment>S>C to all STAYERS when any member departs (not leader-only). 168 bytes; membername=peer at offset 64.</comment>
         <payload dir="server" typename="groupDisbandStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="59ab" name="OP_GroupInviteSent" updated="05/11/26">
-        <comment>S>C to inviter only after OP_GroupInvite2: server confirms invite was relayed to invitee. 168 bytes; invitee name at offset 64, name1 empty.</comment>
+    <opcode id="59ab" name="OP_GroupInviteAccepted" updated="05/11/26">
+        <comment>S>C to inviter when invitee accepts ungrouped invite. Fires in same bundle as OP_GroupMemberList + OP_GroupFollow2 (join-complete). 168 bytes; invitee name at offset 64.</comment>
+        <payload dir="server" typename="groupInviteStruct" sizechecktype="none"/>
+    </opcode>
+    <opcode id="e2b7" name="OP_GroupInvite2Sent" updated="05/11/26">
+        <comment>S>C to leader immediately when grouped invite (OP_GroupInvite2) is sent — fires before invitee accepts. Leader-only. 168 bytes; both names filled (leader at 0, invitee at 64).</comment>
         <payload dir="server" typename="groupInviteStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="1325" name="OP_GroupMemberLeave" updated="05/11/26">
