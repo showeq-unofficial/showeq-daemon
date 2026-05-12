@@ -131,9 +131,9 @@
         <comment>You invite someone while ungrouped or get invited by someone ungrouped</comment>
         <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupInvite2" updated="02/17/21">
-        <comment>You're inviting someone and you are grouped or get invited by a group</comment>
-        <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
+    <opcode id="0d97" name="OP_GroupInvite2" updated="05/11/26">
+        <comment>C>S invite while already grouped: {char inviter[64], char invitee[64], u8[40]}</comment>
+        <payload dir="client" typename="groupInviteStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="bf04" name="OP_GroupCancelInvite" updated="05/07/26">
         <comment>Client-side decline-invite OR leave/disband-group request (modern: 168 bytes; name fields = self+self when leaving). C>S only in observed captures.</comment>

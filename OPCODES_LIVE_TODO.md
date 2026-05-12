@@ -89,7 +89,7 @@ Checkbox legend: `[ ]` unresolved, `[x]` resolved, `[~]` superseded / obsolete o
 - [ ] OP_ReadBook
 
 ### Group / raid / pet / target (8)
-- [ ] OP_GroupInvite2
+- [x] OP_GroupInvite2 — `0x0d97` (2026-05-11)
 - [x] OP_GroupCancelInvite — `0xbf04` (2026-05-07)
 - [x] OP_GroupFollow2 — `0xe92d` (2026-05-07)
 - [x] OP_GroupMemberList — `0xb7c6` (2026-05-07)
@@ -849,3 +849,23 @@ Captures: `buff-lifecycle-a.vpk` (caster A) + `cuff-lifecycle-b.vpk` (observer B
 **`0x12cb` NOT the buff window**: 254 fires in this session, size distribution identical to all other sessions (153/129/177 base). Completely unaffected by the 3 spell casts. Not event-driven. Fires independently at high frequency. Different test needed — zone into a quiet/empty area and monitor frequency vs NPC count.
 
 **`0xf571` struct update note**: `startCastStruct.unknown0008[10]` at offset 8 appears to be 10 bytes of `-1` (all 0xff) for self-targeted spells — likely an extended target list (5 × uint16 target IDs, all sentinel -1). `targetId` at offset 18 is the primary target (self spawn ID for self-buffs). Bytes 22–38 contain unknowns including what may be a random/session seed at bytes 24–27.
+
+### 2026-05-11 — OP_GroupInvite2=0x0d97 + group-leave broadcast (group-3p-a/b/c.vpk)
+
+Captures: simultaneous A (leader) + B + C (joiner) three-client session. Sequence: A+B form group, A invites C while grouped, B leaves, C leaves.
+
+- **OP_GroupInvite2 = `0x0d97`** (C>S, 168 B, n=2 on A). Fires when A sends an invite while *already grouped* — behaviorally distinct from `OP_GroupInvite (0x7380)` which fires when ungrouped. Payload: `{char inviter[64], char invitee[64], uint8[40]}` matching groupInviteStruct layout. n=2 likely reflects the client sending the invite packet twice for one invite action (double-send or flow artifact — both fires carry the same invitee name). Absent from B and C captures (pure C>S).
+
+**Unresolved 168-byte opcodes with confirmed behavior (no legacy names):**
+
+| opcode | dir | fires on | content | behavior |
+|--------|-----|----------|---------|----------|
+| `0x59ab` | S>C | inviter only | offset 64 = invitee name | server ack to inviter: "your invite to X was sent" |
+| `0x1325` | S>C | all current members on leave | offset 64 = a remaining member name | broadcast to all members when someone leaves; does NOT fire when final member dissolves (no one left to notify) |
+| `0xe2b7` | S>C | leader only | offset 0 = leader name, offset 64 = joiner name | leader-specific "X joined your group" notification |
+
+**`0x1325` semantics confirmed**: fires n=1 on A, B, and C when B leaves (2 remaining: A+C). Does not fire again when C leaves (only A remains — no broadcast needed). So trigger condition is: member leaves AND ≥2 members remain.
+
+**Ruled out**: the prior hypothesis that `0x59ab` = `OP_GroupInvite2`. `0x59ab` is S>C (server→inviter), while `OP_GroupInvite2` is the client-initiated grouped invite. `0x0d97` (C>S) is the correct mapping. `0x59ab` has no matching legacy opcode name; leaving unmapped until a name is confirmed.
+
+**Round-N ideas**: capture a group where B invites C (not the leader) to determine if `0x0d97` + `0x59ab` fire on B or only on the leader. This would clarify whether these are leader-specific or any-member-can-invite flows.

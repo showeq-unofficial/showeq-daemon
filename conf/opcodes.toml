@@ -364,13 +364,13 @@ comment = "You invite someone while ungrouped or get invited by someone ungroupe
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "0d97"
 name    = "OP_GroupInvite2"
-updated = "2021-02-17"
-comment = "You're inviting someone and you are grouped or get invited by a group"
+updated = "2026-05-11"
+comment = "C>S invite while already grouped: {char inviter[64], char invitee[64], u8[40]}"
 
   [[zone.payloads]]
-  dir           = "both"
+  dir           = "client"
   typename      = "groupInviteStruct"
   sizechecktype = "none"
 
