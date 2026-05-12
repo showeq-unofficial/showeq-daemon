@@ -22,8 +22,8 @@ Checkbox legend: `[ ]` unresolved, `[x]` resolved, `[~]` superseded / obsolete o
 - [ ] OP_ApplyPoison
 
 ### Spells (5)
-- [ ] OP_BeginCast
-- [ ] OP_CastSpell
+- [x] OP_BeginCast — `0x271f` (2026-05-11)
+- [x] OP_CastSpell — `0xf571` (2026-05-11)
 - [ ] OP_MemorizeSpell
 - [ ] OP_SwapSpell
 - [ ] OP_LoadSpellSet
@@ -827,3 +827,25 @@ Capture: `tests/replay/inspect-enabled-a.vpk`. Method: `--opcode-stats` + candid
 **Round-N ideas**:
 - Run B's capture simultaneously during inspect to see whether B receives a "you are being inspected" S>C notification and at what opcode.
 - The `0x551f` appearance-type-4 pattern: could be PVP flag changes or some other appearance state; worth correlating with a capture where a known appearance change (PVP toggle?) occurs.
+
+### 2026-05-11 — OP_BeginCast=0x271f, OP_CastSpell=0xf571 (buff-lifecycle-a/b.vpk)
+
+Captures: `buff-lifecycle-a.vpk` (caster A) + `cuff-lifecycle-b.vpk` (observer B). 3 self-buff casts.
+
+- **OP_CastSpell = `0xf571`** (C>S, 39 bytes, n=3). Only on A's capture; absent from B. Matches `startCastStruct` exactly (39 bytes): `{int32 slot, uint32 spellId, uint8[10] target_block=-1 for self, uint32 targetId=self_spawn, uint8[15] unknowns}`. Sample: slot=4, spellId=421, targetId=477 (A's own spawn = self-cast).
+
+- **OP_BeginCast = `0x271f`** (S>C, 15 bytes, n=3 on A, n=3 on B). Broadcast to all nearby. Confirmed broadcast by B's capture — B sees the same n=3 fires. `beginCastStruct` in everquest.h is stale at 11 bytes; wire layout is `{uint32 spellId, uint16 casterSpawnId, uint16 castTime_ms, uint8[7] pad}` = 15 bytes. Using `uint8_t`/`none` in XML until struct is updated. Cross-confirmed in `aa_progress.vpk` (34 CastSpell vs 46 BeginCast — excess BeginCasts are from NPC/other-player casts visible in zone, not A's casts, as expected for a broadcast opcode).
+
+**Pending per-cast opcodes (personal S>C, not broadcast to B):**
+
+| opcode | dir | size | count | content | hypothesis |
+|--------|-----|------|-------|---------|------------|
+| `0xe42f` | S>C | 16 | =cast count | `{slot, spellId, 4, zeros}` | server ack to caster: "you are casting slot X spell Y" |
+| `0x15b4` | S>C | 16 | =cast count | `{zeros[8], ts1, ts2}` | cast timing: start/deadline timestamps |
+| `0x306c` | C>S | 8 | =cast count | `{0/1/2, self_spawn_id}` | unknown; sequential value per cast (buff slot target?) |
+
+`0xe42f` and `0x15b4` always appear in exactly equal counts across all sessions (buff-lifecycle, aa_point, aa_progress). They fire paired, S>C, personal only. No matching names on unresolved list — likely modern server responses without legacy equivalents.
+
+**`0x12cb` NOT the buff window**: 254 fires in this session, size distribution identical to all other sessions (153/129/177 base). Completely unaffected by the 3 spell casts. Not event-driven. Fires independently at high frequency. Different test needed — zone into a quiet/empty area and monitor frequency vs NPC count.
+
+**`0xf571` struct update note**: `startCastStruct.unknown0008[10]` at offset 8 appears to be 10 bytes of `-1` (all 0xff) for self-targeted spells — likely an extended target list (5 × uint16 target IDs, all sentinel -1). `targetId` at offset 18 is the primary target (self spawn ID for self-buffs). Bytes 22–38 contain unknowns including what may be a random/session seed at bytes 24–27.

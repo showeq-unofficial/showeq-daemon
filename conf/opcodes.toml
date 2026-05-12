@@ -463,24 +463,24 @@ comment = "old BuffDropCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "ffff"
+id      = "271f"
 name    = "OP_BeginCast"
-updated = "2023-07-19"
-comment = "BeginCastCode"
+updated = "2026-05-11"
+comment = "BeginCastCode - 15 bytes S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad} (beginCastStruct stale at 11b)"
 
   [[zone.payloads]]
-  dir           = "both"
-  typename      = "beginCastStruct"
-  sizechecktype = "match"
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "f571"
 name    = "OP_CastSpell"
-updated = "2023-12-05"
+updated = "2026-05-11"
 comment = "StartCastCode"
 
   [[zone.payloads]]
-  dir           = "both"
+  dir           = "client"
   typename      = "startCastStruct"
   sizechecktype = "match"
 
