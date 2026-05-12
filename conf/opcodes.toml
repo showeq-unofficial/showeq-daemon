@@ -466,12 +466,12 @@ comment = "old BuffDropCode"
 id      = "271f"
 name    = "OP_BeginCast"
 updated = "2026-05-11"
-comment = "BeginCastCode - 15 bytes S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad} (beginCastStruct stale at 11b)"
+comment = "BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad}"
 
   [[zone.payloads]]
   dir           = "server"
-  typename      = "uint8_t"
-  sizechecktype = "none"
+  typename      = "beginCastStruct"
+  sizechecktype = "match"
 
 [[zone]]
 id      = "f571"

@@ -2290,19 +2290,17 @@ struct spellFadedStruct
 };
 
 /*
-** Spell Action Struct
-** Length: 11 Octets
+** Spell Begin Cast Broadcast
+** Length: 15 Octets
 ** OpCode: BeginCastCode
 */
 struct beginCastStruct
 {
-/*0000*/ uint16_t spellId;                       // Id of spell 
-/*0002*/ int16_t  param2;                        // Paramater 1
-/*0004*/ uint16_t spawnId;                       // Id of who is casting
-/*0006*/ int16_t  param1;                        // Paramater 2
-/*0008*/ int16_t  param3;                        // Paramater 3
-/*0010*/ uint8_t  unknown0010[5];                   // *** Placeholder
-/*0011*/
+/*0000*/ uint32_t spellId;                       // Spell being cast
+/*0004*/ uint16_t spawnId;                       // Caster's spawn ID
+/*0006*/ uint16_t castTime;                      // Cast time in milliseconds
+/*0008*/ uint8_t  unknown0008[7];                // ***Placeholder
+/*0015*/
 };
 
 /*

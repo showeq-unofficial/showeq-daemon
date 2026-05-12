@@ -168,8 +168,8 @@
         <payload dir="both" typename="buffStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="271f" name="OP_BeginCast" updated="05/11/26">
-        <comment>BeginCastCode - 15 bytes S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad} (beginCastStruct stale at 11b)</comment>
-        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+        <comment>BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad}</comment>
+        <payload dir="server" typename="beginCastStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="f571" name="OP_CastSpell" updated="05/11/26">
         <comment>StartCastCode</comment>

@@ -665,7 +665,7 @@ void MessageShell::beginCast(const uint8_t* data)
     
     tempStr += " has begun casting '";
   }
-  float casttime = ((float)bcast->param1 / 1000);
+  float casttime = ((float)bcast->castTime / 1000);
   
   QString spellName;
   const Spell* spell = m_spells->spell(bcast->spellId);
