@@ -13,8 +13,8 @@ Checkbox legend: `[ ]` unresolved, `[x]` resolved, `[~]` superseded / obsolete o
 ## Tier 1 — Core gameplay loop (79)
 
 ### Combat (7)
-- [ ] OP_AutoAttack
-- [ ] OP_AutoAttack2
+- [x] OP_AutoAttack — `0x4e71` (2026-05-12)
+- [x] OP_AutoAttack2 — `0x993d` (2026-05-12)
 - [ ] OP_CombatAbility
 - [ ] OP_Stun
 - [ ] OP_Taunt
@@ -83,8 +83,8 @@ Checkbox legend: `[ ]` unresolved, `[x]` resolved, `[~]` superseded / obsolete o
 - [ ] OP_SenseHeading
 - [ ] OP_FindPersonRequest
 - [ ] OP_FindResponse
-- [ ] OP_RandomReq
-- [ ] OP_RandomReply
+- [x] OP_RandomReq — `0x953e` (2026-05-12)
+- [x] OP_RandomReply — `0x3d0f` (2026-05-12)
 - [ ] OP_Consume
 - [ ] OP_ReadBook
 

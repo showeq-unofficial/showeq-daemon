@@ -606,10 +606,10 @@ comment = "Communicate textual info to client including hail responses etc"
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "953e"
 name    = "OP_RandomReq"
-updated = "2023-07-19"
-comment = "RandomReqCode"
+updated = "2026-05-12"
+comment = "RandomReqCode - C>S 8 bytes: {u32 bottom, u32 top}"
 
   [[zone.payloads]]
   dir           = "client"
@@ -617,10 +617,10 @@ comment = "RandomReqCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "ffff"
+id      = "3d0f"
 name    = "OP_RandomReply"
-updated = "2023-07-19"
-comment = "RandomCode"
+updated = "2026-05-12"
+comment = "RandomCode - S>C 76 bytes broadcast: {u32 bottom, u32 top, u32 result, char name[64]}"
 
   [[zone.payloads]]
   dir           = "server"
@@ -1374,10 +1374,10 @@ comment = "Tracking data - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "4e71"
 name    = "OP_AutoAttack"
-updated = "2012-11-28"
-comment = "Attack on/off - 4 bytes"
+updated = "2026-05-12"
+comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires first of the paired AutoAttack+AutoAttack2 sends."
 
   [[zone.payloads]]
   dir           = "client"
@@ -1385,10 +1385,10 @@ comment = "Attack on/off - 4 bytes"
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "993d"
 name    = "OP_AutoAttack2"
-updated = "2012-11-28"
-comment = "Attack on/off appears to be same as OP_AutoAttack - 4 bytes"
+updated = "2026-05-12"
+comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires second, paired with OP_AutoAttack on every toggle."
 
   [[zone.payloads]]
   dir           = "client"

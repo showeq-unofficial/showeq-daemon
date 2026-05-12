@@ -219,12 +219,12 @@
         <comment>Communicate textual info to client including hail responses etc</comment>
         <payload dir="server" typename="specialMessageStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_RandomReq" updated="07/19/23">
-        <comment>RandomReqCode</comment>
+    <opcode id="953e" name="OP_RandomReq" updated="05/12/26">
+        <comment>RandomReqCode - C>S 8 bytes: {u32 bottom, u32 top}</comment>
         <payload dir="client" typename="randomReqStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_RandomReply" updated="07/19/23">
-        <comment>RandomCode</comment>
+    <opcode id="3d0f" name="OP_RandomReply" updated="05/12/26">
+        <comment>RandomCode - S>C 76 bytes broadcast: {u32 bottom, u32 top, u32 result, char name[64]}</comment>
         <payload dir="server" typename="randomStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_ConsentResponse" updated="02/17/21">
@@ -496,12 +496,12 @@
         <comment>Tracking data - Variable length</comment>
         <payload dir="both" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_AutoAttack" updated="11/28/12">
-        <comment>Attack on/off - 4 bytes</comment>
+    <opcode id="4e71" name="OP_AutoAttack" updated="05/12/26">
+        <comment>Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires first of the paired AutoAttack+AutoAttack2 sends.</comment>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_AutoAttack2" updated="11/28/12">
-        <comment>Attack on/off appears to be same as OP_AutoAttack - 4 bytes</comment>
+    <opcode id="993d" name="OP_AutoAttack2" updated="05/12/26">
+        <comment>Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires second, paired with OP_AutoAttack on every toggle.</comment>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_ClickDoor" updated="11/28/12">
