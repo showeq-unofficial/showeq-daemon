@@ -335,12 +335,13 @@ void SpellShell::buff(const uint8_t* data, size_t, uint8_t dir)
 #endif
   if (!b) b = (const buffStruct*)data;
 
-  // if this is the second server packet then ignore it
-  if (b->spellid == 0xffffffff)
+  // spellid=0xffffffff is a legacy no-op marker; spellid=0 is a slot-cleared
+  // notification with no associated spell — neither is trackable.
+  if (b->spellid == 0xffffffff || b->spellid == 0)
     return;
 
 #ifdef DIAG_SPELLSHELL
-  seqDebug("Changing buff - id=%d from spawn=%d", b->spellid, b->spawnid);
+  seqDebug("Changing buff - id=%d from spawn=%d dur=%d", b->spellid, b->spawnid, b->duration);
 #endif // DIAG_SPELLSHELL
 
   const Spell* spell = m_spells->spell(b->spellid);
@@ -351,25 +352,39 @@ void SpellShell::buff(const uint8_t* data, size_t, uint8_t dir)
   QString targetName;
   if (!spell || spell->targetType() != 6)
   {
-    if (b->spawnid && 
-	((s = m_spawnShell->findID(tSpawn, b->spawnid))))
+    if (b->spawnid &&
+        ((s = m_spawnShell->findID(tSpawn, b->spawnid))))
       targetName = s->name();
-    
+
     item = findSpell(b->spellid, b->spawnid, targetName);
   }
   else
     item = findSpell(b->spellid);
 
-  if (!item)
+  // On Live, changetype is always 1 for all buff state changes. Use
+  // duration==0 as the removal signal instead.
+  if (b->duration == 0) {
+    if (item)
+      deleteSpell(item);
     return;
+  }
 
-  if (b->changetype == 0x01) // removing buff
-    deleteSpell(item);
-  else if (b->changetype == 0x02)
-  {
-    // right now we only know how to find the updated duration
-    item->setDuration(b->duration * 6);
+  // duration > 0: buff applied or refreshed.
+  int duration = b->duration * 6;
+  if (item) {
+    item->setDuration(duration);
     emit changeSpell(item);
+  } else {
+    // Buff not previously tracked (e.g. zone-in load from OP_Buff before
+    // action() fires, or a buff cast while the daemon wasn't running).
+    item = new SpellItem();
+    item->update(b->spellid, spell, duration,
+                 0, QString(), b->spawnid, targetName);
+    m_spellList.append(item);
+    if (!m_timer->isActive())
+      m_timer->start(1000 *
+                     pSEQPrefs->getPrefInt("SpellTimer", "SpellList", 6));
+    emit addSpell(item);
   }
 }
 
