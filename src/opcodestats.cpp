@@ -36,7 +36,7 @@ const StructHint kHints[] = {
     {"OP_RandomReq",        "randomReqStruct",            8, DIR_Client},
     {"OP_RandomReply",      "randomStruct",              76, DIR_Server},
     {"OP_LeaderExpUpdate",  "leadExpUpdateStruct",       32, DIR_Server},
-    {"OP_WearChange",       "wearChangeStruct",          14, DIR_Server},
+    {"OP_WearChange",       "wearChangeStruct",          11, DIR_Server},
     {"OP_MoneyOnCorpse",    "moneyOnCorpseStruct",       24, DIR_Server},
 };
 

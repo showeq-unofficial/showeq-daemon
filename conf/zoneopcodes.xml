@@ -70,9 +70,9 @@
         <comment>old NewCorpseCode</comment>
         <payload dir="server" typename="newCorpseStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_WearChange" updated="07/19/23">
-        <comment>SpawnUpdateCode</comment>
-        <payload dir="both" typename="SpawnUpdateStruct" sizechecktype="match"/>
+    <opcode id="800e" name="OP_WearChange" updated="05/12/26">
+        <comment>Multi-slot appearance update. Header=wearChangeStruct(11B), then slotCount*wearChangeSlotStruct(16B+varname), then 2B pad. count=0→13B (hash refresh), count=4+name→97B+ (full slot broadcast to observers).</comment>
+        <payload dir="server" typename="wearChangeStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="ca91" name="OP_SpawnAppearance" updated="04/16/26">
         <comment>SpawnAppearanceCode</comment>

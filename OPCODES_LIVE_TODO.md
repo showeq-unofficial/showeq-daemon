@@ -43,7 +43,7 @@ Checkbox legend: `[ ]` unresolved, `[x]` resolved, `[~]` superseded / obsolete o
 ### Spawn / appearance (8)
 - [ ] OP_ZoneSpawns
 - [ ] OP_SpawnRename
-- [ ] OP_WearChange
+- [x] OP_WearChange — `0x800e` (2026-05-12)
 - [ ] OP_Illusion
 - [ ] OP_Shroud
 - [x] OP_Animation — `0x3d3d` (2026-05-01)

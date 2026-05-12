@@ -97,6 +97,7 @@ AddStruct(memSpellStruct);
 AddStruct(skillTrainStruct);
 AddStruct(skillIncStruct);
 AddStruct(wearChangeStruct);
+AddStruct(wearChangeSlotStruct);
 AddStruct(levelUpUpdateStruct);
 AddStruct(expUpdateStruct);
 AddStruct(altExpUpdateStruct);

@@ -194,15 +194,15 @@ comment = "old NewCorpseCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "ffff"
+id      = "800e"
 name    = "OP_WearChange"
-updated = "2023-07-19"
-comment = "SpawnUpdateCode"
+updated = "2026-05-12"
+comment = "Multi-slot appearance update. Header=wearChangeStruct(11B), then slotCount*wearChangeSlotStruct(16B+varname), then 2B pad. count=0→13B (hash refresh), count=4+name→97B+ (full slot broadcast to observers)."
 
   [[zone.payloads]]
-  dir           = "both"
-  typename      = "SpawnUpdateStruct"
-  sizechecktype = "match"
+  dir           = "server"
+  typename      = "wearChangeStruct"
+  sizechecktype = "none"
 
 [[zone]]
 id      = "ca91"

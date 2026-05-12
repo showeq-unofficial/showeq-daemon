@@ -2354,14 +2354,34 @@ struct skillIncStruct
 ** Opcode: WearChangeCode
 */
 
-// ZBTEMP: Find newItemID ***
+/*
+** WearChange — multi-slot appearance update packet header
+** Total size: 13 bytes (slotCount=0, refresh only) or
+**   11 + slotCount*(16 + strlen(ownerName)+1) + 2 pad bytes.
+** Wire confirmed at 13 B (A's self-view) and 97 B (observer, 4 slots, name "Eeve").
+*/
 struct wearChangeStruct
 {
-/*0000*/ uint16_t spawnId;                       // SpawnID
-/*0002*/ Color_Struct color;                     // item color
-/*0006*/ uint8_t  wearSlotId;                    // Slot ID
-/*0007*/ uint8_t  unknown0007[7];                // unknown
-/*0014*/
+/*0000*/ uint32_t spawnId;                       // spawn whose appearance changed
+/*0004*/ uint32_t appearance;                    // overall appearance value (varies per equip)
+/*0008*/ uint8_t  unknown0008;                   // = 1 in all observed samples
+/*0009*/ uint8_t  slotCount;                     // number of wearChangeSlotStruct records following
+/*0010*/ uint8_t  unknown0010;                   // = 0 (padding before record array)
+/*0011*/
+};
+
+/*
+** WearChangeSlot — per-slot record following wearChangeStruct header
+** Fixed 16-byte body + null-terminated ownerName (variable length).
+** Not directly sizeof()-able due to the trailing string.
+*/
+struct wearChangeSlotStruct
+{
+/*0000*/ uint32_t slotId;                        // wear slot index
+/*0004*/ uint32_t material;                      // material/texture ID
+/*0008*/ uint32_t color;                         // color tint
+/*0012*/ uint32_t unknown0012;                   // = 0
+/*0016*/ // char ownerName[] follows — null-terminated, variable length
 };
 
 /*
