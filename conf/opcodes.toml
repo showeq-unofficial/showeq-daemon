@@ -441,6 +441,28 @@ comment = "Other member disbanded (modern: 168 bytes; membername=peer at offset 
   sizechecktype = "none"
 
 [[zone]]
+id      = "59ab"
+name    = "OP_GroupInviteSent"
+updated = "2026-05-11"
+comment = "S>C to inviter only after OP_GroupInvite2: server confirms invite was relayed to invitee. 168 bytes; invitee name at offset 64, name1 empty."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "groupInviteStruct"
+  sizechecktype = "none"
+
+[[zone]]
+id      = "1325"
+name    = "OP_GroupMemberLeave"
+updated = "2026-05-11"
+comment = "S>C broadcast to remaining members when any member leaves. 168 bytes. Fires only when ≥2 members remain after departure; name at offset 64 encodes updated group state."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
 id      = "2f41"
 name    = "OP_GroupLeader"
 updated = "2026-04-26"
