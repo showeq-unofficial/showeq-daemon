@@ -507,13 +507,13 @@ comment = "MemSpellCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "ffff"
+id      = "ce34"
 name    = "OP_InspectAnswer"
-updated = "2023-07-19"
+updated = "2026-05-11"
 comment = "InspectDataCode"
 
   [[zone.payloads]]
-  dir           = "both"
+  dir           = "server"
   typename      = "inspectDataStruct"
   sizechecktype = "match"
 
@@ -1176,10 +1176,10 @@ comment = "WhoAllOutputCode - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "a63b"
 name    = "OP_InspectRequest"
-updated = "2012-11-28"
-comment = "InspectRequestCode - 8 bytes"
+updated = "2026-05-11"
+comment = "InspectRequestCode - 8 bytes C>S: {u32 target_spawn_id, u32 self_spawn_id}"
 
   [[zone.payloads]]
   dir           = "client"

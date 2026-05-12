@@ -102,8 +102,8 @@ Checkbox legend: `[ ]` unresolved, `[x]` resolved, `[~]` superseded / obsolete o
 - [ ] OP_BuffWindow
 - [ ] OP_BuffFadeMsg
 - [ ] OP_ClickBuffOff
-- [ ] OP_InspectRequest
-- [ ] OP_InspectAnswer
+- [x] OP_InspectRequest — `0xa63b` (2026-05-11)
+- [x] OP_InspectAnswer — `0xce34` (2026-05-11)
 - [ ] OP_ItemTextFile
 - [ ] OP_Emote
 
@@ -806,3 +806,24 @@ Captures: `trade-side-a.vpk` + `trade-side-b.vpk`. Both clients on the same LAN,
 **OP_GroupInvite size split**: observed `OP_GroupInvite (0x7380)` firing at **168 bytes C>S** (when sending an invite) and **176 bytes S>C** (when receiving an invite). The 8-byte tail delta is unexplored — likely a server-added "from-this-server" prefix. Mapping accepts both via `sizechecktype="none"`; no action needed.
 
 **Trade phase — inconclusive**: 4 OP_MoveItem (`0xcb03`) fires per side during the group session indicate the mace bouncing between trade slots. Candidate trade opcodes (`0x4094` 484 B C>S × 4 each side; `0x8b75` 12508 B C>S × 1 side-A; `0x5855` 24 B bidirectional) are buried under post-zone-in chatter and group-state-broadcast bursts that contaminated the trade window. `0x4094` looks like a periodic client heartbeat (fires every ~12 s independent of activity), not a trade op. Round-N: capture a **pure trade-only session** (both clients sit in one zone, no group, no zone change, exactly one mace exchange) — that should drop the noise floor enough to nail OP_TradeRequest, OP_TradeRequestAck, OP_TradeAcceptClick, OP_FinishTrade, OP_TradeCoins.
+
+### 2026-05-11 — OP_InspectRequest + OP_InspectAnswer (inspect-enabled-a.vpk)
+
+Capture: `tests/replay/inspect-enabled-a.vpk`. Method: `--opcode-stats` + candidate matcher, n=5 inspect actions (A right-clicks B exactly 5 times).
+
+- **OP_InspectAnswer = `0xce34`** (S>C, 1956 bytes, n=5). Zero competitors at 1956 bytes S>C. Payload at offset 4 = `94 00 00 00` = inspected spawn ID; item names appear starting around offset 136 ("Curscale Skullcap" visible). Matches `inspectDataStruct` field-for-field. Wired as `dir="server"` + `sizechecktype="match"`.
+
+- **OP_InspectRequest = `0xa63b`** (C>S, 8 bytes, n=5). One fire per inspect click, zero C>S 8-byte competitors at n=5. Payload: `94 00 00 00 d4 00 00 00` = `{u32 target_spawn_id=0x94, u32 self_spawn_id=0xd4}`. The legacy hint had this as S>C (the old permission-ask to the inspected player); with modern always-on inspect that handshake is gone and the opcode is now purely C>S from the inspector. Updated hint direction to `DIR_Client` in opcodestats.cpp.
+
+**Modern inspect flow** (always-on, no permission gate — confirmed with simultaneous A+B captures):
+1. A right-clicks B → A's client sends `OP_InspectRequest` C>S (`0xa63b`, 8 bytes)
+2. Server responds to A with `OP_InspectAnswer` S>C (`0xce34`, 1956 bytes, B's full gear + text)
+3. **B receives nothing.** `0xa63b` and `0xce34` are completely absent from B's capture. The old S>C "you are being inspected" notification no longer exists.
+
+**`0x551f` ruled out for inspect**: fired only 4 times (not 5) with three distinct spawn IDs (0x2d81, 0x73d1, 0x8e) — none matching B's spawn (0x94). Consistent second-field value of 4 across all samples looks like a SpawnAppearance-family broadcast for appearance type 4 changes from other zone members. Not inspect-related.
+
+**`0x5719` direction flip**: in today's capture appears only C>S (3 fires, A's own spawn 0xd4, types 7/8/9 + small values). In May 7 trade VPKs it appeared S>C with 148 fires. Opcode table shuffled between those patch dates — treat as different opcodes sharing the same hex slot. The C>S variant here looks like a modern SpawnAppearance client-to-server state report (client reports own animation/appearance state to server); distinct from `OP_SpawnAppearance` (0xca91, S>C, server broadcasts to others).
+
+**Round-N ideas**:
+- Run B's capture simultaneously during inspect to see whether B receives a "you are being inspected" S>C notification and at what opcode.
+- The `0x551f` appearance-type-4 pattern: could be PVP flag changes or some other appearance state; worth correlating with a capture where a known appearance change (PVP toggle?) occurs.

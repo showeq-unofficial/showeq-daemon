@@ -183,9 +183,9 @@
         <comment>MemSpellCode</comment>
         <payload dir="both" typename="memSpellStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_InspectAnswer" updated="07/19/23">
+    <opcode id="ce34" name="OP_InspectAnswer" updated="05/11/26">
         <comment>InspectDataCode</comment>
-        <payload dir="both" typename="inspectDataStruct" sizechecktype="match"/>
+        <payload dir="server" typename="inspectDataStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_Emote" updated="07/19/23">
         <comment>EmoteTextCode</comment>
@@ -424,8 +424,8 @@
         <comment>WhoAllOutputCode - Variable length</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_InspectRequest" updated="11/28/12">
-        <comment>InspectRequestCode - 8 bytes</comment>
+    <opcode id="a63b" name="OP_InspectRequest" updated="05/11/26">
+        <comment>InspectRequestCode - 8 bytes C>S: {u32 target_spawn_id, u32 self_spawn_id}</comment>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_GetGuildMOTD" updated="11/28/12">
