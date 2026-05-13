@@ -11,7 +11,7 @@
     </opcode>
 -->
 
-    <opcode id="022f" name="OP_GuildList" updated="05/04/26">
+    <opcode id="ffff" name="OP_GuildList" updated="05/13/26">
         <comment>old GuildListCode</comment>
         <payload dir="server" typename="worldGuildListStruct" sizechecktype="none"/>
     </opcode>
@@ -24,55 +24,55 @@
     <opcode id="001A" name="OP_LoginServerInfo" updated="05/05/26">
         <comment>Login-server&#x2192;client server-list entry (one per available world). Test: 219b S&gt;C login-stage. Body shape: leading u32 + 8 bytes + zstring hostname (eqworldNN.everquest.com) + 8 bytes + u32 length-of-locale-block + u32 count + null-separated locale strings (e.g. "Test\0EN\0US\0Standard (Live Environment)\0&lt;disclaimer&gt;\0"). Daemon does not currently dispatch this packet at app-op level — see TEST_OPCODE.md 2026-05-05 entry.</comment>
     </opcode>
-    <opcode id="7b6a" name="OP_SendLoginInfo" updated="05/04/26">
+    <opcode id="aca4" name="OP_SendLoginInfo" updated="05/13/26">
         <comment>Client starting world session by asking for login information</comment>
     </opcode>
-    <opcode id="b537" name="OP_LogServer" updated="05/04/26">
+    <opcode id="4398" name="OP_LogServer" updated="05/13/26">
         <comment></comment>
     </opcode>
-    <opcode id="b8cc" name="OP_ApproveWorld" updated="05/04/26">
+    <opcode id="c8ca" name="OP_ApproveWorld" updated="05/13/26">
         <comment></comment>
     </opcode>
-    <opcode id="9bdc" name="OP_EnterWorld" updated="05/04/26">
+    <opcode id="f31f" name="OP_EnterWorld" updated="05/13/26">
 	    <comment>Server approval for client to enter world</comment>
     </opcode>
-    <opcode id="6bcf" name="OP_ExpansionInfo" updated="05/05/26">
+    <opcode id="c26e" name="OP_ExpansionInfo" updated="05/13/26">
 	    <comment>Which expansions user has. Test: 64b fixed S>C in the post-LogServer / pre-ApproveWorld world handshake band. Header u32 = expansion-count (= 8 observed), then bitmask + per-login session ID at offset 36, then trailer with `0x07 0x02` tier markers. Per-login fires with mostly-static content.</comment>
     </opcode>
-    <opcode id="84f6" name="OP_SendCharInfo" updated="05/04/26">
+    <opcode id="de55" name="OP_SendCharInfo" updated="05/13/26">
 	    <comment>Send all chars visible @ char select</comment>
     </opcode>
-    <opcode id="2de1" name="OP_SendSpellChecksum" updated="05/04/26">
+    <opcode id="ffff" name="OP_SendSpellChecksum" updated="05/13/26">
 	    <comment>Contains a snippet of spell data</comment>
     </opcode>
-    <opcode id="44d9" name="OP_SendExeChecksum" updated="05/04/26">
+    <opcode id="d99c" name="OP_SendExeChecksum" updated="05/13/26">
 	    <comment>Second client verification packet</comment>
     </opcode>
-    <opcode id="289c" name="OP_SendBaseDataChecksum" updated="05/04/26">
+    <opcode id="ffff" name="OP_SendBaseDataChecksum" updated="05/13/26">
 	    <comment>Second client verification packet</comment>
     </opcode>
-    <opcode id="a958" name="OP_SendSkillCapsChecksum" updated="05/04/26">
+    <opcode id="ffff" name="OP_SendSkillCapsChecksum" updated="05/13/26">
 	    <comment>Third client verification packet</comment>
     </opcode>
-    <opcode id="bb67" name="OP_SetChatServer" updated="05/05/26">
+    <opcode id="5f8b" name="OP_SetChatServer" updated="05/13/26">
 	    <comment>Chat server connection: 56b S>C carrying the legacy comma-separated tuple `host,port,server.charname,sessionkey,N` (e.g. lvseq-chat01.everquest.com,9879,test.Charname,&lt;key&gt;,0) — the original IP/Port/servername.charname/password format Test still uses.</comment>
     </opcode>
-    <opcode id="f22b" name="OP_SetChatServer2" updated="05/05/26">
+    <opcode id="759e" name="OP_SetChatServer2" updated="05/13/26">
 	    <comment>Secondary chat / account / commerce service catalog: 1464b S>C, ~18 plaintext Daybreak service URLs (auth, account, commerce, support, premium). Replaces the legacy second-chat-server tuple with a multi-URL service catalog on Test.</comment>
     </opcode>
-    <opcode id="f21f" name="OP_ZoneServerInfo" updated="05/05/26">
+    <opcode id="b67c" name="OP_ZoneServerInfo" updated="05/13/26">
 	    <comment>Zone server connection info: 130b S>C with the zone server hostname (e.g. eqzone-31.everquest.com) at offset 0 and port (u16 at offset 128). Fires after the zone-handoff world handshake to point the client at the next zone server.</comment>
     </opcode>
-    <opcode id="fc46" name="OP_WorldComplete" updated="05/04/26">
+    <opcode id="ffff" name="OP_WorldComplete" updated="05/13/26">
 	    <comment>Client telling world server it is done. World replies by disconnecting.</comment>
     </opcode>
-    <opcode id="48f9" name="OP_DeleteCharacter" updated="05/05/26">
+    <opcode id="ffff" name="OP_DeleteCharacter" updated="05/13/26">
 	    <comment>Delete character @ char select. Test: 68b C>S, name@offset 0.</comment>
     </opcode>
     <opcode id="ffff" name="OP_CharacterCreate">
 	    <comment>Create character @ char select</comment>
     </opcode>
-    <opcode id="a24a" name="OP_ApproveName" updated="05/05/26">
+    <opcode id="ffff" name="OP_ApproveName" updated="05/13/26">
 	    <comment>Approving new character name @ char creation. Test: 84b C>S name candidate, 1b S>C status (0x12 = available, 0x01 = committed).</comment>
     </opcode>
     <opcode id="ffff" name="OP_RandomNameGenerator">

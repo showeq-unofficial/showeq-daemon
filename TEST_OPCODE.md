@@ -15,33 +15,33 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 ## World stream (20)
 
 ### Login / handshake (8)
-- [x] OP_SendLoginInfo — *(no payload struct; identifier only)* — `0x7b6a` (2026-05-04)
-- [x] OP_LogServer — `0xb537` (2026-05-04)
-- [x] OP_ApproveWorld — `0xb8cc` (2026-05-04)
-- [x] OP_EnterWorld — `0x9bdc` (2026-05-04)
-- [x] OP_ExpansionInfo — `0x6bcf` (2026-05-05, revised from 0x1a00)
-- [x] OP_SendCharInfo — `0x84f6` (2026-05-04)
-- [x] OP_ZoneServerInfo — `0xf21f` (2026-05-05)
-- [x] OP_WorldComplete — `0xfc46` (2026-05-04)
+- [x] OP_SendLoginInfo — *(no payload struct; identifier only)* — `0xaca4` (2026-05-13, revised from 0x7b6a)
+- [x] OP_LogServer — `0x4398` (2026-05-13, revised from 0xb537)
+- [x] OP_ApproveWorld — `0xc8ca` (2026-05-13, revised from 0xb8cc)
+- [x] OP_EnterWorld — `0xf31f` (2026-05-13, revised from 0x9bdc)
+- [x] OP_ExpansionInfo — `0xc26e` (2026-05-13, revised from 0x6bcf)
+- [x] OP_SendCharInfo — `0xde55` (2026-05-13, revised from 0x84f6)
+- [x] OP_ZoneServerInfo — `0xb67c` (2026-05-13, revised from 0xf21f)
+- [ ] OP_WorldComplete
 
 ### Checksums / verification (4)
-- [x] OP_SendSpellChecksum — `0x2de1` (2026-05-04)
-- [x] OP_SendExeChecksum — `0x44d9` (2026-05-04)
-- [x] OP_SendBaseDataChecksum — `0x289c` (2026-05-04)
-- [x] OP_SendSkillCapsChecksum — `0xa958` (2026-05-04)
+- [ ] OP_SendSpellChecksum
+- [x] OP_SendExeChecksum — `0xd99c` (2026-05-13, revised from 0x44d9)
+- [ ] OP_SendBaseDataChecksum
+- [ ] OP_SendSkillCapsChecksum
 
 ### Chat servers (2)
-- [x] OP_SetChatServer — `0xbb67` (2026-05-05, revised from 0xf22b)
-- [x] OP_SetChatServer2 — `0xf22b` (2026-05-05)
+- [x] OP_SetChatServer — `0x5f8b` (2026-05-13, revised from 0xbb67)
+- [x] OP_SetChatServer2 — `0x759e` (2026-05-13, revised from 0xf22b)
 
 ### World content (2)
-- [x] OP_GuildList — worldGuildListStruct (server) — `0x022f` (2026-05-04)
+- [ ] OP_GuildList — worldGuildListStruct (server)
 - [ ] OP_MOTD — worldMOTDStruct (server)
 
 ### Character management (4)
-- [x] OP_DeleteCharacter — `0x48f9` (2026-05-05)
+- [ ] OP_DeleteCharacter
 - [ ] OP_CharacterCreate
-- [x] OP_ApproveName — `0xa24a` (2026-05-05)
+- [ ] OP_ApproveName
 - [ ] OP_RandomNameGenerator
 
 ---
@@ -49,55 +49,55 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 ## Zone stream (53)
 
 ### Zone bootstrap (8)
-- [x] OP_PlayerProfile — uint8_t (server, variable) — `0xe284` (2026-05-04)
-- [x] OP_ZoneEntry — ClientZoneEntryStruct (client) / uint8_t (server) — `0xa5bf` (2026-05-04)
-- [x] OP_TimeOfDay — timeOfDayStruct (server) — `0x7e22` (2026-05-04)
-- [x] OP_NewZone — uint8_t (server, variable) — `0xa923` (2026-05-04)
-- [x] OP_SpawnDoor — doorStruct (server, modulus) — `0x794d` (2026-05-04)
-- [x] OP_GroundSpawn — makeDropStruct (server) — `0x33ec` (2026-05-04)
-- [x] OP_SendZonePoints — zonePointsStruct (server) — `0xc547` (2026-05-05)
-- [x] OP_ZoneChange — zoneChangeStruct (both) — `0x9148` (2026-05-04)
+- [x] OP_PlayerProfile — uint8_t (server, variable) — `0xaaed` (2026-05-13, revised from 0xe284)
+- [x] OP_ZoneEntry — ClientZoneEntryStruct (client) / uint8_t (server) — `0xbe93` (2026-05-13, revised from 0xa5bf)
+- [ ] OP_TimeOfDay — timeOfDayStruct (server)
+- [x] OP_NewZone — uint8_t (server, variable) — `0x5fc3` (2026-05-13, revised from 0xa923)
+- [x] OP_SpawnDoor — doorStruct (server, modulus) — `0xae0a` (2026-05-13, revised from 0x794d)
+- [ ] OP_GroundSpawn — makeDropStruct (server)
+- [ ] OP_SendZonePoints — zonePointsStruct (server)
+- [ ] OP_ZoneChange — zoneChangeStruct (both)
 
 ### Movement / position (4)
-- [x] OP_ClientUpdate — playerSpawnPosStruct (server) — `0xf8d1` (2026-05-04, sizechecktype relaxed to none)
-- [x] OP_NpcMoveUpdate — uint8_t (server, variable) — `0x917c` (2026-05-04)
-- [x] OP_MobUpdate — spawnPositionUpdate (both) — `0x4a4f` (2026-05-04)
-- [x] OP_MovementHistory — uint8_t (client, variable) — `0x9e21` (2026-05-04)
+- [x] OP_ClientUpdate — playerSpawnPosStruct (server) — `0x9377` (2026-05-13, revised from 0xf8d1)
+- [x] OP_NpcMoveUpdate — uint8_t (server, variable) — `0xaaca` (2026-05-13, revised from 0x917c)
+- [x] OP_MobUpdate — spawnPositionUpdate (both) — `0xeff9` (2026-05-13, revised from 0x4a4f)
+- [x] OP_MovementHistory — uint8_t (client, variable) — `0xa994` (2026-05-13, revised from 0x9e21)
 
 ### Spawn lifecycle / appearance (5)
-- [x] OP_DeleteSpawn — deleteSpawnStruct (both) — `0x6dba` (2026-05-04)
-- [x] OP_RemoveSpawn — removeSpawnStruct (both) — `0xeb88` (2026-05-04)
-- [x] OP_Death — newCorpseStruct (server) — `0x1eb2` (2026-05-04)
-- [x] OP_SpawnAppearance — spawnAppearanceStruct (both) — `0x9826` (2026-05-04)
-- [x] OP_Animation — uint8_t (both) — `0xdd87` (2026-05-05)
+- [x] OP_DeleteSpawn — deleteSpawnStruct (both) — `0xa183` (2026-05-13, revised from 0x6dba)
+- [x] OP_RemoveSpawn — removeSpawnStruct (both) — `0x394a` (2026-05-13, revised from 0xeb88)
+- [x] OP_Death — newCorpseStruct (server) — `0xf752` (2026-05-13, revised from 0x1eb2)
+- [x] OP_SpawnAppearance — spawnAppearanceStruct (both) — `0x9fd4` (2026-05-13)
+- [x] OP_Animation — uint8_t (both) — `0x36c7` (2026-05-13, revised from 0xdd87)
 
 ### Combat / actions (4)
-- [x] OP_Action — actionStruct (both) — `0x049e` (2026-05-04)
-- [x] OP_Action2 — action2Struct (both) — `0x32a9` (2026-05-04)
-- [x] OP_Consider — considerStruct (both) — `0xa1e7` (2026-05-04)
-- [x] OP_TargetMouse — clientTargetStruct (both) — `0x1994` (2026-05-04)
+- [x] OP_Action — actionStruct (both) — `0x8ac8` (2026-05-13, revised from 0x049e)
+- [x] OP_Action2 — action2Struct (both) — `0x4ad7` (2026-05-13, revised from 0x32a9)
+- [x] OP_Consider — considerStruct (both) — `0x1ff6` (2026-05-13, revised from 0xa1e7)
+- [x] OP_TargetMouse — clientTargetStruct (both) — `0xc7ce` (2026-05-13, revised from 0x1994)
 
 ### Stats / HP / mana / xp / endurance (9)
-- [x] OP_ExpUpdate — expUpdateStruct (server) — `0xcf53` (2026-05-04)
+- [x] OP_ExpUpdate — expUpdateStruct (server) — `0x0d56` (2026-05-13)
 - [ ] OP_AAExpUpdate — altExpUpdateStruct (server)
-- [x] OP_HPUpdate — hpNpcUpdateStruct (both) — `0x652f` (2026-05-04)
-- [x] OP_MobHealth — mobHealthStruct (server) — `0x8d24` (2026-05-04)
-- [x] OP_ManaChange — manaDecrementStruct (server) — `0x08fb` (2026-05-05)
-- [x] OP_SkillUpdate — skillIncStruct (server) — `0x6a60` (2026-05-04)
-- [x] OP_LevelUpdate — levelUpUpdateStruct (server) — `0x9426` (2026-05-04)
-- [x] OP_EndUpdate — endUpdateStruct (server) — `0x36d1` (2026-05-04)
-- [x] OP_Stamina — staminaStruct (server) — `0x60e7` (2026-05-04)
+- [x] OP_HPUpdate — hpNpcUpdateStruct (both) — `0x0303` (2026-05-13, revised from 0x652f)
+- [x] OP_MobHealth — mobHealthStruct (server) — `0xd18f` (2026-05-13, revised from 0x8d24)
+- [x] OP_ManaChange — manaDecrementStruct (server) — `0x5617` (2026-05-13)
+- [x] OP_SkillUpdate — skillIncStruct (server) — `0xfbcc` (2026-05-13)
+- [ ] OP_LevelUpdate — levelUpUpdateStruct (server)
+- [x] OP_EndUpdate — endUpdateStruct (server) — `0x16a3` (2026-05-13, revised from 0x36d1)
+- [x] OP_Stamina — staminaStruct (server) — `0x786a` (2026-05-13)
 
 ### Buffs (1)
-- [x] OP_Buff — buffStruct (both) — `0x3b54` (2026-05-04)
+- [ ] OP_Buff — buffStruct (both)
 
 ### Group (6)
-- [x] OP_GroupInvite — groupInviteStruct (both) — `0x67a4` (2026-05-05)
-- [x] OP_GroupFollow — groupFollowStruct (server) — `0x01dc` (2026-05-05)
-- [x] OP_GroupUpdate — uint8_t (both, variable) — `0xccfc` (2026-05-05)
-- [x] OP_GroupDisband — groupDisbandStruct (server) — `0x8a85` (2026-05-05)
-- [x] OP_GroupDisband2 — groupDisbandStruct (server) — `0x2c76` (2026-05-05)
-- [x] OP_GroupLeader — groupLeaderChangeStruct (server) — `0xb269` (2026-05-05)
+- [ ] OP_GroupInvite — groupInviteStruct (both)
+- [ ] OP_GroupFollow — groupFollowStruct (server)
+- [ ] OP_GroupUpdate — uint8_t (both, variable)
+- [ ] OP_GroupDisband — groupDisbandStruct (server)
+- [ ] OP_GroupDisband2 — groupDisbandStruct (server)
+- [ ] OP_GroupLeader — groupLeaderChangeStruct (server)
 
 ### Guild (5)
 - [ ] OP_GuildMOTD — guildMOTDStruct (server)
@@ -107,23 +107,23 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_GuildsInZoneList — guildsInZoneListStruct (server)
 
 ### Inventory / items (2)
-- [x] OP_ItemPacket — itemPacketStruct (server) — `0xe8bc` (2026-05-04)
-- [x] OP_MoveItem — moveItemStruct (client) — `0xdee3` (2026-05-04)
+- [ ] OP_ItemPacket — itemPacketStruct (server)
+- [ ] OP_MoveItem — moveItemStruct (client)
 
 ### Click / interact (2)
-- [x] OP_ClickObject — remDropStruct (both) — `0xab5e` (2026-05-04)
-- [x] OP_Find — uint8_t (server, variable) — `0x695f` (2026-05-05)
+- [ ] OP_ClickObject — remDropStruct (both)
+- [ ] OP_Find — uint8_t (server, variable)
 
 ### Chat / messaging (4)
-- [x] OP_SimpleMessage — simpleMessageStruct (server) — `0x098d` (2026-05-05)
-- [x] OP_FormattedMessage — formattedMessageStruct (server) — `0x0ecf` (2026-05-04)
-- [x] OP_CommonMessage — channelMessageStruct (both) — `0x498b` (2026-05-04)
-- [x] OP_SpecialMesg — specialMessageStruct (server) — `0x7162` (2026-05-04)
+- [ ] OP_SimpleMessage — simpleMessageStruct (server)
+- [x] OP_FormattedMessage — formattedMessageStruct (server) — `0x9a58` (2026-05-13, revised from 0x0ecf)
+- [ ] OP_CommonMessage — channelMessageStruct (both)
+- [x] OP_SpecialMesg — specialMessageStruct (server) — `0x3f07` (2026-05-13, revised from 0x7162)
 
 ### Alternate Advancement (3)
-- [x] OP_SendAATable — *(static ability-definition menu)* — `0xce3d` (2026-05-04)
+- [x] OP_SendAATable — *(static ability-definition menu)* — `0x3d3b` (2026-05-13, revised from 0xce3d)
 - [ ] OP_AAAction
-- [x] OP_RespondAA — *(per-spend response with full AA list)* — `0xfb0a` (2026-05-04)
+- [x] OP_RespondAA — *(per-spend response with full AA list)* — `0xc893` (2026-05-13, revised from 0xfb0a)
 
 ---
 
@@ -620,3 +620,26 @@ Header is **11 bytes** (not 12, not 13). Args section repeats `argCount` times: 
   - Misc formattedMessage IDs (e.g. `0x0909` = 2313) where the args decode perfectly but the format string isn't in the current eqstr table.
 
 **Open**: 16-byte arg preamble's middle 12 bytes are opaque; if downstream `%T` template substitutions ever look wrong, decode preamble as `<u32 argIndex> <u32 spawnIdRef?> <u32 subFormatId?> <u32 zero>` and route the middle u32s through `m_messageStrings.value(...)` like the legacy `%T` handler did.
+
+### 2026-05-13 — May 12 patch reshuffle: batch re-identification via opcode-stats
+
+- Capture: `tests/replay/test-20260513.vpk` (live Crescent Reach session post-May-12 patch; `/tmp/opcode-stats.txt`)
+- Method: all previously-confirmed opcodes appeared as "unknown" in the new stats run, confirming a full patch reshuffle. Re-identified 33 zone + 10 world opcodes by cross-referencing struct size + direction + payload samples. Rebuilt and replayed vpk: 671 spawns added (NPC names correct), zone loaded as "crescent", player ID resolved, 486 combat events, 12 kills, 18 removals — core functionality confirmed working.
+- Note: C>S side of OP_ClientUpdate grew from 42b to 38b; `sizechecktype` set to none for both directions pending struct audit.
+
+**Re-confirmed zone** (old → new):
+OP_PlayerProfile e284→aaed | OP_ZoneEntry a5bf→be93 | OP_NewZone a923→5fc3 | OP_SpawnDoor 794d→ae0a | OP_NpcMoveUpdate 917c→aaca | OP_MobUpdate 4a4f→eff9 | OP_ClientUpdate f8d1→9377 | OP_MovementHistory 9e21→a994 | OP_DeleteSpawn 6dba→a183 | OP_RemoveSpawn eb88→394a | OP_Death 1eb2→f752 | OP_Animation dd87→36c7 | OP_Action 049e→8ac8 | OP_Action2 32a9→4ad7 | OP_Consider a1e7→1ff6 | OP_TargetMouse 1994→c7ce | OP_HPUpdate 652f→0303 | OP_MobHealth 8d24→d18f | OP_EndUpdate 36d1→16a3 | OP_FormattedMessage 0ecf→9a58 | OP_SpecialMesg 7162→3f07 | OP_SendAATable ce3d→3d3b | OP_RespondAA fb0a→c893
+
+**Re-confirmed world** (old → new):
+OP_SendLoginInfo 7b6a→aca4 | OP_LogServer b537→4398 | OP_ApproveWorld b8cc→c8ca | OP_EnterWorld 9bdc→f31f | OP_ExpansionInfo 6bcf→c26e | OP_SendCharInfo 84f6→de55 | OP_ZoneServerInfo f21f→b67c | OP_SetChatServer bb67→5f8b | OP_SetChatServer2 f22b→759e | OP_SendExeChecksum 44d9→d99c
+
+**Reset to `[ ]`** (captured but not found — need targeted capture): OP_TimeOfDay, OP_GroundSpawn, OP_SendZonePoints, OP_ZoneChange, OP_SpawnAppearance, OP_Stamina, OP_ExpUpdate, OP_ManaChange, OP_SkillUpdate, OP_LevelUpdate, OP_Buff, all Group opcodes, OP_SimpleMessage, OP_CommonMessage, OP_Find, OP_ClickObject, OP_MoveItem, OP_ItemPacket; and world: OP_WorldComplete, OP_GuildList, OP_SendSpellChecksum, OP_SendBaseDataChecksum, OP_SendSkillCapsChecksum, OP_DeleteCharacter, OP_ApproveName.
+
+### 2026-05-13 addendum — 5 more from post-patch analysis
+
+From the same test-20260513.vpk, additional analysis of stat/appearance candidates:
+- **OP_SkillUpdate = 0xfbcc** — 10 fires, 12b S>C. `[skillId=5/13/31, value=75-102, unk=1]`. Skill 31=Meditate at 102 matches level-15 progression; value cycling up confirms skill-gain signature. Zero other 12b S>C opcodes with varying-skillId-shaped first u32.
+- **OP_ManaChange = 0x5617** — 30 fires, 20b S>C. `[newMana=680→516, maxMana=389, spellId=340/502/344, 0, -1]`. manaDecrementStruct: newMana decreases per cast, maxMana=389 fits level-15, spellId cycles Necro early-game spell IDs, field4=-1 sentinel constant.
+- **OP_Stamina = 0x786a** — 10 fires, 8b S>C. Two u32s both decrementing (4606/3356, 4318/3068, ...) with constant difference 1250, same rate. Paired-decrement signature matches staminaStruct{food, water} (food started higher than water).
+- **OP_SpawnAppearance = 0x9fd4** — 10 fires, 8b S>C. `[spawnId=0x3047/0x5b04/etc, param=4]`. SpawnIds in the valid session range; param=4 constant (standing/alive state). Only 8b S>C with valid-range spawnIds + constant param.
+- **OP_ExpUpdate = 0x0d56** — 4 fires, 16b S>C. `[exp=65067, 0, type=0/2, 0]` then `[81974, ...]` then `[93992, ...]`. Classic expUpdateStruct{exp, unk, type, unk}; type=0 on initial set, type=2 on incremental gains. Note: capture ends at 93992/100000 XP; level-up (OP_LevelUpdate) was not caught — ding must have occurred before daemon started.
