@@ -2800,9 +2800,25 @@ struct clientLFGStruct
 };
 
 /*
+** buffWindowSlotStruct (OP_BuffWindow)
+** Length: 12 Octets
+** Fires 10x per zone-in (slots 0-9) to initialize the short-duration buff window.
+** field2 is always 0xffffffff (empty) on zone-in; never observed with a live spell id.
+** Active buffs are communicated via OP_Buff / OP_BuffQuery separately.
+*/
+
+struct buffWindowSlotStruct
+{
+/*0000*/ uint32_t slot;     // buff window slot index (0-9)
+/*0004*/ uint32_t spellid;  // 0xffffffff = empty (wire-verified: always empty at zone-in)
+/*0008*/ uint32_t unknown;  // always 0 in observed captures
+/*000C*/
+};
+
+/*
 ** buffStruct
 ** Length: 168 Octets
-** 
+**
 */
 
 struct buffStruct

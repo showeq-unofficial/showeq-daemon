@@ -127,6 +127,7 @@ AddStruct(cOpenSpellBookStruct);
 AddStruct(tradeSpellBookSlotsStruct);
 AddStruct(serverLFGStruct);
 AddStruct(clientLFGStruct);
+AddStruct(buffWindowSlotStruct);
 AddStruct(buffStruct);
 AddStruct(GuildMemberUpdate);
 AddStruct(bazaarTraderRequest);

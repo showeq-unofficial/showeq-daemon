@@ -99,7 +99,7 @@ Checkbox legend: `[ ]` unresolved, `[x]` resolved, `[~]` superseded / obsolete o
 - [ ] OP_TargetCommand
 
 ### Buffs / inspect / chat (7)
-- [ ] OP_BuffWindow
+- [x] OP_BuffWindow — `0xbbf0` (2026-05-13)
 - [x] OP_BuffQuery — `0x306c` (2026-05-13)
 - [ ] OP_BuffFadeMsg
 - [x] OP_ClickBuffOff — `0x5855` C>S type=0x24 (subtype of OP_SpawnAppearance2) (2026-05-12)
