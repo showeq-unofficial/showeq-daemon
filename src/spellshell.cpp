@@ -326,7 +326,7 @@ void SpellShell::buff(const uint8_t* data, size_t, uint8_t dir)
       tmp.spawnid    = out.spawn_id;
       tmp.spellid    = out.spell_id;
       tmp.duration   = out.duration;
-      tmp.unknown0153 = out.level;
+      tmp.level = out.level;
       tmp.spellslot  = out.spell_slot;
       tmp.changetype = out.change_type;
       b = &tmp;

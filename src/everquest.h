@@ -2814,9 +2814,11 @@ struct buffStruct
 /*0116*/ uint32_t spellid;                       // spell id (wire-verified)
 /*0120*/ uint32_t duration;                      // remaining ticks (wire-verified)
 /*0124*/ uint32_t initialDuration;               // initial/max ticks when buff was applied (wire-verified: always >= duration, delta = elapsed ticks)
-/*0128*/ uint8_t  unknown0128[25];
-/*0153*/ uint8_t  unknown0153;                   // struct said caster level but always 0 for self-cast on Live
-/*0154*/ uint8_t  unknown0154[6];
+/*0128*/ uint8_t  unknown0128[8];
+/*0136*/ float    unknown0136;                   // always 1.0 — possible buff modifier/potency
+/*0140*/ uint8_t  unknown0140[12];
+/*0152*/ uint8_t  level;                         // caster level (wire-verified: monk=35, SK=18; was at wrong offset +153 in old struct)
+/*0153*/ uint8_t  unknown0153[7];
 /*0160*/ uint32_t spellslot;                     // buff window slot index (wire-verified)
 /*0164*/ uint32_t changetype;                    // always 1 on Live (old comment 1=fading/2=duration is stale)
 /*0168*/
