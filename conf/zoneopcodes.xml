@@ -37,7 +37,7 @@
       <comment>Receiving AA experience. Also when percent to AA changes.</comment>
       <payload dir="server" typename="altExpUpdateStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="0d56" name="OP_ExpUpdate" updated="05/13/26" updated="05/13/26">
+    <opcode id="0d56" name="OP_ExpUpdate" updated="05/13/26">
         <comment>ExpUpdateCode</comment>
         <payload dir="server" typename="expUpdateStruct" sizechecktype="match"/>
     </opcode>
@@ -74,11 +74,11 @@
         <comment>SpawnUpdateCode</comment>
         <payload dir="both" typename="SpawnUpdateStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="9fd4" name="OP_SpawnAppearance" updated="05/13/26" updated="05/13/26">
+    <opcode id="9fd4" name="OP_SpawnAppearance" updated="05/13/26">
         <comment>SpawnAppearanceCode</comment>
         <payload dir="both" typename="spawnAppearanceStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="786a" name="OP_Stamina" updated="05/13/26" updated="05/13/26">
+    <opcode id="786a" name="OP_Stamina" updated="05/13/26">
         <comment>Server updating on hunger/thirst</comment>
         <payload dir="server" typename="staminaStruct" sizechecktype="match"/>
     </opcode>
@@ -223,7 +223,7 @@
         <comment>Server replying with deny information after /deny</comment>
         <payload dir="server" typename="consentResponseStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="5617" name="OP_ManaChange" updated="05/13/26" updated="05/13/26">
+    <opcode id="5617" name="OP_ManaChange" updated="05/13/26">
         <comment>Mana change. Bards send this up with no size. Casters receive this for mana updates.</comment>
         <payload dir="server" typename="manaDecrementStruct" sizechecktype="match"/>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
@@ -240,13 +240,13 @@
         <comment>MoneyOnCorpseCode</comment>
         <payload dir="server" typename="moneyOnCorpseStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="fbcc" name="OP_SkillUpdate" updated="05/13/26" updated="05/13/26">
+    <opcode id="fbcc" name="OP_SkillUpdate" updated="05/13/26">
         <comment>Skill up code</comment>
         <payload dir="server" typename="skillIncStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_LevelUpdate" updated="05/13/26">
-        <comment>LevelUpUpdateCode</comment>
-        <payload dir="server" typename="levelUpUpdateStruct" sizechecktype="match"/>
+    <opcode id="e461" name="OP_LevelUpdate" updated="05/13/26">
+        <comment>LevelUpUpdateCode. Test: 24b (legacy 16b + 8b trailer zeros); struct layout {level, levelOld, exp, unk×3}.</comment>
+        <payload dir="server" typename="levelUpUpdateStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_DzSwitchInfo">
         <comment>Expedition compass etc</comment>

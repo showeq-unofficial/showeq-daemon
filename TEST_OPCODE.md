@@ -84,7 +84,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_MobHealth — mobHealthStruct (server) — `0xd18f` (2026-05-13, revised from 0x8d24)
 - [x] OP_ManaChange — manaDecrementStruct (server) — `0x5617` (2026-05-13)
 - [x] OP_SkillUpdate — skillIncStruct (server) — `0xfbcc` (2026-05-13)
-- [ ] OP_LevelUpdate — levelUpUpdateStruct (server)
+- [x] OP_LevelUpdate — levelUpUpdateStruct (server) — `0xe461` (2026-05-13)
 - [x] OP_EndUpdate — endUpdateStruct (server) — `0x16a3` (2026-05-13, revised from 0x36d1)
 - [x] OP_Stamina — staminaStruct (server) — `0x786a` (2026-05-13)
 
