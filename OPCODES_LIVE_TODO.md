@@ -100,6 +100,7 @@ Checkbox legend: `[ ]` unresolved, `[x]` resolved, `[~]` superseded / obsolete o
 
 ### Buffs / inspect / chat (7)
 - [ ] OP_BuffWindow
+- [x] OP_BuffQuery — `0x306c` (2026-05-13)
 - [ ] OP_BuffFadeMsg
 - [x] OP_ClickBuffOff — `0x5855` C>S type=0x24 (subtype of OP_SpawnAppearance2) (2026-05-12)
 - [x] OP_InspectRequest — `0xa63b` (2026-05-11)
@@ -885,4 +886,33 @@ Captures: `buff-clickoff.vpk` (SK: Endure Cold + IVU, cast→remove×2) and `buf
 
 - **`buffStruct` (168B) layout confirmed at wire level**: `spawnid` at +0, `spellid` at +116, `duration` at +120, `spellslot` at +160, `changetype` at +164. `changetype=1` fires for BOTH buff-applied and buff-cleared (struct comment `1=fading` is stale/wrong). Slot-cleared fires have `spellid=0, duration=0`. Spell IDs confirmed: 235=Endure Cold, 225=IVU, 352=Dead Eye(SK).
 
-- **`0x306c` (C>S, 8B)**: still unresolved; fires 1:1 with each OP_Buff application, payload `{u32 seq_or_slot, u32 self_spawn_id}`. Not ClickBuffOff (doesn't fire on removal events).
+- **`0x306c` (C>S, 8B)**: resolved as OP_BuffQuery — see 2026-05-13 entry below.
+
+### 2026-05-13 — OP_BuffQuery=0x306c (buff-zone-sync.vpk + buff-306c-test.vpk)
+
+Captures: `buff-zone-sync.vpk` (SK L18, Dead Eye zone-sync test) and `buff-306c-test.vpk` (SK L18, clean single-buff validation). Method: `--opcode-stats` + `--dump-payload` + Python struct parsing.
+
+- **OP_BuffQuery = `0x306c`** (C>S, 8 bytes). Payload: `{u32 buff_slot, u32 self_spawn_id}`. Client requests the server reconfirm the current state of buff slot N. Server responds with OP_Buff containing the spell ID, remaining duration, and spellslot for that slot. The slot field in `0x306c` always matches the `spellslot` field in the responding OP_Buff.
+
+**Key behavioural finding — "second zone" rule (confirmed across two independent captures):**
+
+| Zone-in | Condition | `0x306c` fires? |
+|---------|-----------|-----------------|
+| Zone where buff was applied | Buff just cast | no |
+| **First zone after buff applied** | Buff active | **no** |
+| **Second zone after buff applied** | Buff active | **yes, once per slot** |
+| Any zone after buff removed | No buff | no |
+
+The buff must survive **one full zone cycle** before the client requests server verification. The client does not send `0x306c` for a "fresh" buff on the first zone — only after it has persisted through one zone boundary does it treat the buff as established and worth reconfirming on the next entry.
+
+**Wire cross-validation:**
+
+| Capture | `0x306c` payload | OP_Buff response | Match |
+|---------|-----------------|-----------------|-------|
+| buff-zone-sync | `{slot=1, spawn=14947}` | IVU(225) spellslot=1 dur=267 | ✓ |
+| buff-306c-test | `{slot=0, spawn=15692}` | IVU(225) spellslot=0 dur=237 init=270 | ✓ |
+| buff-lifecycle-a | `{2,477}`,`{1,477}`,`{0,477}` | SLW/SoW/Regen slots 2/1/0 | ✓ |
+
+Duration delta in buff-306c-test: initialDuration=270, remaining=237 → 33 ticks × 6s = **198 seconds elapsed** since buff was cast, consistent with the user waiting ~3 minutes before zoning.
+
+**`0xbbf0` clarification:** fires 10 times per zone-in (slots 0-9, all 0xffffffff). It always reports all slots as empty regardless of active buffs. The client uses its own tracking (not `0xbbf0`) to decide which slots to query via `0x306c`.
