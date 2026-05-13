@@ -73,8 +73,10 @@ class SpellItem
   const QString spellName() const;
   const QString targetName() const;
   const QString casterName() const;
+  int buffSlot() const;
   void setDuration(int);
-  
+  void setBuffSlot(int slot);
+
   // set accessors
   void setSpellId(uint16_t spellid);
   void setTargetId(uint16_t target);
@@ -95,10 +97,11 @@ class SpellItem
   int m_duration;
   timeval m_castTime;
 
-  uint16_t m_spellId; 
-  uint16_t m_casterId; 
+  uint16_t m_spellId;
+  uint16_t m_casterId;
   uint16_t m_targetId;
-  
+  int m_buffSlot;
+
   struct startCastStruct m_cast; // Needed?
 };
 
@@ -131,6 +134,16 @@ inline int SpellItem::duration() const
 inline void SpellItem::setDuration(int d)
 {
   m_duration = d;
+}
+
+inline int SpellItem::buffSlot() const
+{
+  return m_buffSlot;
+}
+
+inline void SpellItem::setBuffSlot(int slot)
+{
+  m_buffSlot = slot;
 }
 
 inline const QString SpellItem::spellName() const
@@ -216,10 +229,11 @@ class SpellShell : public QObject
 
  protected:
   void deleteSpell(SpellItem *);
-  SpellItem* findSpell(uint16_t spellId, 
+  SpellItem* findSpell(uint16_t spellId,
 		       uint16_t targetId, const QString& targetName);
   SpellItem* findSpell(int spell_id);
   SpellItem* FindSpell(int spell_id, int target_id);
+  SpellItem* findSpellBySlot(int slot);
   
  private:
   Player* m_player;

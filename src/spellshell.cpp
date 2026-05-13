@@ -43,7 +43,8 @@ SpellItem::SpellItem()
     m_castTime{0, 0},
     m_spellId(0),
     m_casterId(0),
-    m_targetId(0)
+    m_targetId(0),
+    m_buffSlot(-1)
 {
     // m_cast (startCastStruct) is a wire struct populated by update();
     // not read until then. m_spellName/m_casterName/m_targetName default
@@ -164,10 +165,10 @@ SpellItem* SpellShell::findSpell(uint16_t spellId,
 
 SpellItem* SpellShell::findSpell(int spell_id)
 {
-  for(QList<SpellItem*>::Iterator it = m_spellList.begin(); 
-      it != m_spellList.end(); 
+  for(QList<SpellItem*>::Iterator it = m_spellList.begin();
+      it != m_spellList.end();
       it++)
-  {      
+  {
     SpellItem *si = *it;
 
     if (si->spellId() == spell_id)
@@ -175,6 +176,14 @@ SpellItem* SpellShell::findSpell(int spell_id)
   }
 
   return NULL;
+}
+
+SpellItem* SpellShell::findSpellBySlot(int slot)
+{
+  for (SpellItem* si : m_spellList)
+    if (si->buffSlot() == slot)
+      return si;
+  return nullptr;
 }
 
 void SpellShell::clear()
@@ -335,10 +344,20 @@ void SpellShell::buff(const uint8_t* data, size_t, uint8_t dir)
 #endif
   if (!b) b = (const buffStruct*)data;
 
-  // spellid=0xffffffff is a legacy no-op marker; spellid=0 is a slot-cleared
-  // notification with no associated spell — neither is trackable.
-  if (b->spellid == 0xffffffff || b->spellid == 0)
+  // spellid=0xffffffff is a legacy no-op marker; ignore it.
+  if (b->spellid == 0xffffffff)
     return;
+
+  // spellid=0 with duration=0 means the server cleared a buff slot.
+  // Find the spell occupying that slot by slot index and remove it.
+  if (b->spellid == 0) {
+    if (b->duration == 0) {
+      SpellItem* slot_item = findSpellBySlot(b->spellslot);
+      if (slot_item)
+        deleteSpell(slot_item);
+    }
+    return;
+  }
 
 #ifdef DIAG_SPELLSHELL
   seqDebug("Changing buff - id=%d from spawn=%d dur=%d", b->spellid, b->spawnid, b->duration);
@@ -373,6 +392,7 @@ void SpellShell::buff(const uint8_t* data, size_t, uint8_t dir)
   int duration = b->duration * 6;
   if (item) {
     item->setDuration(duration);
+    item->setBuffSlot(b->spellslot);
     emit changeSpell(item);
   } else {
     // Buff not previously tracked (e.g. zone-in load from OP_Buff before
@@ -380,6 +400,7 @@ void SpellShell::buff(const uint8_t* data, size_t, uint8_t dir)
     item = new SpellItem();
     item->update(b->spellid, spell, duration,
                  0, QString(), b->spawnid, targetName);
+    item->setBuffSlot(b->spellslot);
     m_spellList.append(item);
     if (!m_timer->isActive())
       m_timer->start(1000 *
@@ -619,8 +640,8 @@ void SpellShell::timeout()
       seqInfo("SpellItem '%s' finished.", (*it)->spellName().toLatin1().data());
       if (m_lastPlayerSpell == spell)
           m_lastPlayerSpell = 0;
-      emit delSpell(spell);
       it = m_spellList.erase(it);
+      emit delSpell(spell);
       delete spell;
     }
    }
