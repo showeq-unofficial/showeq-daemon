@@ -514,7 +514,7 @@ void RustDecodeTest::decode_buff_round_trip()
 {
     buffStruct s{};
     s.spawnid = 123; s.spellid = 5024; s.duration = 3600;
-    s.level = 60; s.spellslot = 3; s.changetype = 2;
+    s.unknown0153 = 60; s.spellslot = 3; s.changetype = 2;
     QByteArray buf(sizeof(s), '\0');
     std::memcpy(buf.data(), &s, sizeof(s));
     const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());

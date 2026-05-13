@@ -2807,17 +2807,19 @@ struct clientLFGStruct
 
 struct buffStruct
 {
-/*0000*/ uint32_t spawnid;                       //spawn id
-/*0004*/ uint8_t  unknown0004[112]; 
-/*0116*/ uint32_t spellid;                       // spellid
-/*0120*/ uint32_t duration;                      // Time remaining in ticks
-/*0124*/ int32_t unknown0024;                    // Buff length in ticks
-/*0128*/ uint8_t  unknown0080[25];
-/*0153*/ int8_t   level;                         // Level of person who cast buff
-/*0154*/ uint8_t  unknown0106[6];
-/*0160*/ uint32_t spellslot;                     // buff slot in buff window
-/*0164*/ uint32_t changetype;                    // 1=buff fading,2=buff duration
-/*0168*/ 
+/*0000*/ uint32_t spawnid;                       // spawn id (wire-verified)
+/*0004*/ uint8_t  unknown0004[4];                // +4..+7: u32 (513/568/559 observed, meaning unknown)
+/*0008*/ uint8_t  unknown0008[4];                // always 0xffffffff — likely caster spawn id = self
+/*0012*/ uint8_t  unknown0012[104];              // includes variable content (possible caster name at +12)
+/*0116*/ uint32_t spellid;                       // spell id (wire-verified)
+/*0120*/ uint32_t duration;                      // remaining ticks (wire-verified)
+/*0124*/ uint32_t initialDuration;               // initial/max ticks when buff was applied (wire-verified: always >= duration, delta = elapsed ticks)
+/*0128*/ uint8_t  unknown0128[25];
+/*0153*/ uint8_t  unknown0153;                   // struct said caster level but always 0 for self-cast on Live
+/*0154*/ uint8_t  unknown0154[6];
+/*0160*/ uint32_t spellslot;                     // buff window slot index (wire-verified)
+/*0164*/ uint32_t changetype;                    // always 1 on Live (old comment 1=fading/2=duration is stale)
+/*0168*/
 };
 
 /*
