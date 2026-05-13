@@ -524,7 +524,7 @@ void RustDecodeTest::decode_buff_round_trip()
     QCOMPARE(out.spawn_id, 123u);
     QCOMPARE(out.spell_id, 5024u);
     QCOMPARE(out.duration, 3600u);
-    QCOMPARE(out.level, int8_t(60));
+    QCOMPARE(out.level, uint8_t(60));
     QCOMPARE(out.spell_slot, 3u);
     QCOMPARE(out.change_type, 2u);
 }
