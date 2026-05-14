@@ -518,6 +518,13 @@ void SessionAdapter::sendSnapshot()
               });
 
     for (const Item* item : all) {
+        // Skip spawns still waiting for their first real position — the
+        // client would render them at the placeholder x and snap later.
+        // SpawnShell will emit addItem(...) on first MobUpdate (or via its
+        // timeout fallback), which the client then handles normally.
+        if (const auto* sp = dynamic_cast<const Spawn*>(item)) {
+            if (sp->pendingPosition()) continue;
+        }
         seq::encode::fillSpawn(snap->add_spawns(), *item,
                                m_categoryMgr, m_filterMgr);
     }
