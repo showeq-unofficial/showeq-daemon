@@ -43,6 +43,7 @@
 #include <QFile>
 #include <QDataStream>
 #include <QTextStream>
+#include <QDateTime>
 
 #ifdef __FreeBSD__
 #include <sys/types.h>
@@ -170,11 +171,54 @@ SpawnShell::SpawnShell(FilterMgr& filterMgr,
      m_timer->setSingleShot(true);
      m_timer->start(showeq_params->saveSpawnsFrequency);
    }
+
+   // Pending-position flush timer — sweep deferred spawns every 250ms.
+   // Anything older than 1500ms gets emitted with whatever the spawnStruct
+   // gave us (covers static NPCs that never receive a MobUpdate).
+   m_pendingFlushTimer = new QTimer(this);
+   m_pendingFlushTimer->setInterval(250);
+   connect(m_pendingFlushTimer, &QTimer::timeout,
+           this, &SpawnShell::flushPendingSpawns);
+   m_pendingFlushTimer->start();
 }
 
 SpawnShell::~SpawnShell()
 {
     clear();
+}
+
+void SpawnShell::flushPendingSpawns()
+{
+    if (m_pendingSince.isEmpty()) return;
+
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    constexpr qint64 kTimeoutMs = 1500;
+    int flushed = 0;
+
+    auto it = m_pendingSince.begin();
+    while (it != m_pendingSince.end())
+    {
+        if (now - it.value() < kTimeoutMs)
+        {
+            ++it;
+            continue;
+        }
+        const uint16_t id = it.key();
+        Item* item = m_spawns.value(id, nullptr);
+        if (item)
+        {
+            Spawn* spawn = static_cast<Spawn*>(item);
+            spawn->setPendingPosition(false);
+            emit addItem(item);
+            ++flushed;
+        }
+        it = m_pendingSince.erase(it);
+    }
+
+    if (flushed > 0)
+    {
+        emit numSpawns(m_spawns.count());
+    }
 }
 
 void SpawnShell::clear(void)
@@ -360,7 +404,14 @@ void SpawnShell::deleteItem(spawnItemType type, int id)
 
    if (item != NULL)
    {
-     emit delItem(item);
+     // If the spawn was still waiting for its first real position, drop
+     // it silently — never emit delItem for something the client never
+     // saw via addItem.
+     const bool wasPending = (type == tSpawn)
+         && static_cast<Spawn*>(item)->pendingPosition();
+     if (type == tSpawn) m_pendingSince.remove(id);
+
+     if (!wasPending) emit delItem(item);
      theMap.remove(id);
 
      // send notifcation of new spawn count
@@ -1053,10 +1104,14 @@ void SpawnShell::newSpawn(const spawnStruct& s)
 
      spawn->setGuildTag(m_guildMgr->guildIdToName(spawn->guildID(), spawn->guildServerID()));
 
-     emit addItem(item);
-
-     // send notification of new spawn count
-     emit numSpawns(m_spawns.count());
+     // Defer addItem: the post-May-12 spawnStruct gives a placeholder x for
+     // many NPC types (wandering mob cluster around -2560, mercenaries at
+     // x=0). The real position arrives via OP_MobUpdate moments later, which
+     // promotes pending → addItem in updateSpawn(). Static NPCs that never
+     // get a movement update are flushed by flushPendingSpawns() after a
+     // short timeout, with whatever position the spawnStruct provided.
+     spawn->setPendingPosition(true);
+     m_pendingSince[s.spawnId] = QDateTime::currentMSecsSinceEpoch();
    }
 }
 
@@ -1306,7 +1361,20 @@ void SpawnShell::updateSpawn(uint16_t id,
 
         spawn->updateLast();
         item->updateLastChanged();
-        emit changeItem(item, tSpawnChangedPosition);
+        // If this spawn was deferred (placeholder spawnStruct position), this
+        // is the first real position — promote it to addItem instead of an
+        // update. Otherwise behave as before.
+        if (spawn->pendingPosition())
+        {
+            spawn->setPendingPosition(false);
+            m_pendingSince.remove(id);
+            emit addItem(item);
+            emit numSpawns(m_spawns.count());
+        }
+        else
+        {
+            emit changeItem(item, tSpawnChangedPosition);
+        }
     }
     else if (showeq_params->createUnknownSpawns)
     {

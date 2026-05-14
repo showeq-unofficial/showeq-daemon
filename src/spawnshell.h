@@ -195,6 +195,12 @@ public slots:
 
    ItemMap& getMap(spawnItemType type);
 
+ protected slots:
+   // Flush spawns whose initial position was deferred but no MobUpdate
+   // arrived within the timeout window — emit addItem with whatever
+   // position the spawnStruct provided so static NPCs still show up.
+   void flushPendingSpawns();
+
  private:
    ZoneMgr* m_zoneMgr;
    Player* m_player;
@@ -229,6 +235,13 @@ public slots:
 
    // timer for saving spawns
    QTimer* m_timer;
+
+   // Defer-and-flush plumbing for spawnStruct positions that are placeholders
+   // until OP_MobUpdate fills the real position. Key = spawn id; value = the
+   // monotonic timestamp (ms) when the spawn was created. flushPendingSpawns()
+   // sweeps entries older than the timeout and emits addItem(...) for them.
+   QTimer* m_pendingFlushTimer = nullptr;
+   QHash<uint16_t, qint64> m_pendingSince;
 };
 
 inline

@@ -258,6 +258,14 @@ class Spawn : public Item
 			   EQPoint& newPos) const;
   bool isNotUpdated() const { return m_notUpdated; }
 
+  // Post-May-12 spawnStruct decode gives a placeholder x for many NPC types
+  // (wandering mobs cluster at one x, mercenaries at x=0); their real position
+  // arrives shortly after via OP_MobUpdate / OP_NpcMoveUpdate. SpawnShell
+  // defers emit addItem(...) on these until either a real position update
+  // arrives (clears the flag) or a fallback timer fires.
+  bool pendingPosition() const { return m_pendingPosition; }
+  void setPendingPosition(bool v) { m_pendingPosition = v; }
+
   // spawn related methods that sub-classes may override
   virtual QString lastName() const;
   virtual int level() const;
@@ -392,6 +400,7 @@ class Spawn : public Item
   bool m_isAura;
   bool m_considered;
   bool m_notUpdated;
+  bool m_pendingPosition = false;
 };
 
 
