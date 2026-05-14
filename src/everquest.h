@@ -1137,15 +1137,15 @@ struct spawnStruct
          // produced a constant x=-19456 for every NPC.
          //
          //   w0:  z         (signed 19b at bits 0-18, ×8 scale)
-         //   w1:  heading + animation (legacy 12+10 bit-pack still works —
-         //        proto only reads the low 8 bits of heading and downcasts
-         //        animation to uint8_t).
-         //   w2:  unknown, varies by spawn class (0x4ef00000 in CR-market
-         //        merchants, 0x00000000 on training dummies / PCs,
-         //        0xdd400000 on Kanazar-class NPCs). Possibly a spawn-point
-         //        reference or pitch+state field — not the live position.
+         //   w1:  heading_8b @0-7, anim_4b @8-11, x @12-30 (signed 19b ×8)
+         //        Verified 2026-05-13 by triangulating 3 NPCs against their
+         //        /loc anchors: Daer`Lagar wire x=-1259 vs /loc -1256.49,
+         //        Initiate Dakkan wire x=-1360 vs /loc -1360.03, Researcher
+         //        Melka wire x=-1423 vs /loc -1423.13.
+         //   w2:  unknown — varies by spawn class but not by position; likely
+         //        a spawn-point reference or pitch/state field.
          //   w3:  y         (signed 19b at bits 0-18, ×8 scale)
-         //   w4:  x         (signed int16 at bits 16-31, ×8 scale)
+         //   w4:  unknown — varies by spawn class but not by position.
          //   w5:  unused / delta placeholders
          union
          {
@@ -1156,9 +1156,10 @@ struct spawnStruct
               unsigned padding00:13;
 
               // word 1
-              unsigned heading:12;
-              signed   animation:10;
-              unsigned padding01:10;
+              unsigned heading:8;      // bits 0-7, raw 8-bit (0..255 → 0..360°)
+              unsigned animation:4;    // bits 8-11
+              signed   x:19;           // bits 12-30, ×8 wire scale
+              unsigned padding01:1;    // bit 31, observed zero
 
               // word 2 — see comment above, not a coordinate
               unsigned padding02:32;
@@ -1167,9 +1168,8 @@ struct spawnStruct
               signed   y:19;
               unsigned padding03:13;
 
-              // word 4
-              unsigned padding04:16;
-              signed   x:16;
+              // word 4 — see comment above, not a coordinate
+              unsigned padding04:32;
 
               // word 5 — placeholders to keep call sites compiling; values not
               // load-bearing on Test (deltas come from OP_NpcMoveUpdate).
