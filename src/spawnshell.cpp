@@ -1074,13 +1074,9 @@ void SpawnShell::playerUpdate2(const uint8_t* data, size_t len, uint8_t dir)
   int16_t py = int16_t(pupdate->y);
   int16_t px = int16_t(pupdate->x);
   int16_t pz = int16_t(pupdate->z);
-  int16_t pdeltaX = int16_t(pupdate->deltaX);
-  int16_t pdeltaY = int16_t(pupdate->deltaY);
-  int16_t pdeltaZ = int16_t(pupdate->deltaZ);
-
-
-  updateSpawn(pupdate->spawnId, px, py, pz, pdeltaX, pdeltaY, pdeltaZ,
-          pupdate->heading, pupdate->deltaHeading, pupdate->animation);
+  // Post-May-12 patch: deltaX/Y/Z, heading, deltaHeading, animation no longer
+  // in the C>S 38b layout. Zero them until they're re-located in the wire.
+  updateSpawn(pupdate->spawnId, px, py, pz, 0, 0, 0, 0, 0, 0);
 }
 
 void SpawnShell::playerUpdate(const uint8_t* data, size_t len, uint8_t dir)

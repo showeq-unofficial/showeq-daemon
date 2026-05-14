@@ -2598,41 +2598,36 @@ struct playerSpawnPosStruct
 
 /*
 ** Self Position Update
-** Length: 42 Octets
+** Length: 38 Octets (was 42 pre-May-12-patch)
 ** OpCode: PlayerPosCode
 */
-// Test-client layout (audited 2026-05-04 against tests/replay/test-combat.vpk).
-// Y/X/Z floats anchored against the user's in-game /loc reading:
-//   /loc=(y=-146, x=2, z=17.16) -> fire 1 wire: y@6=-146.0, x@26=2.0, z@22=17.0.
-// Floats are EQ runtime convention (positive y = north, positive x = west);
-// the daemon flips X+Y to screen convention downstream.
+// Test-client layout (re-audited 2026-05-13 against /loc-correlated capture).
+// Three /loc readings cross-checked: position bytes match within 0.01 game units.
+// Z@10, X@18, Y@34 (all IEEE754 floats). Heading bitfield from the old 42b layout
+// is gone — heading is not in the C>S packet on the post-May-12 wire.
 //
-// The "dri" ASCII fragment at offset 19-21 is Test-specific and constant
-// across all 3212 captured C>S fires; treated as opaque marker bytes.
+// Bytes 4-9, 26-33 carry session state / counters that the daemon doesn't decode.
+// Small floats at @14 and @22 vary slightly per-tick (likely deltas / pitch) but
+// don't track player velocity cleanly enough to use as deltaX/deltaY/deltaZ.
 struct playerSelfPosStruct
 {
-/*0000*/ uint16_t timestamp;                     // increments per-fire (wall-clock-ish)
+/*0000*/ uint16_t timestamp;                     // increments per-fire (sequence counter)
 /*0002*/ uint16_t spawnId;                       // Player's spawn id
-/*0004*/ uint16_t unknown0004;                   // observed constant 0 on Test
-/*0006*/ float    y;                             // y coord (EQ runtime)
-/*0010*/
-	 signed   deltaHeading:10;               // low 10 bits — observed near-constant per
-	                                         // session (-12 / 51 across captures); not a
-	                                         // real per-tick deltaHeading. Kept named for
-	                                         // call-site compatibility.
-	 unsigned :1;                            // 1-bit gap before heading
-	 unsigned heading:12;                    // facing direction (bits 11-22, 12-bit scale)
-	 unsigned padding00:9;                   // bits 23-31, observed ~112
-/*0014*/ float    deltaX;                        // change in x (0 when stationary)
-/*0018*/ uint8_t  animation;                     // animation id (0=idle, ~27 walking)
-/*0019*/ uint8_t  test_marker[3];                // constant "dri" — Test magic
-/*0022*/ float    z;                             // z coord
-/*0026*/ float    x;                             // x coord (EQ runtime)
-/*0030*/ float    deltaY;                        // change in y (0 when stationary)
-/*0034*/ int16_t  deltaZ;                        // change in z (small int)
-/*0036*/ uint16_t test_sentinel;                 // constant 0x7ff7 — Test marker
-/*0038*/ uint32_t trailing;                      // observed zero
-/*0042*/
+/*0004*/ uint16_t unknown0004;                   // observed zero
+/*0006*/ uint16_t unknown0006;                   // session-stable
+/*0008*/ uint16_t unknown0008;                   // session-stable
+/*0010*/ float    z;                             // z coord (height, EQ runtime float)
+/*0014*/ float    unknown0014;                   // small float, possibly pitch/delta
+/*0018*/ float    x;                             // x coord (E/W, EQ runtime float)
+/*0022*/ float    unknown0022;                   // small float, possibly delta
+/*0026*/ uint32_t unknown0026;                   // observed zero
+/*0030*/ uint16_t heading;                       // /2048 scale, 0=East, CCW; convert
+                                                 //   heading_deg = (90 - raw*360/2048) % 360
+                                                 //   verified against /loc-anchored trajectory
+                                                 //   capture: 3.4° mean error over 247 moving frames
+/*0032*/ uint16_t state_flags;                   // observed 0x704f / 0x7040 — run/walk-mode flag
+/*0034*/ float    y;                             // y coord (N/S, EQ runtime float)
+/*0038*/
 };
 
 /*

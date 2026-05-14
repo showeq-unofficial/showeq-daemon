@@ -1027,9 +1027,12 @@ void Player::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
   int16_t py = int16_t(pupdate->y);
   int16_t px = int16_t(pupdate->x);
   int16_t pz = int16_t(pupdate->z);
-  int16_t pdeltaX = int16_t(pupdate->deltaX);
-  int16_t pdeltaY = int16_t(pupdate->deltaY);
-  int16_t pdeltaZ = int16_t(pupdate->deltaZ);
+  // deltaX/deltaY/deltaZ are no longer in the post-May-12 C>S wire layout
+  // (struct shrank 42b→38b; old delta offsets carry zeros / state markers).
+  // Zero them out so velocity readout stays clean rather than tracking junk.
+  int16_t pdeltaX = 0;
+  int16_t pdeltaY = 0;
+  int16_t pdeltaZ = 0;
 
 #if 0
   // Dump position updates for debugging client update changes
@@ -1088,14 +1091,18 @@ struct pos
 
   setPos(px, py, pz, showeq_params->walkpathrecord, showeq_params->walkpathlength);
   setDeltas(pdeltaX, pdeltaY, pdeltaZ);
-  setHeading(pupdate->heading, pupdate->deltaHeading);
+  // Heading is u16 at offset 30 on the post-May-12 wire; raw counts CCW from
+  // East with 2048 steps per full rotation. EQ heading is CW from North, so:
+  //   heading_deg = (90 - raw * 360 / 2048) mod 360
+  // setHeading() wants the legacy 12-bit-in-uint16 form (0..4095 = 0..360°
+  // CW from North, then >>11 = degrees * 8). Rescale accordingly.
+  const int rawHeading = pupdate->heading;
+  int headingDeg = ((90 - rawHeading * 360 / 2048) % 360 + 360) % 360;
+  setHeading(static_cast<uint16_t>((headingDeg * 4096) / 360), 0);
   m_validPos = true;
   updateLast();
 
-  // Test: heading is a 12-bit field (0-4095 = full turn), so divide by 4096.
-  // Legacy clients stored only 11 effective bits in the 12-bit slot; Test
-  // uses the full range, so >>11 doubled the displayed angle.
-  m_headingDegrees = 360 - ((pupdate->heading * 360) >> 12);
+  m_headingDegrees = headingDeg;
   emit headingChanged(m_headingDegrees);
 
   emit posChanged(x(), y(), z(),
@@ -1104,9 +1111,9 @@ struct pos
   updateLastChanged();
   emit changeItem(this, tSpawnChangedPosition);
 
-  emit newSpeed(hypot( hypot( (pupdate->deltaX*80),
-					 (pupdate->deltaY*80)), 
-                              (pupdate->deltaZ*80))/119.46664);
+  emit newSpeed(hypot( hypot( (pdeltaX*80),
+					 (pdeltaY*80)),
+                              (pdeltaZ*80))/119.46664);
 
   static uint8_t count = 0;
 
