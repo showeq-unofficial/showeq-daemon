@@ -1071,6 +1071,8 @@ void SpawnShell::playerUpdate2(const uint8_t* data, size_t len, uint8_t dir)
   //player, etc.  So in that case, we'll handle it.
   const playerSelfPosStruct *pupdate = (const playerSelfPosStruct *)data;
 
+  // The struct's `x` (@34) and `y` (@18) fields are already labelled to match
+  // ShowEQ's legacy internal convention (see player.cpp comment).
   int16_t py = int16_t(pupdate->y);
   int16_t px = int16_t(pupdate->x);
   int16_t pz = int16_t(pupdate->z);

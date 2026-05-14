@@ -1024,6 +1024,10 @@ void Player::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
       return;
   }
 
+  // Post-May-12 wire uses /loc-display convention at @18/@34 (axes swapped
+  // and sign-flipped vs grid). The struct already remaps them — @18 is
+  // labelled `y` and @34 is labelled `x` — so this code stays in legacy
+  // form and fillPos's downstream negate yields the user's grid X/Y.
   int16_t py = int16_t(pupdate->y);
   int16_t px = int16_t(pupdate->x);
   int16_t pz = int16_t(pupdate->z);

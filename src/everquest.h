@@ -2616,9 +2616,11 @@ struct playerSelfPosStruct
 /*0004*/ uint16_t unknown0004;                   // observed zero
 /*0006*/ uint16_t unknown0006;                   // session-stable
 /*0008*/ uint16_t unknown0008;                   // session-stable
-/*0010*/ float    z;                             // z coord (height, EQ runtime float)
+/*0010*/ float    z;                             // z coord (height; matches /loc Z)
 /*0014*/ float    unknown0014;                   // small float, possibly pitch/delta
-/*0018*/ float    x;                             // x coord (E/W, EQ runtime float)
+/*0018*/ float    y;                             // /loc-X on the wire (= -grid_y); fed to
+                                                 //   player.y_stored so fillPos's negate
+                                                 //   yields the grid Y for display
 /*0022*/ float    unknown0022;                   // small float, possibly delta
 /*0026*/ uint32_t unknown0026;                   // observed zero
 /*0030*/ uint16_t heading;                       // /2048 scale, 0=East, CCW; convert
@@ -2626,7 +2628,9 @@ struct playerSelfPosStruct
                                                  //   verified against /loc-anchored trajectory
                                                  //   capture: 3.4° mean error over 247 moving frames
 /*0032*/ uint16_t state_flags;                   // observed 0x704f / 0x7040 — run/walk-mode flag
-/*0034*/ float    y;                             // y coord (N/S, EQ runtime float)
+/*0034*/ float    x;                             // /loc-Y on the wire (= -grid_x); fed to
+                                                 //   player.x_stored so fillPos's negate
+                                                 //   yields the grid X for display
 /*0038*/
 };
 
