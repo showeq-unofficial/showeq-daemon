@@ -1137,14 +1137,16 @@ struct spawnStruct
          // produced a constant x=-19456 for every NPC.
          //
          //   w0:  z         (signed 19b at bits 0-18, ×8 scale)
-         //   w1:  heading_8b @0-7, anim_4b @8-11, x @12-30 (signed 19b ×8)
-         //        Verified 2026-05-13 by triangulating 3 NPCs against their
-         //        /loc anchors: Daer`Lagar wire x=-1259 vs /loc -1256.49,
-         //        Initiate Dakkan wire x=-1360 vs /loc -1360.03, Researcher
-         //        Melka wire x=-1423 vs /loc -1423.13.
-         //   w2:  unknown — varies by spawn class but not by position; likely
-         //        a spawn-point reference or pitch/state field.
-         //   w3:  y         (signed 19b at bits 0-18, ×8 scale)
+         //   w1:  heading_8b @0-7, anim_4b @8-11, /loc-x @12-30 (signed 19b ×8)
+         //        Triangulated 2026-05-13 via Daer`Lagar / Initiate Dakkan /
+         //        Researcher Melka — wire matches /loc readings within 3
+         //        units. The wire's /loc-x maps to ShowEQ's grid_y (axes are
+         //        swapped between /loc and grid conventions, same as the
+         //        player struct), so this field feeds spawn.y_stored. Label
+         //        as `y` so the existing setPos(s->x,s->y,s->z) plumbing
+         //        plus fillPos's negate yields the right grid coordinate.
+         //   w2:  unknown — varies by spawn class but not by position.
+         //   w3:  /loc-y @0-18 (signed 19b ×8) → feeds spawn.x_stored
          //   w4:  unknown — varies by spawn class but not by position.
          //   w5:  unused / delta placeholders
          union
@@ -1155,17 +1157,18 @@ struct spawnStruct
               signed   z:19;
               unsigned padding00:13;
 
-              // word 1
+              // word 1 — /loc-x lives here; fed to spawn.y so the downstream
+              // fillPos negate yields the user's grid_y. Labeled `y`.
               unsigned heading:8;      // bits 0-7, raw 8-bit (0..255 → 0..360°)
               unsigned animation:4;    // bits 8-11
-              signed   x:19;           // bits 12-30, ×8 wire scale
+              signed   y:19;           // bits 12-30, ×8 wire scale (/loc-x semantics)
               unsigned padding01:1;    // bit 31, observed zero
 
               // word 2 — see comment above, not a coordinate
               unsigned padding02:32;
 
-              // word 3
-              signed   y:19;
+              // word 3 — /loc-y at bits 0-18; fed to spawn.x. Labeled `x`.
+              signed   x:19;
               unsigned padding03:13;
 
               // word 4 — see comment above, not a coordinate
