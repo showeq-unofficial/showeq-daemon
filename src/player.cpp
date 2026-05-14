@@ -1096,12 +1096,15 @@ struct pos
   setPos(px, py, pz, showeq_params->walkpathrecord, showeq_params->walkpathlength);
   setDeltas(pdeltaX, pdeltaY, pdeltaZ);
   // Heading is u16 at offset 30 on the post-May-12 wire; raw counts CCW from
-  // East with 2048 steps per full rotation. EQ heading is CW from North, so:
-  //   heading_deg = (90 - raw * 360 / 2048) mod 360
+  // North with 2048 steps per full rotation. EQ heading is CW from North, so:
+  //   heading_deg = (-raw * 360 / 2048) mod 360
+  // (The earlier +90° offset matched motion-direction correlation against
+  // /loc-y axis, but the in-game compass is 90° CW relative to that — drop
+  // the +90° so North on the compass renders as North on the map.)
   // setHeading() wants the legacy 12-bit-in-uint16 form (0..4095 = 0..360°
   // CW from North, then >>11 = degrees * 8). Rescale accordingly.
   const int rawHeading = pupdate->heading;
-  int headingDeg = ((90 - rawHeading * 360 / 2048) % 360 + 360) % 360;
+  int headingDeg = ((-rawHeading * 360 / 2048) % 360 + 360) % 360;
   setHeading(static_cast<uint16_t>((headingDeg * 4096) / 360), 0);
   m_validPos = true;
   updateLast();
