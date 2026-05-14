@@ -1130,30 +1130,37 @@ struct spawnStruct
          // come back zero / placeholder; movement deltas arrive via
          // OP_NpcMoveUpdate, and heading via OP_MobUpdate, so the spawn-struct
          // values for those fields aren't load-bearing.
+         // Test post-May-12-2026 spawnStruct posData layout (re-audited against
+         // a CR-market merchant cluster — z/y at word[0]/word[3] low 19 bits,
+         // x at word[2] top 16 bits as int16). All ×8 wire scale (>>3 to get
+         // game units). The old layout (z@w2, y@w3-hi, x@w4-hi) read garbage
+         // and produced a constant x=-19456 for every NPC.
          union
          {
            struct
            {
-              // word 0
-              unsigned pitch:12;
-              unsigned padding00:20;
+              // word 0 — z at bits 0-18 (×8 wire scale); was at word 2
+              signed   z:19;
+              unsigned padding00:13;
 
-              // word 1
+              // word 1 — heading at low 8 bits (Test wire), animation at bits
+              // 12-21 (read as signed 10b then truncated to uint8_t downstream
+              // — gives 0..255 anim codes correctly).
               unsigned heading:12;
               signed   animation:10;
               unsigned padding01:10;
 
-              // word 2
-              signed   z:19;                              // bits 0-18 (×8 wire scale)
-              unsigned padding02:13;
+              // word 2 — x at bits 16-31 (signed int16, ×8 wire scale)
+              unsigned padding02:16;
+              signed   x:16;
 
-              // word 3
+              // word 3 — y at bits 0-18 (×8 wire scale); moved from bits 13-31
+              signed   y:19;
               unsigned padding03:13;
-              signed   y:19;                              // bits 13-31 (×8 wire scale)
 
-              // word 4
-              unsigned padding04:13;
-              signed   x:19;                              // bits 13-31 (×8 wire scale)
+              // word 4 — observed constant per-cluster (0x4c000000 in CR market,
+              // 0xd8000000 for non-market NPCs). Possibly a state/flag field.
+              unsigned padding04:32;
 
               // word 5 — placeholders to keep call sites compiling; values not
               // load-bearing on Test (deltas come from OP_NpcMoveUpdate).
@@ -2623,10 +2630,11 @@ struct playerSelfPosStruct
                                                  //   yields the grid Y for display
 /*0022*/ float    unknown0022;                   // small float, possibly delta
 /*0026*/ uint32_t unknown0026;                   // observed zero
-/*0030*/ uint16_t heading;                       // /2048 scale, 0=East, CCW; convert
-                                                 //   heading_deg = (90 - raw*360/2048) % 360
-                                                 //   verified against /loc-anchored trajectory
-                                                 //   capture: 3.4° mean error over 247 moving frames
+/*0030*/ uint16_t heading;                       // /2048 scale; convert to in-game compass:
+                                                 //   heading_deg = (-raw * 360 / 2048) % 360
+                                                 //   (raw counts CCW from North; in-game
+                                                 //   compass is CW from North.)
+                                                 //   Verified visually facing N → ShowEQ N.
 /*0032*/ uint16_t state_flags;                   // observed 0x704f / 0x7040 — run/walk-mode flag
 /*0034*/ float    x;                             // /loc-Y on the wire (= -grid_x); fed to
                                                  //   player.x_stored so fillPos's negate
