@@ -92,12 +92,12 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_Buff — buffStruct (both)
 
 ### Group (6)
-- [ ] OP_GroupInvite — groupInviteStruct (both)
-- [ ] OP_GroupFollow — groupFollowStruct (server)
-- [ ] OP_GroupUpdate — uint8_t (both, variable)
-- [ ] OP_GroupDisband — groupDisbandStruct (server)
-- [ ] OP_GroupDisband2 — groupDisbandStruct (server)
-- [ ] OP_GroupLeader — groupLeaderChangeStruct (server)
+- [x] OP_GroupInvite — groupInviteStruct (both) — `0xbdab` (2026-05-14, revised from 0x67a4)
+- [x] OP_GroupFollow — groupFollowStruct (server) — `0xeeb4` (2026-05-14, revised from 0x01dc)
+- [x] OP_GroupUpdate — uint8_t (both, variable) — `0x8fa1` (2026-05-14, revised from 0xccfc)
+- [x] OP_GroupDisband — groupDisbandStruct (server) — `0x27fa` (2026-05-14, revised from 0x8a85; dir promoted to "both")
+- [x] OP_GroupDisband2 — groupDisbandStruct (server) — `0xc2d8` (2026-05-14, revised from 0x2c76)
+- [x] OP_GroupLeader — groupLeaderChangeStruct (server) — `0x04c7` (2026-05-14, revised from 0xb269)
 
 ### Guild (5)
 - [ ] OP_GuildMOTD — guildMOTDStruct (server)
@@ -643,3 +643,65 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
 - **OP_Stamina = 0x786a** — 10 fires, 8b S>C. Two u32s both decrementing (4606/3356, 4318/3068, ...) with constant difference 1250, same rate. Paired-decrement signature matches staminaStruct{food, water} (food started higher than water).
 - **OP_SpawnAppearance = 0x9fd4** — 10 fires, 8b S>C. `[spawnId=0x3047/0x5b04/etc, param=4]`. SpawnIds in the valid session range; param=4 constant (standing/alive state). Only 8b S>C with valid-range spawnIds + constant param.
 - **OP_ExpUpdate = 0x0d56** — 4 fires, 16b S>C. `[exp=65067, 0, type=0/2, 0]` then `[81974, ...]` then `[93992, ...]`. Classic expUpdateStruct{exp, unk, type, unk}; type=0 on initial set, type=2 on incremental gains. Note: capture ends at 93992/100000 XP; level-up (OP_LevelUpdate) was not caught — ding must have occurred before daemon started.
+
+### 2026-05-14 — Group opcode candidates from mercenary auto-form (PENDING player-invite confirmation)
+
+- Capture: `/tmp/test-20260513.vpk` (Crescent Reach session; mercenary hired, server auto-formed the group with the merc). Pre-patch group IDs (0x67a4 C>S / 0xee64 S>C @ 176b, etc.) all read `ffff` in `zoneopcodes.xml` after the May-12 reshuffle and do not fire here — re-hunting.
+- Method: `--opcode-stats` + `--dump-payload` on every S>C unknown with low fire-count and name-shaped (≤96b) payload.
+- Mercenary auto-form skips the invite handshake entirely. No 176b or 152b S>C/C>S unknown appears in the stats, so neither OP_GroupInvite nor OP_GroupInvite2 fires for a merc add — the server jumps straight to OP_GroupFollow + OP_GroupUpdate without an invite delivery.
+- **0xeeb4 (OP_GroupFollow candidate)** — 1× S>C, 68b. NUL-terminated mercenary auto-name at offset 0 (Test `<name><digits>` suffix pattern; see CLAUDE.md note on `stripNameSuffix`). 68b matches the modern groupFollowStruct anchored on `test-group-invite.vpk` (name@0).
+- **0x8fa1 (OP_GroupUpdate candidate)** — 4× S>C, 92b. NUL-terminated recipient name (self/PC) at offset 0. u32 at offset 0x44 = 0x06e1 on the first fire (group-formation broadcast / status code), 0x02 on the remaining three (slot index). u32 at offset 0x48 = 0xffffff01 sentinel across all fires. 92b matches the existing xml comment on OP_GroupUpdate (modern: 92 bytes, recipient name + slot). 4 fires = group-formation broadcast burst.
+- Ruled out as group-related (other low-count S>C name/80b shapes in this capture):
+  - `0xceeb` (12× 80b S>C) — plaintext `ogrestompfire1` at offset 0; ogre-stomp particle/effect tag, not group.
+  - `0xb224` (44× 80b S>C) — float position + pointer-shaped trailer; entity/position update, not group.
+  - `0xef44` (3× S>C, 68b×2 + 164b×1) — numeric headers, no name at offset 0; unrelated.
+- Still unconfirmed in this session: OP_GroupInvite, OP_GroupInvite2, OP_GroupCancelInvite, OP_GroupLeader, OP_GroupDisband, OP_GroupDisband2. A player-to-player invite/accept/disband cycle is needed to anchor them — merc-only sessions don't exercise the invite handshake or the disband path.
+
+### 2026-05-14 — OP_GroupInvite = 0xbdab + OP_GroupInvite2 = 0xfc1d; OP_GroupFollow/OP_GroupUpdate candidates confirmed
+
+- Capture: `tests/replay/test-group-invite-20260514.vpk` (two cycles: PC-A invites PC-B; PC-B accepts; disband; PC-B invites PC-A; PC-A accepts). Only PC-A's client is on the sniff interface, so C>S = PC-A's outgoing invite (cycle 1) and S>C = PC-B's invite delivery to PC-A (cycle 2).
+- Method: `--opcode-stats` + `--dump-payload`. Stats show exactly one C>S 176b unknown (`0xbdab`) and exactly one S>C 176b unknown (`0xfc1d`); both `0xeeb4` (68b S>C, 4 fires) and `0x8fa1` (92b S>C, 16 fires across 2 zone-session blocks) repeat from the merc-derived candidate set with the player invite/accept cadence.
+- **`0xbdab` = OP_GroupInvite (C>S, 176b)**: invitee name@0 (PC-B), inviter name@64 (PC-A). 48-byte trailer zeros. Matches the legacy `groupInviteStruct` layout (inviter+invitee, two 64-byte slots) padded by 24 bytes — the prior 2026-05-05 "Test split bidirectional opcode into two direction-specific IDs with a single name" observation is INVALID post-May-12-patch; both names are present in both directions.
+- **`0xfc1d` = OP_GroupInvite2 (S>C, 176b)**: recipient name@0 (PC-A, self), sender name@64 (PC-B). Same physical layout as `0xbdab`; semantic of "who's at offset 0" is direction-dependent (target on C>S, recipient on S>C) — same as legacy.
+- **`0xeeb4` = OP_GroupFollow (S>C, 68b)** confirmed: 4 fires across 2 invite/accept cycles. Names at offset 0 cover all members getting added from the receiver's POV — both the inviting PC and their mercenary (auto-name `<Name><6-digit-suffix>`). Trailing u32 at offset 0x40 alternates 0x01/0x02 (slot index). Matches the modern 68b groupFollowStruct previously hinted in xml.
+- **`0x8fa1` = OP_GroupUpdate (S>C, 92b)** confirmed: 18 total fires across the capture. Two payload shapes share the 92b size:
+  - State-broadcast fires: name@0 empty; u32@0x40 ~= timestamp-like; u32@0x44 = status code (e.g. 0x08d5); sentinel 0xffffff01 @0x48; trailing `01 00 00 00 0a 00 00 00`.
+  - Per-slot status fires: recipient name@0 (self); u32@0x44 = slot index (observed 0x02 across the formed-group sequence); sentinel 0xffffff01 @0x48; trailing `02 00 00 00 0a 00 00 00`.
+- Ruled out as group-related in this capture:
+  - `0x5865` (1× C>S 80b) — all-zero payload; unexplained but doesn't pattern-match invite/accept/disband. Likely ambient or a generic ACK; not assigned.
+  - `0x3ab3` / `0x787b` / `0x6dae` (C>S/S>C 80b, low fires) — also seen in merc-only capture without group activity; ambient.
+- Cross-capture coherence: the merc-derived hypothesis from 2026-05-14 entry above (0xeeb4 = OP_GroupFollow, 0x8fa1 = OP_GroupUpdate) held up under a real PC-PC invite — same size + same name-at-offset-0 shape on both opcodes, just with more fires from the multi-member group-formation burst.
+- Disband fires *are* in this capture — the 92b/80b "no obvious shape" guess above was wrong. Post-patch disband-family opcodes are **168b S>C** (matching the xml hint for OP_GroupDisband / OP_GroupDisband2 / OP_GroupLeader). Five distinct 168b S>C unknowns fire in this capture; full disambiguation below.
+- Follow-up commit: `conf/zoneopcodes.xml` already updated for the 4 confirmed (0xbdab, 0xfc1d, 0xeeb4, 0x8fa1) + OP_GroupDisband2=0xc2d8. Comment on OP_GroupInvite2 rewritten to drop the disproved "single name per direction" claim. `everquest.h` `groupInviteStruct`/`groupFollowStruct`/`groupUpdateStruct` sizes match the confirmed 176/68/92 byte layouts — no struct edits needed.
+
+### 2026-05-14 — OP_GroupDisband2 = 0xc2d8; OP_GroupDisband / OP_GroupLeader candidates from 168b S>C pile
+
+- Capture: same `tests/replay/test-group-invite-20260514.vpk`. Two cycles ended with explicit disbands: cycle 1 ended with PC-B (the inviter from cycle 2) issuing `/disband`; cycle 2 ended with PC-A (self) issuing `/disband`.
+- Method: `--dump-payload` on every 168b S>C unknown + the 2 C>S 168b unknowns. All five S>C candidates plus both C>S fires carry NUL-terminated character names at offset 0 and/or offset 64 — name@64 is the dominant "subject" field (matches the xml hint for the disband-family modern layout).
+- **`0xc2d8` = OP_GroupDisband2 (S>C 168b)** confirmed. 2 fires:
+  - Fire 1: PC-B name @ 64 — peer leaving notification when PC-B issued `/disband` (cycle 1 end).
+  - Fire 2: PC-B's mercenary auto-name @ 64 — merc follows the leader out on disband.
+  - Layout: only offset 64 (membername) carries data; offset 0 (yourname) is zero on peer-disband fires. Matches legacy `groupDisbandStruct{yourname[64], membername[64]}` semantics where yourname is the recipient's slot identifier (zero when broadcast).
+- **`0xfc73` = OP_GroupDisband (C>S 168b)** strong candidate. 1 fire with self-name at BOTH offset 0 and offset 64. Matches PC-A's single `/disband` command in cycle 2. Caveat: legacy xml has `dir="server"` for OP_GroupDisband; on Test it's `dir="both"` (client sends C>S "/disband me" to the server; server then broadcasts S>C disband notifications to remaining members on a different opcode). Updated xml comment notes the candidate; needs S>C broadcast pair to confirm.
+- **`0x27fa`** — 1× C>S 168b, layout `<inviter>@0 + <acceptor=self>@64`. Fires once = PC-A clicking accept on PC-B's invite in cycle 2. Likely **OP_GroupCancelInvite** or an accept-side handshake opcode (not in the 73-list, but documented for completeness). NOT assigned in xml.
+- Still ambiguous — **OP_GroupLeader** is one of these four 168b S>C unknowns, but the fire patterns don't cleanly disambiguate from post-disband member-slot cleanup broadcasts:
+  - `0x04c7` (4× S>C): 3 fires with `<self>@0 + <peer-merc-name>@64`, 1 fire with `empty@0 + <peer>@64`. The peer-merc pattern doesn't fit a leader-change broadcast (mercs don't lead groups), so likely a per-member status broadcast rather than OP_GroupLeader.
+  - `0x6108` (3× S>C): all 3 with `<self>@64`. Could be OP_GroupLeader fires on cycle-1 formation (PC-A was implicit leader, broadcast once per existing member). Best leader candidate.
+  - `0xd69d` (2× S>C): both with `<self>@64`. Could be post-disband self-slot cleanup or alternate leader-broadcast.
+  - `0x548d` (2× S>C): both with `<self>@64`. Same shape as 0xd69d — paired broadcast on disband?
+- Recommended next capture: a single-cycle session with explicit `/makeleader` issued mid-group, then `/disband`. The `/makeleader` event has a clean signature (one S>C fire with the new leader's name) that should unambiguously anchor OP_GroupLeader against the four remaining 168b candidates.
+
+### 2026-05-14 — OP_GroupLeader = 0x04c7, OP_GroupMakeLeader = 0xb3b7 (NEW), OP_GroupDisband = 0x27fa; 0xfc73 retracted
+
+- Capture: `tests/replay/test-group-leader-20260514.vpk` (PC-A zoned with existing PC-A + PC-B + PC-B's-merc group carried over; `/makeleader <PC-B>` issued once; `/disband` issued once by PC-A).
+- Method: `--dump-payload` of every 168b opcode fired in the capture, comparing the FULL 168 bytes against the prior capture's same opcodes to identify discriminating fields.
+- **u32 event-type discriminator at offset 0x84** found in the 168b group-event family. Constant u32 at offset 0x88 (0x40f3 = zone/session id, identical across both captures). Trailer at offset 0xa0 distinguishes command-shaped opcodes (`01 01` marker) from broadcast-shaped ones (zeros).
+- **`0xb3b7` = OP_GroupMakeLeader (NEW opcode, dir="both", 168 bytes)** confirmed. 2 fires total: 1× C>S + 1× S>C, both with identical payload (target=new-leader@0, sender=self@64) and the `01 01` trailer at 0xa0. The S>C echo confirms server received and processed the command. Not in the original 73-list — added to xml as a new entry. Layout matches `groupDisbandStruct` two-name slots.
+- **`0x04c7` = OP_GroupLeader (S>C 168b, broadcast)** confirmed. 2 fires in this capture: one with `empty@0 + <new-leader>@64, type=2 at 0x84` (the leader-change broadcast triggered by `/makeleader`); one with `<recipient>@0 + <merc-name>@64, type=20 at 0x84` (a related group-event, possibly "merc re-attached to leader" cleanup). The type-byte at 0x84 dispatches semantics — daemon handler should switch on it. Cross-checks against prior capture (4 fires there with the same name patterns) confirm 0x04c7 carries multiple event types under one opcode id.
+- **`0x27fa` = OP_GroupDisband (dir="both", 168b)** confirmed. 1 fire in this capture (C>S, layout `<leader=PC-B>@0 + <self=PC-A>@64`) matches PC-A's single `/disband` event. Same opcode also fired 1× C>S in the prior capture (test-group-invite-20260514) with `<leader=PC-B>@0 + <self=PC-A>@64` matching PC-A's cycle-2 self-disband — consistent across both captures. dir promoted from "server" to "both" since the C>S command direction is now confirmed.
+- **`0xfc73` RETRACTED as OP_GroupDisband C>S candidate**. It fired 1× C>S 168b in the prior capture (self+self payload) but did NOT fire in this capture despite a real `/disband`. The single prior fire remains unexplained — possibly an invite/accept-related ack from one of the prior cycles. The xml comment carrying the 0xfc73 hint has been removed.
+- Still ambiguous — three 168b S>C fires whose semantics are unconfirmed (likely OP_GroupUpdate-extended slot-status or post-disband cleanup):
+  - `0xd69d` (3× S>C 168b, all type=0 at 0x84; mix of self@64 and peer@64) — fires on group-state changes (makeleader and disband events) but doesn't pattern-match a single canonical opcode in the 73-list.
+  - `0x6108` (1× S>C 168b, self@64, non-zero bytes at offset 0x80 and 0x90) — different shape from 0xd69d; possibly a self-disband S>C confirmation, but not aligned with prior-capture fire-count expectations (3 fires vs 1 here).
+  - Neither was carried forward to xml as an assigned opcode.
+- Group section status after this entry: **6 / 6 confirmed** in the 73-list (OP_GroupInvite, OP_GroupFollow, OP_GroupUpdate, OP_GroupDisband, OP_GroupDisband2, OP_GroupLeader). OP_GroupMakeLeader is a bonus (added to xml, outside the 73-list). OP_GroupInvite2 + OP_GroupCancelInvite remain ungrouped extras (Invite2 confirmed at 0xfc1d; CancelInvite still `ffff` — would need a decline-invite capture to anchor).

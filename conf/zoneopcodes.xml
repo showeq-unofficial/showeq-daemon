@@ -127,41 +127,45 @@
         <comment>old ZoneChangeCode</comment>
         <payload dir="both" typename="zoneChangeStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupInvite" updated="05/13/26">
+    <opcode id="bdab" name="OP_GroupInvite" updated="05/14/26">
         <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
-        <comment>Outgoing invite: 176 bytes, target name at offset 0.</comment>
+        <comment>Outgoing invite (C>S, 176 bytes): invitee name at offset 0, inviter name at offset 64. Legacy bidirectional layout padded 152→176b.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_GroupInvite2" updated="05/13/26">
+    <opcode id="fc1d" name="OP_GroupInvite2" updated="05/14/26">
         <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
-        <comment>Incoming invite delivery: 176 bytes, recipient name at offset 0. Test split OP_GroupInvite by direction; the legacy "ungrouped vs grouped" distinction does not apply here.</comment>
+        <comment>Incoming invite delivery (S>C, 176 bytes): recipient name at offset 0, sender name at offset 64. Same physical layout as OP_GroupInvite — semantic of offset 0 is direction-dependent (target on C>S, recipient on S>C).</comment>
     </opcode>
     <opcode id="ffff" name="OP_GroupCancelInvite">
         <payload dir="both" typename="groupDeclineStruct" sizechecktype="match"/>
         <comment>Declining to join a group</comment>
     </opcode>
-    <opcode id="ffff" name="OP_GroupFollow" updated="05/13/26">
+    <opcode id="eeb4" name="OP_GroupFollow" updated="05/14/26">
         <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
-        <comment>Member added (modern: 68 bytes, name at offset 0).</comment>
+        <comment>Member added (modern: 68 bytes, name at offset 0). u32 at offset 0x40 = slot/flag (observed 0x01 / 0x02).</comment>
     </opcode>
     <opcode id="ffff" name="OP_GroupFollow2">
         <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
         <comment>Player joins your group</comment>
     </opcode>
-    <opcode id="ffff" name="OP_GroupUpdate" updated="05/13/26">
-        <comment>Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow.</comment>
+    <opcode id="8fa1" name="OP_GroupUpdate" updated="05/14/26">
+        <comment>Per-slot group status (modern: 92 bytes, recipient name + slot). Mixed shape: state-broadcast fires have empty name@0 + status code @0x44; per-slot fires have recipient name@0 + slot index @0x44. Handler currently noops; member identity comes from OP_GroupFollow.</comment>
         <payload dir="both" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupDisband" updated="05/13/26">
-        <comment>Your group dissolved (modern: 168 bytes; membername=self at offset 64)</comment>
+    <opcode id="27fa" name="OP_GroupDisband" updated="05/14/26">
+        <comment>Self-disband command (168 bytes; groupDisbandStruct layout: yourname=leader@0, membername=self-leaving@64). dir="both" on Test — client sends C>S "/disband me" to the server. S>C broadcast confirmation to the leaving member has not been observed.</comment>
+        <payload dir="both" typename="groupDisbandStruct" sizechecktype="none"/>
+    </opcode>
+    <opcode id="c2d8" name="OP_GroupDisband2" updated="05/14/26">
+        <comment>Other member disbanded (modern: 168 bytes; membername=peer at offset 64). Fires once per departing member when a peer disbands — including their auto-following mercenary.</comment>
         <payload dir="server" typename="groupDisbandStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupDisband2" updated="05/13/26">
-        <comment>Other member disbanded (modern: 168 bytes; membername=peer at offset 64)</comment>
-        <payload dir="server" typename="groupDisbandStruct" sizechecktype="none"/>
-    </opcode>
-    <opcode id="ffff" name="OP_GroupLeader" updated="05/13/26">
-        <comment>Group leader change (modern: 168 bytes; new leader's name at offset 64). Fires on group formation (implicit leader) and on every /makeleader broadcast.</comment>
+    <opcode id="04c7" name="OP_GroupLeader" updated="05/14/26">
+        <comment>Group leader change broadcast (S>C, 168 bytes). u32 event-type at offset 0x84: type=2 = "leader-changed" (empty@0 + new-leader@64); type=20 = related group-event (e.g. merc auto-attach: recipient@0 + subject@64). Constant u32 at offset 0x88 (zone/session id, observed 0x40f3 across captures).</comment>
         <payload dir="server" typename="groupLeaderChangeStruct" sizechecktype="none"/>
+    </opcode>
+    <opcode id="b3b7" name="OP_GroupMakeLeader" updated="05/14/26">
+        <comment>/makeleader command (168 bytes, dir="both"): target=new-leader@0, sender=self@64. C>S = client-issued command; S>C = server-issued echo/ack with identical payload. Distinguishing trailer marker `01 01` at offset 0xa0 separates it from the broader 168b group-event family.</comment>
+        <payload dir="both" typename="groupDisbandStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_Buff" updated="05/13/26">
         <comment>old BuffDropCode</comment>
