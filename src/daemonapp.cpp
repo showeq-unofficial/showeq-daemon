@@ -536,11 +536,11 @@ void DaemonApp::wireZoneMgr()
     // OP_ClientUpdate is overloaded — DIR_Server uses playerSpawnPosStruct
     // (other players' updates, wired in wireSpawnShell), DIR_Client uses
     // playerSelfPosStruct (this user's movement). On Test the two sides
-    // have different sizes (24b S>C vs 42b C>S), so this route MUST be
-    // DIR_Client only — otherwise a 24b S>C packet would be read past
-    // its end as a 42b struct.
+    // have different sizes (24b S>C vs 38b C>S post-May-12-patch, was 42b).
+    // SZC_None: C>S grew from 42b to 38b; trailing 4 bytes (sentinel) dropped.
+    // All parsed fields (spawnId, position bitfields) remain within first 38b.
     m_packet->connect2("OP_ClientUpdate", SP_Zone, DIR_Client,
-                       "playerSelfPosStruct", SZC_Match,
+                       "playerSelfPosStruct", SZC_None,
                        m_player,
                        SLOT(playerUpdateSelf(const uint8_t*, size_t, uint8_t)));
 
