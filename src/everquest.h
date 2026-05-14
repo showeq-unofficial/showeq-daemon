@@ -1131,36 +1131,45 @@ struct spawnStruct
          // OP_NpcMoveUpdate, and heading via OP_MobUpdate, so the spawn-struct
          // values for those fields aren't load-bearing.
          // Test post-May-12-2026 spawnStruct posData layout (re-audited against
-         // a CR-market merchant cluster — z/y at word[0]/word[3] low 19 bits,
-         // x at word[2] top 16 bits as int16). All ×8 wire scale (>>3 to get
-         // game units). The old layout (z@w2, y@w3-hi, x@w4-hi) read garbage
-         // and produced a constant x=-19456 for every NPC.
+         // a CR-market merchant cluster + the training-dummy yard sharing x
+         // with the market). All x/y/z are ×8 wire scale (>>3 to game units).
+         // The old layout (z@w2, y@w3-hi, x@w4-hi/8) read garbage and
+         // produced a constant x=-19456 for every NPC.
+         //
+         //   w0:  z         (signed 19b at bits 0-18, ×8 scale)
+         //   w1:  heading + animation (legacy 12+10 bit-pack still works —
+         //        proto only reads the low 8 bits of heading and downcasts
+         //        animation to uint8_t).
+         //   w2:  unknown, varies by spawn class (0x4ef00000 in CR-market
+         //        merchants, 0x00000000 on training dummies / PCs,
+         //        0xdd400000 on Kanazar-class NPCs). Possibly a spawn-point
+         //        reference or pitch+state field — not the live position.
+         //   w3:  y         (signed 19b at bits 0-18, ×8 scale)
+         //   w4:  x         (signed int16 at bits 16-31, ×8 scale)
+         //   w5:  unused / delta placeholders
          union
          {
            struct
            {
-              // word 0 — z at bits 0-18 (×8 wire scale); was at word 2
+              // word 0
               signed   z:19;
               unsigned padding00:13;
 
-              // word 1 — heading at low 8 bits (Test wire), animation at bits
-              // 12-21 (read as signed 10b then truncated to uint8_t downstream
-              // — gives 0..255 anim codes correctly).
+              // word 1
               unsigned heading:12;
               signed   animation:10;
               unsigned padding01:10;
 
-              // word 2 — x at bits 16-31 (signed int16, ×8 wire scale)
-              unsigned padding02:16;
-              signed   x:16;
+              // word 2 — see comment above, not a coordinate
+              unsigned padding02:32;
 
-              // word 3 — y at bits 0-18 (×8 wire scale); moved from bits 13-31
+              // word 3
               signed   y:19;
               unsigned padding03:13;
 
-              // word 4 — observed constant per-cluster (0x4c000000 in CR market,
-              // 0xd8000000 for non-market NPCs). Possibly a state/flag field.
-              unsigned padding04:32;
+              // word 4
+              unsigned padding04:16;
+              signed   x:16;
 
               // word 5 — placeholders to keep call sites compiling; values not
               // load-bearing on Test (deltas come from OP_NpcMoveUpdate).
