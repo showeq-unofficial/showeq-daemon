@@ -54,7 +54,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_TimeOfDay — timeOfDayStruct (server)
 - [x] OP_NewZone — uint8_t (server, variable) — `0x5fc3` (2026-05-13, revised from 0xa923)
 - [x] OP_SpawnDoor — doorStruct (server, modulus) — `0xae0a` (2026-05-13, revised from 0x794d)
-- [ ] OP_GroundSpawn — makeDropStruct (server)
+- [x] OP_GroundSpawn — makeDropStruct (server) — `0x7b00` (2026-05-14)
 - [ ] OP_SendZonePoints — zonePointsStruct (server)
 - [ ] OP_ZoneChange — zoneChangeStruct (both)
 
@@ -89,7 +89,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_Stamina — staminaStruct (server) — `0x786a` (2026-05-13)
 
 ### Buffs (1)
-- [ ] OP_Buff — buffStruct (both)
+- [x] OP_Buff — buffStruct (both) — `0xd7f4` (2026-05-14, revised from 0x3b54)
 
 ### Group (6)
 - [x] OP_GroupInvite — groupInviteStruct (both) — `0xbdab` (2026-05-14, revised from 0x67a4)
@@ -108,11 +108,11 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 
 ### Inventory / items (2)
 - [ ] OP_ItemPacket — itemPacketStruct (server)
-- [ ] OP_MoveItem — moveItemStruct (client)
+- [x] OP_MoveItem — moveItemStruct (client) — `0xe883` (2026-05-14, revised from 0xdee3)
 
 ### Click / interact (2)
 - [ ] OP_ClickObject — remDropStruct (both)
-- [ ] OP_Find — uint8_t (server, variable)
+- [x] OP_Find — uint8_t (server, variable) — `0x0f64` (2026-05-14, revised from 0x695f)
 
 ### Chat / messaging (4)
 - [ ] OP_SimpleMessage — simpleMessageStruct (server)
@@ -705,3 +705,31 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
   - `0x6108` (1× S>C 168b, self@64, non-zero bytes at offset 0x80 and 0x90) — different shape from 0xd69d; possibly a self-disband S>C confirmation, but not aligned with prior-capture fire-count expectations (3 fires vs 1 here).
   - Neither was carried forward to xml as an assigned opcode.
 - Group section status after this entry: **6 / 6 confirmed** in the 73-list (OP_GroupInvite, OP_GroupFollow, OP_GroupUpdate, OP_GroupDisband, OP_GroupDisband2, OP_GroupLeader). OP_GroupMakeLeader is a bonus (added to xml, outside the 73-list). OP_GroupInvite2 + OP_GroupCancelInvite remain ungrouped extras (Invite2 confirmed at 0xfc1d; CancelInvite still `ffff` — would need a decline-invite capture to anchor).
+
+### 2026-05-14 — OP_MoveItem = 0xe883, OP_GroundSpawn = 0x7b00, OP_Buff = 0xd7f4
+
+- Capture: `tests/replay/test-inzone-mixed-20260514.vpk` (Crescent Reach session: zone-in, inventory slot moves, ground-spawn observation, buff list visible on zone, mixed UI interactions).
+- **OP_MoveItem = 0xe883 (C>S, 28b)** confirmed via the standing StructHint candidate. 14 C>S fires at exactly 28b, only candidate at that size+direction. moveItemStruct layout matches (two 12-byte invSlotStruct + uint32 stack count).
+- **OP_GroundSpawn = 0x7b00 (S>C, ~65b variable)** confirmed. 61 fires on zone-in (one per ground drop in Crescent Reach). Layout: u32 length-prefix, NUL-terminated `IT##_ACTORDEF` item-actor model name (e.g. `IT11056_ACTORDEF`), u32 item-id, u32 spawn-id, 3 IEEE-754 floats giving (x, y, z) position. Position decode verified against expected zone coordinates (-871/-2381/-160 = valid Crescent Reach drop spot).
+- **OP_Buff = 0xd7f4 (S>C, 65b primary + 30/39/91 variants)** confirmed. 23+ fires from full buff-list resync on zone-in. Layout: u32 spell_id@0, u32 duration@4, u32 flags@8, u32 tick-counter@17 (decrements between fires of same spell_id), NUL-terminated target-name@27, u16 buff-slot, NUL-terminated caster-name@53. Spell IDs in the 0x1a00-0x1a30 range match level-15 Necromancer self-buffs.
+- **Sibling: 0x8108 (S>C, 65b, 8 fires)** — structurally identical buffStruct shape. Likely OP_Buff variant for a separate buff class (songs / short-duration / pet buffs). Not assigned in xml yet; flagged in OP_Buff comment for follow-up disambiguation.
+- **Did NOT fire in this capture** (despite being in the requested action list):
+  - OP_CommonMessage / OP_SimpleMessage — no `/say "hello"` plaintext anywhere in the dump. Either chat wasn't issued or it's on an opcode whose payload doesn't carry text directly (worth re-checking: legacy uses eqstr template IDs, not raw strings, for many "system" messages).
+  - OP_ItemPacket — only fires on item acquisition (loot/buy/quest reward); moving items between slots uses OP_MoveItem only.
+  - OP_ClickObject — no clean 12b C>S+S>C with `(dropId, spawnId)` shape identified; multiple 12b candidates exist but none uniquely correlate to drop-and-pickup.
+  - OP_Find, OP_AAAction, OP_AAExpUpdate — no obvious candidates emerged.
+  - OP_TimeOfDay — no 6-8b S>C with `{hour, min, day, month, year}` shape; daemon may have caught the session AFTER the zone-in time broadcast already passed.
+  - OP_ZoneChange, OP_SendZonePoints — same zone-in timing caveat. Worth a focused capture: zone, observe time, click ground item, decline an invite (for OP_GroupCancelInvite), etc.
+
+### 2026-05-14 — OP_Find = 0x0f64 (post-patch); chat opcodes likely deprecated on Test
+
+- Capture: `tests/replay/test-inzone-mixed-20260514.vpk` (user confirmed `/say Hello` + Ctrl+F Find + AA activation in-game).
+- **OP_Find = 0x0f64 (S>C, variable)** confirmed. 6 fires across mixed sizes: 22b × 3 (per-action requests/cooldown denial), 1016b × 2 (find-list payload on Ctrl+F open per zone), 5870b × 1 (extended/inter-zone find list). Plaintext NUL-delimited NPC names + find-category labels visible in the large payloads (Blightfire Moors: "Sentry Sudi", "Banker Ozro", "Parcels and Noble Exchange", "Guild Recruitment", etc.). Matches the 2026-05-05 OP_Find = 0x695f signature exactly — same two-phase contract (list-on-open + per-action responses), just at a new opcode id post-patch.
+- **Chat opcodes likely deprecated on Test**: `grep -boaE "(Hello|hello)" tests/replay/test-inzone-mixed-20260514.vpk` returns zero hits despite user-confirmed `/say Hello`. Decryption is verified working (we see plaintext `IT##_ACTORDEF`, character names, quest text). The only consistent explanation is that **modern Test routes player chat (/say, /tell, /shout, etc.) through the external Daybreak chat service** referenced in OP_SetChatServer (`https://auth.daybreakgames.com/...`), not through the EQ zone UDP packet stream. Implication for the 73-list:
+  - OP_CommonMessage (`channelMessageStruct`, both) — likely candidate for `[~]` confirmed-absent on Test (player chat moved off-wire). Needs one more verification capture (e.g. /tell + /shout + /guild) confirming none of those produce plaintext on the zone stream.
+  - OP_SimpleMessage (`simpleMessageStruct`, server) — might still fire for spawn-targeted spell-effect text (per CLAUDE.md "spawn-targeted simple-messages" hint), distinct from player chat. Keep hunting.
+- Did NOT confirm in this capture (despite user-confirmed actions):
+  - OP_ClickObject — multiple 12b candidates exist (0xacfc, 0xf525, 0x23a2, 0xd825), but several carry spell-id-shaped first u32 instead of `(dropId, spawnId)` shape. The user dropped + picked up, but the pickup may have been masked by ambient spell-effect chatter at the same size.
+  - OP_AAAction — no clear 12-32b C>S+S>C burst with AA-id-shaped payload identified.
+  - OP_ZoneChange — no 88b candidate in the capture. User zoned to Blightfire Moors (confirmed via OP_Find content carrying Blightfire NPCs), but the zone-transition packet may have been processed during the pre-key-handoff window — the capture daemon's session key wasn't fully established before the zone, so the ZoneChange packets may have been encrypted-undecodable.
+  - OP_TimeOfDay — same zone-handoff timing caveat. Needs a capture where the daemon is already running with a stable session key, THEN the user zones (so the daemon decodes ZoneChange + TimeOfDay cleanly).

@@ -24,8 +24,8 @@
         <comment>DoorSpawnsCode</comment>
         <payload dir="server" typename="doorStruct" sizechecktype="modulus"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroundSpawn" updated="05/13/26">
-        <comment>MakeDropCode</comment>
+    <opcode id="7b00" name="OP_GroundSpawn" updated="05/14/26">
+        <comment>Modern: variable ~65 bytes S>C. Layout: u32 record-length-prefix, NUL-terminated `IT##_ACTORDEF` item-actor model name, u32 item-id, u32 spawn-id, 3 IEEE-754 floats (x,y,z position). 61 fires on zone-in = every ground drop loaded for the zone.</comment>
         <payload dir="server" typename="makeDropStruct" sizechecktype="none"/>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
@@ -166,6 +166,10 @@
     <opcode id="b3b7" name="OP_GroupMakeLeader" updated="05/14/26">
         <comment>/makeleader command (168 bytes, dir="both"): target=new-leader@0, sender=self@64. C>S = client-issued command; S>C = server-issued echo/ack with identical payload. Distinguishing trailer marker `01 01` at offset 0xa0 separates it from the broader 168b group-event family.</comment>
         <payload dir="both" typename="groupDisbandStruct" sizechecktype="none"/>
+    </opcode>
+    <opcode id="d7f4" name="OP_Buff" updated="05/14/26">
+        <comment>Per-buff slot status (modern: 65 bytes S>C, also seen at 30/39/91 byte variants). Layout: spell_id@0, duration@4, flags@8, tick-counter@17 (decrements on tick), target-name@27, buff-slot, caster-name@53. Sibling opcode 0x8108 carries the same struct shape and likely fires for a different buff class (songs / short-duration / pet buffs) — needs disambiguation.</comment>
+        <payload dir="both" typename="buffStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_Buff" updated="05/13/26">
         <comment>old BuffDropCode</comment>
@@ -507,8 +511,8 @@
         <comment>DoorClickCode response from server - 2 bytes</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_MoveItem" updated="05/13/26">
-        <comment>Client moving an item from one slot to another - 28 bytes. Resolved via inventory.opcodestats.txt: 30 C>S fires at exactly 28 bytes during a slot-swap session, no competing unknown opcode at that size+direction. Wire layout: two 12-byte invSlotStruct descriptors + uint32 stack count.</comment>
+    <opcode id="e883" name="OP_MoveItem" updated="05/14/26">
+        <comment>Client moving an item from one slot to another - 28 bytes C>S. Wire layout: two 12-byte invSlotStruct descriptors + uint32 stack count. Confirmed via inzone-mixed capture: 14 C>S fires at 28 bytes during inventory slot-swap, only candidate (matches the standing StructHint).</comment>
         <payload dir="client" typename="moveItemStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_Jump">
@@ -599,8 +603,8 @@
         <comment>Free to play nags and other data - Variable length</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_Find" updated="05/13/26">
-        <comment>Find window data - variable length. Test: ~830b list-payload of NPC name + category pairs on Ctrl+F open; ~86b smaller responses for individual find requests.</comment>
+    <opcode id="0f64" name="OP_Find" updated="05/14/26">
+        <comment>Find window data — variable length S>C. Initial open: large payload (~1016b Crescent Reach, scales with zone NPC density) of NPC-name + find-category pairs in NUL-delimited records. Action responses: ~22b smaller fires per individual find request. Cross-zone re-confirmed against Blightfire Moors find-list (NPCs "Sentry Sudi", "Banker Ozro", categories "Parcels and Noble Exchange", "Guild Recruitment").</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_ConsiderCorpse">
