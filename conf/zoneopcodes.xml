@@ -29,8 +29,8 @@
         <payload dir="server" typename="makeDropStruct" sizechecktype="none"/>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_SendZonePoints" updated="05/13/26">
-        <comment>Coords in a zone that will port you to another zone. Test: 176b S>C, single zonePointStruct entry (24b: trigger, y, z, x, heading, zoneId, instance) padded with zeros — fires when the player approaches an active zone-out trigger.</comment>
+    <opcode id="ffff" name="OP_SendZonePoints" updated="05/14/26">
+        <comment>Identified as wire opcode 0x132d but NOT wired here — ZoneMgr::zonePoints handler casts to legacy zonePointsStruct{count, points[]} and crashes on the new ~5KB-31KB Test payload (which carries zone objects + portals in a different format: NUL-delimited actor names like OBJ_ELEV, OBJ_GEARSB, POKCABPORT500). Mapping deferred until the handler is updated for Test's layout. See TEST_OPCODE.md 2026-05-14 entry.</comment>
         <payload dir="server" typename="zonePointsStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_AAExpUpdate">
@@ -123,9 +123,9 @@
         <comment>Server putting players into shroud form</comment>
         <payload dir="server" typename="spawnShroudSelf" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_ZoneChange" updated="05/13/26">
-        <comment>old ZoneChangeCode</comment>
-        <payload dir="both" typename="zoneChangeStruct" sizechecktype="match"/>
+    <opcode id="cdf9" name="OP_ZoneChange" updated="05/14/26">
+        <comment>Zone transition (dir="both", 100b on Test — wider than the legacy 88b zoneChangeStruct, so sizechecktype="none" to avoid a struct-size mismatch crash in the handler). Compact Test zoneChangeStruct: yourName@0 (NUL-terminated, ~10b), variable middle section (locale wide-chars or pointer-leak trailer depending on direction/role), **u32 zoneId@0x40**, 3× u32 ffffffff sentinels @0x44, 3× IEEE-754 float (target x, y, z) @0x50. Confirmed via 3-zone-hop capture: zone-id @ 0x40 cross-correlated to Blightfire Moors (395), Plane of Knowledge (202), Crescent Reach (394). 4 fires per transition (2 C>S + 2 S>C handshake).</comment>
+        <payload dir="both" typename="zoneChangeStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="bdab" name="OP_GroupInvite" updated="05/14/26">
         <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>

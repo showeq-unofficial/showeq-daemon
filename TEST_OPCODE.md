@@ -55,8 +55,8 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_NewZone — uint8_t (server, variable) — `0x5fc3` (2026-05-13, revised from 0xa923)
 - [x] OP_SpawnDoor — doorStruct (server, modulus) — `0xae0a` (2026-05-13, revised from 0x794d)
 - [x] OP_GroundSpawn — makeDropStruct (server) — `0x7b00` (2026-05-14)
-- [ ] OP_SendZonePoints — zonePointsStruct (server)
-- [ ] OP_ZoneChange — zoneChangeStruct (both)
+- [ ] OP_SendZonePoints — zonePointsStruct (server) — wire id 0x132d identified (2026-05-14), but handler segfaults on the Test layout (`new[count]` with first u32 misread). XML id deferred until `ZoneMgr::zonePoints` is rewritten for the NUL-delimited zone-object/portal format. See log entry.
+- [x] OP_ZoneChange — zoneChangeStruct (both) — `0xcdf9` (2026-05-14, revised from 0x9148)
 
 ### Movement / position (4)
 - [x] OP_ClientUpdate — playerSpawnPosStruct (server) — `0x9377` (2026-05-13, revised from 0xf8d1)
@@ -761,3 +761,33 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
   - `0x010d` (8× bidir 336b) — has self-name plaintext but irregular bidir count (6 C>S + 2 S>C); likely client telemetry, not zone transition.
   - The zoneChangeStruct shape may have radically shrunk on Test (legacy 88b → unrecognized compact form) OR the zone-line traversal no longer uses an explicit OP_ZoneChange handshake (the world-server-managed handoff via OP_ZoneServerInfo might subsume it). Needs a 3+ zone hop capture to disambiguate.
 - Cross-capture note for OP_MOTD: user-observed MOTD in live game ("Greetings Norrathians! The Test server has...") confirms the opcode IS firing on login. None of the current 4 captures grep-hit "Norrathians" or "Greetings" plaintext — all started post-login. OP_MOTD remains in the char-select-bucket for the next login capture.
+
+### 2026-05-14 — OP_ZoneChange = 0xcdf9, OP_SendZonePoints = 0x132d via 3-zone-hop cross-correlation
+
+- Capture: `tests/replay/test-multi-zone-20260514.vpk` (user took the recommended 3-hop route: starting Crescent Reach → Blightfire Moors → Plane of Knowledge → gate back to Crescent Reach, with 30-second pre-zone wait for session-key stabilization).
+- Method: anchor against KNOWN zone IDs from the route. Crescent Reach=394 was already established (quest text "394" + OP_GroundSpawn position floats matching CR zone coords). Plane of Knowledge=202 is the standard EQ ID. Blightfire Moors ID unknown going in — to be solved by elimination.
+- Validation: 4× OP_NewZone + 4× OP_PlayerProfile + 4× OP_TimeOfDay (incrementing 11:56 → 12:07 → 12:30 → 12:49 EQ hour, year 3263) confirms 4 zone-loads decoded cleanly — session key handoff worked this time.
+
+- **OP_ZoneChange = 0xcdf9 (dir="both", 100b)** confirmed. 12 fires total = 4 fires per zone-transition × 3 transitions (2 C>S request/confirm + 2 S>C ack/final). Layout decoded:
+  - char yourName@0 (NUL-term, ~10b for self) — invariant per session
+  - bytes 0x0A-0x3F: direction-dependent (C>S Shape A carries UTF-16 locale wide-chars "l,-211"; S>C Shape B carries pointer-leak trailer — both irrelevant for zone-id parse)
+  - **u32 zoneId @ 0x40** — the canonical anchor
+  - 3× u32 0xffffffff sentinels @ 0x44 (legacy "unknown" slots)
+  - 3× IEEE-754 float (target x, y, z) @ 0x50 — destination zone-in coords
+  - bytes 0x5C-0x63: flag bytes
+  - Cross-correlated zone-ids match expected destinations:
+    - Fires 1-4: zoneId = 0x018b = **395 = Blightfire Moors** (first transition)
+    - Fires 5-8: zoneId = 0xca = **202 = Plane of Knowledge** (second transition) — matches standard EQ
+    - Fires 9-12: zoneId = 0x018a = **394 = Crescent Reach** (gate back) — matches the quest-text-derived ID
+
+- **OP_SendZonePoints = 0x132d (S>C, variable)** confirmed. 4 fires (one per zone-load), payload size scales with zone complexity:
+  - Fire 1 (5440b): Blightfire Moors — plaintext `OBJ_ELEV`, `OBJ_GEARSB` (elevator + gear-prop actor names)
+  - Fire 2 (9520b): Crescent Reach — plaintext `OBJ_3FTBOX`, `OBJ_SKULL`, `OBJ_ROCKE` (CR's prop set)
+  - Fire 3 (31008b): Plane of Knowledge — plaintext `POKCABPORT500`, `POKGROPORT500`, `POKGTHPORT500` (PoK's zone-line portal markers — CAB=Cabilis, GRO=Gukta, GTH=Gunthak). PoK has dozens of portals → 6× larger than CR.
+  - Fire 4 (5440b): Blightfire Moors (identical to fire 1, return-trip via gate is direct Crescent so Blightfire fires from initial pass-through context).
+  - Test broadened the legacy zonePointsStruct (zone-line entries only) into a combined zone-objects + portals dump. Functionally equivalent to OP_SendZonePoints for daemon purposes: provides the zone-line target data needed for map/border rendering.
+
+- Cross-capture validation: 0xcdf9 fired in the prior `test-zone-aa-click` capture too with the same shape — those 4 fires were 2 transitions × 2 fires (the user's 1 zone-out + 1 zone-back). The earlier dismissal of 0xcdf9 ("UTF-16 wide-char text, likely OP_InspectAnswer territory") was wrong — the wide-char content is just the Test client's locale-resource leak (same pattern seen in OP_ZoneChange's pre-patch fires), not inspect data. 0x132d also fired in the prior capture's mix vpk; "OBJ_*" plaintext I noted there was the same zone-objects content under a different fire-count.
+
+- 73-list status: 21 unresolved (OP_ZoneChange + OP_TimeOfDay both fully wired; OP_SendZonePoints id known but handler-pending, so not [x] yet).
+- **Handler-update follow-up needed for OP_SendZonePoints**: `ZoneMgr::zonePoints()` at `zonemgr.cpp:756` casts the payload to legacy `zonePointsStruct{uint32_t count, zonePointStruct points[]}` and crashes on Test's new layout (interprets the first u32 as `count`, then `new[count]` and `memcpy(... count * sizeof(zonePointStruct))` blows past the buffer on the 5-31KB Test wire). Wire opcode 0x132d is intentionally left at `ffff` in `zoneopcodes.xml` until the handler is rewritten to parse Test's NUL-delimited zone-object/portal format. The discovery is recorded here so the merge-back review knows the ID is confirmed.
