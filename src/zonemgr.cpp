@@ -753,53 +753,33 @@ void ZoneMgr::zoneNew(const uint8_t* data, size_t len, uint8_t dir)
 
 void ZoneMgr::zonePoints(const uint8_t* data, size_t len, uint8_t)
 {
-  // Reset prior state.
+  // Test wire format: fixed 136-byte records, each starting with a
+  // NUL-terminated uppercase-ASCII portal/object actor name (POKCABPORT500,
+  // OBJ_ELEV, etc.). Position floats at offset 0x20 (legacy y, x, z slot
+  // order); heading at 0x2C. Destination zone is not on the wire — the
+  // client resolves the actor name to a target zone via its data files.
+  constexpr size_t kRecord = 136;
+
   if (m_zonePoints)
   {
     delete [] m_zonePoints;
     m_zonePoints = nullptr;
   }
-  m_zonePointCount = 0;
-
-  if (len == 0)
+  m_zonePointCount = len / kRecord;
+  if (m_zonePointCount == 0)
     return;
 
-  // Test (post-May-12-2026 patch) wire format: fixed 136-byte records, each
-  // starting with a NUL-terminated uppercase-ASCII portal/object actor name
-  // (e.g. "POKCABPORT500", "OBJ_ELEV"). Three position floats at offset 0x20
-  // (legacy y, x, z slot order), heading float at 0x2C. The destination zone
-  // is not on the wire — the client resolves the actor name to a target zone
-  // via its data files. Legacy wire is `{uint32 count, zonePointStruct[]}`,
-  // where count's low byte is small (<'A') so the first-byte ASCII check
-  // disambiguates without ambiguity.
-  constexpr size_t kTestRecord = 136;
-  const bool isTest =
-      len >= kTestRecord && (len % kTestRecord) == 0 &&
-      data[0] >= 'A' && data[0] <= 'Z';
-
-  if (isTest)
-  {
-    m_zonePointCount = len / kTestRecord;
-    m_zonePoints = new zonePointStruct[m_zonePointCount];
-    for (size_t i = 0; i < m_zonePointCount; i++)
-    {
-      const uint8_t* rec = data + i * kTestRecord;
-      zonePointStruct& zp = m_zonePoints[i];
-      zp.zoneTrigger = static_cast<uint32_t>(i);
-      memcpy(&zp.y, rec + 0x20, sizeof(float) * 3); // y, x, z contiguous
-      memcpy(&zp.heading, rec + 0x2C, sizeof(float));
-      zp.zoneId = 0;       // not on the wire on Test
-      zp.zoneInstance = 0;
-    }
-    return;
-  }
-
-  // Legacy fallback.
-  const zonePointsStruct* zp = (const zonePointsStruct*)data;
-  m_zonePointCount = zp->count;
   m_zonePoints = new zonePointStruct[m_zonePointCount];
-  memcpy((void*)m_zonePoints, zp->zonePoints,
-         sizeof(zonePointStruct) * m_zonePointCount);
+  for (size_t i = 0; i < m_zonePointCount; i++)
+  {
+    const uint8_t* rec = data + i * kRecord;
+    zonePointStruct& zp = m_zonePoints[i];
+    zp.zoneTrigger = static_cast<uint32_t>(i);
+    memcpy(&zp.y, rec + 0x20, sizeof(float) * 3); // y, x, z contiguous
+    memcpy(&zp.heading, rec + 0x2C, sizeof(float));
+    zp.zoneId = 0;
+    zp.zoneInstance = 0;
+  }
 }
 
 void ZoneMgr::dynamicZonePoints(const uint8_t *data, size_t len, uint8_t)

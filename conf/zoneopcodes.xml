@@ -30,7 +30,7 @@
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="132d" name="OP_SendZonePoints" updated="05/14/26">
-        <comment>Zone objects + zone-line portals bulk push (S>C, variable size scales with zone complexity: ~5KB Crescent Reach/Blightfire Moors, ~31KB Plane of Knowledge with dozens of zone-portals). Wire format on Test: fixed 136-byte records, each with a 32-byte actor-name slot (POKCABPORT500, OBJ_ELEV, etc.), 3 position floats @ 0x20, heading @ 0x2C, plus marker u32s and a 0x00010001 sentinel. The destination zone is not on the wire — the client resolves portal-actor names to target zones via its data files. Daemon handler (ZoneMgr::zonePoints) detects Test vs legacy by checking whether the first byte is uppercase ASCII.</comment>
+        <comment>Zone objects + zone-line portals bulk push (S>C, variable size scales with zone complexity: ~5KB Crescent Reach/Blightfire Moors, ~31KB Plane of Knowledge with dozens of zone-portals). Wire format: fixed 136-byte records, each with a 32-byte actor-name slot (POKCABPORT500, OBJ_ELEV, etc.), 3 position floats @ 0x20, heading @ 0x2C, plus marker u32s and a 0x00010001 sentinel. The destination zone is not on the wire — the client resolves portal-actor names to target zones via its data files.</comment>
         <payload dir="server" typename="zonePointsStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_AAExpUpdate">
