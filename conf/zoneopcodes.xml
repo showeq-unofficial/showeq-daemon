@@ -29,8 +29,8 @@
         <payload dir="server" typename="makeDropStruct" sizechecktype="none"/>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_SendZonePoints" updated="05/14/26">
-        <comment>Identified as wire opcode 0x132d but NOT wired here — ZoneMgr::zonePoints handler casts to legacy zonePointsStruct{count, points[]} and crashes on the new ~5KB-31KB Test payload (which carries zone objects + portals in a different format: NUL-delimited actor names like OBJ_ELEV, OBJ_GEARSB, POKCABPORT500). Mapping deferred until the handler is updated for Test's layout. See TEST_OPCODE.md 2026-05-14 entry.</comment>
+    <opcode id="132d" name="OP_SendZonePoints" updated="05/14/26">
+        <comment>Zone objects + zone-line portals bulk push (S>C, variable size scales with zone complexity: ~5KB Crescent Reach/Blightfire Moors, ~31KB Plane of Knowledge with dozens of zone-portals). Wire format on Test: fixed 136-byte records, each with a 32-byte actor-name slot (POKCABPORT500, OBJ_ELEV, etc.), 3 position floats @ 0x20, heading @ 0x2C, plus marker u32s and a 0x00010001 sentinel. The destination zone is not on the wire — the client resolves portal-actor names to target zones via its data files. Daemon handler (ZoneMgr::zonePoints) detects Test vs legacy by checking whether the first byte is uppercase ASCII.</comment>
         <payload dir="server" typename="zonePointsStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_AAExpUpdate">

@@ -55,7 +55,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_NewZone — uint8_t (server, variable) — `0x5fc3` (2026-05-13, revised from 0xa923)
 - [x] OP_SpawnDoor — doorStruct (server, modulus) — `0xae0a` (2026-05-13, revised from 0x794d)
 - [x] OP_GroundSpawn — makeDropStruct (server) — `0x7b00` (2026-05-14)
-- [ ] OP_SendZonePoints — zonePointsStruct (server) — wire id 0x132d identified (2026-05-14), but handler segfaults on the Test layout (`new[count]` with first u32 misread). XML id deferred until `ZoneMgr::zonePoints` is rewritten for the NUL-delimited zone-object/portal format. See log entry.
+- [x] OP_SendZonePoints — zonePointsStruct (server) — `0x132d` (2026-05-14, revised from 0xc547; handler rewritten for Test 136-byte-record layout)
 - [x] OP_ZoneChange — zoneChangeStruct (both) — `0xcdf9` (2026-05-14, revised from 0x9148)
 
 ### Movement / position (4)
@@ -789,5 +789,26 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
 
 - Cross-capture validation: 0xcdf9 fired in the prior `test-zone-aa-click` capture too with the same shape — those 4 fires were 2 transitions × 2 fires (the user's 1 zone-out + 1 zone-back). The earlier dismissal of 0xcdf9 ("UTF-16 wide-char text, likely OP_InspectAnswer territory") was wrong — the wide-char content is just the Test client's locale-resource leak (same pattern seen in OP_ZoneChange's pre-patch fires), not inspect data. 0x132d also fired in the prior capture's mix vpk; "OBJ_*" plaintext I noted there was the same zone-objects content under a different fire-count.
 
-- 73-list status: 21 unresolved (OP_ZoneChange + OP_TimeOfDay both fully wired; OP_SendZonePoints id known but handler-pending, so not [x] yet).
-- **Handler-update follow-up needed for OP_SendZonePoints**: `ZoneMgr::zonePoints()` at `zonemgr.cpp:756` casts the payload to legacy `zonePointsStruct{uint32_t count, zonePointStruct points[]}` and crashes on Test's new layout (interprets the first u32 as `count`, then `new[count]` and `memcpy(... count * sizeof(zonePointStruct))` blows past the buffer on the 5-31KB Test wire). Wire opcode 0x132d is intentionally left at `ffff` in `zoneopcodes.xml` until the handler is rewritten to parse Test's NUL-delimited zone-object/portal format. The discovery is recorded here so the merge-back review knows the ID is confirmed.
+- 73-list status: 20 unresolved (OP_ZoneChange + OP_TimeOfDay + OP_SendZonePoints all fully wired after handler rewrite — see follow-up entry below).
+
+### 2026-05-14 — OP_SendZonePoints handler rewritten for Test 136-byte-record layout
+
+- `ZoneMgr::zonePoints()` (zonemgr.cpp:754) updated to detect Test vs legacy via the first-byte ASCII check (`data[0]` is uppercase A-Z on Test, where each record begins with a NUL-terminated portal/object actor name like `POKCABPORT500` or `OBJ_ELEV`).
+- Wire format (Test, 136-byte fixed records):
+  - offset 0x00-0x1F: char actorName[32] — NUL-terminated portal/object actor name
+  - offset 0x20-0x2B: 3× IEEE-754 float (x, y, z position in current zone)
+  - offset 0x2C-0x2F: float heading
+  - offset 0x30-0x47: duplicate position triple + marker zeros
+  - offset 0x48-0x4B: u32 = 100 (constant marker)
+  - offset 0x50-0x53: u32 record-related counter
+  - offset 0x54-0x57: u32 = 58 or 59 (constant marker, slightly varies by record type)
+  - offset 0x58-0x5B: u32 (low value 15-22 in PoK records; 100 in OBJ records — purpose unclear, possibly portal/trigger index within zone)
+  - offset 0x68-0x6B: u32 = 0x00010001 (sentinel)
+  - rest of record: zero-padding to 136 bytes
+- Handler populates `m_zonePoints[i]` with:
+  - `zoneTrigger = i` (record index as synthetic trigger id since no daemon caller currently reads the trigger)
+  - `(y, x, z)` copied from offset 0x20-0x2B (3 contiguous floats; legacy struct stores them as y@4, x@8, z@12)
+  - `heading` from offset 0x2C
+  - `zoneId = 0` and `zoneInstance = 0` since the destination zone is not on the wire — the client resolves portal-actor names to target zones via its own data files
+- Legacy path (`{u32 count, zonePointStruct[]}`) preserved as a fallback so non-Test captures still work.
+- Cross-capture validation: all 5 existing replay fixtures (multi-zone, zone-aa-click, inzone-mixed, group-leader, group-invite) replay cleanly with exit=0 and 0x132d wires through as `OP_SendZonePoints` instead of `unknown`.
