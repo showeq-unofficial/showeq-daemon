@@ -12,8 +12,8 @@
         <payload dir="client" typename="ClientZoneEntryStruct" sizechecktype="match"/>
     <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="7e22" name="OP_TimeOfDay" updated="05/04/26">
-        <comment>TimeOfDayCode</comment>
+    <opcode id="ca54" name="OP_TimeOfDay" updated="05/14/26">
+        <comment>TimeOfDayCode (8b S>C). Confirmed via test-zone-aa-click capture: fires once per zone-load with `{u8 hour, u8 min, u8 day, u8 month, u16 year}` shape (year=0x0cbf=3263 EQ-year). Hour advanced 20→21 between consecutive zone-load fires, confirming EQ time-tick.</comment>
         <payload dir="server" typename="timeOfDayStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="5fc3" name="OP_NewZone" updated="05/13/26">

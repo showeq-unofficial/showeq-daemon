@@ -51,7 +51,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 ### Zone bootstrap (8)
 - [x] OP_PlayerProfile — uint8_t (server, variable) — `0xaaed` (2026-05-13, revised from 0xe284)
 - [x] OP_ZoneEntry — ClientZoneEntryStruct (client) / uint8_t (server) — `0xbe93` (2026-05-13, revised from 0xa5bf)
-- [ ] OP_TimeOfDay — timeOfDayStruct (server)
+- [x] OP_TimeOfDay — timeOfDayStruct (server) — `0xca54` (2026-05-14, revised from 0x7e22)
 - [x] OP_NewZone — uint8_t (server, variable) — `0x5fc3` (2026-05-13, revised from 0xa923)
 - [x] OP_SpawnDoor — doorStruct (server, modulus) — `0xae0a` (2026-05-13, revised from 0x794d)
 - [x] OP_GroundSpawn — makeDropStruct (server) — `0x7b00` (2026-05-14)
@@ -746,3 +746,18 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
   - OP_GroupCancelInvite — user declined <charname>'s invite (confirmed via OP_GroupInvite2 = 0xfc1d fire with `<charname>@64`). No C>S unknown carries "<charname>" plaintext, meaning the decline doesn't transmit the inviter's name — it's a session-id-based decline. Multiple small zero-valued C>S unknowns are candidates (`0x6dae` 2× 80b, `0x7d87`/`0xd794`/`0xde94`/`0x7ceb`/`0xdf43`/`0x39a7` all 2× 0b, etc.) but none uniquely correlate to the decline event.
   - OP_ZoneChange / OP_TimeOfDay / OP_SendZonePoints — user zoned twice (confirmed via 2× OP_NewZone + 2× OP_PlayerProfile + 1337× OP_ZoneEntry). The 30-second wait before zoning was insufficient — the capture daemon's session key handoff at the zone boundary still corrupted the decode of the transition packets. Tried bidir matched-size candidates 0x79ee (148b, 4 fires) and 0xcdf9 (100b, 4 fires); neither matches `zoneChangeStruct{yourName[64], zoneId}` shape (0x79ee carries "1000" ASCII session/zone-id; 0xcdf9 carries UTF-16 wide-char text in some fires and handle bytes in others — likely OP_InspectAnswer / OP_GuildMemberUpdate territory).
   - OP_ClickObject — only OP_MoveItem (2× C>S 28b) fired for the drop + pickup. Hypothesis: **modern Test fuses ground-item pickup into OP_MoveItem** (slot-move from a ground pseudo-slot to inventory). OP_ClickObject may now only fire for clicking interactive ground objects (doors, levers, portals, NPCs to interact-with), not for loose item pickup. Mark as needs-doors-capture rather than re-trying drop-pickup.
+
+### 2026-05-14 — OP_TimeOfDay = 0xca54
+
+- Capture: `tests/replay/test-zone-aa-click-20260514.vpk` (user waited in zone for session-key stabilization, then zoned — capturing the post-zone time broadcast cleanly).
+- **OP_TimeOfDay = 0xca54 (S>C, 8b)** confirmed. 2 fires across the capture, both with `timeOfDayStruct{u8 hour, u8 min, u8 day, u8 month, u16 year, u16 padding}` shape:
+  - Fire 1: `hour=20, min=45, day=2, month=11, year=3263` (EQ time)
+  - Fire 2: `hour=21, min=46, day=2, month=11, year=3263` — EQ hour advanced 1 between the two zone-load fires, which is the canonical EQ time-tick rate (1 EQ hour ≈ 3 real-time minutes).
+  - Year=3263 (Test EQ year) matches the in-game date and rules out any other 8b numeric S>C with two u32s as a false positive.
+- **OP_ZoneChange / OP_SendZonePoints still elusive** despite confirmed clean session-key handoff (TimeOfDay decoded cleanly, both zones loaded with full OP_PlayerProfile + OP_ZoneEntry). Candidates checked and ruled out:
+  - `0x0acd` (4× bidir 32b) — header has u32 spawn-id-shaped pair `0x1c24/0x1c27`, not a zoneChangeStruct shape. Likely a target/spawn-action opcode.
+  - `0x9444` (2× C>S 2400b) — anti-cheat hardware-fingerprint XML payload (`<SystemFingerprint VideoCardId="..." NetworkCardId="..."/>`), not zone-related.
+  - `0xc1e8` (5× S>C 1028b) — mostly all-zero payload, possibly unused-slot bitmap; not zone-points data.
+  - `0x010d` (8× bidir 336b) — has self-name plaintext but irregular bidir count (6 C>S + 2 S>C); likely client telemetry, not zone transition.
+  - The zoneChangeStruct shape may have radically shrunk on Test (legacy 88b → unrecognized compact form) OR the zone-line traversal no longer uses an explicit OP_ZoneChange handshake (the world-server-managed handoff via OP_ZoneServerInfo might subsume it). Needs a 3+ zone hop capture to disambiguate.
+- Cross-capture note for OP_MOTD: user-observed MOTD in live game ("Greetings Norrathians! The Test server has...") confirms the opcode IS firing on login. None of the current 4 captures grep-hit "Norrathians" or "Greetings" plaintext — all started post-login. OP_MOTD remains in the char-select-bucket for the next login capture.
