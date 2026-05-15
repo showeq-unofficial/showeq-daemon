@@ -207,8 +207,8 @@
         <comment>FormattedMessageCode i.e. pet dismissed etc</comment>
         <payload dir="server" typename="formattedMessageStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_CommonMessage" updated="05/13/26">
-        <comment>ChannelMessageCode i.e. /tell /ooc /shout etc</comment>
+    <opcode id="9b04" name="OP_CommonMessage" updated="05/14/26">
+        <comment>Channeled chat (/tell, /shout, /ooc, /guild). Compact Test layout (~56b C>S outgoing, ~64b S>C incoming) with NUL-terminated names: sender@0, recipient@~10 (S>C only), channel/language metadata, message text (NUL-terminated). NOT used for /say — /say is off-wire on Test (routes through Daybreak chat service per OP_SetChatServer).</comment>
         <payload dir="both" typename="channelMessageStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="3f07" name="OP_SpecialMesg" updated="05/13/26">

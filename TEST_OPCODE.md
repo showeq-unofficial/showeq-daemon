@@ -117,7 +117,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 ### Chat / messaging (4)
 - [ ] OP_SimpleMessage — simpleMessageStruct (server)
 - [x] OP_FormattedMessage — formattedMessageStruct (server) — `0x9a58` (2026-05-13, revised from 0x0ecf)
-- [ ] OP_CommonMessage — channelMessageStruct (both)
+- [x] OP_CommonMessage — channelMessageStruct (both) — `0x9b04` (2026-05-14)
 - [x] OP_SpecialMesg — specialMessageStruct (server) — `0x3f07` (2026-05-13, revised from 0x7162)
 
 ### Alternate Advancement (3)
@@ -733,3 +733,16 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
   - OP_AAAction — no clear 12-32b C>S+S>C burst with AA-id-shaped payload identified.
   - OP_ZoneChange — no 88b candidate in the capture. User zoned to Blightfire Moors (confirmed via OP_Find content carrying Blightfire NPCs), but the zone-transition packet may have been processed during the pre-key-handoff window — the capture daemon's session key wasn't fully established before the zone, so the ZoneChange packets may have been encrypted-undecodable.
   - OP_TimeOfDay — same zone-handoff timing caveat. Needs a capture where the daemon is already running with a stable session key, THEN the user zones (so the daemon decodes ZoneChange + TimeOfDay cleanly).
+
+### 2026-05-14 — OP_CommonMessage = 0x9b04; chat hypothesis refined (/tell, /shout on-wire; /say off-wire)
+
+- Capture: `tests/replay/test-zone-aa-click-20260514.vpk` (user did `/tell` + `/shout` with text "test", plus received an incoming chat "hi", plus declined an invite from `<charname>`).
+- **OP_CommonMessage = 0x9b04 (dir="both", ~56b C>S / ~64b S>C)** confirmed via plaintext message text in the payloads:
+  - `0x9b04` C>S 56b: sender name@0 (NUL-terminated, compact ~10b not legacy [64]), channel/metadata bytes, message text ("test") at offset ~0x28.
+  - `0x9b04` S>C 64b: sender@0, recipient name@~10, channel metadata, message text ("hi") at offset ~0x2E. The recipient slot is present only on S>C (incoming deliveries); C>S outgoing has only sender slot.
+  - Layout is compact NUL-terminated names rather than the legacy fixed-[64] slots — Test packs the channelMessageStruct tightly.
+- **Chat hypothesis refined**: prior "chat is entirely off-wire" claim from the inzone-mixed capture log was wrong. /tell and /shout DO traverse the zone UDP stream (via 0x9b04). /say is the off-wire channel — proximity chat routes through the Daybreak chat service per OP_SetChatServer. /guild, /raid, /general etc. are unverified but likely on-wire via 0x9b04 given /tell + /shout share it.
+- **Did NOT find** despite the actions:
+  - OP_GroupCancelInvite — user declined <charname>'s invite (confirmed via OP_GroupInvite2 = 0xfc1d fire with `<charname>@64`). No C>S unknown carries "<charname>" plaintext, meaning the decline doesn't transmit the inviter's name — it's a session-id-based decline. Multiple small zero-valued C>S unknowns are candidates (`0x6dae` 2× 80b, `0x7d87`/`0xd794`/`0xde94`/`0x7ceb`/`0xdf43`/`0x39a7` all 2× 0b, etc.) but none uniquely correlate to the decline event.
+  - OP_ZoneChange / OP_TimeOfDay / OP_SendZonePoints — user zoned twice (confirmed via 2× OP_NewZone + 2× OP_PlayerProfile + 1337× OP_ZoneEntry). The 30-second wait before zoning was insufficient — the capture daemon's session key handoff at the zone boundary still corrupted the decode of the transition packets. Tried bidir matched-size candidates 0x79ee (148b, 4 fires) and 0xcdf9 (100b, 4 fires); neither matches `zoneChangeStruct{yourName[64], zoneId}` shape (0x79ee carries "1000" ASCII session/zone-id; 0xcdf9 carries UTF-16 wide-char text in some fires and handle bytes in others — likely OP_InspectAnswer / OP_GuildMemberUpdate territory).
+  - OP_ClickObject — only OP_MoveItem (2× C>S 28b) fired for the drop + pickup. Hypothesis: **modern Test fuses ground-item pickup into OP_MoveItem** (slot-move from a ground pseudo-slot to inventory). OP_ClickObject may now only fire for clicking interactive ground objects (doors, levers, portals, NPCs to interact-with), not for loose item pickup. Mark as needs-doors-capture rather than re-trying drop-pickup.
