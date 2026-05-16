@@ -42,7 +42,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_DeleteCharacter — `0x5afc` (2026-05-15)
 - [x] OP_CharacterCreate — `0xcc83` (2026-05-15)
 - [x] OP_ApproveName — `0xe901` (2026-05-15)
-- [ ] OP_RandomNameGenerator
+- [~] OP_RandomNameGenerator — confirmed-absent on Test (2026-05-16; client-side generation, no wire round-trip)
 
 ---
 
@@ -960,3 +960,12 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
   - `0x56e0` (3 world fires, also 2 zone fires): after the post-EnterWorld bulk-char-data burst but BEFORE OP_MOTD / OP_SetChatServer / OP_ZoneServerInfo — too early; appears on both streams so not world-specific.
   - `0x8986` / `0xf63f` (1 fire each, only cycle 1): one-off cycle-1 ack/handshake messages.
 - 73-list status: 10 unresolved (was 11).
+
+### 2026-05-16 — OP_RandomNameGenerator marked `[~]` confirmed-absent on Test
+
+- Two independent capture sessions inspected for a name-round-trip wire pattern:
+  - `tests/replay/test-charselect-login-20260515.vpk` (this session, post-patch): the char-create window contains exactly one new-character flow — 3 consecutive `OP_ApproveName` C>S 84b → S>C 1b exchanges, immediately followed by 1 `OP_CharacterCreate` C>S 168b. No bidirectional name-shaped opcode (request from client, name-string reply from server) exists in this window or anywhere else on the world stream.
+  - `tests/replay/test-char-leader.vpk` (May-05 pre-patch session, prior research entry above): same conclusion reached via different reasoning — "no dedicated opcode found for the round-trip; the candidate names that flowed through OP_ApproveName were either client-generated locally or returned via OP_ApproveName itself."
+- The `OP_ApproveName` protocol shape (84b C>S name candidate → 1b S>C yes/no boolean) is **structurally incompatible with returning a server-generated random name** — the 1-byte reply has no room for a variable-length name string. Whatever the "randomize" button does on Test, it does it client-side without a network round-trip.
+- Future targeted capture (clicking the random-name button N times without submitting) would tighten the proof, but the 2-capture / 2-session corroboration plus the ApproveName-reply-too-small structural argument is sufficient to lift this off the active hunt list.
+- 73-list status: 9 unresolved + 1 confirmed-absent (was 10 unresolved).
