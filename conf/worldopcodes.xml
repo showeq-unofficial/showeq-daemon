@@ -15,8 +15,8 @@
         <comment>old GuildListCode</comment>
         <payload dir="server" typename="worldGuildListStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_MOTD">
-        <comment>old MOTDCode Server message of the day</comment>
+    <opcode id="dc1c" name="OP_MOTD" updated="05/15/26">
+        <comment>Server message of the day. Test: 303b S>C plaintext in world stream, fires after OP_EnterWorld (not at zone-in despite client-side rendering at that point). Text not template-keyed — full sysadmin-typed message body inline. Skipped on world-handshake cycles that don't actually proceed to EnterWorld (e.g. fresh-from-CharCreate relogin in 2026-05-15 capture).</comment>
         <payload dir="server" typename="worldMOTDStruct" sizechecktype="none"/>
     </opcode>
 
@@ -66,14 +66,14 @@
     <opcode id="ffff" name="OP_WorldComplete" updated="05/13/26">
 	    <comment>Client telling world server it is done. World replies by disconnecting.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_DeleteCharacter" updated="05/13/26">
-	    <comment>Delete character @ char select. Test: 68b C>S, name@offset 0.</comment>
+    <opcode id="5afc" name="OP_DeleteCharacter" updated="05/15/26">
+	    <comment>Delete character @ char select. Test: 68b C>S, NUL-terminated char name @ offset 0 in a char[64] slot (post-name bytes are uninitialized client-stack leak), trailer u32 @ offset 64.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_CharacterCreate">
-	    <comment>Create character @ char select</comment>
+    <opcode id="cc83" name="OP_CharacterCreate" updated="05/15/26">
+	    <comment>Create character @ char select. Test: 168b C>S, race@0x44 / class@0x48 / deity@0x4c / starting zoneId@0x50 (name already reserved via prior OP_ApproveName).</comment>
     </opcode>
-    <opcode id="ffff" name="OP_ApproveName" updated="05/13/26">
-	    <comment>Approving new character name @ char creation. Test: 84b C>S name candidate, 1b S>C status (0x12 = available, 0x01 = committed).</comment>
+    <opcode id="e901" name="OP_ApproveName" updated="05/15/26">
+	    <comment>Approving new character name @ char creation. Test: 84b C>S name candidate (name@0 in char[64], race@64, class@68, deity@72), 1b S>C status (0x12 = available, 0x01 = committed).</comment>
     </opcode>
     <opcode id="ffff" name="OP_RandomNameGenerator">
 	    <comment>Returns a random name</comment>

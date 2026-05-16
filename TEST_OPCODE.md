@@ -36,12 +36,12 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 
 ### World content (2)
 - [ ] OP_GuildList — worldGuildListStruct (server)
-- [ ] OP_MOTD — worldMOTDStruct (server)
+- [x] OP_MOTD — `0xdc1c` (2026-05-15)
 
 ### Character management (4)
-- [ ] OP_DeleteCharacter
-- [ ] OP_CharacterCreate
-- [ ] OP_ApproveName
+- [x] OP_DeleteCharacter — `0x5afc` (2026-05-15)
+- [x] OP_CharacterCreate — `0xcc83` (2026-05-15)
+- [x] OP_ApproveName — `0xe901` (2026-05-15)
 - [ ] OP_RandomNameGenerator
 
 ---
@@ -812,3 +812,65 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
   - `zoneId = 0` and `zoneInstance = 0` since the destination zone is not on the wire — the client resolves portal-actor names to target zones via its own data files
 - Legacy path (`{u32 count, zonePointStruct[]}`) preserved as a fallback so non-Test captures still work.
 - Cross-capture validation: all 5 existing replay fixtures (multi-zone, zone-aa-click, inzone-mixed, group-leader, group-invite) replay cleanly with exit=0 and 0x132d wires through as `OP_SendZonePoints` instead of `unknown`.
+
+### 2026-05-15 — OP_ApproveName = 0xe901 and OP_CharacterCreate = 0xcc83 via brand-new-char creation flow
+
+- Capture: `tests/replay/test-charselect-login-20260515.vpk` (login → camp to char-select → create new Drakkin Magician → login to new char). Three full world-handshake cycles (3× OP_SendLoginInfo) cover login + camp + post-create relogin.
+
+- **OP_ApproveName = 0xe901 (C>S 84b request / S>C 1b response)** confirmed. Six fires in world stream form three textbook request/response pairs from iterative name typing (4-char prefix → 5-char prefix → committed 7-char final name):
+  - Fire 1 C>S 84b: candidate name @ offset 0 (NUL-term in `char[64]` slot), then u32 race=`0x80` (Drakkin), u32 class=`0x0a` (Magician), u32 deity=`0xcb` (203) at offsets 64/68/72.
+  - Fire 2 S>C 1b: `0x12` — name available.
+  - Fire 3 C>S 84b: extended candidate name (same race/class/deity).
+  - Fire 4 S>C 1b: `0x12` — available.
+  - Fire 5 C>S 84b: final candidate name (same race/class/deity).
+  - Fire 6 S>C 1b: `0x01` — committed/reserved (client immediately follows with OP_CharacterCreate).
+  - Status-code interpretation matches the prior XML comment authored 2026-05-13: `0x12 = available`, `0x01 = committed`.
+
+- **OP_CharacterCreate = 0xcc83 (C>S 168b)** confirmed. Single C>S fire at events.txt line 2616, *immediately after* the approved-name response (line 2615). Decoded fields:
+  - u32 race @ 0x44 = `0x80` (Drakkin) — matches OP_ApproveName.
+  - u32 class @ 0x48 = `0x0a` (Magician).
+  - u32 deity @ 0x4c = `0xcb` (203).
+  - u32 starting zoneId @ 0x50 = `0x018a` = **394 = Crescent Reach** — the canonical Drakkin starter zone, decisive cross-check.
+  - Bytes 0x00-0x43 are zeros (race/class are echoed at 0x44+ rather than packed at offset 0 here — the name itself is NOT in this packet; OP_ApproveName has already reserved it).
+  - Trailing u32 `0x000000ff` @ 0x54 + zero padding to 168b.
+
+- Fire-order anchor (events.txt lines 2610-2616): three back-to-back ApproveName request/response pairs immediately followed by a single OP_CharacterCreate — exactly the canonical char-create flow (validate name → submit creation).
+
+- 73-list status: 18 unresolved (was 20).
+
+### 2026-05-15 — AA-grant template via OP_FormattedMessage (data point for known opcode)
+
+- Capture: `tests/replay/test-charselect-login-20260515.vpk` (same as above; brand-new Drakkin Magician's first-login auto-grants 14 starter/racial AAs).
+- **All 14 fires of OP_FormattedMessage (0x9a58) carry the same formatId** with arg-1 cycling through AA spell IDs (1371-1377 contiguous ladder, plus 4665, 4700, 5006, 9000, 9031-9033). Arg-3 constant `"1215"`.
+- Wire layout per fire (58b fixed):
+  - u32 @ 0x00 = 0 (target — system broadcast).
+  - u32 @ 0x04 = `0x00019A00` (formatId / eqstr key — invariant across all 14 fires; this is the **AA-grant template key** on Test).
+  - 5b padding @ 0x08-0x0C.
+  - Length-prefixed ASCII arg 1 @ 0x0D: u32 length + AA-id string (e.g. `"1371"`).
+  - Length-prefixed ASCII arg 2: u32 length=1 + `"0"` (rank = 0).
+  - Length-prefixed ASCII arg 3: u32 length=4 + `"1215"` (constant — possibly channel/scope marker).
+- This is **not a new opcode**; OP_FormattedMessage was already wired. The finding is the **formatId-to-semantic mapping** — when daemon synthesizes chat for AA-gain events, route on formatId=`0x00019A00`. The legacy "You have learned the ability X" eqstr template applies, with %1 substituted from the AA spell-name table (spells_us_str.txt) keyed by arg-1.
+
+### 2026-05-15 — OP_MOTD = 0xdc1c via post-EnterWorld world-stream broadcast
+
+- Capture: `tests/replay/test-charselect-login-20260515.vpk` (3 world-handshake cycles; MOTD fires on cycles 1+2 but not on the post-CharCreate relogin cycle 3).
+- **OP_MOTD = 0xdc1c (S>C 303b, world stream)** confirmed. Two fires both carry the **identical full-text MOTD body in plaintext**:
+  > "Greetings Norrathians! The Test server has currently enabled a new mechanic to lower your level. Visit the Priest of Discord in the Guild Lobby to try it. Item level requirements have been disabled on the server to facilitate testing. Please post any bugs or issues you find on forums.everquest.com."
+- Stream / fire-order anchor (events.txt):
+  - Login 1: SendLoginInfo (line 1) → EnterWorld (23) → **MOTD@dc1c (36)**.
+  - Login 2: SendLoginInfo (2578) → EnterWorld (2600) → **MOTD@dc1c (2691)**.
+  - Login 3: SendLoginInfo (3339) → EnterWorld (3361) → **no MOTD** (fresh-from-CharCreate relogin — server skips MOTD on this cycle).
+- Wire shape: 303b S>C, plaintext message body inline (not template-keyed via eqstr). The text is what the server admin typed; the daemon can route this directly to the chat-message signal once a struct is added. Legacy `worldMOTDStruct` had a single `char text[]` field — matches.
+- Hunt anti-leads that paid off in narrowing: ASCII `strings -n 8` and UTF-16 `strings -e l -n 8` over every world+zone 2-fire S>C candidate. The text was hiding in `0xdc1c` — initially deprioritized as a smaller (303b) candidate and the strings threshold of -n 10 hid the leading "Greetings" (9 chars) line. Lowering to `-n 6` surfaced it immediately.
+- Common modern misconception (corrected mid-hunt): legacy lobby/world MOTD chat surface is gone, but the MOTD broadcast itself **still rides the world stream** post-EnterWorld — the client renders it into zone-load scrollback so it looks like a zone-stream broadcast, but on the wire it's pre-zone-handoff.
+- 73-list status: 17 unresolved (was 18).
+
+### 2026-05-15 — OP_DeleteCharacter = 0x5afc
+
+- Capture: `tests/replay/test-charselect-login-20260515.vpk` (user confirmed a character deletion was done during this session, post-creation testing of the brand-new char).
+- **OP_DeleteCharacter = 0x5afc (C>S 68b, world stream)** confirmed. Single fire at events.txt line 3369, in the 3rd world-handshake cycle's tail burst.
+- Wire shape (68b):
+  - `char name[64]` @ 0x00 — NUL-terminated character name to delete (the brand-new char created via OP_CharacterCreate earlier in this capture; post-NUL bytes are uninitialized client-stack leak — typical Test buffer-reuse pattern, doesn't carry information).
+  - u32 trailer @ 0x40 (zero in this fire).
+- Anchor: name matches the brand-new char created via OP_CharacterCreate (0xcc83) earlier in the same capture; the size and offset shape match the prior 2026-05-13 XML note ("Test: 68b C>S, name@offset 0") authored from a different capture, giving cross-capture consistency.
+- 73-list status: 16 unresolved (was 17).
