@@ -90,8 +90,8 @@
         <comment>Info regarding guild members</comment>
         <payload dir="server" typename="GuildMemberUpdate" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_ClickObject" updated="05/13/26">
-        <comment>Items dropped on the ground</comment>
+    <opcode id="f525" name="OP_ClickObject" updated="05/16/26">
+        <comment>Click on an interactive object (door, lever, ground item). Test: 12b bidirectional, payload (u32 objectId, u32 spawnId, u32 padding). Per click event: 1 C>S request + 2 S>C replies with mirrored payload.</comment>
         <payload dir="both" typename="remDropStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="8ac8" name="OP_Action" updated="05/13/26">

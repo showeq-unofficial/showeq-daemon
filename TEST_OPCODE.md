@@ -111,7 +111,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_MoveItem — moveItemStruct (client) — `0xe883` (2026-05-14, revised from 0xdee3)
 
 ### Click / interact (2)
-- [ ] OP_ClickObject — remDropStruct (both)
+- [x] OP_ClickObject — remDropStruct (both) — `0xf525` (2026-05-16)
 - [x] OP_Find — uint8_t (server, variable) — `0x0f64` (2026-05-14, revised from 0x695f)
 
 ### Chat / messaging (4)
@@ -892,3 +892,28 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
 - Tail interpretation: third u32 is **constant 0x6c across all 20 fires in three different zones** — different from the 2026-05-04 pre-patch reading where the field varied. Hypotheses (none in scope to commit here): a fixed broadcast-channel/template selector that got pinned by the May-12 reshuffle; a per-spawn "default chat template" identifier. Field semantics for the third u32 left as `simpleMessageStruct::spellId`/`unknown` (the existing anonymous-union alias) until a capture surfaces a different value.
 - Ruled out (12b S>C in test-inzone-mixed): `0x7708` (300 fires, monotonic counter + constant `0x6a065e83` magic — heartbeat, no pair pattern), `0xacfc` (9 fires, first 8 bytes zero — not spawn-targeted), `0xf525` (bidirectional — not a server broadcast), `0xd825`/`0xa4c4`/`0xad39`/`0xee08`/`0x680f` (3 fires each, none paired, none with `(spawn_id, 0-or-1, *)` shape). The pre-patch winner `0x098d` fires **zero times** on a post-patch dump-payload of test-multi-zone, confirming the opcode rolled in the May-12 reshuffle.
 - 73-list status: 15 unresolved (was 16).
+
+### 2026-05-16 — OP_ClickObject = 0xf525
+
+- Captures: `tests/replay/test-inzone-mixed-20260514.vpk` (6 fires across 2 distinct click events) + `tests/replay/test-zone-aa-click-20260514.vpk` (3 fires from 1 click event). 9 fires total, all 12 bytes, all on the zone stream. **The only 12b bidirectional unknown across all post-May-12 captures.**
+- Method: `--dump-payload 0xf525:` + `--list-events`. Per-click signature is **1 C>S request followed by 2 S>C replies, all within the same millisecond, all carrying the same 12-byte payload** (the server echoes the click back twice). test-inzone-mixed fires:
+  ```
+  C 0xf525 12 zone   payload: 08 00 00 00  1d 1a 00 00  00 00 00 00
+  S 0xf525 12 zone   payload: 08 00 00 00  1d 1a 00 00  00 00 00 00
+  S 0xf525 12 zone   payload: 08 00 00 00  1d 1a 00 00  00 00 00 00
+  C 0xf525 12 zone   payload: 09 00 00 00  1d 1a 00 00  00 00 00 00
+  S 0xf525 12 zone   payload: 09 00 00 00  1d 1a 00 00  00 00 00 00
+  S 0xf525 12 zone   payload: 09 00 00 00  1d 1a 00 00  00 00 00 00
+  ```
+  Click events: objectId 8 then objectId 9, both targeting spawn 0x1a1d. test-zone-aa-click fires one click: objectId 10 → spawn 0x1c24, same 1+2 burst pattern.
+- Wire shape (12b, both directions identical):
+  - u32 objectId @ 0 (8/9/10 observed — small click-target indices)
+  - u32 spawnId @ 4 (0x1a1d=6685, 0x1c24=7204 — typical NPC ID range)
+  - u32 padding @ 8 (always zero)
+  - Test widens legacy's `(u16 dropId, u8[2], u16 spawnId, u8[2], u8[4])` into `(u32, u32, u32)` while keeping total size at 12b. `remDropStruct` (legacy) still matches by size for the SZC_Match check; the existing handler reads the first u16 of each pair so legacy interpretation works in narrow cases.
+- Ruled out (12b bidirectional candidates):
+  - No other 12b bidirectional unknown exists in any post-patch capture — `0xf525` is the **only** one. (Verified by grep over all `tests/replay/test-*-2026051[45].opcodestats.txt`.)
+  - `0xb5cb` (24b bidirectional, 38-159 fires) — wrong size.
+  - `0x2a64` (32b bidirectional) — wrong size.
+  - `0x043e` (8b bidirectional) — wrong size; identified as inspect-family by a separate hint row.
+- 73-list status: 14 unresolved (was 15).
