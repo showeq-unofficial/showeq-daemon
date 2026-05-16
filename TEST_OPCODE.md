@@ -22,7 +22,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_ExpansionInfo — `0xc26e` (2026-05-13, revised from 0x6bcf)
 - [x] OP_SendCharInfo — `0xde55` (2026-05-13, revised from 0x84f6)
 - [x] OP_ZoneServerInfo — `0xb67c` (2026-05-13, revised from 0xf21f)
-- [ ] OP_WorldComplete
+- [x] OP_WorldComplete — `0x6530` (2026-05-16, revised from 0xfc46)
 
 ### Checksums / verification (4)
 - [x] OP_SendSpellChecksum — `0x2e9f` (2026-05-16, revised from 0x2de1)
@@ -938,3 +938,25 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
 - Disambiguation bar: 5 cycles × 3 opcodes = 15 fires, all in deterministic order; zero competing 2056b C>S world-stream unknowns; cross-validated against test-multi-zone-20260514's partial-handshake pattern (Spell-only re-fire on zone change).
 - Side finding worth carrying forward: the daemon's full world handshake (post-patch, charselect→zone-handoff) is now fully labeled — `OP_SendLoginInfo → OP_SendSpellChecksum → OP_SendBaseDataChecksum → OP_SendSkillCapsChecksum → OP_SendExeChecksum → OP_ApproveWorld → OP_EnterWorld`. Zone changes re-fire only `OP_SendSpellChecksum` (plus the standard `OP_EnterWorld` / `OP_ZoneServerInfo` exchange).
 - 73-list status: 11 unresolved (was 14).
+
+### 2026-05-16 — OP_WorldComplete = 0x6530
+
+- Captures: `tests/replay/test-charselect-login-20260515.vpk` (2 fires, one per fully-completed login cycle) + `tests/replay/test-multi-zone-20260514.vpk` (4 fires, one per zone-change ZoneServerInfo). 6 fires total, all 0-byte C>S on the world stream.
+- Method: `--list-events`. Every fire is **immediately preceded by `S 0xb67c 130 world OP_ZoneServerInfo`** — 1:1 pairing. Sample sequence from test-multi-zone (4 consecutive zone changes):
+  ```
+  S 0xb67c 130 world OP_ZoneServerInfo
+  C 0x6530   0 world unknown
+  S 0xb67c 130 world OP_ZoneServerInfo
+  C 0x6530   0 world unknown
+  S 0xb67c 130 world OP_ZoneServerInfo
+  C 0x6530   0 world unknown
+  S 0xb67c 130 world OP_ZoneServerInfo
+  C 0x6530   0 world unknown
+  ```
+- Wire shape: **0-byte empty payload, C>S, world stream** — matches the May-04 pre-patch (0xfc46) confirmation byte-for-byte.
+- Semantic match: legacy `worldopcodes.xml` comment is "Client telling world server it is done. World replies by disconnecting." 0x6530's position (last C>S before the server disconnects the world session and the client connects to the zone server announced in OP_ZoneServerInfo) fits this exactly.
+- Ruled out (0-byte C>S world-stream unknowns in test-charselect-login that DON'T follow OP_ZoneServerInfo):
+  - `0x37d2` (3 fires): immediately AFTER OP_EnterWorld, before any server response — too early in the handshake to be "done".
+  - `0x56e0` (3 world fires, also 2 zone fires): after the post-EnterWorld bulk-char-data burst but BEFORE OP_MOTD / OP_SetChatServer / OP_ZoneServerInfo — too early; appears on both streams so not world-specific.
+  - `0x8986` / `0xf63f` (1 fire each, only cycle 1): one-off cycle-1 ack/handshake messages.
+- 73-list status: 10 unresolved (was 11).

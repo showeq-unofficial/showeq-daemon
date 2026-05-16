@@ -63,8 +63,8 @@
     <opcode id="b67c" name="OP_ZoneServerInfo" updated="05/13/26">
 	    <comment>Zone server connection info: 130b S>C with the zone server hostname (e.g. eqzone-31.everquest.com) at offset 0 and port (u16 at offset 128). Fires after the zone-handoff world handshake to point the client at the next zone server.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_WorldComplete" updated="05/13/26">
-	    <comment>Client telling world server it is done. World replies by disconnecting.</comment>
+    <opcode id="6530" name="OP_WorldComplete" updated="05/16/26">
+	    <comment>Client telling world server it is done (revised from 0xfc46). 0-byte C>S, fires immediately after every OP_ZoneServerInfo (both initial login and subsequent zone changes). World replies by disconnecting.</comment>
     </opcode>
     <opcode id="5afc" name="OP_DeleteCharacter" updated="05/15/26">
 	    <comment>Delete character @ char select. Test: 68b C>S, NUL-terminated char name @ offset 0 in a char[64] slot (post-name bytes are uninitialized client-stack leak), trailer u32 @ offset 64.</comment>
