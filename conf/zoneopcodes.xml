@@ -199,8 +199,8 @@
         <comment>EmoteTextCode</comment>
         <payload dir="both" typename="emoteTextStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_SimpleMessage" updated="05/13/26">
-        <comment>SimpleMessageCode</comment>
+    <opcode id="23a2" name="OP_SimpleMessage" updated="05/16/26">
+        <comment>SimpleMessageCode. Test post-May-12 (revised from 0x098d). 12b S>C, fires in pairs (color=1 then color=0) per event.</comment>
         <payload dir="server" typename="simpleMessageStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="9a58" name="OP_FormattedMessage" updated="05/13/26">

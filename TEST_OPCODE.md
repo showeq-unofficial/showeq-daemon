@@ -115,7 +115,7 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_Find — uint8_t (server, variable) — `0x0f64` (2026-05-14, revised from 0x695f)
 
 ### Chat / messaging (4)
-- [ ] OP_SimpleMessage — simpleMessageStruct (server)
+- [x] OP_SimpleMessage — simpleMessageStruct (server) — `0x23a2` (2026-05-16, revised from 0x098d)
 - [x] OP_FormattedMessage — formattedMessageStruct (server) — `0x9a58` (2026-05-13, revised from 0x0ecf)
 - [x] OP_CommonMessage — channelMessageStruct (both) — `0x9b04` (2026-05-14)
 - [x] OP_SpecialMesg — specialMessageStruct (server) — `0x3f07` (2026-05-13, revised from 0x7162)
@@ -874,3 +874,21 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
   - u32 trailer @ 0x40 (zero in this fire).
 - Anchor: name matches the brand-new char created via OP_CharacterCreate (0xcc83) earlier in the same capture; the size and offset shape match the prior 2026-05-13 XML note ("Test: 68b C>S, name@offset 0") authored from a different capture, giving cross-capture consistency.
 - 73-list status: 16 unresolved (was 17).
+
+### 2026-05-16 — OP_SimpleMessage = 0x23a2
+
+- Captures: `tests/replay/test-multi-zone-20260514.vpk` (8 fires), `tests/replay/test-inzone-mixed-20260514.vpk` (6 fires), `tests/replay/test-zone-aa-click-20260514.vpk` (6 fires). 20 fires total, all 12b S>C, all paired (color=1 immediately followed by color=0 for the same field0) — the SimpleMessage broadcast signature flagged by the original 2026-05-04 confirmation at the pre-patch ID `0x098d` (commit 411e5d1).
+- Method: `--dump-payload 0x23a2:` across the three captures. Sample bytes (test-inzone-mixed, all 6 fires shown):
+  ```
+  fire 1: 17 1a 00 00  01 00 00 00  6c 00 00 00   id=0x1a17 color=1 tail=0x6c
+  fire 2: 17 1a 00 00  00 00 00 00  6c 00 00 00   id=0x1a17 color=0 tail=0x6c
+  fire 3: 2e 16 00 00  01 00 00 00  6c 00 00 00   id=0x162e color=1 tail=0x6c
+  fire 4: 2e 16 00 00  00 00 00 00  6c 00 00 00   id=0x162e color=0 tail=0x6c
+  fire 5: 23 1a 00 00  01 00 00 00  6c 00 00 00   id=0x1a23 color=1 tail=0x6c
+  fire 6: 23 1a 00 00  00 00 00 00  6c 00 00 00   id=0x1a23 color=0 tail=0x6c
+  ```
+  test-multi-zone yielded four more paired IDs (0x18d9, 0x1f2d, 0x7258, 0x18ff); test-zone-aa-click yielded three more (0x1c2a, 0x1c32, 0x1770). All NPC-spawn-id-shaped (5000-30000 range), all middle u32 cycles cleanly 1→0, all tails are the constant `0x6c` (108).
+- Struct fit: 12 = sizeof(simpleMessageStruct). The middle-u32 color toggle matches CLAUDE.md's documented Test signature ("0/1 observed on Test"). The pair pattern matches the original 2026-05-04 commit's "color=1 then color=0 per event" criterion verbatim.
+- Tail interpretation: third u32 is **constant 0x6c across all 20 fires in three different zones** — different from the 2026-05-04 pre-patch reading where the field varied. Hypotheses (none in scope to commit here): a fixed broadcast-channel/template selector that got pinned by the May-12 reshuffle; a per-spawn "default chat template" identifier. Field semantics for the third u32 left as `simpleMessageStruct::spellId`/`unknown` (the existing anonymous-union alias) until a capture surfaces a different value.
+- Ruled out (12b S>C in test-inzone-mixed): `0x7708` (300 fires, monotonic counter + constant `0x6a065e83` magic — heartbeat, no pair pattern), `0xacfc` (9 fires, first 8 bytes zero — not spawn-targeted), `0xf525` (bidirectional — not a server broadcast), `0xd825`/`0xa4c4`/`0xad39`/`0xee08`/`0x680f` (3 fires each, none paired, none with `(spawn_id, 0-or-1, *)` shape). The pre-patch winner `0x098d` fires **zero times** on a post-patch dump-payload of test-multi-zone, confirming the opcode rolled in the May-12 reshuffle.
+- 73-list status: 15 unresolved (was 16).
