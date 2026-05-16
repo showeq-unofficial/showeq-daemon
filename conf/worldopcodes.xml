@@ -42,17 +42,17 @@
     <opcode id="de55" name="OP_SendCharInfo" updated="05/13/26">
 	    <comment>Send all chars visible @ char select</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendSpellChecksum" updated="05/13/26">
-	    <comment>Contains a snippet of spell data</comment>
+    <opcode id="2e9f" name="OP_SendSpellChecksum" updated="05/16/26">
+	    <comment>Contains a snippet of spell data. 2056b C>S, 1st in fire order on world handshake (revised from 0x2de1). Also re-fires on zone change (spell DB integrity check).</comment>
     </opcode>
-    <opcode id="d99c" name="OP_SendExeChecksum" updated="05/13/26">
-	    <comment>Second client verification packet</comment>
+    <opcode id="d99c" name="OP_SendExeChecksum" updated="05/16/26">
+	    <comment>4th in fire order on world handshake. 64b C>S, payload `04 00 00 00` + 60-byte hash.</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendBaseDataChecksum" updated="05/13/26">
-	    <comment>Second client verification packet</comment>
+    <opcode id="34bb" name="OP_SendBaseDataChecksum" updated="05/16/26">
+	    <comment>2nd in fire order on world handshake. 2056b C>S (revised from 0x289c). Only fires on initial full handshake (not on zone change).</comment>
     </opcode>
-    <opcode id="ffff" name="OP_SendSkillCapsChecksum" updated="05/13/26">
-	    <comment>Third client verification packet</comment>
+    <opcode id="8927" name="OP_SendSkillCapsChecksum" updated="05/16/26">
+	    <comment>3rd in fire order on world handshake. 2056b C>S (revised from 0xa958). Only fires on initial full handshake (not on zone change).</comment>
     </opcode>
     <opcode id="5f8b" name="OP_SetChatServer" updated="05/13/26">
 	    <comment>Chat server connection: 56b S>C carrying the legacy comma-separated tuple `host,port,server.charname,sessionkey,N` (e.g. lvseq-chat01.everquest.com,9879,test.Charname,&lt;key&gt;,0) — the original IP/Port/servername.charname/password format Test still uses.</comment>

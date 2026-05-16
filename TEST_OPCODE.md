@@ -25,10 +25,10 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [ ] OP_WorldComplete
 
 ### Checksums / verification (4)
-- [ ] OP_SendSpellChecksum
+- [x] OP_SendSpellChecksum — `0x2e9f` (2026-05-16, revised from 0x2de1)
 - [x] OP_SendExeChecksum — `0xd99c` (2026-05-13, revised from 0x44d9)
-- [ ] OP_SendBaseDataChecksum
-- [ ] OP_SendSkillCapsChecksum
+- [x] OP_SendBaseDataChecksum — `0x34bb` (2026-05-16, revised from 0x289c)
+- [x] OP_SendSkillCapsChecksum — `0x8927` (2026-05-16, revised from 0xa958)
 
 ### Chat servers (2)
 - [x] OP_SetChatServer — `0x5f8b` (2026-05-13, revised from 0xbb67)
@@ -917,3 +917,24 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
   - `0x2a64` (32b bidirectional) — wrong size.
   - `0x043e` (8b bidirectional) — wrong size; identified as inspect-family by a separate hint row.
 - 73-list status: 14 unresolved (was 15).
+
+### 2026-05-16 — World checksum trio: OP_SendSpellChecksum / OP_SendBaseDataChecksum / OP_SendSkillCapsChecksum
+
+- Capture: `tests/replay/test-charselect-login-20260515.vpk` (5 world-handshake cycles in one session).
+- Method: `--list-events` over the capture. Every one of the 5 login cycles fires the **identical ordered C>S sequence**:
+  ```
+  C 0xaca4 464  world OP_SendLoginInfo
+  C 0x2e9f 2056 world unknown
+  C 0x34bb 2056 world unknown
+  C 0x8927 2056 world unknown
+  C 0xd99c 64   world OP_SendExeChecksum
+  S 0xc8ca 16   world OP_ApproveWorld
+  C 0xf31f 8    world OP_EnterWorld
+  ```
+- Resolutions (revised from the May-04 pre-patch quartet):
+  - **OP_SendSpellChecksum = `0x2e9f`** — 1st in fire order, matching the legacy comment ("Contains a snippet of spell data"). Also confirmed as the **only one of the three that re-fires on zone change** (test-multi-zone-20260514: 0x2e9f fires 4× per zone change, while 0x34bb and 0x8927 fire only on the initial full login handshake — spell DB integrity is checked per zone-edge, base-data and skill-caps are static enough that the server skips them post-login).
+  - **OP_SendBaseDataChecksum = `0x34bb`** — 2nd in fire order. Only fires on initial full handshake.
+  - **OP_SendSkillCapsChecksum = `0x8927`** — 3rd in fire order, matching the legacy "Third client verification packet" comment. Only fires on initial full handshake.
+- Disambiguation bar: 5 cycles × 3 opcodes = 15 fires, all in deterministic order; zero competing 2056b C>S world-stream unknowns; cross-validated against test-multi-zone-20260514's partial-handshake pattern (Spell-only re-fire on zone change).
+- Side finding worth carrying forward: the daemon's full world handshake (post-patch, charselect→zone-handoff) is now fully labeled — `OP_SendLoginInfo → OP_SendSpellChecksum → OP_SendBaseDataChecksum → OP_SendSkillCapsChecksum → OP_SendExeChecksum → OP_ApproveWorld → OP_EnterWorld`. Zone changes re-fire only `OP_SendSpellChecksum` (plus the standard `OP_EnterWorld` / `OP_ZoneServerInfo` exchange).
+- 73-list status: 11 unresolved (was 14).
