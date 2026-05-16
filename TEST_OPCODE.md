@@ -215,7 +215,7 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 ### 2026-05-04 — OP_ApproveWorld + OP_EnterWorld + OP_WorldComplete trio
 - Capture: `tests/replay/test-login-2.vpk`. The earlier `c7e1b6b` commit incorrectly attributed these opcodes' invisible dump output to a `decodedWorldPacket` signal-arity issue — the real cause was that `/tmp/oc` had been removed during cleanup, so `--dump-payload` writes failed with a silent "No such file or directory" qWarning. The dumper's signal connections are fine.
 - **OP_ApproveWorld = 0xb8cc**: 2x S>C 16b, identical bytes both fires: `04 00 00 00  00 00 00 00  00 00 00 00  03 00 00 00`. Static fixed-size handshake response — server approves the login with constant codes (4, 0, 0, 3).
-- **OP_EnterWorld = 0x9bdc**: 2x C>S 8b, identical bytes both fires: `41 74 cf 35  00 00 00 00`. The u32 0x35cf7441 looks like a character-id/handle that the user picks at char-select; matches across logins because the user re-entered with the same character (<charname>).
+- **OP_EnterWorld = 0x9bdc**: 2x C>S 8b, identical bytes both fires: `41 74 cf 35  00 00 00 00`. The u32 0x35cf7441 looks like a character-id/handle that the user picks at char-select; matches across logins because the user re-entered with the same character.
 - **OP_WorldComplete = 0xfc46**: 2x C>S 0b, empty payload — fires once per login session, fits "client tells world server it's done with the world stage" (per legacy `worldopcodes.xml` comment "Client telling world server it is done. World replies by disconnecting"). Distinguished from other 0b C>S opcodes (0x9e64/0x72b1/0xee58, each 1 fire) by the 2-per-session count.
 
 ### 2026-05-04 — OP_SendCharInfo = 0x84f6
@@ -278,7 +278,7 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 ### 2026-05-04 — OP_ClickObject = 0xab5e
 - Capture: `tests/replay/test-combat.vpk`. 7 fires (3 C>S + 4 S>C), all 12b — direction "both" matches XML.
 - Method: `--dump-payload 0xab5e:`. Sample fires: `5e 00 00 00  e2 09 00 00  00 00 00 00` and `69 00 00 00  e2 09 00 00  00 00 00 00`.
-- Struct fit: 12 = sizeof(remDropStruct). Layout matches: u16 dropId (0x5e=94, 0x69=105 — different ground spawns clicked) at offset 0, u16 spawnId (0x09e2 = <charname>, the clicker) at offset 4, trailing 4 zero bytes.
+- Struct fit: 12 = sizeof(remDropStruct). Layout matches: u16 dropId (0x5e=94, 0x69=105 — different ground spawns clicked) at offset 0, u16 spawnId (0x09e2 = self, the clicker) at offset 4, trailing 4 zero bytes.
 - Ruled out: other 12b candidates (0x14dc heartbeat, 0x098d per-mob updates, etc.) lack the dropId+spawnId pair pattern.
 
 ### 2026-05-04 — OP_MoveItem = 0xdee3
@@ -312,7 +312,7 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Capture: `tests/replay/test-combat.vpk`. 4078 fires: 3212 C>S 42b + 866 S>C 24b. Highest-volume bidirectional opcode in the capture.
 - Method: `--dump-payload 0xf8d1:`. C>S samples (selected from across the run): `36 01  e2 09 00 00  00 00 12 c3 00 00  6c 31 00 00 00 00 00  64 72 69 [varying]  88 41 00 00 00 40 00 00  00 00 00 00 f7 7f 00 00 00 00`. Layout breakdown:
   - bytes 0-1: per-fire counter (sequence number, increments)
-  - bytes 2-3: spawn-id `0x09e2` = <charname> (constant)
+  - bytes 2-3: spawn-id `0x09e2` = self (constant)
   - bytes 4-7: zeros / spawn-id-2 placeholder
   - bytes 8-15: bit-packed position fields (varying per fire — heading, pos)
   - bytes 16-21: zeros + ASCII fragment `64 72 69` ("dri") that's constant across all 3212 fires followed by a varying byte (looks like a fixed 4-byte field, possibly an autorun-state code or feature-flag block)
@@ -360,7 +360,7 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 ### 2026-05-04 — OP_ZoneChange = 0x9148
 - Capture: `tests/replay/test-zone-entry.vpk`. 2 fires (one C>S + one S>C, matching the XML's "both" direction).
 - Method: `--dump-payload 0x9148:`. Both fires 100 bytes — exactly `sizeof(zoneChangeStruct)`.
-- Sample bytes: starts with `"<charname>\0"` at offset 0, then a Windows TZ-resource string fragment (`"t.z.r.e.s...d.l.l.,.-.2.1.1."` — Test's wire leaks UTF-16 from the client's locale resource), then sentinels and IEEE-754 floats at offsets 0x4c-0x58 (`-61.0, -160.0, 17.0` — destination position).
+- Sample bytes: starts with `"<self>\0"` at offset 0 (player's own name), then a Windows TZ-resource string fragment (`"t.z.r.e.s...d.l.l.,.-.2.1.1."` — Test's wire leaks UTF-16 from the client's locale resource), then sentinels and IEEE-754 floats at offsets 0x4c-0x58 (`-61.0, -160.0, 17.0` — destination position).
 - Struct fit: 100 = sizeof(zoneChangeStruct). The leading player name + destination floats + zone metadata are unmistakable.
 - Ruled out: only 100b S>C/C>S opcode in the capture; size and content unambiguous.
 
@@ -409,7 +409,7 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 
 ### 2026-05-04 — OP_PlayerProfile = 0xe284
 - Capture: `tests/replay/test-zone-entry.vpk`. 2 fires (zone-in tutoriala + zone-in tutorialb), sizes 23391b and 23331b respectively (variable).
-- Method: `--dump-payload 0xe284:`. Searched all candidate huge-S>C zone payloads for the player name; only 0xe284 contained `"<charname>\0"` (at offset 20427).
+- Method: `--dump-payload 0xe284:`. Searched all candidate huge-S>C zone payloads for the player's own name; only 0xe284 contained `"<self>\0"` (at offset 20427).
 - Anchor evidence:
   - At offset 20 (0x14): u32 = 6 = race (Erudite, plausible for a Necromancer).
   - At offset 24 (0x18): u32 = **11 = Necromancer class** ✓
@@ -501,7 +501,7 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Note: in this capture only S>C fires are observed; the C>S half of `dir=both` from the user's `/em wave` action wasn't captured — Test may route the user's own animation through OP_SpawnAppearance (stance field) and only broadcast OP_Animation server-side. Worth re-verifying when a more controlled emote-only capture is available.
 
 ### 2026-05-05 — OP_GroupLeader = 0xb269
-- Capture: `tests/replay/test-char-leader.vpk` (<charname> invited <charname>, made <charname> leader, <charname> made <charname> leader, then <charname> made <charname> main tank).
+- Capture: `tests/replay/test-char-leader.vpk` (self invited alt, made alt leader, alt made self leader, then self made alt main tank — two-char loop testing /makeleader and /maintank).
 - Method: `--dump-payload 0xb269:`. 3 fires S>C, all 168 bytes.
 - Anchor evidence: name@offset 64 reads as the *new leader* in the right order across fires:
   - fire 1: name@64 = self (initial leader broadcast on group formation, since the user was the inviter)
@@ -534,7 +534,7 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - OP_SetChatServer2 deferred. The legacy duplicate (mail server vs chat server split) doesn't have an obvious twin opcode here; closest candidate is 0xdeb6 (1188b S>C 2 fires) which contains `https://www.everquest.com/membership` plus binary, but the service-overlap with 0xf22b makes the role-assignment unclear. Worth a closer compare across captures.
 
 ### 2026-05-05 — OP_ZoneServerInfo = 0xf21f + OP_SetChatServer revised
-- Capture: `tests/replay/test-zone.vpk` (<charname> zoned out from tutorial → crescent reach, then logged out — full zone-handoff world handshake captured).
+- Capture: `tests/replay/test-zone.vpk` (alt char zoned out from tutorial → crescent reach, then logged out — full zone-handoff world handshake captured).
 - Method: `--list-events` showed the post-zone-change world handshake re-running (OP_SendLoginInfo through OP_EnterWorld), with new opcodes 0xf21f (130b S>C) and 0xbb67 (56b S>C) firing in the post-OP_SendSpellChecksum band.
 - **OP_ZoneServerInfo = 0xf21f** (130b S>C, 2 fires for the 2 zone-handoffs in this session): payload starts with `eqzone-31.everquest.com\0` (NUL-padded hostname, 24 bytes), then session/key fields, then `0x0879` u16 port (= 2169) at offset 128. Definitively the zone-server pointer.
 - **OP_SetChatServer = 0xbb67** (56b S>C, 2 fires): payload is the legacy comma-separated chat-server tuple — `lvseq-chat01.everquest.com,9879,test.<charname>,<sessionkey>,0` (sessionkey redacted). This is the original "IP/Port/servername.charname/password" form the legacy XML described, untouched on Test.
@@ -542,7 +542,7 @@ Append a dated entry per resolved opcode. Format mirrors `OPCODES_LIVE_TODO.md`:
 - Cross-validation in test-zone.vpk: 0xf21f and 0xbb67 each fire once per world-handshake cycle — exactly what's expected for per-login zone-server-pointer + per-login chat-server-config opcodes.
 
 ### 2026-05-05 — OP_SendZonePoints = 0xc547
-- Capture: `tests/replay/test-zone.vpk` (<charname> zoned out from tutorialb to crescent reach via the tutorial's exit portal).
+- Capture: `tests/replay/test-zone.vpk` (alt char zoned out from tutorialb to crescent reach via the tutorial's exit portal).
 - Method: `--list-events` showed 0xc547 firing as S>C 176b in the moments BEFORE the C>S OP_ZoneChange — the canonical "server announces this zone-point's destination" timing for OP_SendZonePoints.
 - Anchor evidence: payload at offset 0 holds a single zonePointStruct entry (`uint32 trigger=189, uint32 sentinel, float y=-146.0, float z=2.0, float x=17.0, float heading=432.0, uint16 zoneId=11, uint16 instance=1`) followed by 144 bytes of zeros (slots for additional zone points, all empty here since the tutorial exit only has one destination — Crescent Reach). The y/x/heading match the player's location near the tutorial-exit portal at the moment of the broadcast.
 - Struct fit: 176 bytes is a fixed buffer (24-byte zonePointStruct + ~6 empty slots × 24b + trailer), not a packed variable-length list as in the legacy zonePointsStruct. Same struct family but Test pads to a fixed maximum capacity rather than truncating.
@@ -736,14 +736,14 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
 
 ### 2026-05-14 — OP_CommonMessage = 0x9b04; chat hypothesis refined (/tell, /shout on-wire; /say off-wire)
 
-- Capture: `tests/replay/test-zone-aa-click-20260514.vpk` (user did `/tell` + `/shout` with text "test", plus received an incoming chat "hi", plus declined an invite from `<charname>`).
+- Capture: `tests/replay/test-zone-aa-click-20260514.vpk` (user did `/tell` + `/shout` with text "test", plus received an incoming chat "hi", plus declined a group invite from a third-party player).
 - **OP_CommonMessage = 0x9b04 (dir="both", ~56b C>S / ~64b S>C)** confirmed via plaintext message text in the payloads:
   - `0x9b04` C>S 56b: sender name@0 (NUL-terminated, compact ~10b not legacy [64]), channel/metadata bytes, message text ("test") at offset ~0x28.
   - `0x9b04` S>C 64b: sender@0, recipient name@~10, channel metadata, message text ("hi") at offset ~0x2E. The recipient slot is present only on S>C (incoming deliveries); C>S outgoing has only sender slot.
   - Layout is compact NUL-terminated names rather than the legacy fixed-[64] slots — Test packs the channelMessageStruct tightly.
 - **Chat hypothesis refined**: prior "chat is entirely off-wire" claim from the inzone-mixed capture log was wrong. /tell and /shout DO traverse the zone UDP stream (via 0x9b04). /say is the off-wire channel — proximity chat routes through the Daybreak chat service per OP_SetChatServer. /guild, /raid, /general etc. are unverified but likely on-wire via 0x9b04 given /tell + /shout share it.
 - **Did NOT find** despite the actions:
-  - OP_GroupCancelInvite — user declined <charname>'s invite (confirmed via OP_GroupInvite2 = 0xfc1d fire with `<charname>@64`). No C>S unknown carries "<charname>" plaintext, meaning the decline doesn't transmit the inviter's name — it's a session-id-based decline. Multiple small zero-valued C>S unknowns are candidates (`0x6dae` 2× 80b, `0x7d87`/`0xd794`/`0xde94`/`0x7ceb`/`0xdf43`/`0x39a7` all 2× 0b, etc.) but none uniquely correlate to the decline event.
+  - OP_GroupCancelInvite — user declined the inviter's invite (confirmed via OP_GroupInvite2 = 0xfc1d fire with inviter-name@64). No C>S unknown carries the inviter's name plaintext, meaning the decline doesn't transmit the inviter's name — it's a session-id-based decline. Multiple small zero-valued C>S unknowns are candidates (`0x6dae` 2× 80b, `0x7d87`/`0xd794`/`0xde94`/`0x7ceb`/`0xdf43`/`0x39a7` all 2× 0b, etc.) but none uniquely correlate to the decline event.
   - OP_ZoneChange / OP_TimeOfDay / OP_SendZonePoints — user zoned twice (confirmed via 2× OP_NewZone + 2× OP_PlayerProfile + 1337× OP_ZoneEntry). The 30-second wait before zoning was insufficient — the capture daemon's session key handoff at the zone boundary still corrupted the decode of the transition packets. Tried bidir matched-size candidates 0x79ee (148b, 4 fires) and 0xcdf9 (100b, 4 fires); neither matches `zoneChangeStruct{yourName[64], zoneId}` shape (0x79ee carries "1000" ASCII session/zone-id; 0xcdf9 carries UTF-16 wide-char text in some fires and handle bytes in others — likely OP_InspectAnswer / OP_GuildMemberUpdate territory).
   - OP_ClickObject — only OP_MoveItem (2× C>S 28b) fired for the drop + pickup. Hypothesis: **modern Test fuses ground-item pickup into OP_MoveItem** (slot-move from a ground pseudo-slot to inventory). OP_ClickObject may now only fire for clicking interactive ground objects (doors, levers, portals, NPCs to interact-with), not for loose item pickup. Mark as needs-doors-capture rather than re-trying drop-pickup.
 
