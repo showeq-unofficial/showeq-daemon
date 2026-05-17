@@ -68,10 +68,14 @@ it; if another Box with that name already exists (e.g. relog → new
 5-tuple) it's merged in and the old wire-routing entries adopt the
 existing Box.
 
-**External `box_id`** (the value used in proto `SetActiveBox`): the
-character name when known, else a placeholder derived from the
-creation-time 5-tuple. Once promoted, the placeholder is alias-mapped
-to the real name so in-flight UI references don't break.
+**External `box_id`** (the value used in proto `SetActiveBox`): a
+stable **hash** of the character name when known, else a placeholder
+hash of the creation-time 5-tuple. A separate `display_name` proto
+field carries the human-readable label. This keeps screenshots,
+pbstream goldens, and log files scrub-safe — display_name can be
+zeroed for redaction without breaking box_id continuity. Once
+promoted from placeholder to name-hash, the alias map keeps in-flight
+UI references valid.
 
 **v1 hole:** two same-host boxes zoning simultaneously can lose the
 port-pair → box mapping until the next packet identifies them.
