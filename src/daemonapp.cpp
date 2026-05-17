@@ -406,22 +406,33 @@ bool DaemonApp::start()
         wireZoneMgr();
         wireSpawnShell();
 
-        // Any --replay session quits cleanly at EOF; replay is only
-        // useful for fixed-input one-shot work (golden generation,
-        // opcode-stats diagnostic, --no-listen processing). Quit
-        // immediately on the next event-loop iteration — any extra
-        // delay risks wallclock-driven timers (SpellShell::timeout
-        // is 6s-period and decrements buff durations) ticking after
-        // the last packet, which leaves the resulting .pbstream non-
-        // deterministic between runs.
-        if (!m_cfg.replay.isEmpty()) {
+        // Replay normally quits at EOF (golden generation /
+        // opcode-stats / --no-listen one-shots all want this). With
+        // --wait-for-client, however, we're driving the web UI from a
+        // recorded capture — playback must hold until a real
+        // SessionAdapter is wired (otherwise the early-replay
+        // envelopes hit a deferred adapter and get dropped) and the
+        // daemon must stay running after EOF so the user can poke
+        // at the final state.
+        const bool isReplay = !m_cfg.replay.isEmpty();
+        if (isReplay && !m_cfg.waitForClient) {
             connect(m_packet, &EQPacket::playbackFinished, this, [] {
                 QTimer::singleShot(0, &QCoreApplication::quit);
             });
         }
 
-        m_packet->start(10);
-        qInfo("capture pipeline running");
+        if (isReplay && m_cfg.waitForClient) {
+            // Defer start until the first WsServer client subscribes.
+            connect(m_ws.get(), &WsServer::firstClientSubscribed,
+                    this, [this] {
+                qInfo("--wait-for-client: client connected, starting replay");
+                m_packet->start(10);
+            });
+            qInfo("--wait-for-client: replay paused, waiting for ws client");
+        } else {
+            m_packet->start(10);
+            qInfo("capture pipeline running");
+        }
     } else {
         qInfo("no --device or --replay — capture pipeline idle");
     }

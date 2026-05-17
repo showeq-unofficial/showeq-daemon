@@ -170,6 +170,10 @@ int main(int argc, char** argv)
         "client observed on the wire) to stderr every 5s. Pairs "
         "with --no-listen for client-less inspection. See "
         "docs/MULTIBOX_PLAN.md.");
+    QCommandLineOption waitForClientOpt(QStringList{"wait-for-client"},
+        "With --replay: pause playback until the first WebSocket "
+        "client subscribes, and don't quit at EOF. Use to drive the "
+        "web UI from a recorded capture for manual verification.");
 
     parser.addOption(deviceOpt);
     parser.addOption(ipOpt);
@@ -185,6 +189,7 @@ int main(int argc, char** argv)
     parser.addOption(dumpPayloadOpt);
     parser.addOption(listEventsOpt);
     parser.addOption(listBoxesOpt);
+    parser.addOption(waitForClientOpt);
     parser.process(app);
 
     DaemonApp::Config cfg;
@@ -201,6 +206,7 @@ int main(int argc, char** argv)
     cfg.dumpPayload  = parser.values(dumpPayloadOpt);
     cfg.listEvents   = parser.value(listEventsOpt);
     cfg.listBoxes    = parser.isSet(listBoxesOpt);
+    cfg.waitForClient = parser.isSet(waitForClientOpt);
 #ifndef SEQ_USE_RUST
     if (cfg.useRustDecoder) {
         qWarning("--use-rust-decoder ignored: this binary was built without "
