@@ -10,6 +10,7 @@
 #include "seq/v1/events.pb.h"
 
 class IEnvelopeSink;
+class BoxRegistry;
 class CategoryMgr;
 class CombatRouter;
 class DateTimeMgr;
@@ -64,6 +65,7 @@ public:
                    ItemCache*     itemCache,
                    DateTimeMgr*   dateTimeMgr,
                    ZoneServerMgr* zoneServerMgr,
+                   BoxRegistry*   boxes,
                    QObject*       parent = nullptr);
     ~SessionAdapter() override;
 
@@ -177,6 +179,11 @@ private:
     void sendCategoriesUpdate();
     void sendFilterRulesUpdate();
     void sendPrefsSnapshot();
+    // Stage 4 of multibox-sessions: emit BoxListUpdated to this
+    // client. Wired to BoxRegistry::changed in the ctor; also called
+    // explicitly on Subscribe so the client gets an initial picker
+    // state before any registry mutation.
+    void sendBoxList();
     void emitEnvelope(seq::v1::Envelope&& env);
     void sendOrBuffer(seq::v1::Envelope&& env);
 
@@ -196,6 +203,7 @@ private:
     ItemCache*                   m_itemCache    = nullptr;
     DateTimeMgr*                 m_dateTimeMgr  = nullptr;
     ZoneServerMgr*               m_zoneServerMgr = nullptr;
+    BoxRegistry*                 m_boxes         = nullptr;
 
     QString                      m_sessionId;
     bool                         m_subscribed = false;

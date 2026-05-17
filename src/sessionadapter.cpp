@@ -16,6 +16,7 @@ extern "C" { // pcap headers aren't c++-clean
 #include <ifaddrs.h>
 #include <sys/socket.h>
 
+#include "boxregistry.h"
 #include "category.h"
 #include "combatrouter.h"
 #include "datetimemgr.h"
@@ -36,6 +37,8 @@ extern "C" { // pcap headers aren't c++-clean
 #include "zonemgr.h"
 #include "zoneservermgr.h"
 
+#include <QHostAddress>
+
 #include "seq/v1/client.pb.h"
 
 SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
@@ -54,6 +57,7 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
                                ItemCache*     itemCache,
                                DateTimeMgr*   dateTimeMgr,
                                ZoneServerMgr* zoneServerMgr,
+                               BoxRegistry*   boxes,
                                QObject*       parent)
     : QObject(parent)
     , m_sink(sink)
@@ -72,7 +76,12 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
     , m_itemCache(itemCache)
     , m_dateTimeMgr(dateTimeMgr)
     , m_zoneServerMgr(zoneServerMgr)
+    , m_boxes(boxes)
 {
+    if (m_boxes) {
+        connect(m_boxes, &BoxRegistry::changed,
+                this, &SessionAdapter::sendBoxList);
+    }
 }
 
 SessionAdapter::~SessionAdapter() = default;
@@ -267,6 +276,18 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
             qWarning("pcap_findalldevs failed: %s", errbuf);
         }
         sendOrBuffer(std::move(reply));
+        return;
+    }
+    if (env.has_set_active_box()) {
+        if (!m_boxes) return;
+        const QString id =
+            QString::fromStdString(env.set_active_box().box_id());
+        if (!m_boxes->setActiveBoxId(id)) {
+            qInfo("set_active_box: unknown box_id %s",
+                  qUtf8Printable(id));
+        }
+        // setActiveBoxId emits changed() on success → sendBoxList()
+        // already fires via the registry signal.
         return;
     }
 }
@@ -490,6 +511,11 @@ void SessionAdapter::startStreaming()
     // Initial PrefsSnapshot — every allowlisted pref's current value.
     if (m_prefsBroker) {
         sendPrefsSnapshot();
+    }
+    // Initial BoxListUpdated so the picker UI has data before any
+    // registry mutation. Stage 4 of docs/MULTIBOX_PLAN.md.
+    if (m_boxes) {
+        sendBoxList();
     }
 
     // STEP 3: drain anything that arrived during the iteration.
@@ -997,5 +1023,29 @@ void SessionAdapter::onZoneServerChanged(const QString& host, quint16 port)
     auto* zs = env.mutable_zone_server();
     zs->set_host(host.toStdString());
     zs->set_port(port);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::sendBoxList()
+{
+    if (!m_boxes) return;
+    // Golden recorder (deterministic mode): BoxListUpdated content
+    // depends on the packet stream's exact 5-tuples and the timing of
+    // OP_EnterWorld arrivals, which makes byte-cmp against pre-Stage-4
+    // goldens flap. Production WebSocket clients still get the
+    // envelope; only the golden flow suppresses it.
+    if (m_deterministic) return;
+    seq::v1::Envelope env;
+    auto* upd = env.mutable_box_list_updated();
+    m_boxes->forEach([&](const Box& b) {
+        if (b.is_merged()) return;
+        auto* meta = upd->add_boxes();
+        meta->set_box_id(b.box_id.toStdString());
+        meta->set_display_name(b.display_name.toStdString());
+        meta->set_client_ip(
+            QHostAddress(ntohl(b.client_ip)).toString().toStdString());
+        meta->set_packet_count(uint32_t(b.packet_count));
+    });
+    upd->set_active_box_id(m_boxes->activeBoxId().toStdString());
     sendOrBuffer(std::move(env));
 }
