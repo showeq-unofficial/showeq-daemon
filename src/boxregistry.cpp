@@ -9,7 +9,9 @@ QString Box::summary() const
     const QString ip = QHostAddress(ntohl(client_ip)).toString();
     const QString name = display_name.isEmpty() ? QStringLiteral("(unknown)")
                                                 : display_name;
-    return QStringLiteral("box %1  ip=%2  ports=%3->%4  pkts=%5  name=%6")
+    const char* primary = is_primary ? "*" : " ";
+    return QStringLiteral("%1box %2  ip=%3  ports=%4->%5  pkts=%6  name=%7")
+        .arg(primary)
         .arg(box_id)
         .arg(ip)
         .arg(ntohs(client_world_port))
@@ -23,45 +25,60 @@ Box* BoxRegistry::observe(in_addr_t client_ip,
                           in_port_t server_world_port,
                           qint64    now_ms)
 {
-    for (auto& b : m_boxes) {
-        if (b.client_ip == client_ip &&
-            b.client_world_port == client_world_port &&
-            b.server_world_port == server_world_port) {
-            b.last_seen_ms = now_ms;
-            ++b.packet_count;
-            return &b;
-        }
+    if (Box* hit = lookupByWorld(client_ip,
+                                 client_world_port,
+                                 server_world_port)) {
+        hit->last_seen_ms = now_ms;
+        ++hit->packet_count;
+        return hit;
     }
 
-    // First sighting — build a placeholder box_id from the 5-tuple.
-    // Stage 3 will overwrite with a hash of the character name once
-    // OP_PlayerProfile arrives.
-    Box b;
-    b.client_ip = client_ip;
-    b.client_world_port = client_world_port;
-    b.server_world_port = server_world_port;
-    b.first_seen_ms = now_ms;
-    b.last_seen_ms = now_ms;
-    b.packet_count = 1;
-    b.box_id = QStringLiteral("p-%1-%2-%3")
+    auto b = std::make_unique<Box>();
+    b->client_ip = client_ip;
+    b->client_world_port = client_world_port;
+    b->server_world_port = server_world_port;
+    b->first_seen_ms = now_ms;
+    b->last_seen_ms = now_ms;
+    b->packet_count = 1;
+    b->is_primary = m_boxes.empty();
+    // Placeholder box_id; NamePromoter overwrites once OP_EnterWorld
+    // arrives (Stage 2).
+    b->box_id = QStringLiteral("p-%1-%2-%3")
         .arg(client_ip, 8, 16, QChar('0'))
         .arg(ntohs(client_world_port), 4, 16, QChar('0'))
         .arg(ntohs(server_world_port), 4, 16, QChar('0'));
 
+    Box* raw = b.get();
     m_boxes.push_back(std::move(b));
 
-    Box* added = &m_boxes.back();
-    seqInfo("BoxRegistry: new box %s  ip=%s  client_port=%u  server_port=%u",
-            qUtf8Printable(added->box_id),
-            qUtf8Printable(QHostAddress(ntohl(added->client_ip)).toString()),
-            ntohs(added->client_world_port),
-            ntohs(added->server_world_port));
-    return added;
+    seqInfo("BoxRegistry: new box %s%s  ip=%s  client_port=%u  server_port=%u",
+            raw->is_primary ? "*" : "",
+            qUtf8Printable(raw->box_id),
+            qUtf8Printable(QHostAddress(ntohl(raw->client_ip)).toString()),
+            ntohs(raw->client_world_port),
+            ntohs(raw->server_world_port));
+
+    if (m_hook) m_hook(*raw);
+    return raw;
 }
 
 Box* BoxRegistry::primary()
 {
-    return m_boxes.empty() ? nullptr : &m_boxes.front();
+    return m_boxes.empty() ? nullptr : m_boxes.front().get();
+}
+
+Box* BoxRegistry::lookupByWorld(in_addr_t client_ip,
+                                in_port_t client_world_port,
+                                in_port_t server_world_port)
+{
+    for (auto& b : m_boxes) {
+        if (b->client_ip == client_ip &&
+            b->client_world_port == client_world_port &&
+            b->server_world_port == server_world_port) {
+            return b.get();
+        }
+    }
+    return nullptr;
 }
 
 QString BoxRegistry::dumpString() const
@@ -69,9 +86,10 @@ QString BoxRegistry::dumpString() const
     if (m_boxes.empty())
         return QStringLiteral("BoxRegistry: empty");
 
-    QString out = QStringLiteral("BoxRegistry: %1 box(es)\n").arg(m_boxes.size());
+    QString out = QStringLiteral("BoxRegistry: %1 box(es) (*=primary)\n")
+                      .arg(m_boxes.size());
     for (const auto& b : m_boxes) {
-        out += QStringLiteral("  ") + b.summary() + QChar('\n');
+        out += QStringLiteral("  ") + b->summary() + QChar('\n');
     }
     return out;
 }

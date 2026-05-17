@@ -170,6 +170,7 @@ set(SEQ_DAEMON_EXTRACTED_SOURCES
 
 set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/boxregistry.cpp
+  src/namepromoter.cpp
   src/protoencoder.cpp
   src/combatrouter.cpp
   src/filesink.cpp
