@@ -81,6 +81,8 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
     if (m_boxes) {
         connect(m_boxes, &BoxRegistry::changed,
                 this, &SessionAdapter::sendBoxList);
+        connect(m_boxes, &BoxRegistry::activeBoxChanged,
+                this, [this](Box*, Box*) { onActiveBoxChanged(); });
     }
 }
 
@@ -1024,6 +1026,21 @@ void SessionAdapter::onZoneServerChanged(const QString& host, quint16 port)
     zs->set_host(host.toStdString());
     zs->set_port(port);
     sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onActiveBoxChanged()
+{
+    // Clear the singleton state managers so stale state from the
+    // previously-active box doesn't leak into the new box's view.
+    // The reset is destructive — the new box's UI populates as
+    // packets continue to flow in (the per-box stream gate is
+    // already flipped by EQPacket's activeBoxChanged hook).
+    if (m_spawnShell) m_spawnShell->clear();
+    if (m_spellShell) m_spellShell->clear();
+    if (m_player)     m_player->clear();
+    // Send a fresh Snapshot reflecting the (now-empty) state so the
+    // client redraws.
+    sendSnapshot();
 }
 
 void SessionAdapter::sendBoxList()
