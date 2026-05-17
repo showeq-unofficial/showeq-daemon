@@ -408,11 +408,20 @@ void EQPacketStream::processCache()
 #endif
 }
 
-void EQPacketStream::dispatchPacket(const uint8_t* data, size_t len, 
-				    uint16_t opCode, 
+void EQPacketStream::dispatchPacket(const uint8_t* data, size_t len,
+				    uint16_t opCode,
 				    const EQPacketOPCode* opcodeEntry)
 {
+  // Always fire the 5-arg signal so per-box observers
+  // (NamePromoter, ZoneServerObserver) keep working across all
+  // boxes — they don't conflict with the singleton state managers.
   emit decodedPacket(data, len, m_dir, opCode, opcodeEntry);
+
+  // Multibox active-box gate (Stage 3b): when muted, skip the
+  // connect2-wired EQPacketDispatch activations and the 6-arg
+  // signal so the singleton state managers receive at most one
+  // box's stream of decoded events at a time.
+  if (m_muted) return;
 
   bool unknown = true;
 

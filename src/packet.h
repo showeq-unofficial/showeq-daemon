@@ -25,7 +25,9 @@
 #define _PACKET_H_
 
 #include <QObject>
+#include <QPointer>
 #include <QTimer>
+#include <vector>
 #include "boxregistry.h"
 #include "packetcommon.h"
 #include "packetinfo.h"
@@ -214,6 +216,24 @@ class EQPacket : public QObject
    // m_detectingClient single-shot auto-detect. See
    // docs/MULTIBOX_PLAN.md.
    BoxRegistry m_boxes;
+
+   // Stage 3b of multibox-sessions: connect2() requests are
+   // accumulated here and replayed per-Box on each new box's
+   // streams. This lets every Box have an identical dispatcher
+   // graph; the active-box gate (EQPacketStream::setMuted) decides
+   // which one of them actually fires opcode handlers at any given
+   // moment.
+   struct WireSpec {
+       QString  opName;
+       uint8_t  sp;
+       uint8_t  dir;
+       QByteArray payloadType;
+       EQSizeCheckType szt;
+       QPointer<const QObject> receiver;
+       QByteArray slotMember;
+   };
+   std::vector<WireSpec> m_wirings;
+   void wireBox(Box& box);
 
  public:
    const BoxRegistry& boxRegistry() const { return m_boxes; }

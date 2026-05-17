@@ -200,6 +200,14 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
   m_boxes.setBoxCreatedHook([this](Box& box) {
     EQPacketStream* c2s = nullptr;
     if (box.is_primary) {
+      // Primary box aliases the global stream pointers so the
+      // per-Box wiring path (Stage 3b of MULTIBOX_PLAN.md) treats it
+      // uniformly with non-primary boxes — wireBoxOpcodes just walks
+      // box->{world,zone}_{c2s,s2c} regardless.
+      box.world_c2s = m_client2WorldStream;
+      box.world_s2c = m_world2ClientStream;
+      box.zone_c2s  = m_client2ZoneStream;
+      box.zone_s2c  = m_zone2ClientStream;
       c2s = m_client2WorldStream;
     } else {
       box.world_c2s = new EQPacketStream(client2world, DIR_Client,
@@ -240,6 +248,37 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
       c2s = box.world_c2s;
     }
     new NamePromoter(&box, &m_boxes, c2s, this);
+
+    // Stage 3b: replay all recorded EQPacket::connect2 intents on
+    // this box's streams. Non-active boxes start muted; only the
+    // currently-active box's streams fire opcode dispatchers.
+    wireBox(box);
+    const bool isActive = m_boxes.activeBoxId().isEmpty()
+                          ? box.is_primary
+                          : (box.box_id == m_boxes.activeBoxId());
+    if (!isActive) {
+      if (box.world_c2s) box.world_c2s->setMuted(true);
+      if (box.world_s2c) box.world_s2c->setMuted(true);
+      if (box.zone_c2s)  box.zone_c2s->setMuted(true);
+      if (box.zone_s2c)  box.zone_s2c->setMuted(true);
+    }
+  });
+
+  // active-box switch: mute old, unmute new.
+  connect(&m_boxes, &BoxRegistry::activeBoxChanged, this,
+          [this](Box* oldBox, Box* newBox) {
+    auto setStreamsMuted = [](Box* b, bool muted) {
+      if (!b) return;
+      if (b->world_c2s) b->world_c2s->setMuted(muted);
+      if (b->world_s2c) b->world_s2c->setMuted(muted);
+      if (b->zone_c2s)  b->zone_c2s->setMuted(muted);
+      if (b->zone_s2c)  b->zone_s2c->setMuted(muted);
+    };
+    setStreamsMuted(oldBox, true);
+    setStreamsMuted(newBox, false);
+    seqInfo("EQPacket: active box switched %s -> %s",
+            oldBox ? qUtf8Printable(oldBox->box_id) : "(none)",
+            newBox ? qUtf8Printable(newBox->box_id) : "(none)");
   });
 
   // no client/server ports yet
@@ -1259,27 +1298,75 @@ void EQPacket::setRealtime(bool val)
 }
 
 bool EQPacket::connect2(const QString& opcodeName, EQStreamPairs sp,
-		 uint8_t dir, const char* payload,  EQSizeCheckType szt, 
+		 uint8_t dir, const char* payload,  EQSizeCheckType szt,
 		 const QObject* receiver, const char* member)
 {
+  // Stage 3b of MULTIBOX_PLAN.md: record the wire intent so it can be
+  // replayed on every Box's stream as boxes come into existence.
+  // Boxes that aren't currently active (BoxRegistry::activeBoxId)
+  // have their streams muted so the same singleton receiver only
+  // receives one box's stream of decoded events at a time.
+  WireSpec spec;
+  spec.opName = opcodeName;
+  spec.sp = uint8_t(sp);
+  spec.dir = dir;
+  spec.payloadType = QByteArray(payload);
+  spec.szt = szt;
+  spec.receiver = receiver;
+  spec.slotMember = QByteArray(member);
+  m_wirings.push_back(spec);
+
+  // Replay on already-existing boxes (handles the case where
+  // connect2 is called after some box was observed during the same
+  // session — uncommon but legal). Returns true if at least one
+  // stream accepted the wire. Boxes created after this call pick up
+  // the wiring via wireBox() in the hook.
   bool res = false;
-
-  if (sp & SP_World)
-  {
-    if (dir & DIR_Client)
-      res = m_client2WorldStream->connect2(opcodeName, payload, szt, receiver, member);
-    if (dir & DIR_Server)
-      res = m_world2ClientStream->connect2(opcodeName, payload, szt, receiver, member);
+  for (const auto& upBox : m_boxes.boxes()) {
+    Box& box = *upBox;
+    auto wireOne = [&](EQPacketStream* s) {
+      if (s) res = s->connect2(opcodeName, payload, szt, receiver, member) || res;
+    };
+    if (sp & SP_World) {
+      if (dir & DIR_Client) wireOne(box.world_c2s);
+      if (dir & DIR_Server) wireOne(box.world_s2c);
+    }
+    if (sp & SP_Zone) {
+      if (dir & DIR_Client) wireOne(box.zone_c2s);
+      if (dir & DIR_Server) wireOne(box.zone_s2c);
+    }
   }
-  if (sp & SP_Zone)
-  {
-    if (dir & DIR_Client)
-      res = m_client2ZoneStream->connect2(opcodeName, payload, szt, receiver, member);
-    if (dir & DIR_Server)
-      res = m_zone2ClientStream->connect2(opcodeName, payload, szt, receiver, member);
-  }
-
+  // No eager-wire-on-globals fallback: primary box's streams alias
+  // the globals (see setBoxCreatedHook), so wireBox(primary) will
+  // install the dispatcher there exactly once. Wiring eagerly here
+  // would double-install dispatchers (twice per OP_X) and double-
+  // emit every signal once primary is observed.
   return res;
+}
+
+void EQPacket::wireBox(Box& box)
+{
+  // Replay every recorded wire intent onto this box's streams.
+  // Primary box aliases the global streams (see the
+  // setBoxCreatedHook lambda), so wirings on primary go to the same
+  // dispatchers that EQPacket::connect2 installed at startup — fine,
+  // EQPacketStream::connect2 is idempotent (existing dispatchers
+  // are reused via the m_dispatchers map).
+  for (const auto& w : m_wirings) {
+    if (!w.receiver) continue;
+    auto wireOne = [&](EQPacketStream* s) {
+      if (s) s->connect2(w.opName, w.payloadType.constData(), w.szt,
+                         w.receiver, w.slotMember.constData());
+    };
+    if (w.sp & SP_World) {
+      if (w.dir & DIR_Client) wireOne(box.world_c2s);
+      if (w.dir & DIR_Server) wireOne(box.world_s2c);
+    }
+    if (w.sp & SP_Zone) {
+      if (w.dir & DIR_Client) wireOne(box.zone_c2s);
+      if (w.dir & DIR_Server) wireOne(box.zone_s2c);
+    }
+  }
 }
 
 ///////////////////////////////////////////

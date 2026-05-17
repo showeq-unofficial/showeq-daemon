@@ -62,6 +62,7 @@ Box* BoxRegistry::observe(in_addr_t client_ip,
             ntohs(raw->server_world_port));
 
     if (m_hook) m_hook(*raw);
+    emit boxCreated(raw);
 
     // First non-merged Box becomes active by default. Subsequent
     // creations only fire changed() — active stays put until a client
@@ -72,19 +73,25 @@ Box* BoxRegistry::observe(in_addr_t client_ip,
     return raw;
 }
 
-bool BoxRegistry::setActiveBoxId(const QString& box_id)
+Box* BoxRegistry::findById(const QString& box_id)
 {
-    // Validate against current non-merged boxes.
     for (auto& b : m_boxes) {
         if (b->is_merged()) continue;
-        if (b->box_id == box_id) {
-            if (m_activeBoxId == box_id) return true;
-            m_activeBoxId = box_id;
-            emit changed();
-            return true;
-        }
+        if (b->box_id == box_id) return b.get();
     }
-    return false;
+    return nullptr;
+}
+
+bool BoxRegistry::setActiveBoxId(const QString& box_id)
+{
+    Box* target = findById(box_id);
+    if (!target) return false;
+    if (m_activeBoxId == box_id) return true;
+    Box* old = findById(m_activeBoxId);
+    m_activeBoxId = box_id;
+    emit activeBoxChanged(old, target);
+    emit changed();
+    return true;
 }
 
 void BoxRegistry::onPromoted(Box* box, const QString& old_box_id)
