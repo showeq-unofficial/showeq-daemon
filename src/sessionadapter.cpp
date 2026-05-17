@@ -11,6 +11,11 @@ extern "C" { // pcap headers aren't c++-clean
 #include <pcap.h>
 }
 
+#include <cerrno>
+#include <cstring>
+#include <ifaddrs.h>
+#include <sys/socket.h>
+
 #include "category.h"
 #include "combatrouter.h"
 #include "datetimemgr.h"
@@ -220,18 +225,40 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
     }
     if (env.has_list_devices()) {
         // Session-scoped reply, not broadcast — the picker is per-tab UI.
-        // pcap_findalldevs walks /sys/class/net (or platform equivalent);
-        // failure leaves the list empty and the client renders "no
-        // devices found", which is the same fallback path as a host
-        // with no usable interfaces.
+        // pcap_findalldevs returns every pcap-capable source on the host:
+        // real NICs plus pseudo-sources like `any`, `nflog`, `nfqueue`,
+        // `dbus-*`, `bluetooth-monitor`, `usbmon*`. Legacy showeq filtered
+        // these out via getifaddrs() (util.cpp:enumerateNetworkDevices),
+        // keeping only kernel interfaces with AF_INET/AF_PACKET addresses
+        // — match that here so the picker doesn't list traffic sources
+        // the user can't sniff EQ on. Failure of getifaddrs leaves the
+        // allowlist empty and falls back to the unfiltered pcap list.
+        QSet<QString> realIfaces;
+        struct ifaddrs* ifaddr = nullptr;
+        if (getifaddrs(&ifaddr) == 0) {
+            for (struct ifaddrs* ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
+                if (ifa->ifa_addr == nullptr || ifa->ifa_name == nullptr)
+                    continue;
+                if (ifa->ifa_addr->sa_family == AF_INET ||
+                    ifa->ifa_addr->sa_family == AF_PACKET)
+                    realIfaces.insert(QString::fromLatin1(ifa->ifa_name));
+            }
+            freeifaddrs(ifaddr);
+        } else {
+            qWarning("getifaddrs failed: %s", strerror(errno));
+        }
+
         seq::v1::Envelope reply;
         auto* list = reply.mutable_devices_list();
         char errbuf[PCAP_ERRBUF_SIZE] = {};
         pcap_if_t* alldevs = nullptr;
         if (pcap_findalldevs(&alldevs, errbuf) == 0) {
             for (pcap_if_t* d = alldevs; d != nullptr; d = d->next) {
+                const QString name = QString::fromLatin1(d->name ? d->name : "");
+                if (!realIfaces.isEmpty() && !realIfaces.contains(name))
+                    continue;
                 auto* dev = list->add_devices();
-                dev->set_name(d->name ? d->name : "");
+                dev->set_name(name.toStdString());
                 dev->set_description(d->description ? d->description : "");
                 dev->set_is_loopback((d->flags & PCAP_IF_LOOPBACK) != 0);
             }
