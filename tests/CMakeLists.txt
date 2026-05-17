@@ -84,22 +84,3 @@ target_compile_options(itemcache_test PRIVATE
 )
 
 add_test(NAME itemcache_test COMMAND itemcache_test)
-
-if(SEQ_USE_RUST)
-  add_executable(rustdecode_test
-    rustdecode_test.cpp
-  )
-
-  target_link_libraries(rustdecode_test PRIVATE
-    seq-daemon-core
-    Qt${QT_VERSION_MAJOR}::Test
-  )
-
-  target_compile_options(rustdecode_test PRIVATE
-    -Wall
-    -Wno-unused-parameter
-    -Wno-deprecated-declarations
-  )
-
-  add_test(NAME rustdecode_test COMMAND rustdecode_test)
-endif()

@@ -29,9 +29,6 @@
 #include "spells.h"
 #include "packetcommon.h"
 
-#ifdef SEQ_USE_RUST
-#include "seq-bridge-cxx/lib.h"
-#endif
 #include "spawn.h"
 #include "diagnosticmessages.h"
 #include <QList>
@@ -223,22 +220,7 @@ void SpellShell::deleteSpell(SpellItem *item)
 
 void SpellShell::selfStartSpellCast(const uint8_t* data)
 {
-  [[maybe_unused]] startCastStruct tmp;
-  const startCastStruct *c = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustCastSpell) {
-    auto out = seq::rust::decode_start_cast(
-        rust::Slice<const uint8_t>{data, sizeof(startCastStruct)});
-    if (out.ok) {
-      std::memset(&tmp, 0, sizeof(tmp));
-      tmp.slot     = out.slot;
-      tmp.spellId  = out.spell_id;
-      tmp.targetId = out.target_id;
-      c = &tmp;
-    }
-  }
-#endif
-  if (!c) c = (const startCastStruct *)data;
+  const startCastStruct *c = (const startCastStruct *)data;
 #ifdef DIAG_SPELLSHELL
   seqDebug("selfStartSpellCast - id=%d (slot=%d, inv=%d) on spawnid=%d", 
 	   c->spellId, c->slot, c->inventorySlot, c->targetId);
@@ -324,25 +306,7 @@ void SpellShell::buff(const uint8_t* data, size_t, uint8_t dir)
   if (dir == DIR_Client)
     return;
 
-  [[maybe_unused]] buffStruct tmp;
-  const buffStruct* b = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustBuff) {
-    auto out = seq::rust::decode_buff(
-        rust::Slice<const uint8_t>{data, sizeof(buffStruct)});
-    if (out.ok) {
-      std::memset(&tmp, 0, sizeof(tmp));
-      tmp.spawnid    = out.spawn_id;
-      tmp.spellid    = out.spell_id;
-      tmp.duration   = out.duration;
-      tmp.level = out.level;
-      tmp.spellslot  = out.spell_slot;
-      tmp.changetype = out.change_type;
-      b = &tmp;
-    }
-  }
-#endif
-  if (!b) b = (const buffStruct*)data;
+  const buffStruct* b = (const buffStruct*)data;
 
   // spellid=0xffffffff is a legacy no-op marker; ignore it.
   if (b->spellid == 0xffffffff)
@@ -411,27 +375,7 @@ void SpellShell::buff(const uint8_t* data, size_t, uint8_t dir)
 
 void SpellShell::action(const uint8_t* data, size_t len, uint8_t)
 {
-  [[maybe_unused]] actionStruct tmp;
-  const actionStruct* a = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustAction &&
-      (len == sizeof(actionStruct) || len == sizeof(actionAltStruct))) {
-    rust::Slice<const uint8_t> slice{data, len};
-    auto out = (len == sizeof(actionAltStruct))
-                 ? seq::rust::decode_action_alt(slice)
-                 : seq::rust::decode_action(slice);
-    if (out.ok) {
-      std::memset(&tmp, 0, sizeof(tmp));
-      tmp.target = out.target;
-      tmp.source = out.source;
-      tmp.spell  = out.spell;
-      tmp.level  = out.level;
-      tmp.type   = out.kind;
-      a = &tmp;
-    }
-  }
-#endif
-  if (!a) a = (const actionStruct*)data;
+  const actionStruct* a = (const actionStruct*)data;
 
   if (a->type != 0xe7) // only things to do if action is a spell
     return;

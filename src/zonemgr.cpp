@@ -32,9 +32,6 @@
 #include "everquest.h"
 #include "diagnosticmessages.h"
 #include "netstream.h"
-#ifdef SEQ_USE_RUST
-#include "seq-bridge-cxx/lib.h"
-#endif
 
 #include <cstring>
 
@@ -651,22 +648,7 @@ void ZoneMgr::zonePlayer(const uint8_t* data, size_t len)
 
 void ZoneMgr::zoneChange(const uint8_t* data, size_t len, uint8_t dir)
 {
-  [[maybe_unused]] zoneChangeStruct tmp;
-  const zoneChangeStruct* zoneChange = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustZoneChange) {
-    auto out = seq::rust::decode_zone_change(
-        rust::Slice<const uint8_t>{data, sizeof(zoneChangeStruct)});
-    if (out.ok) {
-      std::memset(&tmp, 0, sizeof(tmp));
-      std::memcpy(tmp.name, out.name.data(), 64);
-      tmp.zoneId       = out.zone_id;
-      tmp.zoneInstance = out.zone_instance;
-      zoneChange = &tmp;
-    }
-  }
-#endif
-  if (!zoneChange) zoneChange = (const zoneChangeStruct*)data;
+  const zoneChangeStruct* zoneChange = (const zoneChangeStruct*)data;
   m_shortZoneName = zoneNameFromID(zoneChange->zoneId);
   m_longZoneName = zoneLongNameFromID(zoneChange->zoneId);
   m_zone_exp_multiplier = defaultZoneExperienceMultiplier;
@@ -791,25 +773,7 @@ void ZoneMgr::zonePoints(const uint8_t* data, size_t len, uint8_t)
 
 void ZoneMgr::dynamicZonePoints(const uint8_t *data, size_t len, uint8_t)
 {
-   [[maybe_unused]] dzSwitchInfo tmp;
-   const dzSwitchInfo *dz = nullptr;
-#ifdef SEQ_USE_RUST
-   if (m_useRustDzSwitch && len == sizeof(dzSwitchInfo)) {
-     auto out = seq::rust::decode_dz_switch_info(
-         rust::Slice<const uint8_t>{data, len});
-     if (out.ok) {
-       std::memset(&tmp, 0, sizeof(tmp));
-       tmp.zoneID     = out.zone_id;
-       tmp.instanceID = out.instance_id;
-       tmp.type       = out.kind;
-       tmp.x          = out.x;
-       tmp.y          = out.y;
-       tmp.z          = out.z;
-       dz = &tmp;
-     }
-   }
-#endif
-   if (!dz) dz = (const dzSwitchInfo*)data;
+   const dzSwitchInfo *dz = (const dzSwitchInfo*)data;
 
    if(len == sizeof(dzSwitchInfo))
    {
@@ -832,23 +796,7 @@ void ZoneMgr::dynamicZonePoints(const uint8_t *data, size_t len, uint8_t)
 
 void ZoneMgr::dynamicZoneInfo(const uint8_t* data, size_t len, uint8_t)
 {
-   [[maybe_unused]] dzInfo tmp;
-   const dzInfo *dz = nullptr;
-#ifdef SEQ_USE_RUST
-   if (m_useRustDzInfo && len == sizeof(dzInfo)) {
-     auto out = seq::rust::decode_dz_info(
-         rust::Slice<const uint8_t>{data, len});
-     if (out.ok) {
-       std::memset(&tmp, 0, sizeof(tmp));
-       tmp.newDZ      = out.new_dz;
-       tmp.maxPlayers = out.max_players;
-       std::memcpy(tmp.dzName, out.dz_name.data(), 128);
-       std::memcpy(tmp.name,   out.name.data(),    64);
-       dz = &tmp;
-     }
-   }
-#endif
-   if (!dz) dz = (const dzInfo*)data;
+   const dzInfo *dz = (const dzInfo*)data;
 
    if(!dz->newDZ)
    {
