@@ -85,6 +85,10 @@ public:
         // recon: which C>S fired right before the OP_PlayerProfile that
         // showed the new aa_spent value? — slice externally with awk/grep.
         QString      listEvents;
+        // If true, BoxRegistry is dumped to stderr every 5s. Stage 1
+        // of the multibox feature (docs/MULTIBOX_PLAN.md). Pairs with
+        // --no-listen for client-less recon.
+        bool         listBoxes = false;
         // True to skip the WebSocket server entirely (--no-listen on
         // the CLI). Useful for capture / replay / diagnostic runs
         // where no client connects and the listen port is just a

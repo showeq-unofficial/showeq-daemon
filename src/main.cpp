@@ -161,6 +161,11 @@ int main(int argc, char** argv)
         "<unix_ms> <C|S> 0xXXXX <bytes> <stream> <name>. Use to time-"
         "correlate which opcode fired around an in-game event.",
         "file");
+    QCommandLineOption listBoxesOpt(QStringList{"list-boxes"},
+        "Multibox recon: dump the BoxRegistry (every distinct EQ "
+        "client observed on the wire) to stderr every 5s. Pairs "
+        "with --no-listen for client-less inspection. See "
+        "docs/MULTIBOX_PLAN.md.");
 
     parser.addOption(deviceOpt);
     parser.addOption(ipOpt);
@@ -174,6 +179,7 @@ int main(int argc, char** argv)
     parser.addOption(noListenOpt);
     parser.addOption(dumpPayloadOpt);
     parser.addOption(listEventsOpt);
+    parser.addOption(listBoxesOpt);
     parser.process(app);
 
     DaemonApp::Config cfg;
@@ -188,6 +194,7 @@ int main(int argc, char** argv)
     cfg.noListen     = parser.isSet(noListenOpt);
     cfg.dumpPayload  = parser.values(dumpPayloadOpt);
     cfg.listEvents   = parser.value(listEventsOpt);
+    cfg.listBoxes    = parser.isSet(listBoxesOpt);
 
     // Resolve record paths against cwd for the same reason --config-dir
     // is — under sudo, $HOME points at /root.

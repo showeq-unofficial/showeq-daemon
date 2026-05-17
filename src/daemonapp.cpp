@@ -364,6 +364,23 @@ bool DaemonApp::start()
             m_eventLogger = new EventLogger(m_packet, m_cfg.listEvents, this);
         }
 
+        if (m_cfg.listBoxes) {
+            // Stage 1 of multibox-sessions: stderr-dump the registry
+            // every 5s so the user can verify two-client captures
+            // surface both boxes. Final dump on aboutToQuit covers
+            // the --replay EOF case (process exits before the next
+            // timer tick).
+            auto* boxTimer = new QTimer(this);
+            connect(boxTimer, &QTimer::timeout, this, [this]() {
+                qInfo().noquote() << m_packet->boxRegistry().dumpString();
+            });
+            boxTimer->start(5000);
+            connect(QCoreApplication::instance(),
+                    &QCoreApplication::aboutToQuit, this, [this]() {
+                qInfo().noquote() << m_packet->boxRegistry().dumpString();
+            });
+        }
+
         for (const QString& spec : m_cfg.dumpPayload) {
             const int colon = spec.indexOf(':');
             if (colon <= 0) {
