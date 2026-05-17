@@ -32,6 +32,7 @@ const StructHint kHints[] = {
     {"OP_InspectAnswer",   "inspectDataStruct",      1956, DIR_Server},
     {"OP_EnvDamage",       "environmentDamageStruct",  46, DIR_Server},
     {"OP_MoveItem",        "moveItemStruct",           28, DIR_Client},
+    {"OP_ZoneServerInfo",  "zoneServerInfoStruct",    130, DIR_Server},
 };
 
 const char* dirLabel(uint8_t dir)

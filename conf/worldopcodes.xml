@@ -62,6 +62,7 @@
     </opcode>
     <opcode id="b67c" name="OP_ZoneServerInfo" updated="05/13/26">
 	    <comment>Zone server connection info: 130b S>C with the zone server hostname (e.g. eqzone-31.everquest.com) at offset 0 and port (u16 at offset 128). Fires after the zone-handoff world handshake to point the client at the next zone server.</comment>
+        <payload dir="server" typename="zoneServerInfoStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="6530" name="OP_WorldComplete" updated="05/16/26">
 	    <comment>Client telling world server it is done (revised from 0xfc46). 0-byte C>S, fires immediately after every OP_ZoneServerInfo (both initial login and subsequent zone changes). World replies by disconnecting.</comment>

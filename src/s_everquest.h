@@ -41,6 +41,7 @@ AddStruct(makeDropStruct);
 AddStruct(zonePointStruct);
 AddStruct(zonePointsStruct);
 AddStruct(timeOfDayStruct);
+AddStruct(zoneServerInfoStruct);
 AddStruct(invSlotStruct);
 AddStruct(moveItemStruct);
 AddStruct(itemPacketStruct);

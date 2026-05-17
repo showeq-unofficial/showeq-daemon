@@ -1485,6 +1485,21 @@ struct zonePointsStruct
 };
 
 /*
+** Zone Server Info
+** Length: 130 Octets
+** OpCode: OP_ZoneServerInfo (world stream, S>C)
+**
+** Sent by the world server on a world->zone handoff with the FQDN/IP and
+** UDP port of the target zone server. Confirmed 2026-05-06.
+*/
+struct zoneServerInfoStruct
+{
+/*0000*/ char     host[128];                     // NUL-terminated zone server hostname
+/*0128*/ uint16_t port;                          // little-endian UDP port
+/*0130*/
+};
+
+/*
 ** Time of Day
 ** Length: 8 Octets
 ** OpCode: TimeOfDayCode
