@@ -46,11 +46,27 @@ public:
     // per-box streams below.
     bool      is_primary         = false;
 
-    // Per-box world streams. Non-null only on non-primary boxes (the
-    // BoxCreatedHook installs them). Lazy: zone streams stay global
-    // until a later stage tackles same-host zone demux.
+    // Per-box world + zone streams. Non-null only on non-primary
+    // boxes — the BoxCreatedHook installs them. Primary box re-uses
+    // EQPacket's global streams so the existing connect2 wiring
+    // stays intact in Stages 2/3a.
     EQPacketStream* world_c2s    = nullptr;
     EQPacketStream* world_s2c    = nullptr;
+    EQPacketStream* zone_c2s     = nullptr;
+    EQPacketStream* zone_s2c     = nullptr;
+
+    // Set by the per-box ZoneServerObserver on the box's
+    // world_s2c when OP_ZoneServerInfo arrives. Used by
+    // EQPacket::dispatchPacket to bind incoming zone-traffic
+    // 5-tuples to this box.
+    in_addr_t       expected_zone_server_ip   = 0;
+    in_port_t       expected_zone_server_port = 0;
+
+    // Set when this box's first zone-stream packet binds the
+    // ephemeral client port (via the (client_ip, server_port)
+    // match against expected_zone_server_*).
+    in_port_t       zone_client_port          = 0;
+    in_port_t       zone_server_port_bound    = 0;
 
     // Placeholder until OP_EnterWorld arrives. Hex string of the
     // creation-time 5-tuple — stable for the box's lifetime.
@@ -105,6 +121,21 @@ public:
     Box* lookupByWorld(in_addr_t client_ip,
                        in_port_t client_world_port,
                        in_port_t server_world_port);
+
+    // Find a Box whose zone_client_port/zone_server_port_bound matches
+    // this 5-tuple. nullptr if no box has been bound to that zone
+    // connection yet (caller should fall back to expected-server match).
+    Box* lookupBoundZone(in_addr_t client_ip,
+                         in_port_t client_zone_port,
+                         in_port_t server_zone_port);
+
+    // Find a Box whose `expected_zone_server_*` matches a zone-stream
+    // SessionRequest target (client_ip, server_port). Used to bind a
+    // freshly-observed zone tuple to the box that's about to use it.
+    // nullptr if no box is expecting a zone connection to that endpoint.
+    Box* lookupByExpectedZone(in_addr_t client_ip,
+                              in_addr_t server_ip,
+                              in_port_t server_zone_port);
 
     // Find a Box with this character name (skipping `exclude`). Used
     // by NamePromoter at promotion time to detect re-handshakes of

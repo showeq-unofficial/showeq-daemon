@@ -134,6 +134,35 @@ Box* BoxRegistry::lookupByName(const QString& name, const Box* exclude)
     return nullptr;
 }
 
+Box* BoxRegistry::lookupBoundZone(in_addr_t client_ip,
+                                  in_port_t client_zone_port,
+                                  in_port_t server_zone_port)
+{
+    for (auto& b : m_boxes) {
+        if (b->is_merged()) continue;
+        if (b->client_ip == client_ip &&
+            b->zone_client_port == client_zone_port &&
+            b->zone_server_port_bound == server_zone_port) {
+            return b.get();
+        }
+    }
+    return nullptr;
+}
+
+Box* BoxRegistry::lookupByExpectedZone(in_addr_t client_ip,
+                                       in_addr_t server_ip,
+                                       in_port_t server_zone_port)
+{
+    for (auto& b : m_boxes) {
+        if (b->is_merged()) continue;
+        if (b->client_ip != client_ip) continue;
+        if (b->expected_zone_server_ip != server_ip) continue;
+        if (b->expected_zone_server_port != server_zone_port) continue;
+        return b.get();
+    }
+    return nullptr;
+}
+
 size_t BoxRegistry::distinctCount() const
 {
     size_t n = 0;
