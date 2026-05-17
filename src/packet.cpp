@@ -39,6 +39,7 @@
 #include "everquest.h"
 #include "packet.h"
 #include "boxregistry.h"
+#include "namepromoter.h"
 #include "packetcommon.h"
 #include "packetcapture.h"
 #include "packetformat.h"
@@ -186,6 +187,42 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
   m_streams[world2client] = m_world2ClientStream;
   m_streams[client2zone] = m_client2ZoneStream;
   m_streams[zone2client] = m_zone2ClientStream;
+
+  // Stage 2 of multibox-sessions (docs/MULTIBOX_PLAN.md): every new
+  // Box gets a NamePromoter so OP_EnterWorld (world C>S, char name @
+  // offset 0) fills in display_name + a stable hashed box_id. The
+  // primary box re-uses the global world streams (its wiring is
+  // intact); non-primary boxes get their own world stream pair so
+  // their session-key handshake and decode don't collide with the
+  // primary's. Zone streams stay global — same-host zone demux is
+  // deferred to a later stage.
+  m_boxes.setBoxCreatedHook([this](Box& box) {
+    EQPacketStream* c2s = nullptr;
+    if (box.is_primary) {
+      c2s = m_client2WorldStream;
+    } else {
+      box.world_c2s = new EQPacketStream(client2world, DIR_Client,
+                                         m_arqSeqGiveUp, *m_worldOPCodeDB,
+                                         this, "box-world-c2s");
+      box.world_s2c = new EQPacketStream(world2client, DIR_Server,
+                                         m_arqSeqGiveUp, *m_worldOPCodeDB,
+                                         this, "box-world-s2c");
+      box.world_c2s->setSessionTracking(m_session_tracking);
+      box.world_s2c->setSessionTracking(m_session_tracking);
+      // Streams are unidirectional: world_s2c parses the SessionResponse
+      // (carries the key) and world_c2s parses the SessionRequest, but
+      // neither sees the other's bytes. Cross-wire sessionKey so the
+      // sibling can decrypt. We deliberately don't connect to EQPacket's
+      // dispatchSessionKey — that broadcasts to the global four streams
+      // which belong to the primary box, not this box.
+      connect(box.world_s2c, &EQPacketStream::sessionKey,
+              box.world_c2s, &EQPacketStream::receiveSessionKey);
+      connect(box.world_c2s, &EQPacketStream::sessionKey,
+              box.world_s2c, &EQPacketStream::receiveSessionKey);
+      c2s = box.world_c2s;
+    }
+    new NamePromoter(&box, c2s, this);
+  });
 
   // no client/server ports yet
   m_clientPort = 0;
@@ -701,7 +738,16 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
            (packet.getSourcePort() >= WorldServerGeneralMinPort &&
             packet.getSourcePort() <= WorldServerGeneralMaxPort))
   {
-    // World server traffic. Dispatch it.
+    // World server traffic. Route to the global streams as today so
+    // ZoneServerMgr (the only connect2'd world opcode handler) keeps
+    // firing on every world handshake regardless of which Box it
+    // belongs to — single-client multi-zone fixtures rely on this.
+    // ADDITIONALLY mirror non-primary boxes' traffic into their
+    // per-box streams so each box's NamePromoter (Stage 2 of
+    // docs/MULTIBOX_PLAN.md) can decrypt and read OP_EnterWorld with
+    // its own session key. Primary's NamePromoter runs on the global
+    // stream; first OP_EnterWorld wins and subsequent ones are
+    // ignored (the early-out in NamePromoter::onDecodedPacket).
     if (packet.getIPv4SourceN() == m_client_addr)
     {
       m_client2WorldStream->handlePacket(packet);
@@ -709,6 +755,20 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
     else
     {
       m_world2ClientStream->handlePacket(packet);
+    }
+
+    const bool srcIsServer = srcIsWorld;
+    const in_addr_t client_ip = srcIsServer ? packet.getIPv4DestN()
+                                            : packet.getIPv4SourceN();
+    const in_port_t client_port = htons(srcIsServer ? dstPortHost
+                                                    : srcPortHost);
+    const in_port_t server_port = htons(srcIsServer ? srcPortHost
+                                                    : dstPortHost);
+    Box* box = m_boxes.lookupByWorld(client_ip, client_port, server_port);
+    if (box && !box->is_primary)
+    {
+      EQPacketStream* s = srcIsServer ? box->world_s2c : box->world_c2s;
+      if (s) s->handlePacket(packet);
     }
   }
   else
