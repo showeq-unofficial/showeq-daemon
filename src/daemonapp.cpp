@@ -317,7 +317,8 @@ bool DaemonApp::start()
                    m_messageShell, m_groupMgr, m_spellShell,
                    m_combatRouter, m_categoryMgr, m_filterMgr,
                    m_prefsBroker, m_spawnMonitor, m_itemCache,
-                   m_dateTimeMgr, m_zoneServerMgr);
+                   m_dateTimeMgr, m_zoneServerMgr,
+                   m_packet ? &m_packet->boxRegistry() : nullptr);
 
     // --record-golden: spin up an internal SessionAdapter writing into a
     // FileSink. Subscribe is synthesized immediately so the on-disk
@@ -336,6 +337,8 @@ bool DaemonApp::start()
                                              m_filterMgr, m_prefsBroker,
                                              m_spawnMonitor, m_itemCache,
                                              m_dateTimeMgr, m_zoneServerMgr,
+                                             m_packet ? &m_packet->boxRegistry()
+                                                      : nullptr,
                                              this);
         // The golden adapter writes the regression-harness .pbstream;
         // strip wall-clock fields so the tier-2 byte-cmp is stable

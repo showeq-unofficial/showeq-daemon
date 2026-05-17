@@ -20,6 +20,7 @@ class MapData;
 class MessageShell;
 class Player;
 class PrefsBroker;
+class BoxRegistry;
 class SessionAdapter;
 class SpawnMonitor;
 class SpawnShell;
@@ -52,7 +53,8 @@ public:
                   MessageShell* ms, GroupMgr* gm, SpellShell* sps,
                   CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
                   PrefsBroker* pb, SpawnMonitor* sm, ItemCache* ic,
-                  DateTimeMgr* dtm, ZoneServerMgr* zsm);
+                  DateTimeMgr* dtm, ZoneServerMgr* zsm,
+                  BoxRegistry* boxes);
 
     bool listen(const QHostAddress& host, quint16 port);
 
@@ -103,4 +105,5 @@ private:
     ItemCache*     m_itemCache     = nullptr;
     DateTimeMgr*   m_dateTimeMgr   = nullptr;
     ZoneServerMgr* m_zoneServerMgr = nullptr;
+    BoxRegistry*   m_boxes         = nullptr;
 };

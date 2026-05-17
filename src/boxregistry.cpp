@@ -5,6 +5,8 @@
 #include <QHash>
 #include <QHostAddress>
 
+BoxRegistry::BoxRegistry(QObject* parent) : QObject(parent) {}
+
 QString Box::summary() const
 {
     const QString ip = QHostAddress(ntohl(client_ip)).toString();
@@ -60,7 +62,46 @@ Box* BoxRegistry::observe(in_addr_t client_ip,
             ntohs(raw->server_world_port));
 
     if (m_hook) m_hook(*raw);
+
+    // First non-merged Box becomes active by default. Subsequent
+    // creations only fire changed() — active stays put until a client
+    // explicitly switches via SetActiveBox.
+    if (m_activeBoxId.isEmpty()) m_activeBoxId = raw->box_id;
+
+    emit changed();
     return raw;
+}
+
+bool BoxRegistry::setActiveBoxId(const QString& box_id)
+{
+    // Validate against current non-merged boxes.
+    for (auto& b : m_boxes) {
+        if (b->is_merged()) continue;
+        if (b->box_id == box_id) {
+            if (m_activeBoxId == box_id) return true;
+            m_activeBoxId = box_id;
+            emit changed();
+            return true;
+        }
+    }
+    return false;
+}
+
+void BoxRegistry::onPromoted(Box* box, const QString& old_box_id)
+{
+    if (!box) return;
+    if (m_activeBoxId == old_box_id)
+        m_activeBoxId = box->box_id;
+    // If the promoted box turned out to be a merge target, its box_id
+    // collides with an existing one; m_activeBoxId may point at the
+    // pre-existing parent already — leave it as-is, the changed()
+    // re-emit gives the client a fresh picture either way.
+    emit changed();
+}
+
+void BoxRegistry::notifyChanged()
+{
+    emit changed();
 }
 
 Box* BoxRegistry::primary()

@@ -69,7 +69,8 @@ void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
                         MessageShell* ms, GroupMgr* gm, SpellShell* sps,
                         CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
                         PrefsBroker* pb, SpawnMonitor* sm, ItemCache* ic,
-                        DateTimeMgr* dtm, ZoneServerMgr* zsm)
+                        DateTimeMgr* dtm, ZoneServerMgr* zsm,
+                        BoxRegistry* boxes)
 {
     m_spawnShell    = ss;
     m_zoneMgr       = zm;
@@ -86,6 +87,7 @@ void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
     m_itemCache     = ic;
     m_dateTimeMgr   = dtm;
     m_zoneServerMgr = zsm;
+    m_boxes         = boxes;
 }
 
 bool WsServer::listen(const QHostAddress& host, quint16 port)
@@ -249,6 +251,7 @@ SessionAdapter* WsServer::makeAdapter(IEnvelopeSink* sink, QObject* parent)
                               m_spellShell, m_combatRouter, m_categoryMgr,
                               m_filterMgr, m_prefsBroker, m_spawnMonitor,
                               m_itemCache, m_dateTimeMgr, m_zoneServerMgr,
+                              m_boxes,
                               parent);
 }
 

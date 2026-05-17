@@ -47,6 +47,7 @@ void NamePromoter::onDecodedPacket(const uint8_t* data, size_t len,
     const size_t nameLen = qstrnlen(raw, kCharNameSlot);
     if (nameLen == 0) return;
 
+    const QString old_box_id = m_box->box_id;
     const QString name = QString::fromLatin1(raw, int(nameLen));
     m_box->display_name = name;
 
@@ -71,4 +72,6 @@ void NamePromoter::onDecodedPacket(const uint8_t* data, size_t len,
         seqInfo("NamePromoter: box %s promoted from OP_EnterWorld",
                 qUtf8Printable(m_box->box_id));
     }
+
+    m_registry->onPromoted(m_box, old_box_id);
 }

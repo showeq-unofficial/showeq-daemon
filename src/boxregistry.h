@@ -21,6 +21,7 @@
 
 #include <netinet/in.h>
 
+#include <QObject>
 #include <QString>
 #include <QVector>
 #include <functional>
@@ -72,8 +73,11 @@ public:
     QString   summary() const;
 };
 
-class BoxRegistry {
+class BoxRegistry : public QObject {
+    Q_OBJECT
 public:
+    explicit BoxRegistry(QObject* parent = nullptr);
+
     // Fires once per newly-created Box. Stage 2: EQPacket installs a
     // hook that allocates per-box world streams + NamePromoter for
     // every non-primary box. The first Box created has is_primary=true
@@ -121,11 +125,33 @@ public:
 
     QString dumpString() const;
 
+    // Active box drives which decode pipeline the SessionAdapter
+    // streams to its client. v1 (Stage 4 of docs/MULTIBOX_PLAN.md):
+    // cosmetic only — Stage 3 wires this to actual per-box state-
+    // manager decode. The first non-merged Box becomes active on
+    // creation; setActiveBoxId() emits changed().
+    const QString& activeBoxId() const { return m_activeBoxId; }
+    bool setActiveBoxId(const QString& box_id);
+
+    // Called by NamePromoter after it has overwritten box->box_id
+    // with the SHA-256 name hash. We replace m_activeBoxId if it was
+    // tracking the now-stale placeholder id, then emit changed().
+    void onPromoted(Box* box, const QString& old_box_id);
+
+    // Called by NamePromoter post-merge so subscribers (SessionAdapter)
+    // can re-emit BoxListUpdated. Also fired by observe() on every new
+    // Box and by setActiveBoxId().
+    void notifyChanged();
+
+signals:
+    void changed();
+
 private:
     // unique_ptr → stable Box* across vector growth. We hand pointers
     // out to lookup callers AND to per-box stream connect()s.
     std::vector<std::unique_ptr<Box>> m_boxes;
     BoxCreatedHook m_hook;
+    QString m_activeBoxId;
 };
 
 #endif // BOXREGISTRY_H

@@ -217,6 +217,7 @@ class EQPacket : public QObject
 
  public:
    const BoxRegistry& boxRegistry() const { return m_boxes; }
+   BoxRegistry&       boxRegistry()       { return m_boxes; }
 
    void connectStream(EQPacketStream* stream);
    void dispatchPacket   (int size, unsigned char *buffer);
