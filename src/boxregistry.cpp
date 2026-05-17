@@ -2,6 +2,7 @@
 
 #include "diagnosticmessages.h"
 
+#include <QHash>
 #include <QHostAddress>
 
 QString Box::summary() const
@@ -81,15 +82,47 @@ Box* BoxRegistry::lookupByWorld(in_addr_t client_ip,
     return nullptr;
 }
 
+Box* BoxRegistry::lookupByName(const QString& name, const Box* exclude)
+{
+    if (name.isEmpty()) return nullptr;
+    for (auto& b : m_boxes) {
+        if (b.get() == exclude) continue;
+        if (b->is_merged()) continue;
+        if (b->display_name == name) return b.get();
+    }
+    return nullptr;
+}
+
+size_t BoxRegistry::distinctCount() const
+{
+    size_t n = 0;
+    for (const auto& b : m_boxes) if (!b->is_merged()) ++n;
+    return n;
+}
+
 QString BoxRegistry::dumpString() const
 {
     if (m_boxes.empty())
         return QStringLiteral("BoxRegistry: empty");
 
-    QString out = QStringLiteral("BoxRegistry: %1 box(es) (*=primary)\n")
-                      .arg(m_boxes.size());
+    // Count aliases per parent box_id so each parent line shows
+    // "(+N rehandshakes)".
+    QHash<QString, int> aliasCount;
     for (const auto& b : m_boxes) {
-        out += QStringLiteral("  ") + b->summary() + QChar('\n');
+        if (b->is_merged()) ++aliasCount[b->merged_into];
+    }
+
+    QString out = QStringLiteral(
+        "BoxRegistry: %1 distinct, %2 total (*=primary, +N=re-handshakes)\n")
+        .arg(distinctCount())
+        .arg(m_boxes.size());
+    for (const auto& b : m_boxes) {
+        if (b->is_merged()) continue;
+        out += QStringLiteral("  ") + b->summary();
+        const int extras = aliasCount.value(b->box_id, 0);
+        if (extras > 0)
+            out += QStringLiteral("  (+%1 re-handshakes)").arg(extras);
+        out += QChar('\n');
     }
     return out;
 }

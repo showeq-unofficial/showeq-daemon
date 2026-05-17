@@ -15,14 +15,15 @@
 #include <QObject>
 
 class Box;
+class BoxRegistry;
 class EQPacketOPCode;
 class EQPacketStream;
 
 class NamePromoter : public QObject {
     Q_OBJECT
 public:
-    NamePromoter(Box* box, EQPacketStream* world_c2s,
-                 QObject* parent = nullptr);
+    NamePromoter(Box* box, BoxRegistry* registry,
+                 EQPacketStream* world_c2s, QObject* parent = nullptr);
 
 private slots:
     void onDecodedPacket(const uint8_t* data, size_t len, uint8_t dir,
@@ -30,6 +31,7 @@ private slots:
 
 private:
     Box* m_box;
+    BoxRegistry* m_registry;
 };
 
 #endif // NAMEPROMOTER_H

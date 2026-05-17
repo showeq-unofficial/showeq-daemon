@@ -14,11 +14,12 @@ constexpr size_t   kEnterWorldClientLen = 72;
 constexpr size_t   kCharNameSlot = 64;
 }
 
-NamePromoter::NamePromoter(Box* box, EQPacketStream* world_c2s,
-                           QObject* parent)
-    : QObject(parent), m_box(box)
+NamePromoter::NamePromoter(Box* box, BoxRegistry* registry,
+                           EQPacketStream* world_c2s, QObject* parent)
+    : QObject(parent), m_box(box), m_registry(registry)
 {
     Q_ASSERT(box);
+    Q_ASSERT(registry);
     Q_ASSERT(world_c2s);
     // The 3-arg decodedPacket overload is the "all packets, no
     // unknown-flag" variant — matches connectStream() in packet.cpp
@@ -57,6 +58,17 @@ void NamePromoter::onDecodedPacket(const uint8_t* data, size_t len,
     m_box->box_id =
         QStringLiteral("b-") + QString::fromLatin1(digest.left(8).toHex());
 
-    seqInfo("NamePromoter: box %s promoted from OP_EnterWorld",
-            qUtf8Printable(m_box->box_id));
+    // Re-handshake detection: a single client opens a fresh world
+    // socket per zone change, producing N boxes for the same
+    // character. Mark this Box as merged into the earlier one so the
+    // registry view shows one entry per character.
+    if (Box* parent = m_registry->lookupByName(name, m_box)) {
+        m_box->merged_into = parent->box_id;
+        seqInfo("NamePromoter: box %s promoted, merged into %s",
+                qUtf8Printable(m_box->box_id),
+                qUtf8Printable(parent->box_id));
+    } else {
+        seqInfo("NamePromoter: box %s promoted from OP_EnterWorld",
+                qUtf8Printable(m_box->box_id));
+    }
 }

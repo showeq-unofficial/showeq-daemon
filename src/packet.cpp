@@ -221,7 +221,7 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
               box.world_s2c, &EQPacketStream::receiveSessionKey);
       c2s = box.world_c2s;
     }
-    new NamePromoter(&box, c2s, this);
+    new NamePromoter(&box, &m_boxes, c2s, this);
   });
 
   // no client/server ports yet

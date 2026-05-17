@@ -59,6 +59,15 @@ public:
     // (zero-padded char name, 64-byte slot). Empty until promoted.
     QString   display_name;
 
+    // box_id of the first-seen Box that holds this character. Set by
+    // NamePromoter when promotion reveals a duplicate name (e.g. a
+    // single client's zone rehandshakes open new 5-tuples that all
+    // resolve to the same character). Merged boxes are hidden from
+    // dumpString() and counted as aliases of their parent.
+    QString   merged_into;
+
+    bool      is_merged() const { return !merged_into.isEmpty(); }
+
     // Human-readable summary for --list-boxes output.
     QString   summary() const;
 };
@@ -93,7 +102,16 @@ public:
                        in_port_t client_world_port,
                        in_port_t server_world_port);
 
+    // Find a Box with this character name (skipping `exclude`). Used
+    // by NamePromoter at promotion time to detect re-handshakes of
+    // the same character. nullptr if no other Box has the name.
+    Box* lookupByName(const QString& name, const Box* exclude = nullptr);
+
     size_t size() const { return m_boxes.size(); }
+
+    // Count of distinct character identities — Boxes that aren't
+    // merged into another.
+    size_t distinctCount() const;
 
     // Iterate boxes (for --list-boxes dump).
     template <typename F>
