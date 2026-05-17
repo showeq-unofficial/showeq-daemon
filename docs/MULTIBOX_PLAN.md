@@ -57,18 +57,21 @@ on each zone change. Track `(client_ip, latest_port_pair)` and update
 when a new pair binds to a known box's client_ip and no other box
 claims it.
 
-**Stable identity (post-handshake):** `player_id` (the local PC's
-spawn id, surfaced by `Player::id()` once `OP_PlayerProfile` fires).
-This is the value the UI shows users — "Soandso (192.168.1.42)" not
-"192.168.1.42:17234". `player_id` is stable across zone hops, ip
-changes, and port rolls. **Promotion**: when OP_PlayerProfile arrives
-on a Box with an unset `player_id`, the daemon sets it; if a Box with
-that `player_id` already exists (relog → new 5-tuple), merge.
+**Stable identity (post-handshake):** **character name**, set from
+`charProfileStruct` on `OP_PlayerProfile`. NOT `Player::id()` — the
+local spawn id is server-reassigned on every zone-in
+(`player.cpp:1050` re-fires "Your player's id is X" per zone), so it
+rotates and is useless as a stable key. The character name persists
+across zones, relogs, IP changes, and port rolls. **Promotion**: when
+OP_PlayerProfile arrives on a Box with an empty name, the daemon sets
+it; if another Box with that name already exists (e.g. relog → new
+5-tuple) it's merged in and the old wire-routing entries adopt the
+existing Box.
 
-**External `box_id`** (the value used in proto `SetActiveBox`):
-`player_id` when known, else a placeholder derived from the
+**External `box_id`** (the value used in proto `SetActiveBox`): the
+character name when known, else a placeholder derived from the
 creation-time 5-tuple. Once promoted, the placeholder is alias-mapped
-to the real id so in-flight UI references don't break.
+to the real name so in-flight UI references don't break.
 
 **v1 hole:** two same-host boxes zoning simultaneously can lose the
 port-pair → box mapping until the next packet identifies them.
