@@ -62,11 +62,12 @@ static const char* const EQStreamStr[] = {"client-world", "world-client", "clien
 // an arq sequence may be from a wrap and not just be really old.
 const int16_t arqSeqWrapCutoff = 1024;
 
-// Arbitrary cutoff for maximum packet sizes. Don't let little changes
-// in session request struct cause huge mallocs! EQ currently never sends
-// a packet larger than 512 bytes so this should be pretty safe. This is
-// applied before packets are recombined.
-const uint32_t maxPacketSize = 25600;
+// Arbitrary cutoff for maximum packet sizes. Don't let a junk first-fragment
+// header cause a multi-MB malloc. Bulk packets on Test (SendAATable spell
+// rosters, bulk-spawn lists, OP_SendZonePoints in dense zones) exceed the
+// historical 25600 cap — observed 30-66KB legitimately. 131072 covers the
+// largest packets we've seen while still blocking 4GB junk-size requests.
+const uint32_t maxPacketSize = 131072;
 
 //----------------------------------------------------------------------
 // EQPacketStream class methods

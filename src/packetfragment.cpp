@@ -103,7 +103,7 @@ void EQPacketFragmentSequence::addFragment(EQProtocolPacket& packet)
       // Cap declared total against the protocol-wide sanity limit (mirrors
       // packetstream.cpp's maxPacketSize). Under multibox, interleaved
       // fragments from two clients can present a junk total here.
-      if (m_totalLength > 25600)
+      if (m_totalLength > 131072)
       {
          seqWarn("Oversized packet fragment requested buffer of size %u on stream %d OpCode %04x seq %04x; dropping",
            m_totalLength, m_streamid, *(uint16_t*)&packet.payload()[4], packet.arqSeq());
@@ -144,18 +144,28 @@ void EQPacketFragmentSequence::addFragment(EQProtocolPacket& packet)
              *(uint16_t*)(m_data));
 #endif
       
-      if (m_data+m_dataSize+packet.payloadLength() > m_data+m_dataAllocSize)
+      const size_t needed = m_dataSize + packet.payloadLength();
+      if (needed > m_dataAllocSize)
       {
-        // Continuation fragment would push past the buffer allocated for
-        // m_totalLength on the first fragment. Under multibox, two clients'
-        // fragments can interleave into the same per-direction sequence
-        // and trip this. Drop the in-progress assembly instead of aborting
-        // the daemon; the next first-fragment will reallocate cleanly.
-        seqWarn("EQPacketFragmentSequence::addFragment(): oversized continuation, dropping in-progress assembly: seq %04x stream %d opcode %04x, buffer %d filled to %d, tried to add %d",
-          packet.arqSeq(), m_streamid, *(uint16_t*)(m_data),
-          m_dataAllocSize, m_dataSize, packet.payloadLength());
-        reset();
-        return;
+        // Test wire occasionally under-reports the first-fragment total
+        // length by a few hundred bytes; legitimate bulk-spawn packets on
+        // stream 3 trip this. The original code seqFatal'd here, then was
+        // softened to drop the in-progress assembly — both wrong, the
+        // continuation fragment data is real. Grow the buffer to fit,
+        // capped at the same protocol-wide sanity ceiling enforced above.
+        if (needed > 131072)
+        {
+          seqWarn("EQPacketFragmentSequence::addFragment(): runaway continuation past sanity limit, dropping: seq %04x stream %d opcode %04x, alloc %u filled to %u, tried to add %u",
+            packet.arqSeq(), m_streamid, *(uint16_t*)(m_data),
+            m_dataAllocSize, (unsigned)m_dataSize, packet.payloadLength());
+          reset();
+          return;
+        }
+        uint8_t* grown = new uint8_t[needed];
+        memcpy(grown, m_data, m_dataSize);
+        delete[] m_data;
+        m_data = grown;
+        m_dataAllocSize = needed;
       }
 
       memcpy(m_data + m_dataSize, packet.payload(), packet.payloadLength());
