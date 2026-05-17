@@ -1,0 +1,148 @@
+# Multibox Sessions
+
+Status: feat/multibox-sessions, in progress.
+
+## Goal
+
+A single daemon instance captures and decodes every EQ client session
+visible on the wire. Web clients select which session ("box") is the
+active decode target; switching is live.
+
+v1 scope: **capture + multi-decode, single-active**. The daemon owns N
+per-session decode pipelines but only emits the active one to web. v2
+opens the door to parallel-active (one tab per box).
+
+## Today's coupling
+
+- `EQPacket` single-shot latches `m_client_addr` on the first
+  world-port packet (`packet.cpp:627`). After that, the BPF filter and
+  stream dispatch (`packet.cpp:681-700`) ignore other clients on the
+  wire.
+- One quad of `EQPacketStream`s (world C↔S, zone C↔S) per daemon.
+- One instance of each state manager: `SpawnShell`, `Player`,
+  `ZoneMgr`, `MessageShell`, `SpellShell`, `GroupMgr`, `CombatRouter`,
+  `SpawnMonitor`. Wired by `daemonapp.cpp:181-256`.
+- Workaround in CLAUDE.md:12: run N daemons, one `--ip` each.
+- Prior fragment-layer multibox fix (`8687904`, `400310d`) broke
+  single-client decoding; reverted. Lesson: fix at session-pinning
+  layer, not in `PacketFragment::addFragment`.
+
+## Becomes per-session ("Box")
+
+- `EQPacketStream`s (×4)
+- `SpawnShell`, `Player`, `ZoneMgr`
+- `MessageShell`, `SpellShell`, `GroupMgr`, `CombatRouter`
+- `SpawnMonitor` (per-zone state is per-box)
+
+## Stays daemon-global
+
+- `ItemCache` (cross-box, file-backed)
+- `GuildMgr` (cross-server but server-uniform)
+- `FilterMgr` (user-defined filters apply to whichever box is active)
+- `Spells`, `EQStrings`, `Messages`/`MessageFilters`,
+  `CategoryMgr`, `PrefsBroker`, `DateTimeMgr`, `DataLocationMgr`
+
+## Box identity
+
+**Creation-time key**: `(client_ip, client_world_port, server_world_port)`
+— the world-handshake 5-tuple. Disambiguates two EQ instances sharing
+a host IP (WSL bridge, VM, dual-Wine).
+
+**Steady-state tracking**: once a Box exists, its world port pair is
+only stable until the first zone-in. EQ opens a fresh zone-server UDP
+connection per zone change, so post-creation routing follows the
+*rolling* `(client_ip, latest_world_or_zone_port_pair)` — updated each
+time we see a new connection that pairs with this client_ip while no
+other box owns that IP. Two same-host boxes must therefore be tracked
+through the world-handshake handoff; if they zone simultaneously and
+we lose the port-pair-to-box mapping, we fall back to client_ip alone
+and the second-zoning client is unattributable until its next world
+ping (acceptable v1 hole).
+
+Stable external box_id: hash of the creation-time 5-tuple. Survives
+zone hops.
+
+## Naming
+
+Proto already uses `session_id` as a *reconnect resume token*
+(`Snapshot.session_id`, `Subscribe.session_id`). New concept is a
+**Box**: `box_id` on the wire. Internal C++ class: `Box`.
+
+## Stages
+
+Each stage ships behind a stable daemon binary; goldens must still
+pass between stages.
+
+### Stage 0 — fixture
+
+Record a real two-client `.vpk` on the LAN. Verifies both clients are
+present via `--opcode-stats`. Lands in `tests/replay/multibox-2c.*`.
+
+### Stage 1 — session detection (observation only)
+
+- Add `BoxRegistry`: keyed by creation-time 5-tuple
+  (`client_ip`, `client_world_port`, `server_world_port`), with a
+  parallel `client_ip → box_id` index for steady-state zone-stream
+  routing. Updated by `EQPacket::dispatchPacket` on every world-port
+  packet and on each new client-IP/zone-port pairing.
+- Replace single-shot `m_detectingClient` lock with continuous
+  observation. The daemon still routes only the "primary" box's
+  packets into the existing decode pipeline; primary is the first IP
+  observed, identical to today.
+- New flag `--list-boxes` (paired with `--no-listen`) dumps the
+  registry every N seconds.
+- Stderr log line on first sighting of each new box.
+- No proto/web changes yet.
+
+### Stage 2 — per-box packet streams
+
+- Move the 4 `EQPacketStream`s into a `Box` struct.
+- `EQPacket` owns `unordered_map<in_addr_t, Box>`; lazy-create on
+  first world-port packet.
+- Decode pipeline (state managers) still receives signals from one
+  active box, selected at startup via `--ip` or "first seen".
+- BPF filter: drop the per-IP host clause when in multibox mode and
+  filter to "any EQ port"; client IP filtering moves into per-packet
+  routing.
+- Smoke test: replay a single-client fixture, golden unchanged.
+- Smoke test: replay multibox fixture, verify both boxes register but
+  only one decodes (active = first-seen).
+
+### Stage 3 — per-box state managers
+
+- `Box` owns `SpawnShell`, `Player`, `ZoneMgr`, `MessageShell`,
+  `SpellShell`, `GroupMgr`, `CombatRouter`, `SpawnMonitor`.
+- Daemon owns `unordered_map<in_addr_t, unique_ptr<Box>>`.
+- `SessionAdapter` binds to the *active* box's signals; switching the
+  active box reconnects the signal graph.
+- `daemonapp.cpp` ctor moves the construction loop into
+  `Box::Box(deps)`.
+- New internal API `Box& Daemon::activeBox()`.
+
+### Stage 4 — proto + web surface
+
+- `proto/seq/v1/events.proto`: add `BoxMeta { string box_id; string
+  client_ip; string player_name; string zone; }` and
+  `BoxListUpdated { repeated BoxMeta boxes; string active_box_id; }`.
+  Bump submodule SHA after.
+- `proto/seq/v1/client.proto`: add `SetActiveBox { string box_id; }`.
+- `SessionAdapter` emits `BoxListUpdated` on box add/remove/active
+  change; handles incoming `SetActiveBox` by rebinding.
+- `showeq-web`: dropdown in the header; emits `SetActiveBox`. Snapshot
+  flushed and refetched on switch (server re-emits as if
+  `Subscribe.replay_since` were unset).
+
+### Stage 5 — capture/replay multi-box
+
+- `VPacket` fixture format already preserves IP/port. Verify replay
+  reconstructs the box map without source changes; add a
+  `tests/replay/multibox-2c.pbstream` tier-2 golden capturing both
+  boxes' active-decode emissions in sequence.
+- Add `--box <ip>` replay flag to pick active box for golden recording.
+
+## Out of scope (v1)
+
+- Multi-active (parallel decode → parallel emits). v2.
+- Cross-box correlation (group of N boxes that share a leader).
+- Per-box prefs / filters.
+- Per-box itemcache namespacing.
