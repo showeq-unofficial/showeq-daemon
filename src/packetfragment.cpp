@@ -97,20 +97,8 @@ void EQPacketFragmentSequence::addFragment(EQProtocolPacket& packet)
       {
          seqWarn("Oversized packet fragment requested buffer of size 0 on stream %d OpCode %04x seq %04x",
            m_streamid, *(uint16_t*)&packet.payload()[4], packet.arqSeq());
-         reset();
-         return;
       }
-      // Cap declared total against the protocol-wide sanity limit (mirrors
-      // packetstream.cpp's maxPacketSize). Under multibox, interleaved
-      // fragments from two clients can present a junk total here.
-      if (m_totalLength > 25600)
-      {
-         seqWarn("Oversized packet fragment requested buffer of size %u on stream %d OpCode %04x seq %04x; dropping",
-           m_totalLength, m_streamid, *(uint16_t*)&packet.payload()[4], packet.arqSeq());
-         reset();
-         return;
-      }
-      if (m_totalLength > m_dataAllocSize)
+      else if (m_totalLength > m_dataAllocSize)
       {
         // Buffer isn't big enough. Enlargen it.
         if (m_data)
@@ -146,16 +134,9 @@ void EQPacketFragmentSequence::addFragment(EQProtocolPacket& packet)
       
       if (m_data+m_dataSize+packet.payloadLength() > m_data+m_dataAllocSize)
       {
-        // Continuation fragment would push past the buffer allocated for
-        // m_totalLength on the first fragment. Under multibox, two clients'
-        // fragments can interleave into the same per-direction sequence
-        // and trip this. Drop the in-progress assembly instead of aborting
-        // the daemon; the next first-fragment will reallocate cleanly.
-        seqWarn("EQPacketFragmentSequence::addFragment(): oversized continuation, dropping in-progress assembly: seq %04x stream %d opcode %04x, buffer %d filled to %d, tried to add %d",
+        seqFatal("!!!! EQPacketFragmentSequence::addFragment(): buffer overflow adding in new fragment to buffer with seq %04x on stream %d, opcode %04x. Buffer is size %d and has been filled up to %d, but tried to add %d more!",
           packet.arqSeq(), m_streamid, *(uint16_t*)(m_data),
           m_dataAllocSize, m_dataSize, packet.payloadLength());
-        reset();
-        return;
       }
 
       memcpy(m_data + m_dataSize, packet.payload(), packet.payloadLength());
