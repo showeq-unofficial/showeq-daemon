@@ -184,6 +184,12 @@ private:
     // explicitly on Subscribe so the client gets an initial picker
     // state before any registry mutation.
     void sendBoxList();
+    // Stage 3c: clear singleton state managers and re-emit a fresh
+    // Snapshot when the active box flips. The new box's state
+    // populates as its traffic flows in (which started moments before
+    // the switch, since per-box streams stay unmuted for the active
+    // box and muted for everyone else).
+    void onActiveBoxChanged();
     void emitEnvelope(seq::v1::Envelope&& env);
     void sendOrBuffer(seq::v1::Envelope&& env);
 
