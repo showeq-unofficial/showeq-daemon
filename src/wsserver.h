@@ -58,6 +58,13 @@ public:
 
     bool listen(const QHostAddress& host, quint16 port);
 
+signals:
+    // Fires exactly once, on the first client to attach a
+    // SessionAdapter (either fresh attachNewSession or resume).
+    // Used by --replay --wait-for-client to gate playback start
+    // on a real consumer being wired up.
+    void firstClientSubscribed();
+
 private slots:
     void onNewConnection();
 
@@ -106,4 +113,5 @@ private:
     DateTimeMgr*   m_dateTimeMgr   = nullptr;
     ZoneServerMgr* m_zoneServerMgr = nullptr;
     BoxRegistry*   m_boxes         = nullptr;
+    bool           m_firstClientFired = false;
 };

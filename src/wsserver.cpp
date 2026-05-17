@@ -216,6 +216,11 @@ void WsServer::resumeSession(Session& s, QWebSocket* sock, quint64 lastSeq)
     // replay what we have; a richer scheme can ship later if a real
     // user trips it.)
     s.adapter->replaySince(lastSeq);
+
+    if (!m_firstClientFired) {
+        m_firstClientFired = true;
+        emit firstClientSubscribed();
+    }
 }
 
 void WsServer::attachNewSession(QWebSocket* sock, const QString& sessionId)
@@ -242,6 +247,11 @@ void WsServer::attachNewSession(QWebSocket* sock, const QString& sessionId)
 
     qInfo("ws session opened: id=%s (%lld active)",
           qUtf8Printable(sessionId), (long long)m_sessions.size());
+
+    if (!m_firstClientFired) {
+        m_firstClientFired = true;
+        emit firstClientSubscribed();
+    }
 }
 
 SessionAdapter* WsServer::makeAdapter(IEnvelopeSink* sink, QObject* parent)

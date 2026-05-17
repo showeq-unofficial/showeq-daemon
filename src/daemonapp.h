@@ -89,6 +89,13 @@ public:
         // of the multibox feature (docs/MULTIBOX_PLAN.md). Pairs with
         // --no-listen for client-less recon.
         bool         listBoxes = false;
+        // --replay --wait-for-client: pause the .vpk playback until
+        // the first WebSocket client attaches a SessionAdapter (so
+        // early envelopes aren't dropped), and don't quit at EOF so
+        // the user can inspect final state in the UI. Useful for
+        // manual verification of UI features against recorded
+        // captures.
+        bool         waitForClient = false;
         // True to skip the WebSocket server entirely (--no-listen on
         // the CLI). Useful for capture / replay / diagnostic runs
         // where no client connects and the listen port is just a
