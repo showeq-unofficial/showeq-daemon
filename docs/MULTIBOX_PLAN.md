@@ -42,25 +42,37 @@ opens the door to parallel-active (one tab per box).
 - `Spells`, `EQStrings`, `Messages`/`MessageFilters`,
   `CategoryMgr`, `PrefsBroker`, `DateTimeMgr`, `DataLocationMgr`
 
-## Box identity
+## Box identity — two-layer
 
-**Creation-time key**: `(client_ip, client_world_port, server_world_port)`
-— the world-handshake 5-tuple. Disambiguates two EQ instances sharing
-a host IP (WSL bridge, VM, dual-Wine).
+L4 headers and decoded state arrive at different times, so identity is
+layered.
 
-**Steady-state tracking**: once a Box exists, its world port pair is
-only stable until the first zone-in. EQ opens a fresh zone-server UDP
-connection per zone change, so post-creation routing follows the
-*rolling* `(client_ip, latest_world_or_zone_port_pair)` — updated each
-time we see a new connection that pairs with this client_ip while no
-other box owns that IP. Two same-host boxes must therefore be tracked
-through the world-handshake handoff; if they zone simultaneously and
-we lose the port-pair-to-box mapping, we fall back to client_ip alone
-and the second-zoning client is unattributable until its next world
-ping (acceptable v1 hole).
+**Wire-routing key (immediate, L4 only):**
+`(client_ip, client_world_port, server_world_port)`. This is all
+`EQPacket::dispatchPacket` has on the first world packet — used to
+route bytes to the right Box before any decode has happened.
 
-Stable external box_id: hash of the creation-time 5-tuple. Survives
-zone hops.
+**Steady-state wire key:** once a Box exists, EQ rolls its UDP socket
+on each zone change. Track `(client_ip, latest_port_pair)` and update
+when a new pair binds to a known box's client_ip and no other box
+claims it.
+
+**Stable identity (post-handshake):** `player_id` (the local PC's
+spawn id, surfaced by `Player::id()` once `OP_PlayerProfile` fires).
+This is the value the UI shows users — "Soandso (192.168.1.42)" not
+"192.168.1.42:17234". `player_id` is stable across zone hops, ip
+changes, and port rolls. **Promotion**: when OP_PlayerProfile arrives
+on a Box with an unset `player_id`, the daemon sets it; if a Box with
+that `player_id` already exists (relog → new 5-tuple), merge.
+
+**External `box_id`** (the value used in proto `SetActiveBox`):
+`player_id` when known, else a placeholder derived from the
+creation-time 5-tuple. Once promoted, the placeholder is alias-mapped
+to the real id so in-flight UI references don't break.
+
+**v1 hole:** two same-host boxes zoning simultaneously can lose the
+port-pair → box mapping until the next packet identifies them.
+Acceptable; recovers within seconds.
 
 ## Naming
 
