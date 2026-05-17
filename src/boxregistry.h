@@ -117,6 +117,9 @@ public:
     // traffic via the existing global streams in EQPacket.
     Box* primary();
 
+    // O(N) by box_id (skips merged boxes).
+    Box* findById(const QString& box_id);
+
     // O(N) lookup by world 5-tuple. nullptr if not observed.
     Box* lookupByWorld(in_addr_t client_ip,
                        in_port_t client_world_port,
@@ -143,6 +146,11 @@ public:
     Box* lookupByName(const QString& name, const Box* exclude = nullptr);
 
     size_t size() const { return m_boxes.size(); }
+
+    // Iterator access — needed by EQPacket::connect2 / wireBox to
+    // walk every box's streams. The exposed type is the
+    // unique_ptr-of-Box vector; callers use `for (auto& up : ...)`.
+    const std::vector<std::unique_ptr<Box>>& boxes() const { return m_boxes; }
 
     // Count of distinct character identities — Boxes that aren't
     // merged into another.
@@ -175,7 +183,18 @@ public:
     void notifyChanged();
 
 signals:
+    // Fires every time the registry state changes (add, promote,
+    // merge, active-switch). SessionAdapter listens to re-emit
+    // BoxListUpdated.
     void changed();
+    // Fires once per newly-created Box, AFTER the BoxCreatedHook has
+    // populated its streams. DaemonApp listens here to wire opcode
+    // dispatch on the box's per-box zone streams (Stage 3b of
+    // docs/MULTIBOX_PLAN.md) — separate from the synchronous hook
+    // EQPacket uses for stream allocation.
+    void boxCreated(Box* box);
+    // Fires when the active box pointer changes.
+    void activeBoxChanged(Box* oldBox, Box* newBox);
 
 private:
     // unique_ptr → stable Box* across vector growth. We hand pointers

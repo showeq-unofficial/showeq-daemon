@@ -95,6 +95,17 @@ class EQPacketStream : public QObject
   uint32_t getSessionKey() const { return m_sessionKey; }
   uint32_t getMaxLength() const { return m_maxLength; }
 
+  // Multibox active-box gate (Stage 3b of MULTIBOX_PLAN.md). When
+  // muted, dispatchPacket() still emits the 5-arg decodedPacket
+  // signal (so per-box observers like NamePromoter / ZoneServerObserver
+  // keep firing) but skips the connect2-wired EQPacketDispatch
+  // activations and the 6-arg "with unknown flag" signal — so the
+  // singleton state managers don't get duplicate hits from non-active
+  // boxes. The session-key handshake and ARQ/fragment reassembly run
+  // unmuted so flipping the gate later doesn't require a re-handshake.
+  void setMuted(bool m) { m_muted = m; }
+  bool isMuted() const  { return m_muted; }
+
   struct StreamHandoff {
     uint32_t sessionId;
     uint32_t sessionKey;
@@ -156,6 +167,7 @@ class EQPacketStream : public QObject
   uint8_t m_dir;
   int m_packetCount;
   uint8_t m_session_tracking_enabled;
+  bool m_muted = false;
 
   // ARQ cache handling
   EQPacketMap m_cache;
