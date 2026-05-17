@@ -1013,8 +1013,6 @@ void SpawnShell::zoneEntry(const uint8_t* data, size_t len)
   seqDebug("SpawnShell::zoneEntry(spawnStruct *(name='%s'))", spawn->name);
  #endif
 
-  Item *item;
-
   if(!strcmp(spawn->name,m_player->realName().toLatin1().data()))
   {
     // Multiple zoneEntry packets are received for your spawn after you zone
@@ -1024,17 +1022,11 @@ void SpawnShell::zoneEntry(const uint8_t* data, size_t len)
   }
   else
   {
-    if((item=m_spawns.value(spawn->spawnId, nullptr)))
-    {
-        // Update existing spawn
-      Spawn *s=(Spawn*)item;
-      s->update(spawn);
-    }
-    else
-    {
-        // Create a new spawn
-      newSpawn(*spawn);
-    }
+    // newSpawn handles both fresh and existing-spawn cases; the existing
+    // branch emits changeItem(ALL) so a prior "unknown" placeholder (created
+    // by updateSpawn when an OP_MobUpdate raced ahead of OP_ZoneEntry) gets
+    // overwritten on the client with the real name.
+    newSpawn(*spawn);
   }
 }
 
