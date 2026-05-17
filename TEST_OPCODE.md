@@ -100,11 +100,11 @@ Per-entry format: `[ ] OP_Name — typename (dir)`. Each resolved entry gets `0x
 - [x] OP_GroupLeader — groupLeaderChangeStruct (server) — `0x04c7` (2026-05-14, revised from 0xb269)
 
 ### Guild (5)
-- [ ] OP_GuildMOTD — guildMOTDStruct (server)
-- [ ] OP_GuildMemberUpdate — GuildMemberUpdate (server)
-- [ ] OP_GuildMemberList — uint8_t (server, variable)
-- [ ] OP_ExpandedGuildInfo — uint8_t (server, variable)
-- [ ] OP_GuildsInZoneList — guildsInZoneListStruct (server)
+- [x] OP_GuildMOTD — guildMOTDStruct (server) — `0x7470` (2026-05-16)
+- [x] OP_GuildMemberUpdate — GuildMemberUpdate (server) — `0xbb80` (2026-05-16)
+- [x] OP_GuildMemberList — uint8_t (server, variable) — `0x31ed` (2026-05-16)
+- [x] OP_ExpandedGuildInfo — uint8_t (server, variable) — `0x89ce` (2026-05-16)
+- [x] OP_GuildsInZoneList — guildsInZoneListStruct (server) — `0x95bf` (2026-05-16)
 
 ### Inventory / items (2)
 - [ ] OP_ItemPacket — itemPacketStruct (server)
@@ -969,3 +969,36 @@ From the same test-20260513.vpk, additional analysis of stat/appearance candidat
 - The `OP_ApproveName` protocol shape (84b C>S name candidate → 1b S>C yes/no boolean) is **structurally incompatible with returning a server-generated random name** — the 1-byte reply has no room for a variable-length name string. Whatever the "randomize" button does on Test, it does it client-side without a network round-trip.
 - Future targeted capture (clicking the random-name button N times without submitting) would tighten the proof, but the 2-capture / 2-session corroboration plus the ApproveName-reply-too-small structural argument is sufficient to lift this off the active hunt list.
 - 73-list status: 9 unresolved + 1 confirmed-absent (was 10 unresolved).
+
+### 2026-05-16 — Guild quartet: OP_GuildMemberUpdate / OP_GuildMemberList / OP_GuildsInZoneList / OP_ExpandedGuildInfo
+
+- Capture: `tests/replay/spawn-id-trace-20260516.vpk` (single zone-in session by a guilded character with 2 other guildmates online).
+- Method: `--opcode-stats` enumerated 161 unknown zone opcodes; `--dump-payload` across the full set, then `grep -aP '\x63\x63\x00\x00'` byte-pattern hunt for the player's guildId (0x6363) — that surfaced 6 guild-bearing opcodes including the 0xe100 family already-suspected from name-string grep. ASCII-name grep alone misses payloads where the only string is binary rank/permission data.
+- Resolutions, each cross-checked against its legacy struct shape:
+  - **OP_GuildMemberUpdate = `0xbb80`** — 88b S>C, 1 fire. Wire layout `{u32 guildId @0, u32 flag @4, char name[64] @8, u32 _pad @0x48, u32 lastOn @0x4c}` matches the legacy `GuildMemberUpdate` (88 octets) **byte-for-byte** — most certain of the four. Carries the player's own name + guildId + a recent timestamp on zone-entry.
+  - **OP_GuildMemberList = `0x31ed`** — 183b S>C, 1 fire. Header `{u32 magic=8, char selfname[short], u32 guildId, u32 flag=1, u16 0, u8 record_count=3}` followed by 3 per-member records of varying width (~50b each: NUL-terminated name, level byte, class byte, u32 lastOn, status flags). All 3 online guildmates are present in this single payload; the only legacy-list-style opcode that aggregates the full online roster on zone-in. Distinct from 0xbb80 (per-member tick) by both size and record-count semantics.
+  - **OP_GuildsInZoneList = `0x95bf`** — 46b S>C, 1 fire. Layout `{u32 magic=8, char playerName[short], u32 nameLen=1, u32 guildId, u32 flag, char guildName[NUL-term]}` — carries the literal guild-name string at the tail. This is the only opcode in the capture pairing a player-name and a guild-display-name string together, matching `guildsInZoneListStruct`'s "player name → guild they belong to" role.
+  - **OP_ExpandedGuildInfo = `0x89ce`** — 72b S>C, 1 fire. Header `{u32 timestamp @0, u64 ?  @8, u32 guildId @0x10, u32 flag @0x14}` followed by alternating `0xffffffff` 8-byte runs and zero runs — the bit-array signature of per-rank permission grants. Lowest-confidence of the four because a paired 56b opcode (`0xfe32`) shares the same header layout and could be either the same opcode firing twice with different perm-blob widths or a sibling guild-status opcode; 0x89ce was picked because its 72b matches the modal "ranks × permissions" matrix shape better than 56b. Re-verify when a multi-rank guild capture is available.
+- Ruled out / separate-finding: **0xe100** also carries guildId 0x6363 (12 fires, sub-typed by u32@0 into sizes 192/352/4184/104), but its 192b records embed a `char rank[64]` string at @0x5c (e.g. "Leader") that none of the 5 listed guild structs allocate. 0xe100 looks like a 6th modern-Test guild event opcode (likely OP_GuildAction or OP_GuildPermissions) **not in the 73-list scope**; leaving it unmapped here on purpose.
+- Outstanding: **OP_GuildMOTD** has no candidate — the captured guild has no MOTD set and no `/getguildmotd` was issued, so no MOTD-shaped S>C ever fires. Need a separate capture with an active guild MOTD.
+- 73-list status: 5 unresolved + 1 confirmed-absent (was 9 unresolved + 1 confirmed-absent).
+
+### 2026-05-16 — OP_GuildMOTD = 0x7470
+
+- Capture: `tests/replay/test-guild-motd.vpk` — login with an existing MOTD ("HELLO") then `/guildmotd HELLO GUILDIES` mid-session. Targeted state-change capture designed to anchor MOTD text on the wire.
+- Method: same `--dump-payload` + ASCII grep against all 134 unknown opcodes. Three opcodes contain the MOTD text — 0x7470 (S>C 656b × 2), 0xc8e4 (C>S 656b × 1), and 0xe100 (the already-noted guild-event mux, where the MOTD text leaks into a separate guild-feed broadcast). Direction split disambiguates: OP_GuildMOTD is server-direction by definition.
+- Wire shape — **656b fixed S>C**, NOT legacy's variable `char message[0]`. Test reshapes the struct to a fixed 512-byte message buffer:
+  - `@0x000 u32 guildId` (0 on initial login-echo, populated on update-broadcast)
+  - `@0x004 u32 flag` (0 on echo, 1 on broadcast)
+  - `@0x008 char target[64]` (recipient name)
+  - `@0x048 char sender[64]` (MOTD setter; empty on echo, populated on broadcast)
+  - `@0x088 u32` (echo/broadcast marker — 0 on echo, 1 on broadcast)
+  - `@0x08c char message[512]` (NUL-padded fixed buffer)
+  - `@0x28c u32` (trailer)
+- Two-fire pairing that confirms the role:
+  - Fire 1 echoes the pre-change MOTD on login (header zeros, target=self, sender=self, message="HELLO").
+  - Fire 2 broadcasts the post-change MOTD after the `/guildmotd` command (header carries guildId+flag=1, sender filled, message="HELLO GUILDIES").
+  Only OP_GuildMOTD has this echo-on-login + broadcast-on-change semantic; matches legacy's "GuildMOTD" role exactly.
+- Sibling finding (not in 73-list scope): **0xc8e4 (C>S 656b × 1)** shares the identical 656b layout and carries the new MOTD text — fires once, immediately before 0x7470's broadcast. That's the client-side "set MOTD" request (legacy's `OP_GetGuildMOTD` is the closest match by name; Test appears to overload it as the set-request opcode). Worth pinning at next opcode-table refresh but doesn't move the 73-list needle.
+- 0xe100 cross-check: the previously-identified 192b sub-type=3 record (8 fires, was read as a "rank tick") actually has a **third NUL-terminated string field at @0x8c** that holds the current MOTD — empty NUL-pad in the prior MOTD-less capture, populated with "HELLO" here. Updated 192b layout: `u32 type @0, u32 _pad @4, u32 guildId @8, u32 flag @c, char selfName[64] @0x10, u32 ts @0x50, u32 @0x54, u32 @0x58, char rank[64] @0x5c, char motd[?] @0x8c, pad → 192`. The opcode-table entry for 0xe100 (still out of 73-list scope) gets a stronger read as a per-member "guild status snapshot" — name+rank+current-MOTD bundled into one tick.
+- 73-list status: 4 unresolved + 1 confirmed-absent (was 5 unresolved + 1 confirmed-absent).
