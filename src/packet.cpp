@@ -38,6 +38,7 @@
 
 #include "everquest.h"
 #include "packet.h"
+#include "boxregistry.h"
 #include "packetcommon.h"
 #include "packetcapture.h"
 #include "packetformat.h"
@@ -46,6 +47,8 @@
 #include "vpacket.h"
 #include "everquest.h"
 #include "diagnosticmessages.h"
+
+#include <QDateTime>
 
 //----------------------------------------------------------------------
 // Macros
@@ -624,9 +627,32 @@ void EQPacket::dispatchPacket(int size, unsigned char *buffer)
 void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
 {
   // Detect client by world server port traffic...
-  if (m_detectingClient &&
-        (packet.getSourcePort() >= WorldServerGeneralMinPort
-         && packet.getSourcePort() <= WorldServerGeneralMaxPort))
+  const in_port_t srcPortHost = packet.getSourcePort();
+  const in_port_t dstPortHost = packet.getDestPort();
+  const bool srcIsWorld =
+      (srcPortHost >= WorldServerGeneralMinPort &&
+       srcPortHost <= WorldServerGeneralMaxPort);
+  const bool dstIsWorld =
+      (dstPortHost >= WorldServerGeneralMinPort &&
+       dstPortHost <= WorldServerGeneralMaxPort);
+
+  // Stage 1 of multibox-sessions (docs/MULTIBOX_PLAN.md): observe
+  // every distinct EQ client on the wire. Runs alongside the legacy
+  // single-shot m_detectingClient lock — primary box (first seen)
+  // still feeds the existing decode pipeline; the registry is
+  // observational until later stages split per-box decode.
+  if (srcIsWorld || dstIsWorld) {
+    const in_addr_t client_ip   = srcIsWorld ? packet.getIPv4DestN()
+                                             : packet.getIPv4SourceN();
+    const in_port_t client_port = htons(srcIsWorld ? dstPortHost
+                                                   : srcPortHost);
+    const in_port_t server_port = htons(srcIsWorld ? srcPortHost
+                                                   : dstPortHost);
+    m_boxes.observe(client_ip, client_port, server_port,
+                    QDateTime::currentMSecsSinceEpoch());
+  }
+
+  if (m_detectingClient && srcIsWorld)
   {
     m_ip = packet.getIPv4DestA();
     m_client_addr = packet.getIPv4DestN();
@@ -634,9 +660,7 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
     emit clientChanged(m_client_addr);
     seqInfo("Client Detected: %s", m_ip.toLatin1().data());
   }
-  else if (m_detectingClient &&
-            (packet.getDestPort() >= WorldServerGeneralMinPort
-             && packet.getDestPort() <= WorldServerGeneralMaxPort))
+  else if (m_detectingClient && dstIsWorld)
   {
     m_ip = packet.getIPv4SourceA();
     m_client_addr = packet.getIPv4SourceN();

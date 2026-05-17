@@ -26,6 +26,7 @@
 
 #include <QObject>
 #include <QTimer>
+#include "boxregistry.h"
 #include "packetcommon.h"
 #include "packetinfo.h"
 
@@ -207,6 +208,15 @@ class EQPacket : public QObject
    EQPacketTypeDB* m_packetTypeDB;
    EQPacketOPCodeDB* m_worldOPCodeDB;
    EQPacketOPCodeDB* m_zoneOPCodeDB;
+
+   // Stage 1 of multibox-sessions: observe every world-port-talking
+   // client_ip on the wire. Read-only sibling of the legacy
+   // m_detectingClient single-shot auto-detect. See
+   // docs/MULTIBOX_PLAN.md.
+   BoxRegistry m_boxes;
+
+ public:
+   const BoxRegistry& boxRegistry() const { return m_boxes; }
 
    void connectStream(EQPacketStream* stream);
    void dispatchPacket   (int size, unsigned char *buffer);
