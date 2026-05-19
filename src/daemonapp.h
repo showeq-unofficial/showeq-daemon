@@ -101,12 +101,6 @@ public:
         // where no client connects and the listen port is just a
         // collision risk against the user's main daemon instance.
         bool         noListen = false;
-        // When true, every Rust-implemented opcode handler routes through
-        // seq-bridge instead of the C++ struct cast. Off by default; the
-        // C++ path remains the fallback when ok=false comes back. Set by
-        // --use-rust-decoder; ignored unless the binary was built with
-        // -DSEQ_USE_RUST=ON.
-        bool         useRustDecoder = false;
         QHostAddress listenHost;
         quint16      listenPort = 9090;
     };

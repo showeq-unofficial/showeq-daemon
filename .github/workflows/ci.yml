@@ -27,6 +27,17 @@ jobs:
         with:
           submodules: recursive
 
+      - name: check out showeq-decoder-rs sibling
+        uses: actions/checkout@v5
+        with:
+          repository: showeq-unofficial/showeq-decoder-rs
+          path: ../showeq-decoder-rs
+
+      - name: install Rust toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
       - name: install build deps (Ubuntu Qt5)
         if: matrix.os == 'ubuntu' && matrix.qt_major == 5
         run: |

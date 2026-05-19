@@ -60,11 +60,6 @@ class GroupMgr: public QObject
   
   unsigned long totalLevels();
 
-  // Per-opcode Rust-decoder gates — DaemonApp flips them on together
-  // when --use-rust-decoder is set.
-  void setUseRustGroupDisband(bool on) { m_useRustGroupDisband = on; }
-  void setUseRustGroupFollow (bool on) { m_useRustGroupFollow = on; }
-
  public slots:
   void player(const charProfileStruct* player); 
   void groupUpdate(const uint8_t* data, size_t size);
@@ -92,8 +87,6 @@ class GroupMgr: public QObject
   }* m_members[MAX_GROUP_MEMBERS];
   size_t m_memberCount;
   size_t m_membersInZoneCount;
-  bool m_useRustGroupDisband = false;
-  bool m_useRustGroupFollow = false;
 };
 
 #endif // _GROUP_H_

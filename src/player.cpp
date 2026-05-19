@@ -24,9 +24,7 @@
 #include "util.h"
 #include "packetcommon.h"
 
-#ifdef SEQ_USE_RUST
 #include "seq-bridge-cxx/lib.h"
-#endif
 #include "diagnosticmessages.h"
 #include "guild.h"
 #include "zonemgr.h"
@@ -622,26 +620,14 @@ void Player::removeItem(const itemItemStruct* item)
 
 void Player::increaseSkill(const uint8_t* data)
 {
-  [[maybe_unused]] skillIncStruct tmp;
-  const skillIncStruct* skilli = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustSkillUpdate) {
-    auto out = seq::rust::decode_skill_update(
-        rust::Slice<const uint8_t>{data, sizeof(skillIncStruct)});
-    if (out.ok) {
-      std::memset(&tmp, 0, sizeof(tmp));
-      tmp.skillId = out.skill_id;
-      tmp.value   = out.value;
-      skilli = &tmp;
-    }
-  }
-#endif
-  if (!skilli) skilli = (const skillIncStruct*)data;
+  auto out = seq::rust::decode_skill_update(
+      rust::Slice<const uint8_t>{data, sizeof(skillIncStruct)});
+  if (!out.ok) return;
   // save the new skill value
-  m_playerSkills[skilli->skillId] = skilli->value;
+  m_playerSkills[out.skill_id] = out.value;
 
   // notify others of the new value
-  emit changeSkill (skilli->skillId, skilli->value);
+  emit changeSkill (out.skill_id, out.value);
 
   if (showeq_params->savePlayerState)
     savePlayerState();
@@ -649,24 +635,11 @@ void Player::increaseSkill(const uint8_t* data)
 
 void Player::manaChange(const uint8_t* data)
 {
-  [[maybe_unused]] manaDecrementStruct tmp;
-  const manaDecrementStruct* mana = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustManaChange) {
-    auto out = seq::rust::decode_mana_change(
-        rust::Slice<const uint8_t>{data, sizeof(manaDecrementStruct)});
-    if (out.ok) {
-      std::memset(&tmp, 0, sizeof(tmp));
-      tmp.newMana = out.new_mana;
-      tmp.maxMana = out.max_mana;
-      tmp.spellId = out.spell_id;
-      mana = &tmp;
-    }
-  }
-#endif
-  if (!mana) mana = (const manaDecrementStruct*)data;
+  auto out = seq::rust::decode_mana_change(
+      rust::Slice<const uint8_t>{data, sizeof(manaDecrementStruct)});
+  if (!out.ok) return;
   // update the players mana
-  m_mana = mana->newMana;
+  m_mana = out.new_mana;
 
   m_validMana = true;
 
@@ -722,37 +695,11 @@ void Player::updateAltExp(const uint8_t* data)
 
 void Player::updateExp(const uint8_t* data)
 {
-  [[maybe_unused]] expUpdateStruct tmp;
-  const expUpdateStruct* exp = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustExpUpdate) {
-    auto out = seq::rust::decode_exp_update(
-        rust::Slice<const uint8_t>{data, sizeof(expUpdateStruct)});
-    if (out.ok) {
-      tmp.exp         = out.exp;
-      tmp.unknown0004 = out.unknown0;
-      tmp.type        = out.kind;
-      tmp.unknown0012 = out.unknown1;
-      exp = &tmp;
-    }
-  }
-#endif
-  if (!exp) exp = (const expUpdateStruct*)data;
+  auto out = seq::rust::decode_exp_update(
+      rust::Slice<const uint8_t>{data, sizeof(expUpdateStruct)});
+  if (!out.ok) return;
 
-  // if this is just setting the percentage, then do nothing (use info from
-  //   player packet).
-#if 0
-  if (exp->type == 0) 
-  {
-    // signal the setting of experience
-    emit setExp(m_currentExp, exp->exp, m_minExp, m_maxExp, m_tickExp);
-
-    // nothing more to do.
-    return;
-  }
-
-#endif
-  uint32_t realExp = (m_tickExp * exp->exp) + m_minExp;
+  uint32_t realExp = (m_tickExp * out.exp) + m_minExp;
   uint32_t expIncrement;
   
   // if realExperience is greater then current expereince, calculate the 
@@ -767,7 +714,7 @@ void Player::updateExp(const uint8_t* data)
   m_validExp = true;
 
   // signal the new experience
-  emit newExp(expIncrement, realExp, exp->exp, 
+  emit newExp(expIncrement, realExp, out.exp,
 	      m_minExp, m_maxExp, m_tickExp);
   
   emit expChangedInt (realExp, m_minExp, m_maxExp);
@@ -783,7 +730,7 @@ void Player::updateExp(const uint8_t* data)
      m_freshKill = false;
   }
   else
-     emit setExp(m_currentExp, exp->exp, m_minExp, m_maxExp, m_tickExp);
+     emit setExp(m_currentExp, out.exp, m_minExp, m_maxExp, m_tickExp);
 //     emit expGained( "Unknown", // Randomly blessed with xp?
 //                     0, // don't know what gave it so, level 0
 //		     expIncrement,
@@ -795,41 +742,28 @@ void Player::updateExp(const uint8_t* data)
 
 void Player::updateLevel(const uint8_t* data)
 {
-  [[maybe_unused]] levelUpUpdateStruct tmp;
-  const levelUpUpdateStruct* levelup = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustLevelUpdate) {
-    auto out = seq::rust::decode_level_update(
-        rust::Slice<const uint8_t>{data, sizeof(levelUpUpdateStruct)});
-    if (out.ok) {
-      tmp.level       = out.level;
-      tmp.levelOld    = out.level_old;
-      tmp.exp         = out.exp;
-      tmp.unknown0012 = out.unknown0;
-      levelup = &tmp;
-    }
-  }
-#endif
-  if (!levelup) levelup = (const levelUpUpdateStruct*)data;
+  auto out = seq::rust::decode_level_update(
+      rust::Slice<const uint8_t>{data, sizeof(levelUpUpdateStruct)});
+  if (!out.ok) return;
 
   // cache previous experience for later calculations
   uint32_t prevExp = m_currentExp;
 
   // save the new level information
-  m_level  = levelup->level;
+  m_level  = out.level;
 
   // Per-level 0-100000 scale, identical at every level.
   m_minExp = 0;
   m_maxExp = 100000;
   m_tickExp = 1;
-  m_currentExp = levelup->exp;
+  m_currentExp = out.exp;
   m_validExp = true;
 
   // calculate the increment in experience between the current experience and
   // the previous experience
   uint32_t expIncrement =  m_currentExp - prevExp;
-  
-  emit newExp(expIncrement, m_currentExp, levelup->exp, 
+
+  emit newExp(expIncrement, m_currentExp, out.exp,
 	      m_minExp, m_maxExp, m_tickExp);
 
   if(m_freshKill)
@@ -865,28 +799,15 @@ void Player::updateLevel(const uint8_t* data)
 
 void Player::updateNpcHP(const uint8_t* data)
 {
-  [[maybe_unused]] hpNpcUpdateStruct tmp;
-  const hpNpcUpdateStruct* hpupdate = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustHPUpdate) {
-    auto out = seq::rust::decode_hp_update(
-        rust::Slice<const uint8_t>{data, sizeof(hpNpcUpdateStruct)});
-    if (out.ok) {
-      std::memset(&tmp, 0, sizeof(tmp));
-      tmp.spawnId = out.spawn_id;
-      tmp.curHP   = out.cur_hp;
-      tmp.maxHP   = out.max_hp;
-      hpupdate = &tmp;
-    }
-  }
-#endif
-  if (!hpupdate) hpupdate = (const hpNpcUpdateStruct*)data;
+  auto out = seq::rust::decode_hp_update(
+      rust::Slice<const uint8_t>{data, sizeof(hpNpcUpdateStruct)});
+  if (!out.ok) return;
 
-  if (hpupdate->spawnId != id())
+  if (out.spawn_id != id())
     return;
 
-  m_curHP = hpupdate->curHP;
-  m_maxHP = hpupdate->maxHP;
+  m_curHP = out.cur_hp;
+  m_maxHP = out.max_hp;
 
   m_validHP = true;
 
@@ -902,31 +823,16 @@ void Player::updateNpcHP(const uint8_t* data)
 
 void Player::updateSpawnInfo(const uint8_t* data)
 {
-  [[maybe_unused]] SpawnUpdateStruct tmp;
-  const SpawnUpdateStruct *su = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustWearChange) {
-    auto out = seq::rust::decode_wear_change(
-        rust::Slice<const uint8_t>{data, sizeof(SpawnUpdateStruct)});
-    if (out.ok) {
-      std::memset(&tmp, 0, sizeof(tmp));
-      tmp.spawnId    = out.spawn_id;
-      tmp.subcommand = out.subcommand;
-      tmp.arg1       = out.arg1;
-      tmp.arg2       = out.arg2;
-      tmp.arg3       = out.arg3;
-      su = &tmp;
-    }
-  }
-#endif
-  if (!su) su = (const SpawnUpdateStruct *)data;
-  if (su->spawnId != id())
+  auto out = seq::rust::decode_wear_change(
+      rust::Slice<const uint8_t>{data, sizeof(SpawnUpdateStruct)});
+  if (!out.ok) return;
+  if (out.spawn_id != id())
     return;
 
-  if (su->subcommand != 17)
+  if (out.subcommand != 17)
     return;
 
-  m_curHP = su->arg1;
+  m_curHP = out.arg1;
 
   m_validHP = true;
 
@@ -942,22 +848,11 @@ void Player::updateSpawnInfo(const uint8_t* data)
 
 void Player::updateStamina(const uint8_t* data)
 {
-  [[maybe_unused]] staminaStruct tmp;
-  const staminaStruct* stam = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustStamina) {
-    auto out = seq::rust::decode_stamina(
-        rust::Slice<const uint8_t>{data, sizeof(staminaStruct)});
-    if (out.ok) {
-      tmp.food  = out.food;
-      tmp.water = out.water;
-      stam = &tmp;
-    }
-  }
-#endif
-  if (!stam) stam = (const staminaStruct*)data;
-  m_food = stam->food;
-  m_water = stam->water;
+  auto out = seq::rust::decode_stamina(
+      rust::Slice<const uint8_t>{data, sizeof(staminaStruct)});
+  if (!out.ok) return;
+  m_food = out.food;
+  m_water = out.water;
   m_validStam = true;
 
   emit stamChanged(m_food, 127, m_water, 127);
@@ -968,23 +863,11 @@ void Player::updateStamina(const uint8_t* data)
 
 void Player::updateEndurance(const uint8_t* data)
 {
-  [[maybe_unused]] endUpdateStruct tmp;
-  const endUpdateStruct* upd = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustEndUpdate) {
-    auto out = seq::rust::decode_end_update(
-        rust::Slice<const uint8_t>{data, sizeof(endUpdateStruct)});
-    if (out.ok) {
-      tmp.spawn_id = out.spawn_id;
-      tmp.cur      = out.cur;
-      tmp.max      = out.max;
-      upd = &tmp;
-    }
-  }
-#endif
-  if (!upd) upd = (const endUpdateStruct*)data;
-  m_enduranceCur = upd->cur;
-  m_enduranceMax = upd->max;
+  auto out = seq::rust::decode_end_update(
+      rust::Slice<const uint8_t>{data, sizeof(endUpdateStruct)});
+  if (!out.ok) return;
+  m_enduranceCur = out.cur;
+  m_enduranceMax = out.max;
 
   emit endChanged(m_enduranceCur, m_enduranceMax);
 
@@ -1022,54 +905,34 @@ void Player::update(const spawnStruct* s)
 
 void Player::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
 {
-  [[maybe_unused]] playerSelfPosStruct tmp;
-  const playerSelfPosStruct *pupdate = nullptr;
-#ifdef SEQ_USE_RUST
-  if (m_useRustClientUpdate && len == sizeof(playerSelfPosStruct)) {
-    auto out = seq::rust::decode_player_self_pos(
-        rust::Slice<const uint8_t>{data, len});
-    if (out.ok) {
-      std::memset(&tmp, 0, sizeof(tmp));
-      tmp.spawnId  = out.spawn_id;
-      tmp.y        = out.y;
-      tmp.x        = out.x;
-      tmp.z        = out.z;
-      tmp.deltaX   = out.delta_x;
-      tmp.deltaY   = out.delta_y;
-      tmp.deltaZ   = out.delta_z;
-      tmp.heading      = out.heading;
-      tmp.deltaHeading = out.delta_heading;
-      tmp.animation    = out.animation;
-      tmp.pitch        = out.pitch;
-      pupdate = &tmp;
-    }
-  }
-#endif
-  if (!pupdate) pupdate = (const playerSelfPosStruct*)data;
+  if (len != sizeof(playerSelfPosStruct)) return;
+  auto out = seq::rust::decode_player_self_pos(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) return;
 
-  if ((dir != DIR_Client) && (pupdate->spawnId != id()))
+  if ((dir != DIR_Client) && (out.spawn_id != id()))
     return;
 
   if (dir == DIR_Client && id() == 0)
-      setPlayerID(pupdate->spawnId);
+      setPlayerID(out.spawn_id);
   // When casting Eye of Zomm, using a row boat, or doing something else
   // where you're controlling another spawn, the client will send multiple
   // update packets, one for with your player spawn ID, and the other
   // with the ID of the other object.  So we can't assume that if the
   // id changes, we can automatically update the player's ID like we used to.
   // Instead, we'll pass the other ID to spawnshell for handling
-  if (pupdate->spawnId != id())
+  if (out.spawn_id != id())
   {
       emit playerUpdate(data, len, dir);
       return;
   }
 
-  int16_t py = int16_t(pupdate->y);
-  int16_t px = int16_t(pupdate->x);
-  int16_t pz = int16_t(pupdate->z);
-  int16_t pdeltaX = int16_t(pupdate->deltaX);
-  int16_t pdeltaY = int16_t(pupdate->deltaY);
-  int16_t pdeltaZ = int16_t(pupdate->deltaZ);
+  int16_t py = int16_t(out.y);
+  int16_t px = int16_t(out.x);
+  int16_t pz = int16_t(out.z);
+  int16_t pdeltaX = int16_t(out.delta_x);
+  int16_t pdeltaY = int16_t(out.delta_y);
+  int16_t pdeltaZ = int16_t(out.delta_z);
 
 #if 0
   // Dump position updates for debugging client update changes
@@ -1128,22 +991,22 @@ struct pos
 
   setPos(px, py, pz, showeq_params->walkpathrecord, showeq_params->walkpathlength);
   setDeltas(pdeltaX, pdeltaY, pdeltaZ);
-  setHeading(pupdate->heading, pupdate->deltaHeading);
+  setHeading(out.heading, out.delta_heading);
   m_validPos = true;
   updateLast();
 
-  m_headingDegrees = 360 - ((pupdate->heading * 360) >> 11);
+  m_headingDegrees = 360 - ((out.heading * 360) >> 11);
   emit headingChanged(m_headingDegrees);
 
-  emit posChanged(x(), y(), z(), 
+  emit posChanged(x(), y(), z(),
 		  deltaX(), deltaY(), deltaZ(), m_headingDegrees);
 
   updateLastChanged();
   emit changeItem(this, tSpawnChangedPosition);
 
-  emit newSpeed(hypot( hypot( (pupdate->deltaX*80),
-					 (pupdate->deltaY*80)), 
-                              (pupdate->deltaZ*80))/119.46664);
+  emit newSpeed(hypot( hypot( (out.delta_x*80),
+					 (out.delta_y*80)),
+                              (out.delta_z*80))/119.46664);
 
   static uint8_t count = 0;
 

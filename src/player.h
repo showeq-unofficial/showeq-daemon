@@ -226,34 +226,12 @@ public:
   void guildChanged();
   void playerUpdate(const uint8_t* data, size_t len, uint8_t dir);
 
- public:
-   // Per-opcode Rust-decoder gates — DaemonApp flips them on together
-   // when --use-rust-decoder is set.
-   void setUseRustHPUpdate    (bool on) { m_useRustHPUpdate = on; }
-   void setUseRustExpUpdate   (bool on) { m_useRustExpUpdate = on; }
-   void setUseRustLevelUpdate (bool on) { m_useRustLevelUpdate = on; }
-   void setUseRustSkillUpdate (bool on) { m_useRustSkillUpdate = on; }
-   void setUseRustManaChange  (bool on) { m_useRustManaChange = on; }
-   void setUseRustStamina     (bool on) { m_useRustStamina = on; }
-   void setUseRustEndUpdate   (bool on) { m_useRustEndUpdate = on; }
-   void setUseRustWearChange  (bool on) { m_useRustWearChange = on; }
-   void setUseRustClientUpdate(bool on) { m_useRustClientUpdate = on; }
-
  protected:
   void fillConTable();
 
  private:
   ZoneMgr* m_zoneMgr;
   GuildMgr* m_guildMgr;
-  bool m_useRustHPUpdate    = false;
-  bool m_useRustExpUpdate   = false;
-  bool m_useRustLevelUpdate = false;
-  bool m_useRustSkillUpdate = false;
-  bool m_useRustManaChange  = false;
-  bool m_useRustStamina     = false;
-  bool m_useRustEndUpdate   = false;
-  bool m_useRustWearChange  = false;
-  bool m_useRustClientUpdate = false;
 
   // The default values are set either by info showeq_params.
   // We keep a second copy in case the player levels while playing.

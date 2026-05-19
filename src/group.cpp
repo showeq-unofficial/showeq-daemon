@@ -27,9 +27,7 @@
 #include "everquest.h"
 #include "diagnosticmessages.h"
 #include "netstream.h"
-#ifdef SEQ_USE_RUST
 #include "seq-bridge-cxx/lib.h"
-#endif
 
 #include <cstring>
 
@@ -117,19 +115,10 @@ void GroupMgr::addGroupMember(const uint8_t* data)
    // member's name as a null-terminated string at offset 0 (max 64
    // bytes). The legacy groupFollowStruct laid out invitee[64] at
    // offset 64 with a leading zero block — that shape is gone.
-   [[maybe_unused]] char nameBuf[64];
-   const char* nameBytes = nullptr;
-#ifdef SEQ_USE_RUST
-   if (m_useRustGroupFollow) {
-     auto out = seq::rust::decode_group_follow(
-         rust::Slice<const uint8_t>{data, 64});
-     if (out.ok) {
-       std::memcpy(nameBuf, out.name.data(), 64);
-       nameBytes = nameBuf;
-     }
-   }
-#endif
-   if (!nameBytes) nameBytes = reinterpret_cast<const char*>(data);
+   auto out = seq::rust::decode_group_follow(
+       rust::Slice<const uint8_t>{data, 64});
+   if (!out.ok) return;
+   const char* nameBytes = reinterpret_cast<const char*>(out.name.data());
    const QString name = QString::fromLatin1(
        nameBytes, qstrnlen(nameBytes, 64));
 
@@ -154,24 +143,13 @@ void GroupMgr::addGroupMember(const uint8_t* data)
 
 void GroupMgr::removeGroupMember(const uint8_t* data)
 {
-   [[maybe_unused]] groupDisbandStruct tmp;
-   const groupDisbandStruct* gmem = nullptr;
-#ifdef SEQ_USE_RUST
-   if (m_useRustGroupDisband) {
-     auto out = seq::rust::decode_group_disband(
-         rust::Slice<const uint8_t>{data, sizeof(groupDisbandStruct)});
-     if (out.ok) {
-       std::memset(&tmp, 0, sizeof(tmp));
-       std::memcpy(tmp.yourname,   out.yourname.data(),   64);
-       std::memcpy(tmp.membername, out.membername.data(), 64);
-       gmem = &tmp;
-     }
-   }
-#endif
-   if (!gmem) gmem = (const groupDisbandStruct*)data;
+   auto out = seq::rust::decode_group_disband(
+       rust::Slice<const uint8_t>{data, sizeof(groupDisbandStruct)});
+   if (!out.ok) return;
+   const char* memberName = reinterpret_cast<const char*>(out.membername.data());
 
    // If we're disbanding, reset counters and clear member slots
-   if(!strcmp(gmem->membername, m_player->name().toLatin1().data()))
+   if(!strcmp(memberName, m_player->name().toLatin1().data()))
    {
       m_memberCount = 0;
       m_membersInZoneCount = 0;
@@ -189,7 +167,7 @@ void GroupMgr::removeGroupMember(const uint8_t* data)
       for(int i = 0; i < MAX_GROUP_MEMBERS; i++)
       {
          // is this the member?
-         if(m_members[i]->m_name == gmem->membername)
+         if(m_members[i]->m_name == memberName)
          {
             // yes, announce its removal
             emit removed(m_members[i]->m_name, m_members[i]->m_spawn);

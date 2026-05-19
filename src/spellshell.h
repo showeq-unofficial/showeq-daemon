@@ -220,13 +220,6 @@ class SpellShell : public QObject
   void killSpawn(const Item* deceased);
   void timeout();
 
- public:
-  // Per-opcode Rust-decoder gates — DaemonApp flips them on together
-  // when --use-rust-decoder is set.
-  void setUseRustBuff(bool on) { m_useRustBuff = on; }
-  void setUseRustCastSpell(bool on) { m_useRustCastSpell = on; }
-  void setUseRustAction   (bool on) { m_useRustAction = on; }
-
  protected:
   void deleteSpell(SpellItem *);
   SpellItem* findSpell(uint16_t spellId,
@@ -242,9 +235,6 @@ class SpellShell : public QObject
   QList<SpellItem *> m_spellList;
   SpellItem* m_lastPlayerSpell;
   QTimer *m_timer;
-  bool m_useRustBuff = false;
-  bool m_useRustCastSpell = false;
-  bool m_useRustAction = false;
 };
 
 #endif

@@ -24,15 +24,6 @@ if [[ ! -x "${DAEMON}" ]]; then
     exit 2
 fi
 
-# rustdecode_test only gets built under -DSEQ_USE_RUST=ON; use it as the
-# build-mode probe. Absent => skip the cross-decoder second pass.
-if [[ -x "${DAEMON_DIR}/build/tests/rustdecode_test" ]]; then
-    HAVE_RUST=1
-else
-    HAVE_RUST=0
-    echo "note: daemon built without -DSEQ_USE_RUST=ON; skipping cross-decoder check"
-fi
-
 shopt -s nullglob
 vpks=("${REPLAY_DIR}"/*.vpk)
 if [[ ${#vpks[@]} -eq 0 ]]; then
@@ -107,39 +98,6 @@ for vpk in "${vpks[@]}"; do
         continue
     fi
 
-    if [[ ${HAVE_RUST} -eq 0 ]]; then
-        continue
-    fi
-
-    # Second pass: rerun with --use-rust-decoder so every Rust-implemented
-    # opcode handler routes through seq-bridge. Output must still byte-match
-    # the same golden — that's the cross-decoder guarantee.
-    rust_check="${TMPDIR_RUN}/${name}.rust.pbstream"
-    PORT=$((PORT+1))
-    if ! "${DAEMON}" \
-            --replay "${vpk}" \
-            --config-dir "${CONF_DIR}" \
-            --record-golden "${rust_check}" \
-            --use-rust-decoder \
-            --listen "127.0.0.1:${PORT}" >>"${log}" 2>&1; then
-        echo "FAIL ${name} [Rust] (daemon exited non-zero — see ${log})"
-        fail=$((fail+1))
-        failures+=("${name}[Rust]")
-        continue
-    fi
-    if cmp --silent "${golden}" "${rust_check}"; then
-        echo "PASS ${name} [Rust]"
-        pass=$((pass+1))
-    else
-        keep="${REPLAY_DIR}/${name}.rust.check.pbstream"
-        cp "${rust_check}" "${keep}"
-        bytes="$(cmp "${golden}" "${rust_check}" 2>&1 || true)"
-        echo "FAIL ${name} [Rust]: ${bytes}"
-        echo "     golden:   ${golden}"
-        echo "     produced: ${keep}"
-        fail=$((fail+1))
-        failures+=("${name}[Rust]")
-    fi
 done
 
 echo

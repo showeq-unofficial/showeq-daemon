@@ -162,29 +162,6 @@ public slots:
 
    void updateGuildTag(uint32_t guildId);
 
-   // Per-opcode Rust-decoder gates — DaemonApp flips them all on
-   // together when --use-rust-decoder is set. Each handler still falls
-   // back to its C++ struct cast on ok=false from seq-bridge.
-   void setUseRustMobUpdate(bool on) { m_useRustMobUpdate = on; }
-   void setUseRustDeleteSpawn(bool on) { m_useRustDeleteSpawn = on; }
-   void setUseRustZoneEntry(bool on) { m_useRustZoneEntry = on; }
-   void setUseRustRemoveSpawn     (bool on) { m_useRustRemoveSpawn = on; }
-   void setUseRustHPUpdate        (bool on) { m_useRustHPUpdate = on; }
-   void setUseRustMobHealth       (bool on) { m_useRustMobHealth = on; }
-   void setUseRustSpawnAppearance (bool on) { m_useRustSpawnAppearance = on; }
-   void setUseRustConsider        (bool on) { m_useRustConsider = on; }
-   void setUseRustSpawnRename     (bool on) { m_useRustSpawnRename = on; }
-   void setUseRustTargetMouse     (bool on) { m_useRustTargetMouse = on; }
-   void setUseRustDeath           (bool on) { m_useRustDeath = on; }
-   void setUseRustClickObject     (bool on) { m_useRustClickObject = on; }
-   void setUseRustIllusion        (bool on) { m_useRustIllusion = on; }
-   void setUseRustWearChange      (bool on) { m_useRustWearChange = on; }
-   void setUseRustCorpseLoc       (bool on) { m_useRustCorpseLoc = on; }
-   void setUseRustGroundSpawn     (bool on) { m_useRustGroundSpawn = on; }
-   void setUseRustSpawnDoor       (bool on) { m_useRustSpawnDoor = on; }
-   void setUseRustClientUpdate    (bool on) { m_useRustClientUpdate = on; }
-   void setUseRustNpcMoveUpdate   (bool on) { m_useRustNpcMoveUpdate = on; }
-
  protected:
    void refilterSpawns(spawnItemType type);
    void refilterSpawnsRuntime(spawnItemType type);
@@ -212,25 +189,6 @@ public slots:
    ItemMap m_doors;
 
    // Stage A through A+4 Rust-decoder gates.
-   bool m_useRustMobUpdate        = false;
-   bool m_useRustDeleteSpawn      = false;
-   bool m_useRustZoneEntry        = false;
-   bool m_useRustRemoveSpawn      = false;
-   bool m_useRustHPUpdate         = false;
-   bool m_useRustMobHealth        = false;
-   bool m_useRustSpawnAppearance  = false;
-   bool m_useRustConsider         = false;
-   bool m_useRustSpawnRename      = false;
-   bool m_useRustTargetMouse      = false;
-   bool m_useRustDeath            = false;
-   bool m_useRustClickObject      = false;
-   bool m_useRustIllusion         = false;
-   bool m_useRustWearChange       = false;
-   bool m_useRustCorpseLoc        = false;
-   bool m_useRustGroundSpawn      = false;
-   bool m_useRustSpawnDoor        = false;
-   bool m_useRustClientUpdate     = false;
-   bool m_useRustNpcMoveUpdate    = false;
    ItemMap m_players;
 
    // timer for saving spawns
