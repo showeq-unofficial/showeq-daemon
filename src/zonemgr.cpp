@@ -765,20 +765,33 @@ void ZoneMgr::zoneNew(const uint8_t* data, size_t len, uint8_t dir)
 
 void ZoneMgr::zonePoints(const uint8_t* data, size_t len, uint8_t)
 {
-  const zonePointsStruct* zp = (const zonePointsStruct*)data;
-  // note the zone point count
-  m_zonePointCount = zp->count;
+  // Wire format: u32 count, then count × zonePointStruct (24b each),
+  // then a 24-byte trailing block we ignore.
+  if (len < 4) return;
+  uint32_t count;
+  std::memcpy(&count, data, sizeof(count));
+  constexpr size_t ZP_LEN = sizeof(zonePointStruct);
+  if (len < 4 + static_cast<size_t>(count) * ZP_LEN) return;
 
-  // delete the previous zone point set
+  m_zonePointCount = count;
+
   if (m_zonePoints)
     delete [] m_zonePoints;
-  
-  // allocate storage for zone points
   m_zonePoints = new zonePointStruct[m_zonePointCount];
 
-  // copy the zone point information
-  memcpy((void*)m_zonePoints, zp->zonePoints, 
-	 sizeof(zonePointStruct) * m_zonePointCount);
+  for (uint32_t i = 0; i < count; i++) {
+    const uint8_t* p = data + 4 + i * ZP_LEN;
+    auto out = seq::rust::decode_zone_point(
+        rust::Slice<const uint8_t>{p, ZP_LEN});
+    if (!out.ok) continue;
+    m_zonePoints[i].zoneTrigger  = out.zone_trigger;
+    m_zonePoints[i].y            = out.y;
+    m_zonePoints[i].x            = out.x;
+    m_zonePoints[i].z            = out.z;
+    m_zonePoints[i].heading      = out.heading;
+    m_zonePoints[i].zoneId       = out.zone_id;
+    m_zonePoints[i].zoneInstance = out.zone_instance;
+  }
 }
 
 void ZoneMgr::dynamicZonePoints(const uint8_t *data, size_t len, uint8_t)

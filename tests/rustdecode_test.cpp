@@ -48,6 +48,10 @@ private slots:
     void decode_illusion_round_trip();
     void decode_buff_round_trip();
     void decode_action2_round_trip();
+    void decode_zone_point_round_trip();
+    void decode_simple_message_round_trip();
+    void decode_formatted_message_round_trip();
+    void decode_special_message_round_trip();
 };
 
 // Build a 14-byte spawnPositionUpdate buffer the same way the wire
@@ -544,6 +548,90 @@ void RustDecodeTest::decode_action2_round_trip()
     QCOMPARE(out.damage, 42);
     QCOMPARE(out.spell, -1);
     QCOMPARE(out.kind, uint8_t(7));
+}
+
+void RustDecodeTest::decode_zone_point_round_trip()
+{
+    zonePointStruct s{};
+    s.zoneTrigger  = 7;
+    s.y            = 1.5f;
+    s.x            = 2.5f;
+    s.z            = 3.5f;
+    s.heading      = 90.0f;
+    s.zoneId       = 57;
+    s.zoneInstance = 3;
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_zone_point(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.zone_trigger, 7u);
+    QCOMPARE(out.y, 1.5f);
+    QCOMPARE(out.x, 2.5f);
+    QCOMPARE(out.z, 3.5f);
+    QCOMPARE(out.heading, 90.0f);
+    QCOMPARE(out.zone_id, uint16_t(57));
+    QCOMPARE(out.zone_instance, uint16_t(3));
+}
+
+void RustDecodeTest::decode_simple_message_round_trip()
+{
+    simpleMessageStruct s{};
+    s.messageFormat = 12345;
+    s.messageColor  = static_cast<ChatColor>(0x12);
+    QByteArray buf(sizeof(s), '\0');
+    std::memcpy(buf.data(), &s, sizeof(s));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_simple_message(
+        rust::Slice<const uint8_t>{data, sizeof(s)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.message_format, 12345u);
+    QCOMPARE(out.message_color, 0x12u);
+}
+
+void RustDecodeTest::decode_formatted_message_round_trip()
+{
+    // Just the header — variable-length messages blob is handled
+    // daemon-side via offsetof(messages).
+    QByteArray buf(offsetof(formattedMessageStruct, messages), '\0');
+    formattedMessageStruct hdr{};
+    hdr.messageFormat = 999;
+    hdr.messageColor  = static_cast<ChatColor>(0x1a);
+    std::memcpy(buf.data(), &hdr, buf.size());
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_formatted_message(
+        rust::Slice<const uint8_t>{data, static_cast<size_t>(buf.size())});
+    QVERIFY(out.ok);
+    QCOMPARE(out.message_format, 999u);
+    QCOMPARE(out.message_color, 0x1au);
+}
+
+void RustDecodeTest::decode_special_message_round_trip()
+{
+    // Manual layout matching specialMessageStruct: unknown[3], color,
+    // target, padding, source\0, unknown0xxx[3], message\0.
+    QByteArray buf;
+    buf.resize(11, '\0');
+    uint32_t color = 0x05;
+    uint16_t target = 42;
+    std::memcpy(buf.data() + 3, &color, 4);
+    std::memcpy(buf.data() + 7, &target, 2);
+    buf.append("Soandso");
+    buf.append(char(0));
+    buf.append(12, char(0)); // unknown0xxx[3]
+    buf.append("hello world");
+    buf.append(char(0));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_special_message(
+        rust::Slice<const uint8_t>{data, static_cast<size_t>(buf.size())});
+    QVERIFY(out.ok);
+    QCOMPARE(out.message_color, 0x05u);
+    QCOMPARE(out.target, uint16_t(42));
+    QCOMPARE(QString::fromStdString(std::string(out.source)),
+             QStringLiteral("Soandso"));
+    QCOMPARE(QString::fromStdString(std::string(out.message)),
+             QStringLiteral("hello world"));
 }
 
 // QTEST_GUILESS_MAIN — daemon code is headless (QCoreApplication only),
