@@ -98,9 +98,22 @@ if(NOT EXISTS "${SEQ_DECODER_RS_DIR}/Cargo.toml")
     "Clone github.com/showeq-unofficial/showeq-decoder-rs as a sibling of showeq-daemon.")
 endif()
 
+# Backend selection: -DSEQ_TARGET=live (default) | quarm | test. Maps
+# 1:1 to seq-bridge's Cargo feature; quarm/test are placeholders that
+# fail to compile until their parser crates exist.
+set(SEQ_TARGET "live" CACHE STRING
+    "ShowEQ backend wire format: live | quarm | test")
+set_property(CACHE SEQ_TARGET PROPERTY STRINGS live quarm test)
+if(NOT SEQ_TARGET MATCHES "^(live|quarm|test)$")
+  message(FATAL_ERROR
+    "SEQ_TARGET must be one of: live, quarm, test (got '${SEQ_TARGET}').")
+endif()
+
 corrosion_import_crate(
   MANIFEST_PATH "${SEQ_DECODER_RS_DIR}/Cargo.toml"
   CRATES seq-bridge
+  NO_DEFAULT_FEATURES
+  FEATURES "backend-${SEQ_TARGET}"
 )
 
 corrosion_add_cxxbridge(seq-bridge-cxx
