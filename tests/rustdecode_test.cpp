@@ -53,6 +53,7 @@ private slots:
     void decode_formatted_message_round_trip();
     void decode_special_message_round_trip();
     void decode_channel_message_round_trip();
+    void decode_new_zone_round_trip();
 };
 
 // Build a 14-byte spawnPositionUpdate buffer the same way the wire
@@ -663,6 +664,38 @@ void RustDecodeTest::decode_channel_message_round_trip()
     QCOMPARE(out.skill_in_language, uint32_t(100));
     QCOMPARE(QString::fromStdString(std::string(out.message)),
              QStringLiteral("private msg"));
+}
+
+void RustDecodeTest::decode_new_zone_round_trip()
+{
+    // NetStream layout: short\0, long\0, 2 skip, zonefile\0, 90 skip,
+    // expMult f32, 28 skip, safeY/X/Z f32.
+    QByteArray buf;
+    buf.append("ecommons");          buf.append(char(0));
+    buf.append("East Commonlands");  buf.append(char(0));
+    buf.append(2, char(0));
+    buf.append("ecommons");          buf.append(char(0));
+    buf.append(90, char(0));
+    const float expMult = 1.0f;
+    buf.append(reinterpret_cast<const char*>(&expMult), 4);
+    buf.append(28, char(0));
+    const float sy = -100.0f, sx = 200.0f, sz = -50.0f;
+    buf.append(reinterpret_cast<const char*>(&sy), 4);
+    buf.append(reinterpret_cast<const char*>(&sx), 4);
+    buf.append(reinterpret_cast<const char*>(&sz), 4);
+
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_new_zone(
+        rust::Slice<const uint8_t>{data, static_cast<size_t>(buf.size())});
+    QVERIFY(out.ok);
+    QCOMPARE(QString::fromStdString(std::string(out.short_name)),
+             QStringLiteral("ecommons"));
+    QCOMPARE(QString::fromStdString(std::string(out.long_name)),
+             QStringLiteral("East Commonlands"));
+    QCOMPARE(out.zone_exp_multiplier, 1.0f);
+    QCOMPARE(out.safe_y, -100.0f);
+    QCOMPARE(out.safe_x, 200.0f);
+    QCOMPARE(out.safe_z, -50.0f);
 }
 
 // QTEST_GUILESS_MAIN — daemon code is headless (QCoreApplication only),

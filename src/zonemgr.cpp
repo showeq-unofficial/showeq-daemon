@@ -674,52 +674,24 @@ void ZoneMgr::zoneChange(const uint8_t* data, size_t len, uint8_t dir)
 
 void ZoneMgr::zoneNew(const uint8_t* data, size_t len, uint8_t dir)
 {
-  newZoneStruct *zoneNew = new newZoneStruct;
-  memset (zoneNew, 0, sizeof (newZoneStruct));
-  NetStream netStream (data, len);
+  auto out = seq::rust::decode_new_zone(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) return;
 
-  QString shortName = netStream.readText ();
-  if (shortName.length ())
-    strcpy (zoneNew->shortName, shortName.toLatin1().data());
+  m_safePoint.setPoint(lrintf(out.safe_x), lrintf(out.safe_y),
+                       lrintf(out.safe_z));
+  m_zone_exp_multiplier = out.zone_exp_multiplier;
 
-  QString longName = netStream.readText ();
-  if (longName.length ())
-    strcpy (zoneNew->longName, longName.toLatin1().data());
-
-  netStream.skipBytes (2);
-
-  QString zonefile = netStream.readText ();
-  if (zonefile.length ())
-    strcpy (zoneNew->zonefile, zonefile.toLatin1().data());
-
-  netStream.skipBytes (90);
-
-  union { uint32_t n; float f; } x;
-  x.n = netStream.readUInt32NC();
-  zoneNew->zone_exp_multiplier = x.f;
-
-  netStream.skipBytes (28);
-
-  x.n = netStream.readUInt32NC();
-  zoneNew->safe_y = x.f;
-  x.n = netStream.readUInt32NC();
-  zoneNew->safe_x = x.f;
-  x.n = netStream.readUInt32NC();
-  zoneNew->safe_z = x.f;
-
-  m_safePoint.setPoint(lrintf(zoneNew->safe_x), lrintf(zoneNew->safe_y),
-		       lrintf(zoneNew->safe_z));
-  m_zone_exp_multiplier = zoneNew->zone_exp_multiplier;
-
-  // ZBNOTE: Apparently these come in with the localized names, which means we 
-  //         may not wish to use them for zone short names.  
-  //         An example of this is: shortZoneName 'ecommons' in German comes 
+  // ZBNOTE: Apparently these come in with the localized names, which means we
+  //         may not wish to use them for zone short names.
+  //         An example of this is: shortZoneName 'ecommons' in German comes
   //         in as 'OGemeinl'.  OK, now that we have figured out the zone id
   //         issue, we'll only use this short zone name if there isn't one or
   //         it is an unknown zone.
   if (m_shortZoneName.isEmpty() || m_shortZoneName.startsWith("unk"))
   {
-    m_shortZoneName = zoneNew->shortName;
+    m_shortZoneName =
+        QString::fromLatin1(out.short_name.data(), out.short_name.size());
 
     // LDoN likes to append a _262 to the zonename. Get rid of it.
     QRegularExpression rx("_\\d+$");
@@ -741,26 +713,22 @@ void ZoneMgr::zoneNew(const uint8_t* data, size_t len, uint8_t dir)
     m_shortZoneName.replace(rw, "");
   }
 
-  m_longZoneName = zoneNew->longName;
+  m_longZoneName =
+      QString::fromLatin1(out.long_name.data(), out.long_name.size());
   m_zoning = false;
 
 #if 1 // ZBTEMP
+  const std::string longNameStd(out.long_name);
   seqDebug("Welcome to lovely downtown '%s' with an experience multiplier of %f",
-	 zoneNew->longName, zoneNew->zone_exp_multiplier);
-  seqDebug("Safe Point (%f, %f, %f)", 
-	 zoneNew->safe_x, zoneNew->safe_y, zoneNew->safe_z);
+           longNameStd.c_str(), out.zone_exp_multiplier);
+  seqDebug("Safe Point (%f, %f, %f)",
+           out.safe_x, out.safe_y, out.safe_z);
 #endif // ZBTEMP
-  
-//   seqDebug("zoneNew: m_short(%s) m_long(%s)",
-//      (const char*)m_shortZoneName,
-//      (const char*)m_longZoneName);
-  
+
   emit zoneEnd(m_shortZoneName, m_longZoneName);
 
   if (showeq_params->saveZoneState)
     saveZoneState();
-
-  delete zoneNew;
 }
 
 void ZoneMgr::zonePoints(const uint8_t* data, size_t len, uint8_t)
