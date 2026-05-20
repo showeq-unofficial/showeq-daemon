@@ -831,12 +831,12 @@ int32_t SpawnShell::fillSpawnStruct(spawnStruct *spawn, const uint8_t *data, siz
    return retVal;
 }
 
-// Translate the cxx-bridged `SpawnOut` into the daemon's spawnStruct.
+// Translate the cxx-bridged `Spawn` into the daemon's spawnStruct.
 // Field order, padding, and equipment-array layout match
 // fillSpawnStruct + everquest.h:1056+ exactly so the daemon
 // produces byte-identical envelopes downstream.
-static void applySpawnOut(spawnStruct* spawn,
-                          const seq::rust::SpawnOut& out)
+static void applySpawn(spawnStruct* spawn,
+                          const seq::rust::Spawn& out)
 {
     auto copyStr = [](char* dst, size_t cap, const auto& src) {
         size_t n = 0;
@@ -891,7 +891,7 @@ void SpawnShell::zoneEntry(const uint8_t* data, size_t len)
   if (!out.ok) return;
   spawnStruct *spawn = new spawnStruct;
   memset(spawn,0,sizeof(spawnStruct));
-  applySpawnOut(spawn, out);
+  applySpawn(spawn, out);
 
  #ifdef SPAWNSHELL_DIAG
   seqDebug("SpawnShell::zoneEntry(spawnStruct *(name='%s'))", spawn->name);

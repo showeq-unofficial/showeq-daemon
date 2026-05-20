@@ -1,7 +1,7 @@
 // Tier-1 FFI roundtrip test for the Stage A Rust decoder.
 //
 // Calls seq::rust::decode_mob_update() across the cxx bridge and
-// asserts the returned MobUpdateOut matches the same buffer parsed
+// asserts the returned MobUpdate matches the same buffer parsed
 // by the legacy C bitfield path. Catches FFI-layout regressions
 // (e.g. struct repacking, field reordering) independently of the
 // tier-2 .vpk replay harness.
