@@ -54,6 +54,7 @@ private slots:
     void decode_special_message_round_trip();
     void decode_channel_message_round_trip();
     void decode_new_zone_round_trip();
+    void decode_player_profile_round_trip();
 };
 
 // Build a 14-byte spawnPositionUpdate buffer the same way the wire
@@ -696,6 +697,191 @@ void RustDecodeTest::decode_new_zone_round_trip()
     QCOMPARE(out.safe_y, -100.0f);
     QCOMPARE(out.safe_x, 200.0f);
     QCOMPARE(out.safe_z, -50.0f);
+}
+
+// Helpers for the player_profile round-trip — push primitives onto a
+// growing byte buffer in EQ wire byte-orders.
+static void appU32LE(QByteArray& b, uint32_t v) {
+    char tmp[4]; std::memcpy(tmp, &v, 4); b.append(tmp, 4);
+}
+static void appU16LE(QByteArray& b, uint16_t v) {
+    char tmp[2]; std::memcpy(tmp, &v, 2); b.append(tmp, 2);
+}
+static void appU16BE(QByteArray& b, uint16_t v) {
+    b.append(char((v >> 8) & 0xff));
+    b.append(char(v & 0xff));
+}
+static void appF32(QByteArray& b, float v) {
+    char tmp[4]; std::memcpy(tmp, &v, 4); b.append(tmp, 4);
+}
+
+void RustDecodeTest::decode_player_profile_round_trip()
+{
+    QByteArray b;
+    appU32LE(b, 0xCAFEBABE);              // checksum
+    b.append(16, char(0));                // skip 16
+    b.append(char(1));                    // gender
+    appU32LE(b, 7);                       // race
+    appU32LE(b, 3);                       // class_
+    b.append(char(65));                   // level
+    b.append(char(65));                   // level1
+    // bind count = 1, one BindStruct
+    appU32LE(b, 1);
+    appU32LE(b, 222);                     // zoneId
+    appF32(b, 1.0f);                      // x
+    appF32(b, 2.0f);                      // y
+    appF32(b, 3.0f);                      // z
+    appF32(b, 4.0f);                      // heading
+    appU32LE(b, 11);                      // deity
+    appU32LE(b, 0);                       // intoxication
+    appU32LE(b, 0);                       // refresh count
+    appU32LE(b, 0);                       // equip count
+    appU32LE(b, 0);                       // sc0
+    appU32LE(b, 0);                       // sc1
+    appU32LE(b, 0);                       // sc2
+    b.append(51, char(0));                // 51b skip
+    appU32LE(b, 0);                       // points
+    appU32LE(b, 2000);                    // MANA
+    appU32LE(b, 4000);                    // curHp
+    for (uint32_t v : {120u, 121u, 122u, 123u, 124u, 125u, 126u})
+        appU32LE(b, v);                   // STR..WIS
+    b.append(28, char(0));                // 28b skip
+    appU32LE(b, 1);                       // aa_count
+    appU32LE(b, 800);                     // AA
+    appU32LE(b, 1);                       // value
+    appU32LE(b, 0);                       // unknown008
+    appU32LE(b, 0);                       // skills count (skipped on parser side)
+    appU32LE(b, 0);                       // sc3
+    appU32LE(b, 0);                       // discipline count
+    appU32LE(b, 0);                       // sc4
+    b.append(4, char(0));                 // 4b skip
+    appU32LE(b, 0);                       // recast count
+    appU32LE(b, 0);                       // sc5
+    appU32LE(b, 0);                       // spellbook count
+    appU32LE(b, 0);                       // mem spells count
+    appU32LE(b, 0);                       // refresh2 count
+    b.append(char(0));                    // 1b skip
+    appU32LE(b, 1);                       // buff count
+    {
+        QByteArray buff(110, char(0));
+        int32_t duration = 1200;
+        int32_t spellid  = 5042;
+        std::memcpy(buff.data() + 12, &duration, 4);
+        std::memcpy(buff.data() + 21, &spellid, 4);
+        b.append(buff);
+    }
+    // money on player
+    for (uint32_t v : {50u, 60u, 70u, 80u}) appU32LE(b, v);
+    // money on cursor
+    for (uint32_t v : {5u, 6u, 7u, 8u}) appU32LE(b, v);
+    b.append(20, char(0));                // 20b skip
+    appU32LE(b, 333);                     // aa_spent
+    b.append(4, char(0));                 // 4b skip
+    appU32LE(b, 444);                     // aa_assigned
+    b.append(20, char(0));                // 20b skip
+    appU32LE(b, 555);                     // aa_unspent
+    b.append(2, char(0));                 // 2b skip
+    appU32LE(b, 0);                       // bandolier count
+    b.append(80, char(0));                // 80b skip
+    appU32LE(b, 666);                     // endurance
+    b.append(58, char(0));                // 58b skip
+    appU32LE(b, 22846);                   // expAA
+    b.append(8, char(0));                 // 8b skip
+    // name: u32 len=8, then 8 bytes
+    appU32LE(b, 8);
+    b.append("Hero\0\0\0\0", 8);
+    // lastName: u32 len=8, then 8 bytes
+    appU32LE(b, 8);
+    b.append("Stark\0\0\0", 8);
+    appU32LE(b, 1000);                    // birthdayTime
+    appU32LE(b, 2000);                    // accountCreateDate
+    appU32LE(b, 3000);                    // lastSaveTime
+    appU32LE(b, 4000);                    // timePlayedMin
+    b.append(4, char(0));                 // 4b skip
+    appU32LE(b, 0xFFu);                   // expansions
+    b.append(4, char(0));                 // 4b skip
+    appU32LE(b, 1);                       // lang count
+    b.append(char(100));
+    appU16LE(b, 99);                      // zoneId
+    appU16LE(b, 0);                       // zoneInstance
+    appF32(b, -77.0f);                    // y
+    appF32(b, 88.5f);                     // x
+    appF32(b, 10.0f);                     // z
+    appF32(b, 45.0f);                     // heading
+    appU16BE(b, 100);                     // standState
+    appU16BE(b, 0);                       // anon
+    appU32LE(b, 7777);                    // guildID
+    appU32LE(b, 2);                       // guildServerID
+    b.append(2, char(0));                 // 2b skip
+    for (uint32_t v : {1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u, 9u})
+        appU32LE(b, v);                   // inventory + bank + shared
+    appU32LE(b, 0);                       // sc6
+    b.append(8, char(0));                 // 8b skip
+    appU32LE(b, 0);                       // careerTribute
+    b.append(4, char(0));                 // 4b skip
+    appU32LE(b, 0);                       // currentTribute
+    b.append(6, char(0));                 // 6b skip
+    appU32LE(b, 0);                       // tribute count
+    appU32LE(b, 0);                       // sc7
+    b.append(137, char(0));               // 137b skip
+    appU32LE(b, 11);                      // currentRadCrystals
+    appU32LE(b, 12);                      // careerRadCrystals
+    appU32LE(b, 13);                      // currentEbonCrystals
+    appU32LE(b, 14);                      // careerEbonCrystals
+    b.append(91, char(0));                // 91b skip
+    b.append(char(1));                    // autosplit
+    b.append(57, char(0));                // 57b skip
+    for (uint32_t v : {31u, 32u, 33u, 34u, 35u, 36u})
+        appU32LE(b, v);                   // LDoN points
+
+    auto out = seq::rust::decode_player_profile(rust::Slice<const uint8_t>{
+        reinterpret_cast<const uint8_t*>(b.constData()),
+        static_cast<size_t>(b.size())});
+    QVERIFY(out.ok);
+    QCOMPARE(out.checksum, uint32_t(0xCAFEBABE));
+    QCOMPARE(out.gender, uint8_t(1));
+    QCOMPARE(out.race, uint32_t(7));
+    QCOMPARE(out.class_, uint32_t(3));
+    QCOMPARE(out.level, uint8_t(65));
+    QCOMPARE(out.bind0_zone_id, uint32_t(222));
+    QCOMPARE(out.deity, uint32_t(11));
+    QCOMPARE(out.mana, uint32_t(2000));
+    QCOMPARE(out.cur_hp, uint32_t(4000));
+    QCOMPARE(out.str_, uint32_t(120));
+    QCOMPARE(out.wis, uint32_t(126));
+    QCOMPARE(out.aa_ids.size(), size_t(1));
+    QCOMPARE(out.aa_ids[0], uint32_t(800));
+    QCOMPARE(out.aa_values[0], uint32_t(1));
+    QCOMPARE(out.buff_spell_ids.size(), size_t(1));
+    QCOMPARE(out.buff_spell_ids[0], int32_t(5042));
+    QCOMPARE(out.buff_durations[0], int32_t(1200));
+    QCOMPARE(out.platinum, uint32_t(50));
+    QCOMPARE(out.aa_spent, uint32_t(333));
+    QCOMPARE(out.aa_unspent, uint32_t(555));
+    QCOMPARE(out.endurance, uint32_t(666));
+    QCOMPARE(out.exp_aa, uint32_t(22846));
+    QCOMPARE(QString::fromStdString(std::string(out.name)),
+             QStringLiteral("Hero"));
+    QCOMPARE(QString::fromStdString(std::string(out.last_name)),
+             QStringLiteral("Stark"));
+    QCOMPARE(out.expansions, uint32_t(0xFF));
+    QCOMPARE(out.languages.size(), size_t(1));
+    QCOMPARE(out.languages[0], uint8_t(100));
+    QCOMPARE(out.zone_id, uint16_t(99));
+    QCOMPARE(out.x, 88.5f);
+    QCOMPARE(out.y, -77.0f);
+    QCOMPARE(out.heading, 45.0f);
+    QCOMPARE(out.stand_state, uint16_t(100));
+    QCOMPARE(out.guild_id, uint32_t(7777));
+    QCOMPARE(out.platinum_inventory, uint32_t(1));
+    QCOMPARE(out.platinum_bank, uint32_t(5));
+    QCOMPARE(out.platinum_shared, uint32_t(9));
+    QCOMPARE(out.current_rad_crystals, uint32_t(11));
+    QCOMPARE(out.career_ebon_crystals, uint32_t(14));
+    QCOMPARE(out.autosplit, uint8_t(1));
+    QCOMPARE(out.ldon_guk_points, uint32_t(31));
+    QCOMPARE(out.ldon_avail_points, uint32_t(36));
+    QCOMPARE(int(out.bytes_consumed), b.size());
 }
 
 // QTEST_GUILESS_MAIN — daemon code is headless (QCoreApplication only),
