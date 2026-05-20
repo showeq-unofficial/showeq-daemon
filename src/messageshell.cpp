@@ -84,54 +84,33 @@ MessageShell::MessageShell(Messages* messages, EQStr* eqStrings,
 
 void MessageShell::channelMessage(const uint8_t* data, size_t len, uint8_t dir)
 {
-// Added for 8/12/09 patch for serialized message packet ----------------------
-   QString qTmp;
-   NetStream netStream(data, len);
+  auto out = seq::rust::decode_channel_message(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) return;
 
-   channelMessageStruct *cmsg = new channelMessageStruct;
-   memset(cmsg, 0, sizeof(channelMessageStruct));
-
-   qTmp = netStream.readText(); // sender
-
-   if(qTmp.length())
-      strcpy(cmsg->sender, qTmp.toLatin1().data());
-
-   qTmp = netStream.readText(); // target
-
-   if(qTmp.length())
-      strcpy(cmsg->target, qTmp.toLatin1().data());
-
-   netStream.skipBytes(8); // Unknown
-
-   cmsg->language = netStream.readUInt32NC(); // language
-
-   cmsg->chanNum = netStream.readUInt32NC(); // channel
-
-   netStream.readUInt32(); // unknown
-   netStream.readUInt8(); // unknown
-
-   cmsg->skillInLanguage = netStream.readUInt32NC(); // skill
-
-   qTmp = netStream.readText(); // message
-   if(qTmp.length())
-      strcpy(cmsg->message, qTmp.toLatin1().data());
-
-//-----------------------------------------------------------------------------
+  const uint32_t chanNum = out.chan_num;
 
   // Tells and Group by us happen twice *shrug*. Ignore the client->server one.
   if (dir == DIR_Client &&
-      (cmsg->chanNum == MT_Tell || cmsg->chanNum == MT_Group || cmsg->chanNum == MT_Guild ||
-      cmsg->chanNum == MT_OOC || cmsg->chanNum == MT_Shout || cmsg->chanNum == MT_Auction ||
-      cmsg->chanNum == MT_System || cmsg->chanNum == MT_Raid))
+      (chanNum == MT_Tell || chanNum == MT_Group || chanNum == MT_Guild ||
+       chanNum == MT_OOC || chanNum == MT_Shout || chanNum == MT_Auction ||
+       chanNum == MT_System || chanNum == MT_Raid))
   {
     return;
   }
+
+  const QString sender =
+      QString::fromLatin1(out.sender.data(), out.sender.size());
+  const QString targetName =
+      QString::fromLatin1(out.target.data(), out.target.size());
+  const QString message =
+      QString::fromLatin1(out.message.data(), out.message.size());
 
   // Emit the structured chatMessage signal so the websocket layer can
   // forward it as seq.v1.ChatMessage. Limit to player-to-player channels;
   // MT_System and other server-side noise stay confined to the formatted
   // addMessage() path below.
-  switch (cmsg->chanNum) {
+  switch (chanNum) {
   case MT_Guild:
   case MT_Group:
   case MT_Shout:
@@ -140,67 +119,35 @@ void MessageShell::channelMessage(const uint8_t* data, size_t len, uint8_t dir)
   case MT_Tell:
   case MT_Say:
   case MT_Raid:
-    // OP_ChannelMessage has no wire ChatColor — pass 0 (CC_Default) so
+    // OP_CommonMessage has no wire ChatColor — pass 0 (CC_Default) so
     // the client falls back to the chanNum->colour mapping.
-    emit chatMessage(static_cast<uint32_t>(cmsg->chanNum),
-                     QString::fromLatin1(cmsg->sender),
-                     QString::fromLatin1(cmsg->target),
-                     stripEqItemLinks(QString::fromLatin1(cmsg->message)),
-                     0u);
+    emit chatMessage(chanNum, sender, targetName,
+                     stripEqItemLinks(message), 0u);
     break;
   default:
     break;
   }
 
   QString tempStr;
+  const bool hasTarget = (chanNum >= MT_Tell) && !targetName.isEmpty();
 
-  bool target = false;
-  if (cmsg->chanNum >= MT_Tell)
-    target = true;
-
-  if (cmsg->language)
+  if (out.language)
   {
-    if ((cmsg->target[0] != 0) && target)
-    {
-      tempStr = QString::asprintf( "'%s' -> '%s' - %s {%s}",
-		       cmsg->sender,
-		       cmsg->target,
-		       cmsg->message,
-		       language_name(cmsg->language).toLatin1().data()
-		       );
-    }
+    const QString lang = language_name(out.language);
+    if (hasTarget)
+      tempStr = QString("'%1' -> '%2' - %3 {%4}").arg(sender, targetName, message, lang);
     else
-    {
-      tempStr = QString::asprintf( "'%s' - %s {%s}",
-		       cmsg->sender,
-		       cmsg->message,
-		       language_name(cmsg->language).toLatin1().data()
-		       );
-    }
+      tempStr = QString("'%1' - %2 {%3}").arg(sender, message, lang);
   }
   else // Don't show common, its obvious
   {
-    if ((cmsg->target[0] != 0) && target)
-    {
-      tempStr = QString::asprintf( "'%s' -> '%s' - %s",
-		       cmsg->sender,
-		       cmsg->target,
-		       cmsg->message
-		       );
-    }
+    if (hasTarget)
+      tempStr = QString("'%1' -> '%2' - %3").arg(sender, targetName, message);
     else
-    {
-      tempStr = QString::asprintf( "'%s' - %s",
-		       cmsg->sender,
-		       cmsg->message
-		       );
-    }
+      tempStr = QString("'%1' - %2").arg(sender, message);
   }
 
-  m_messages->addMessage((MessageType)cmsg->chanNum, tempStr);
-
-  delete cmsg;
-  cmsg = 0;
+  m_messages->addMessage(static_cast<MessageType>(chanNum), tempStr);
 }
 
 static MessageType chatColor2MessageType(ChatColor chatColor)

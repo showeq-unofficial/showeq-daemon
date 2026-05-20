@@ -52,6 +52,7 @@ private slots:
     void decode_simple_message_round_trip();
     void decode_formatted_message_round_trip();
     void decode_special_message_round_trip();
+    void decode_channel_message_round_trip();
 };
 
 // Build a 14-byte spawnPositionUpdate buffer the same way the wire
@@ -632,6 +633,36 @@ void RustDecodeTest::decode_special_message_round_trip()
              QStringLiteral("Soandso"));
     QCOMPARE(QString::fromStdString(std::string(out.message)),
              QStringLiteral("hello world"));
+}
+
+void RustDecodeTest::decode_channel_message_round_trip()
+{
+    // NetStream layout: sender\0, target\0, 8 skip, language u32,
+    // chanNum u32, 4 skip, 1 skip, skill u32, message\0.
+    QByteArray buf;
+    buf.append("Alice");        buf.append(char(0));
+    buf.append("Bob");           buf.append(char(0));
+    buf.append(8, char(0));
+    const uint32_t language = 0, chan = 14 /*MT_Tell*/, skill = 100;
+    buf.append(reinterpret_cast<const char*>(&language), 4);
+    buf.append(reinterpret_cast<const char*>(&chan), 4);
+    buf.append(4, char(0));
+    buf.append(1, char(0));
+    buf.append(reinterpret_cast<const char*>(&skill), 4);
+    buf.append("private msg");   buf.append(char(0));
+
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buf.constData());
+    auto out = seq::rust::decode_channel_message(
+        rust::Slice<const uint8_t>{data, static_cast<size_t>(buf.size())});
+    QVERIFY(out.ok);
+    QCOMPARE(QString::fromStdString(std::string(out.sender)),
+             QStringLiteral("Alice"));
+    QCOMPARE(QString::fromStdString(std::string(out.target)),
+             QStringLiteral("Bob"));
+    QCOMPARE(out.chan_num, uint32_t(14));
+    QCOMPARE(out.skill_in_language, uint32_t(100));
+    QCOMPARE(QString::fromStdString(std::string(out.message)),
+             QStringLiteral("private msg"));
 }
 
 // QTEST_GUILESS_MAIN — daemon code is headless (QCoreApplication only),
