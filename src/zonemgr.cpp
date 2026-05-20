@@ -653,7 +653,8 @@ void ZoneMgr::zoneChange(const uint8_t* data, size_t len, uint8_t dir)
       rust::Slice<const uint8_t>{data, sizeof(zoneChangeStruct)});
   if (!out.ok) return;
   zoneChangeStruct tmp{};
-  std::memcpy(tmp.name, out.name.data(), 64);
+  std::memcpy(tmp.name, out.name.data(),
+              std::min(out.name.size(), sizeof(tmp.name) - 1));
   tmp.zoneId       = out.zone_id;
   tmp.zoneInstance = out.zone_instance;
   const zoneChangeStruct* zoneChange = &tmp;

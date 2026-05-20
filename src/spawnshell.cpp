@@ -452,10 +452,10 @@ void SpawnShell::newGroundItem(const uint8_t* data, size_t len, uint8_t dir)
    ds.y = out.y;
    ds.x = out.x;
    ds.z = out.z;
-   // out.id_file is NUL-padded to 30 bytes — strcpy safe because
-   // makeDropStruct.idFile is also char[30] and we treat it as
-   // C-string-terminated.
-   std::memcpy(ds.idFile, out.id_file.data(), 30);
+   // ds is brace-zero-init'd above, so the byte after the copy is the
+   // NUL terminator for the legacy char[30] idFile buffer.
+   std::memcpy(ds.idFile, out.id_file.data(),
+               std::min(out.id_file.size(), sizeof(ds.idFile) - 1));
 
 #ifdef SPAWNSHELL_DIAG
    seqDebug("SpawnShell::newGroundItem(makeDropStruct *)");
@@ -507,7 +507,8 @@ void SpawnShell::newDoorSpawns(const uint8_t* data, size_t len, uint8_t dir)
         rust::Slice<const uint8_t>{p, sizeof(doorStruct)});
     if (!out.ok) continue;
     std::memset(&tmp, 0, sizeof(tmp));
-    std::memcpy(tmp.name, out.name.data(), 32);
+    std::memcpy(tmp.name, out.name.data(),
+                std::min(out.name.size(), sizeof(tmp.name) - 1));
     tmp.y = out.y;
     tmp.x = out.x;
     tmp.z = out.z;
@@ -838,12 +839,9 @@ int32_t SpawnShell::fillSpawnStruct(spawnStruct *spawn, const uint8_t *data, siz
 static void applySpawn(spawnStruct* spawn,
                           const seq::rust::Spawn& out)
 {
-    auto copyStr = [](char* dst, size_t cap, const auto& src) {
-        size_t n = 0;
-        while (n + 1 < cap && n < src.size() && src[n] != 0) {
-            dst[n] = static_cast<char>(src[n]);
-            ++n;
-        }
+    auto copyStr = [](char* dst, size_t cap, const rust::String& src) {
+        const size_t n = std::min(src.size(), cap - 1);
+        std::memcpy(dst, src.data(), n);
         dst[n] = '\0';
     };
     copyStr(spawn->name,     sizeof(spawn->name),     out.name);
@@ -1249,18 +1247,18 @@ void SpawnShell::renameSpawn(const uint8_t* data)
     auto out = seq::rust::decode_spawn_rename(
         rust::Slice<const uint8_t>{data, sizeof(spawnRenameStruct)});
     if (!out.ok) return;
-    const char* oldName = reinterpret_cast<const char*>(out.old_name.data());
-    const char* newName = reinterpret_cast<const char*>(out.new_name.data());
+    const std::string oldName(out.old_name);
+    const std::string newName(out.new_name);
 #ifdef SPAWNSHELL_DIAG
     seqDebug("SpawnShell::renameSpawn(oldname=%s, newname=%s)",
-             oldName, newName);
+             oldName.c_str(), newName.c_str());
 #endif
 
-    Spawn* renameMe = findSpawnByName(oldName);
+    Spawn* renameMe = findSpawnByName(oldName.c_str());
 
     if (renameMe != NULL)
     {
-        renameMe->setName(newName);
+        renameMe->setName(newName.c_str());
 
         uint32_t changeType = tSpawnChangedName;
 
@@ -1274,7 +1272,8 @@ void SpawnShell::renameSpawn(const uint8_t* data)
     }
     else
     {
-        seqWarn("SpawnShell: tried to rename %s to %s, but the original mob didn't exist in the spawn list", oldName, newName);
+        seqWarn("SpawnShell: tried to rename %s to %s, but the original mob didn't exist in the spawn list",
+                oldName.c_str(), newName.c_str());
     }
 }
 
@@ -1285,7 +1284,7 @@ void SpawnShell::illusionSpawn(const uint8_t* data)
     if (!out.ok) return;
 #ifdef SPAWNSHELL_DIAG
     seqDebug("SpawnShell::illusionSpawn(id=%d, name=%s, new race=%d)",
-             out.spawn_id, reinterpret_cast<const char*>(out.name.data()), out.race);
+             out.spawn_id, std::string(out.name).c_str(), out.race);
 #endif
 
     Item* item = m_spawns.value(out.spawn_id, nullptr);
@@ -1302,7 +1301,7 @@ void SpawnShell::illusionSpawn(const uint8_t* data)
         emit changeItem(spawn, tSpawnChangedALL);
 #ifdef SPAWNSHELL_DIAG
         seqDebug("SpawnShell: Illusioned %s (id=%d) into race %d",
-                 reinterpret_cast<const char*>(out.name.data()), out.spawn_id, out.race);
+                 std::string(out.name).c_str(), out.spawn_id, out.race);
 #endif
     }
     else

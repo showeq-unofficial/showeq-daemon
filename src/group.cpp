@@ -118,9 +118,7 @@ void GroupMgr::addGroupMember(const uint8_t* data)
    auto out = seq::rust::decode_group_follow(
        rust::Slice<const uint8_t>{data, 64});
    if (!out.ok) return;
-   const char* nameBytes = reinterpret_cast<const char*>(out.name.data());
-   const QString name = QString::fromLatin1(
-       nameBytes, qstrnlen(nameBytes, 64));
+   const QString name = QString::fromLatin1(out.name.data(), out.name.size());
 
    if (name.isEmpty()) return;
 
@@ -146,10 +144,11 @@ void GroupMgr::removeGroupMember(const uint8_t* data)
    auto out = seq::rust::decode_group_disband(
        rust::Slice<const uint8_t>{data, sizeof(groupDisbandStruct)});
    if (!out.ok) return;
-   const char* memberName = reinterpret_cast<const char*>(out.membername.data());
+   const QString memberName =
+       QString::fromLatin1(out.membername.data(), out.membername.size());
 
    // If we're disbanding, reset counters and clear member slots
-   if(!strcmp(memberName, m_player->name().toLatin1().data()))
+   if (memberName == m_player->name())
    {
       m_memberCount = 0;
       m_membersInZoneCount = 0;
