@@ -485,15 +485,15 @@ comment = "Group leader change (modern: 80 bytes)"
   sizechecktype = "none"
 
 [[zone]]
-id      = "55b9"
+id      = "18b4"
 name    = "OP_Buff"
-updated = "2026-04-25"
-comment = "old BuffDropCode"
+updated = "2026-05-25"
+comment = "S>C buff broadcast — variable length, no legacy 168b buffStruct fit. Observed forms: 13b (likely fade: {u32 spawnID, u32 spellID, u16=0x0001, u8=0, u8 slot, u8=0}); 30b (single self-buff add, no caster); 34/51/53/59b (one or two embedded blocks each carrying {tag=0x036a u32, counter u32, padding, caster-name\\0}); 85b (3-block form). Pre-patch OP_Buff 0x55b9 no longer fires; this slot carries all buff broadcasts. Confirmed across 53 fires (3 captures) — only opcode firing this variable-size buff-shaped pattern."
 
   [[zone.payloads]]
-  dir           = "both"
-  typename      = "buffStruct"
-  sizechecktype = "match"
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
 
 [[zone]]
 id      = "271f"
