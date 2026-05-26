@@ -1594,9 +1594,9 @@ comment = "C>S: {u32 buff_slot, u32 self_spawn_id} (8 bytes). Client requests se
   sizechecktype = "none"
 
 [[zone]]
-id      = "bbf0"
+id      = "3f37"
 name    = "OP_BuffWindow"
-updated = "2026-05-13"
+updated = "2026-05-25"
 comment = "S>C: fires 10x per zone-in (slots 0-9), one packet per slot. Payload: {u32 slot, u32 spellid=0xffffffff_empty, u32 pad} (12 bytes). Initializes the short-duration buff window at zone-in. Field2 always 0xffffffff in all observed captures — active buffs come via OP_Buff/OP_BuffQuery instead. Never fires mid-session. Wire-verified across 4 captures (100 total fires)."
 
   [[zone.payloads]]
