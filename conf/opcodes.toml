@@ -227,9 +227,9 @@ comment = "Server updating on hunger/thirst"
   sizechecktype = "match"
 
 [[zone]]
-id      = "8f45"
+id      = "652f"
 name    = "OP_HPUpdate"
-updated = "2026-04-25"
+updated = "2026-05-25"
 comment = "NpcHpUpdateCode Update HP % of a PC or NPC"
 
   [[zone.payloads]]
@@ -276,9 +276,9 @@ comment = "Spells cast etc"
   sizechecktype = "match"
 
 [[zone]]
-id      = "61f2"
+id      = "32a9"
 name    = "OP_Action2"
-updated = "2026-04-25"
+updated = "2026-05-25"
 comment = "Combat actions i.e. bash, kick etc"
 
   [[zone.payloads]]
@@ -699,9 +699,9 @@ comment = "MoneyOnCorpseCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "6f75"
+id      = "6a60"
 name    = "OP_SkillUpdate"
-updated = "2026-05-01"
+updated = "2026-05-25"
 comment = "Skill up code"
 
   [[zone.payloads]]
@@ -836,9 +836,9 @@ comment = "Leadership AA Exp Update"
   sizechecktype = "match"
 
 [[zone]]
-id      = "dc5d"
+id      = "9e21"
 name    = "OP_MovementHistory"
-updated = "2026-05-01"
+updated = "2026-05-25"
 comment = "Movement history for speed/movement hack detection"
 
   [[zone.payloads]]
@@ -901,9 +901,9 @@ comment = "Mana Update opcode - 10 bytes (spawn_id u16, cur u32, max u32). Paral
   sizechecktype = "match"
 
 [[zone]]
-id      = "6d58"
+id      = "f96e"
 name    = "OP_EndUpdate"
-updated = "2026-04-28"
+updated = "2026-05-25"
 comment = "Endurance Update opcode - 10 bytes (spawn_id u16, cur u32, max u32)"
 
   [[zone.payloads]]
@@ -1769,9 +1769,9 @@ name    = "OP_VeteranRewards"
 updated = "2011-04-18"
 
 [[zone]]
-id      = "a30a"
+id      = "ce3d"
 name    = "OP_SendAATable"
-updated = "2026-05-03"
+updated = "2026-05-25"
 comment = "Static AA ability-definition menu sent S>C on zone-in. Variable-length: u32 count + count records of base 44B + per-record prereq trailer."
 
 [[zone]]
@@ -1851,9 +1851,9 @@ updated = "2012-06-27"
 comment = "Initial health sent when a player clicks on the mob. Subsequent updated will be OP_MobHealth"
 
 [[zone]]
-id      = "2171"
+id      = "8d24"
 name    = "OP_MobHealth"
-updated = "2026-05-01"
+updated = "2026-05-25"
 comment = "health sent when a player clicks on the mob"
 
   [[zone.payloads]]

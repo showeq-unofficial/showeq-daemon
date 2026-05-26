@@ -82,7 +82,7 @@
         <comment>Server updating on hunger/thirst</comment>
         <payload dir="server" typename="staminaStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="8f45" name="OP_HPUpdate" updated="04/25/26">
+    <opcode id="652f" name="OP_HPUpdate" updated="05/25/26">
         <comment>NpcHpUpdateCode Update HP % of a PC or NPC</comment>
         <payload dir="both" typename="hpNpcUpdateStruct" sizechecktype="match"/>
     </opcode>
@@ -99,7 +99,7 @@
         <payload dir="both" typename="actionStruct" sizechecktype="match"/>
         <payload dir="both" typename="actionAltStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="61f2" name="OP_Action2" updated="04/25/26">
+    <opcode id="32a9" name="OP_Action2" updated="05/25/26">
         <comment>Combat actions i.e. bash, kick etc</comment>
         <payload dir="both" typename="action2Struct" sizechecktype="match"/>
     </opcode>
@@ -252,7 +252,7 @@
         <comment>MoneyOnCorpseCode</comment>
         <payload dir="server" typename="moneyOnCorpseStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="6f75" name="OP_SkillUpdate" updated="05/01/26">
+    <opcode id="6a60" name="OP_SkillUpdate" updated="05/25/26">
         <comment>Skill up code</comment>
         <payload dir="server" typename="skillIncStruct" sizechecktype="match"/>
     </opcode>
@@ -301,7 +301,7 @@
         <comment>Leadership AA Exp Update</comment>
         <payload dir="server" typename="leadExpUpdateStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="dc5d" name="OP_MovementHistory" updated="05/01/26">
+    <opcode id="9e21" name="OP_MovementHistory" updated="05/25/26">
         <comment>Movement history for speed/movement hack detection</comment>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
@@ -324,7 +324,7 @@
         <comment>Mana Update opcode - 10 bytes (spawn_id u16, cur u32, max u32). Parallel to OP_EndUpdate; fires per regen tick.</comment>
         <payload dir="server" typename="manaUpdateStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="6d58" name="OP_EndUpdate" updated="04/28/26">
+    <opcode id="f96e" name="OP_EndUpdate" updated="05/25/26">
         <comment>Endurance Update opcode - 10 bytes (spawn_id u16, cur u32, max u32)</comment>
         <payload dir="server" typename="endUpdateStruct" sizechecktype="match"/>
     </opcode>
@@ -640,7 +640,7 @@
     </opcode>
     <opcode id="ffff" name="OP_VeteranRewards" updated="04/18/11">
     </opcode>
-    <opcode id="a30a" name="OP_SendAATable" updated="05/03/26">
+    <opcode id="ce3d" name="OP_SendAATable" updated="05/25/26">
         <comment>Static AA ability-definition menu sent S>C on zone-in. Variable-length: u32 count + count records of base 44B + per-record prereq trailer.</comment>
     </opcode>
     <opcode id="ffff" name="OP_SendAAStats" updated="08/12/09">
@@ -680,7 +680,7 @@
     <opcode id="ffff" name="OP_InitialMobHealth" updated="06/27/12">
         <comment>Initial health sent when a player clicks on the mob. Subsequent updated will be OP_MobHealth</comment>
     </opcode>
-    <opcode id="2171" name="OP_MobHealth" updated="05/01/26">
+    <opcode id="8d24" name="OP_MobHealth" updated="05/25/26">
         <comment>health sent when a player clicks on the mob</comment>
         <payload dir="server" typename="mobHealthStruct" sizechecktype="match"/>
     </opcode>
