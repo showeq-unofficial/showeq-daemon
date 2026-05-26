@@ -37,7 +37,7 @@
         <comment>Receiving AA experience. Also when percent to AA changes.</comment>
         <payload dir="server" typename="altExpUpdateStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="6961" name="OP_ExpUpdate" updated="05/01/26">
+    <opcode id="cf53" name="OP_ExpUpdate" updated="05/25/26">
         <comment>ExpUpdateCode</comment>
         <payload dir="server" typename="expUpdateStruct" sizechecktype="match"/>
     </opcode>
@@ -78,7 +78,7 @@
         <comment>SpawnAppearanceCode</comment>
         <payload dir="both" typename="spawnAppearanceStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="4b67" name="OP_Stamina" updated="04/28/26">
+    <opcode id="60e7" name="OP_Stamina" updated="05/25/26">
         <comment>Server updating on hunger/thirst</comment>
         <payload dir="server" typename="staminaStruct" sizechecktype="match"/>
     </opcode>

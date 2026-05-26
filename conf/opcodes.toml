@@ -101,9 +101,9 @@ comment = "Receiving AA experience. Also when percent to AA changes."
   sizechecktype = "match"
 
 [[zone]]
-id      = "6961"
+id      = "cf53"
 name    = "OP_ExpUpdate"
-updated = "2026-05-01"
+updated = "2026-05-25"
 comment = "ExpUpdateCode"
 
   [[zone.payloads]]
@@ -216,9 +216,9 @@ comment = "SpawnAppearanceCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "4b67"
+id      = "60e7"
 name    = "OP_Stamina"
-updated = "2026-04-28"
+updated = "2026-05-25"
 comment = "Server updating on hunger/thirst"
 
   [[zone.payloads]]
