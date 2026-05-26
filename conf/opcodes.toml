@@ -710,9 +710,9 @@ comment = "Skill up code"
   sizechecktype = "match"
 
 [[zone]]
-id      = "7a97"
+id      = "9426"
 name    = "OP_LevelUpdate"
-updated = "2026-05-01"
+updated = "2026-05-25"
 comment = "LevelUpUpdateCode"
 
   [[zone.payloads]]
