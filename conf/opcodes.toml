@@ -3,9 +3,9 @@
 # from this file by tools/toml_to_xml.py (run via CMake on build).
 
 [[zone]]
-id      = "db56"
+id      = "e284"
 name    = "OP_PlayerProfile"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "CharProfileCode"
 
   [[zone.payloads]]
@@ -14,9 +14,9 @@ comment = "CharProfileCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "f19a"
+id      = "a5bf"
 name    = "OP_ZoneEntry"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "ZoneEntryCode"
 
   [[zone.payloads]]
@@ -30,9 +30,9 @@ comment = "ZoneEntryCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "816a"
+id      = "7e22"
 name    = "OP_TimeOfDay"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "TimeOfDayCode"
 
   [[zone.payloads]]
@@ -41,9 +41,9 @@ comment = "TimeOfDayCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "db83"
+id      = "a923"
 name    = "OP_NewZone"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "NewZoneCode"
 
   [[zone.payloads]]
@@ -52,9 +52,9 @@ comment = "NewZoneCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "f724"
+id      = "33ec"
 name    = "OP_SpawnDoor"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "DoorSpawnsCode"
 
   [[zone.payloads]]
@@ -63,9 +63,9 @@ comment = "DoorSpawnsCode"
   sizechecktype = "modulus"
 
 [[zone]]
-id      = "4cc4"
+id      = "92dc"
 name    = "OP_GroundSpawn"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "MakeDropCode"
 
   [[zone.payloads]]
@@ -79,9 +79,9 @@ comment = "MakeDropCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "395b"
+id      = "ad5c"
 name    = "OP_SendZonePoints"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Coords in a zone that will port you to another zone"
 
   [[zone.payloads]]
@@ -90,9 +90,9 @@ comment = "Coords in a zone that will port you to another zone"
   sizechecktype = "none"
 
 [[zone]]
-id      = "bf67"
+id      = "0c97"
 name    = "OP_AAExpUpdate"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Receiving AA experience. Also when percent to AA changes."
 
   [[zone.payloads]]
@@ -112,9 +112,9 @@ comment = "ExpUpdateCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "86fa"
+id      = "9f2b"
 name    = "OP_GuildMOTD"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "GuildMOTD"
 
   [[zone.payloads]]
@@ -123,9 +123,9 @@ comment = "GuildMOTD"
   sizechecktype = "none"
 
 [[zone]]
-id      = "0aa7"
+id      = "f8d1"
 name    = "OP_ClientUpdate"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Position updates"
 
   [[zone.payloads]]
@@ -139,9 +139,9 @@ comment = "Position updates"
   sizechecktype = "match"
 
 [[zone]]
-id      = "7c8c"
+id      = "917c"
 name    = "OP_NpcMoveUpdate"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Position updates"
 
   [[zone.payloads]]
@@ -150,9 +150,9 @@ comment = "Position updates"
   sizechecktype = "none"
 
 [[zone]]
-id      = "73da"
+id      = "4a4f"
 name    = "OP_MobUpdate"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "MobUpdateCode"
 
   [[zone.payloads]]
@@ -161,9 +161,9 @@ comment = "MobUpdateCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "6965"
+id      = "94d4"
 name    = "OP_DeleteSpawn"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "DeleteSpawnCode"
 
   [[zone.payloads]]
@@ -172,9 +172,9 @@ comment = "DeleteSpawnCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "6aa0"
+id      = "eb88"
 name    = "OP_RemoveSpawn"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Remove spawn from zone"
 
   [[zone.payloads]]
@@ -183,9 +183,9 @@ comment = "Remove spawn from zone"
   sizechecktype = "none"
 
 [[zone]]
-id      = "c7c6"
+id      = "1eb2"
 name    = "OP_Death"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "old NewCorpseCode"
 
   [[zone.payloads]]
@@ -205,9 +205,9 @@ comment = "Multi-slot appearance update. Header=wearChangeStruct(11B), then slot
   sizechecktype = "none"
 
 [[zone]]
-id      = "ca91"
+id      = "9826"
 name    = "OP_SpawnAppearance"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "SpawnAppearanceCode"
 
   [[zone.payloads]]
@@ -238,9 +238,9 @@ comment = "NpcHpUpdateCode Update HP % of a PC or NPC"
   sizechecktype = "match"
 
 [[zone]]
-id      = "84c3"
+id      = "9abe"
 name    = "OP_GuildMemberUpdate"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Info regarding guild members"
 
   [[zone.payloads]]
@@ -249,9 +249,9 @@ comment = "Info regarding guild members"
   sizechecktype = "match"
 
 [[zone]]
-id      = "0dcd"
+id      = "ab5e"
 name    = "OP_ClickObject"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Items dropped on the ground"
 
   [[zone.payloads]]
@@ -260,9 +260,9 @@ comment = "Items dropped on the ground"
   sizechecktype = "match"
 
 [[zone]]
-id      = "a366"
+id      = "049e"
 name    = "OP_Action"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Spells cast etc"
 
   [[zone.payloads]]
@@ -287,9 +287,9 @@ comment = "Combat actions i.e. bash, kick etc"
   sizechecktype = "match"
 
 [[zone]]
-id      = "ae23"
+id      = "a1e7"
 name    = "OP_Consider"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "ConsiderCode"
 
   [[zone.payloads]]
@@ -298,9 +298,9 @@ comment = "ConsiderCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "5727"
+id      = "1994"
 name    = "OP_TargetMouse"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Targeting a person - old ClientTargetCode"
 
   [[zone.payloads]]
@@ -342,9 +342,9 @@ comment = "Server putting players into shroud form"
   sizechecktype = "none"
 
 [[zone]]
-id      = "f996"
+id      = "9148"
 name    = "OP_ZoneChange"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "old ZoneChangeCode"
 
   [[zone.payloads]]
@@ -562,9 +562,9 @@ comment = "EmoteTextCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "6660"
+id      = "44a0"
 name    = "OP_SimpleMessage"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "SimpleMessageCode"
 
   [[zone.payloads]]
@@ -573,9 +573,9 @@ comment = "SimpleMessageCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "302b"
+id      = "5b40"
 name    = "OP_FormattedMessage"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "FormattedMessageCode i.e. pet dismissed etc"
 
   [[zone.payloads]]
@@ -584,9 +584,9 @@ comment = "FormattedMessageCode i.e. pet dismissed etc"
   sizechecktype = "none"
 
 [[zone]]
-id      = "dd47"
+id      = "498b"
 name    = "OP_CommonMessage"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "ChannelMessageCode i.e. /tell /ooc /shout etc"
 
   [[zone.payloads]]
@@ -595,9 +595,9 @@ comment = "ChannelMessageCode i.e. /tell /ooc /shout etc"
   sizechecktype = "none"
 
 [[zone]]
-id      = "1940"
+id      = "7162"
 name    = "OP_SpecialMesg"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Communicate textual info to client including hail responses etc"
 
   [[zone.payloads]]
@@ -879,9 +879,9 @@ comment = "List of group members - Variable length. Fires S>C once per form-even
   sizechecktype = "none"
 
 [[zone]]
-id      = "be23"
+id      = "4058"
 name    = "OP_GuildMemberList"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "List of guild members - Variable length"
 
   [[zone.payloads]]
@@ -1044,9 +1044,9 @@ comment = "Fellowship information - 2576 bytes"
   sizechecktype = "none"
 
 [[zone]]
-id      = "773b"
+id      = "8d86"
 name    = "OP_ExpandedGuildInfo"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Guild ranks and other misc guild data - Variable length"
 
   [[zone.payloads]]
@@ -1506,9 +1506,9 @@ comment = "Listing of all guilds. Can be triggered by /lfg search?"
   sizechecktype = "none"
 
 [[zone]]
-id      = "4e57"
+id      = "d5e8"
 name    = "OP_GuildsInZoneList"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Listing of guild names present in the current zone.  Generally seen on zoning"
 
   [[zone.payloads]]
@@ -1682,9 +1682,9 @@ comment = "Free to play nags and other data - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "cf5c"
+id      = "695f"
 name    = "OP_Find"
-updated = "2026-04-16"
+updated = "2026-05-20"
 comment = "Find window data - variable length, 24 min"
 
   [[zone.payloads]]
