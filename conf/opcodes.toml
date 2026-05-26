@@ -1374,9 +1374,9 @@ comment = "Tracking data - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "4e71"
+id      = "b27d"
 name    = "OP_AutoAttack"
-updated = "2026-05-12"
+updated = "2026-05-25"
 comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires first of the paired AutoAttack+AutoAttack2 sends."
 
   [[zone.payloads]]
@@ -1385,9 +1385,9 @@ comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires first of
   sizechecktype = "none"
 
 [[zone]]
-id      = "993d"
+id      = "4c14"
 name    = "OP_AutoAttack2"
-updated = "2026-05-12"
+updated = "2026-05-25"
 comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires second, paired with OP_AutoAttack on every toggle."
 
   [[zone.payloads]]
