@@ -408,9 +408,9 @@ comment = "Player joins your group (modern: 168 bytes; member name at offset 64,
   sizechecktype = "none"
 
 [[zone]]
-id      = "6890"
+id      = "ccfc"
 name    = "OP_GroupUpdate"
-updated = "2026-04-26"
+updated = "2026-05-25"
 comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow."
 
   [[zone.payloads]]
@@ -1176,9 +1176,9 @@ comment = "List of available titles - 1520 bytes"
   sizechecktype = "none"
 
 [[zone]]
-id      = "3d3d"
+id      = "6dba"
 name    = "OP_Animation"
-updated = "2026-05-01"
+updated = "2026-05-25"
 comment = "Combat animation, emote animations etc - 4 bytes"
 
   [[zone.payloads]]
@@ -1418,9 +1418,9 @@ comment = "DoorClickCode response from server - 2 bytes"
   sizechecktype = "none"
 
 [[zone]]
-id      = "cb03"
+id      = "dee3"
 name    = "OP_MoveItem"
-updated = "2026-05-02"
+updated = "2026-05-25"
 comment = "Client moving an item from one slot to another - 28 bytes. Resolved via inventory.opcodestats.txt: 30 C>S fires at exactly 28 bytes during a slot-swap session, no competing unknown opcode at that size+direction. Wire layout: two 12-byte invSlotStruct descriptors + uint32 stack count."
 
   [[zone.payloads]]
@@ -2112,9 +2112,9 @@ updated = "2007-02-13"
 comment = "Tribute information"
 
 [[zone]]
-id      = "a1e1"
+id      = "fb0a"
 name    = "OP_RespondAA"
-updated = "2026-05-03"
+updated = "2026-05-25"
 comment = "Server response to OP_AAAction; carries 12B records (ability_id, rank, _) for player's full AA list incl. auto-grants and purchased ranks"
 
 [[world]]
@@ -2138,78 +2138,81 @@ comment = "old MOTDCode Server message of the day. Live candidates: S>C 157b (0x
   sizechecktype = "none"
 
 [[world]]
-id      = "db0d"
+id      = "7b6a"
 name    = "OP_SendLoginInfo"
-updated = "2026-05-06"
+updated = "2026-05-25"
 comment = "Client starting world session by asking for login information. Live: 464b C>S, first packet of every world session (5/5 confirmations)."
 
 [[world]]
-id      = "ffff"
+id      = "b537"
+updated = "2026-05-25"
 name    = "OP_LogServer"
 comment = "Live candidate: S>C 24b (0x7f8e), fires immediately after OP_SendLoginInfo in the handshake band."
 
 [[world]]
-id      = "ffff"
+id      = "b8cc"
+updated = "2026-05-25"
 name    = "OP_ApproveWorld"
 comment = "Live candidate: small S>C in handshake band; not isolated yet."
 
 [[world]]
-id      = "0839"
+id      = "9bdc"
 name    = "OP_EnterWorld"
-updated = "2026-05-06"
+updated = "2026-05-25"
 comment = "Client tells world server to enter world with selected char. Live: 72b C>S, char name (zero-padded) at offset 0 + 64b zeros + 0xffffffff trailer. 4/4 confirmations across char-create + login flows. Server reuses 0x0839 with shorter S>C variants (1b ack, 7b name echo) — XML maps the opcode to OP_EnterWorld for log naming."
 
 [[world]]
-id      = "35b0"
+id      = "6bcf"
 name    = "OP_ExpansionInfo"
-updated = "2026-05-06"
+updated = "2026-05-25"
 comment = "Which expansions user has. Live: 64b fixed S>C in the post-LogServer / pre-ApproveWorld handshake band (5/5 confirmations)."
 
 [[world]]
-id      = "22c9"
+id      = "84f6"
 name    = "OP_SendCharInfo"
-updated = "2026-05-06"
+updated = "2026-05-25"
 comment = "Send all chars visible @ char select. Live: 14176b S>C (variable with character roster size), fires once early in world handshake."
 
 [[world]]
-id      = "8070"
+id      = "2de1"
 name    = "OP_SendSpellChecksum"
-updated = "2026-05-06"
+updated = "2026-05-25"
 comment = "Contains a snippet of spell data. Live: 2056b C>S, payload tail shows caret-delimited spell-data text (matches spells_us.txt format). Capture-order position 2 of 4 in the post-handshake checksum burst."
 
 [[world]]
-id      = "b7a6"
+id      = "44d9"
 name    = "OP_SendExeChecksum"
-updated = "2026-05-06"
+updated = "2026-05-25"
 comment = "Client-side eqgame.exe checksum sample. Live: 2056b C>S, payload tail shows binary code-style content. Capture-order position 1 of 4 in the post-handshake checksum burst."
 
 [[world]]
-id      = "b903"
+id      = "289c"
 name    = "OP_SendBaseDataChecksum"
-updated = "2026-05-06"
+updated = "2026-05-25"
 comment = "Client-side base-data file sample. Live: 2056b C>S, payload tail shows caret-delimited text records. Capture-order position 3 of 4 in the post-handshake checksum burst. Mapping to BaseData (vs another text-format file) inferred by elimination + position."
 
 [[world]]
-id      = "3855"
+id      = "a958"
 name    = "OP_SendSkillCapsChecksum"
-updated = "2026-05-06"
+updated = "2026-05-25"
 comment = "Client-side skillcaps checksum. Live: 64b C>S, opaque hash-style payload. Capture-order position 4 of 4 in the post-handshake checksum burst — the only one not at 2056b, fits the smaller skillcaps data table."
 
 [[world]]
-id      = "ffff"
+id      = "bb67"
+updated = "2026-05-25"
 name    = "OP_SetChatServer"
 comment = "Legacy chatserver tuple. May be obsolete on Live — handshake capture shows only the SetChatServer2 catalog (no 56b S>C tuple observed, unlike Test)."
 
 [[world]]
-id      = "560e"
+id      = "f22b"
 name    = "OP_SetChatServer2"
-updated = "2026-05-06"
+updated = "2026-05-25"
 comment = "Secondary chat / account / commerce service catalog. Live: 1464b S>C in handshake band (3/3 confirmations); ~18 plaintext Daybreak service URLs."
 
 [[world]]
-id      = "55e6"
+id      = "f21f"
 name    = "OP_ZoneServerInfo"
-updated = "2026-05-06"
+updated = "2026-05-25"
 comment = "Zone server connection info. Live: 130b S>C, fires on world->zone handoff (zone server hostname + port). 2/2 confirmations."
 
   [[world.payloads]]
@@ -2218,9 +2221,9 @@ comment = "Zone server connection info. Live: 130b S>C, fires on world->zone han
   sizechecktype = "match"
 
 [[world]]
-id      = "0bbd"
+id      = "fc46"
 name    = "OP_WorldComplete"
-updated = "2026-05-06"
+updated = "2026-05-25"
 comment = "Client telling world server it is done. Live: 0b C>S, last C>S packet of session immediately after OP_ZoneServerInfo. World replies by disconnecting. 2/2 confirmations."
 
 [[world]]
