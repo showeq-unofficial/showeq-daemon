@@ -353,9 +353,9 @@ comment = "old ZoneChangeCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "7380"
+id      = "ee64"
 name    = "OP_GroupInvite"
-updated = "2026-04-26"
+updated = "2026-05-25"
 comment = "You invite someone while ungrouped or get invited by someone ungrouped"
 
   [[zone.payloads]]
@@ -386,9 +386,9 @@ comment = "Client-side decline-invite OR leave/disband-group request (modern: 16
   sizechecktype = "none"
 
 [[zone]]
-id      = "1bcd"
+id      = "01dc"
 name    = "OP_GroupFollow"
-updated = "2026-04-26"
+updated = "2026-05-25"
 comment = "Member added (modern: 68 bytes, name at offset 0)."
 
   [[zone.payloads]]
@@ -419,9 +419,9 @@ comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Hand
   sizechecktype = "none"
 
 [[zone]]
-id      = "02a6"
+id      = "8a85"
 name    = "OP_GroupDisband"
-updated = "2026-04-26"
+updated = "2026-05-25"
 comment = "Your group dissolved (modern: 168 bytes; membername=self at offset 64)"
 
   [[zone.payloads]]
@@ -430,9 +430,9 @@ comment = "Your group dissolved (modern: 168 bytes; membername=self at offset 64
   sizechecktype = "none"
 
 [[zone]]
-id      = "6c57"
+id      = "2c76"
 name    = "OP_GroupDisband2"
-updated = "2026-05-11"
+updated = "2026-05-25"
 comment = "S>C to all STAYERS when any member departs (not leader-only). 168 bytes; membername=peer at offset 64."
 
   [[zone.payloads]]
@@ -474,9 +474,9 @@ comment = "S>C broadcast to remaining members when any member leaves. 168 bytes.
   sizechecktype = "none"
 
 [[zone]]
-id      = "2f41"
+id      = "b269"
 name    = "OP_GroupLeader"
-updated = "2026-04-26"
+updated = "2026-05-25"
 comment = "Group leader change (modern: 80 bytes)"
 
   [[zone.payloads]]
@@ -540,9 +540,9 @@ comment = "Bidirectional 16B: {u32 gem_slot, u32 spellId, int16 action, int16 pa
   sizechecktype = "match"
 
 [[zone]]
-id      = "ce34"
+id      = "57f1"
 name    = "OP_InspectAnswer"
-updated = "2026-05-11"
+updated = "2026-05-25"
 comment = "InspectDataCode"
 
   [[zone.payloads]]
@@ -606,9 +606,9 @@ comment = "Communicate textual info to client including hail responses etc"
   sizechecktype = "none"
 
 [[zone]]
-id      = "953e"
+id      = "c71c"
 name    = "OP_RandomReq"
-updated = "2026-05-12"
+updated = "2026-05-25"
 comment = "RandomReqCode - C>S 8 bytes: {u32 bottom, u32 top}"
 
   [[zone.payloads]]
@@ -617,9 +617,9 @@ comment = "RandomReqCode - C>S 8 bytes: {u32 bottom, u32 top}"
   sizechecktype = "match"
 
 [[zone]]
-id      = "3d0f"
+id      = "4939"
 name    = "OP_RandomReply"
-updated = "2026-05-12"
+updated = "2026-05-25"
 comment = "RandomCode - S>C 76 bytes broadcast: {u32 bottom, u32 top, u32 result, char name[64]}"
 
   [[zone.payloads]]
@@ -1209,9 +1209,9 @@ comment = "WhoAllOutputCode - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "a63b"
+id      = "14b6"
 name    = "OP_InspectRequest"
-updated = "2026-05-11"
+updated = "2026-05-25"
 comment = "InspectRequestCode - 8 bytes C>S: {u32 target_spawn_id, u32 self_spawn_id}"
 
   [[zone.payloads]]

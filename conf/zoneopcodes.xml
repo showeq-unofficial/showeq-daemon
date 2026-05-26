@@ -127,7 +127,7 @@
         <comment>old ZoneChangeCode</comment>
         <payload dir="both" typename="zoneChangeStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="7380" name="OP_GroupInvite" updated="04/26/26">
+    <opcode id="ee64" name="OP_GroupInvite" updated="05/25/26">
         <comment>You invite someone while ungrouped or get invited by someone ungrouped</comment>
         <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
     </opcode>
@@ -139,7 +139,7 @@
         <comment>Client-side decline-invite OR leave/disband-group request (modern: 168 bytes; name fields = self+self when leaving). C>S only in observed captures.</comment>
         <payload dir="client" typename="groupDeclineStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="1bcd" name="OP_GroupFollow" updated="04/26/26">
+    <opcode id="01dc" name="OP_GroupFollow" updated="05/25/26">
         <comment>Member added (modern: 68 bytes, name at offset 0).</comment>
         <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
     </opcode>
@@ -151,11 +151,11 @@
         <comment>Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow.</comment>
         <payload dir="both" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="02a6" name="OP_GroupDisband" updated="04/26/26">
+    <opcode id="8a85" name="OP_GroupDisband" updated="05/25/26">
         <comment>Your group dissolved (modern: 168 bytes; membername=self at offset 64)</comment>
         <payload dir="server" typename="groupDisbandStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="6c57" name="OP_GroupDisband2" updated="05/11/26">
+    <opcode id="2c76" name="OP_GroupDisband2" updated="05/25/26">
         <comment>S>C to all STAYERS when any member departs (not leader-only). 168 bytes; membername=peer at offset 64.</comment>
         <payload dir="server" typename="groupDisbandStruct" sizechecktype="none"/>
     </opcode>
@@ -171,7 +171,7 @@
         <comment>S>C broadcast to remaining members when any member leaves. 168 bytes. Fires only when ≥2 members remain after departure; name at offset 64 encodes updated group state.</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="2f41" name="OP_GroupLeader" updated="04/26/26">
+    <opcode id="b269" name="OP_GroupLeader" updated="05/25/26">
         <comment>Group leader change (modern: 80 bytes)</comment>
         <payload dir="server" typename="groupLeaderChangeStruct" sizechecktype="none"/>
     </opcode>
@@ -195,7 +195,7 @@
         <comment>Bidirectional 16B: {u32 gem_slot, u32 spellId, int16 action, int16 pad, u8[4] unknown}. action=1 C>S begin memorizing (no ack); action=2 C>S+S>C memorize complete (client shows 'You have finished memorizing'); action=3 C>S+S>C zone-in spell sync (declare existing spell in slot). Wire-verified: gem6/7 + IVU(225)/EC(235)/spell347.</comment>
         <payload dir="both" typename="memSpellStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ce34" name="OP_InspectAnswer" updated="05/11/26">
+    <opcode id="57f1" name="OP_InspectAnswer" updated="05/25/26">
         <comment>InspectDataCode</comment>
         <payload dir="server" typename="inspectDataStruct" sizechecktype="match"/>
     </opcode>
@@ -219,11 +219,11 @@
         <comment>Communicate textual info to client including hail responses etc</comment>
         <payload dir="server" typename="specialMessageStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="953e" name="OP_RandomReq" updated="05/12/26">
+    <opcode id="c71c" name="OP_RandomReq" updated="05/25/26">
         <comment>RandomReqCode - C>S 8 bytes: {u32 bottom, u32 top}</comment>
         <payload dir="client" typename="randomReqStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="3d0f" name="OP_RandomReply" updated="05/12/26">
+    <opcode id="4939" name="OP_RandomReply" updated="05/25/26">
         <comment>RandomCode - S>C 76 bytes broadcast: {u32 bottom, u32 top, u32 result, char name[64]}</comment>
         <payload dir="server" typename="randomStruct" sizechecktype="match"/>
     </opcode>
@@ -436,7 +436,7 @@
         <comment>WhoAllOutputCode - Variable length</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="a63b" name="OP_InspectRequest" updated="05/11/26">
+    <opcode id="14b6" name="OP_InspectRequest" updated="05/25/26">
         <comment>InspectRequestCode - 8 bytes C>S: {u32 target_spawn_id, u32 self_spawn_id}</comment>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
