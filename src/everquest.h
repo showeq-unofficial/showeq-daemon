@@ -2384,7 +2384,7 @@ struct wearChangeSlotStruct
 
 /*
 ** Level Update
-** Length: 16 Octets
+** Length: 24 Octets
 ** OpCode: LevelUpUpdateCode
 */
 
@@ -2394,7 +2394,9 @@ struct levelUpUpdateStruct
 /*0004*/ uint32_t levelOld;                      // Old level
 /*0008*/ uint32_t exp;                           // Current Experience
 /*0012*/ uint32_t  unknown0012;                  // unknown
-/*0016*/
+/*0016*/ uint32_t  unknown0016;                  // 2026-05-22 patch padding
+/*0020*/ uint32_t  unknown0020;                  // 2026-05-22 patch padding
+/*0024*/
 };
 
 /*
