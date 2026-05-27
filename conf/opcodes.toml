@@ -814,10 +814,10 @@ comment = "old CorpseLocCode:"
   sizechecktype = "match"
 
 [[zone]]
-id      = "3f3b"
+id      = "e8bc"
 name    = "OP_ItemPacket"
-updated = "2026-05-02"
-comment = "S>C variable-length serialized item delivery; resolved via inventory.opcodestats.txt where 34 fires carried inline ASCII item names (\"Whitened Treant Fists\", etc.) verifiable against the player's loadout. Per-item, fires on slot move and zone-in pickup; the legacy bulk OP_ItemPlayerPacket appears obsolete on current Live."
+updated = "2026-05-26"
+comment = "S>C variable-length serialized item delivery (~946-1011b/item). Wrapper unchanged post-patch: {u32 packetType(0x74/0x76/0x78), char[16] instanceId, u8 nul, u32 stack, u32 mainSlot, u16 subSlot}, then serialized item blob with inline ASCII name. Per-item, fires on slot move and zone-in pickup; legacy bulk OP_ItemPlayerPacket obsolete on current Live. Re-confirmed post-2026-05-22 patch via inline item names + instance-id wrapper."
 
   [[zone.payloads]]
   dir           = "server"
