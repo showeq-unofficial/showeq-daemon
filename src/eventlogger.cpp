@@ -10,6 +10,7 @@
 EventLogger::EventLogger(EQPacket* packet, const QString& outPath,
                          QObject* parent)
     : QObject(parent)
+    , m_packet(packet)
     , m_outPath(outPath)
     , m_file(std::make_unique<QFile>(outPath))
 {
@@ -61,7 +62,10 @@ void EventLogger::writeRow(uint8_t dir, uint16_t opcode, size_t len,
                            const EQPacketOPCode* entry, const char* stream)
 {
     if (!m_file) return;
-    const qint64 ms = QDateTime::currentMSecsSinceEpoch();
+    // Prefer the packet's recorded time (set during --replay); fall back to
+    // wall-clock for live capture, where currentPacketTimeMs() returns 0.
+    qint64 ms = m_packet ? m_packet->currentPacketTimeMs() : 0;
+    if (!ms) ms = QDateTime::currentMSecsSinceEpoch();
     const char dirChar = (dir == DIR_Client) ? 'C'
                        : (dir == DIR_Server) ? 'S'
                        : '?';
@@ -69,4 +73,8 @@ void EventLogger::writeRow(uint8_t dir, uint16_t opcode, size_t len,
     m_out << ms << ' ' << dirChar << ' '
           << QString("0x%1").arg(opcode, 4, 16, QLatin1Char('0')) << ' '
           << len << ' ' << stream << ' ' << name << '\n';
+    // Flush per row so an unclean exit (the daemon being killed mid-capture)
+    // can't lose the buffered tail — the failure that truncated the live
+    // sidecar while the .vpk kept recording.
+    m_out.flush();
 }
