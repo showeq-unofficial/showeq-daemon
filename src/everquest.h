@@ -2638,6 +2638,19 @@ struct spawnAppearanceStruct
 /*0008*/
 };
 
+// OP_SpawnAppearance2 (0x8cd3) — 24-byte extended appearance update. On
+// lock-ruleset (TLP) servers, S>C type=0x2c (44) carries the mob-lock / FTE
+// attackable flag (value: 1=locked/unattackable, 0=attackable). Other types
+// carry guild/cast/appearance state; C>S type=0x24 is OP_ClickBuffOff.
+struct spawnAppearance2Struct
+{
+/*0000*/ uint32_t spawnId;                       // ID of the spawn
+/*0004*/ uint32_t type;                          // appearance type (0x2c = lock)
+/*0008*/ uint32_t value;                          // type-specific value
+/*0012*/ uint8_t  unknown0012[12];               // padding / unused
+/*0024*/
+};
+
 
 /*
 **               Structures that are not being currently used

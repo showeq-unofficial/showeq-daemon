@@ -560,6 +560,12 @@ void DaemonApp::wireSpawnShell()
                        "SpawnUpdateStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(updateSpawnInfo(const uint8_t*)));
+    // OP_SpawnAppearance2 type=0x2c = TLP mob-lock / FTE flag (S>C only).
+    // updateSpawnLock filters by type and updates Spawn::locked.
+    m_packet->connect2("OP_SpawnAppearance2", SP_Zone, DIR_Server,
+                       "spawnAppearance2Struct", SZC_Match,
+                       m_spawnShell,
+                       SLOT(updateSpawnLock(const uint8_t*)));
     m_packet->connect2("OP_HPUpdate", SP_Zone, DIR_Server|DIR_Client,
                        "hpNpcUpdateStruct", SZC_Match,
                        m_spawnShell,

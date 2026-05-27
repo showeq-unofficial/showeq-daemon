@@ -1266,6 +1266,30 @@ void SpawnShell::updateSpawnInfo(const uint8_t* data)
    }
 }
 
+// OP_SpawnAppearance2 (S>C). On lock-ruleset (TLP) servers, type=0x2c carries
+// the mob-lock / FTE attackable flag (value 1=locked, 0=attackable). Other
+// types are ignored here. Emits a full-spawn re-encode (tSpawnChangedALL) so
+// the new locked state reaches clients — SpawnUpdated carries no lock field.
+void SpawnShell::updateSpawnLock(const uint8_t* data)
+{
+   const spawnAppearance2Struct* sa = (const spawnAppearance2Struct*)data;
+   if (sa->type != 0x2c)               // 44 = mob-lock / FTE flag
+     return;
+
+   Item* item = m_spawns.value(sa->spawnId, nullptr);
+   if (item == NULL)
+     return;
+
+   Spawn* spawn = (Spawn*)item;
+   const bool locked = (sa->value != 0);
+   if (spawn->locked() == locked)      // no change — don't spam re-encodes
+     return;
+
+   spawn->setLocked(locked);
+   item->updateLastChanged();
+   emit changeItem(item, tSpawnChangedALL);
+}
+
 void SpawnShell::renameSpawn(const uint8_t* data)
 {
     const spawnRenameStruct* rename = (const spawnRenameStruct*)data;
