@@ -70,8 +70,8 @@
         <comment>old NewCorpseCode</comment>
         <payload dir="server" typename="newCorpseStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="800e" name="OP_WearChange" updated="05/12/26">
-        <comment>Multi-slot appearance update. Header=wearChangeStruct(11B), then slotCount*wearChangeSlotStruct(16B+varname), then 2B pad. count=0→13B (hash refresh), count=4+name→97B+ (full slot broadcast to observers).</comment>
+    <opcode id="0ecf" name="OP_WearChange" updated="05/27/26">
+        <comment>Multi-slot appearance update. Header=wearChangeStruct(11B), then slotCount*wearChangeSlotStruct(16B+varname), then 2B pad. count=0→13B (hash refresh), count=N→header+N slots (~+23B/slot incl short name). Re-confirmed post-2026-05-22 patch: slotCount@9 correlates exactly with size (0→13B, 1→34B, 2→57B), unk8=1 in all samples.</comment>
         <payload dir="server" typename="wearChangeStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="9826" name="OP_SpawnAppearance" updated="05/20/26">
@@ -580,8 +580,8 @@
         <comment>S>C: fires 10x per zone-in (slots 0-9), one packet per slot. Payload: {u32 slot, u32 spellid=0xffffffff_empty, u32 pad} (12 bytes). Initializes the short-duration buff window at zone-in. Field2 always 0xffffffff in all observed captures — active buffs come via OP_Buff/OP_BuffQuery instead. Never fires mid-session. Wire-verified across 4 captures (100 total fires).</comment>
         <payload dir="server" typename="buffWindowSlotStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="5855" name="OP_SpawnAppearance2" updated="05/12/26">
-        <comment>Extended 24-byte bidirectional appearance update. Payload: {u32 spawn_id, u32 type, u32 value, u8[12] pad}. C>S type=0x24 (36) with spawn_id=0 = OP_ClickBuffOff (buff_slot in value field). S>C fires carry guild/cast/appearance types and co-occur with buff landing messages. Distinct from OP_SpawnAppearance (0xca91, 8 bytes).</comment>
+    <opcode id="8cd3" name="OP_SpawnAppearance2" updated="05/27/26">
+        <comment>Extended 24-byte bidirectional appearance update. Payload: {u32 spawn_id, u32 type, u32 value, u8[12] pad}. C>S type=0x24 (36) with spawn_id=0 = OP_ClickBuffOff (buff_slot in value field). S>C fires carry guild/cast/appearance types and co-occur with buff landing messages. Distinct from OP_SpawnAppearance. Re-confirmed post-2026-05-22 patch: type set {5,6,8,22,26,36,42} matches; ClickBuffOff C>S type=0x24 fires with spawn_id=0, varying buff_slot.</comment>
         <payload dir="both" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_HouseAddress" updated="11/20/15">
