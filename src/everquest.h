@@ -2256,9 +2256,9 @@ struct startCastStruct
 
 struct manaDecrementStruct
 {
-/*0000*/ int32_t newMana;                        // New Mana Amount
-/*0004*/ int32_t maxMana;                        // Max Mana (grows on level-up)
-/*0008*/ int32_t spellId;                        // Last Spell Cast
+/*0000*/ int32_t newMana;                        // New (current) mana amount
+/*0004*/ int32_t curEndurance;                   // Current endurance, NOT max mana — confirmed 2026-05-26 by cross-ref against OP_EndUpdate cur (monk fixture). EQ never sends max mana on the wire.
+/*0008*/ int32_t spellId;                        // Spell or combat-ability id just used
 /*0012*/ uint8_t unknown0012[4];
 /*0016*/ uint8_t unknown0016[4];
 /*0020*/
