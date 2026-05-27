@@ -660,8 +660,8 @@
     <opcode id="ffff" name="OP_SendExpZonein" updated="03/14/07">
         <comment>Both directions. Negotiating sending of exp info.</comment>
     </opcode>
-    <opcode id="773e" name="OP_AAAction" updated="05/02/26">
-        <comment>C>S 16-byte aaActionStruct {action, ability, unknown, exp_value}; resolved by time-correlating 4 buys (1 Mend Pet + 3 Run Speed ranks) against OP_PlayerProfile aa_spent transition.</comment>
+    <opcode id="14dc" name="OP_AAAction" updated="05/27/26">
+        <comment>Dual-form: C>S 16b aaActionStruct {action, ability, unknown, exp_value} for buy/activate (action=3=buy), plus S>C 12b companion server messages (fire frequently). Re-confirmed post-2026-05-22 patch (aaaction-spend): the single C>S 16b buy fire decoded action=3 ability=224 (Mental Clarity rank purchase) alongside ~100 S>C 12b companions.</comment>
     </opcode>
     <opcode id="ffff" name="OP_SetServerFilter" updated="03/14/07">
         <comment>Client telling server /filter information</comment>

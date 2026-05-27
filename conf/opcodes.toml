@@ -1810,10 +1810,10 @@ updated = "2007-03-14"
 comment = "Both directions. Negotiating sending of exp info."
 
 [[zone]]
-id      = "773e"
+id      = "14dc"
 name    = "OP_AAAction"
-updated = "2026-05-02"
-comment = "C>S 16-byte aaActionStruct {action, ability, unknown, exp_value}; resolved by time-correlating 4 buys (1 Mend Pet + 3 Run Speed ranks) against OP_PlayerProfile aa_spent transition."
+updated = "2026-05-27"
+comment = "Dual-form: C>S 16b aaActionStruct {action, ability, unknown, exp_value} for buy/activate (action=3=buy), plus S>C 12b companion server messages (fire frequently). Re-confirmed post-2026-05-22 patch (aaaction-spend): the single C>S 16b buy fire decoded action=3 ability=224 (Mental Clarity rank purchase) alongside ~100 S>C 12b companions."
 
 [[zone]]
 id      = "ffff"
