@@ -364,10 +364,10 @@ comment = "You invite someone while ungrouped or get invited by someone ungroupe
   sizechecktype = "none"
 
 [[zone]]
-id      = "0d97"
+id      = "7237"
 name    = "OP_GroupInvite2"
-updated = "2026-05-11"
-comment = "Grouped invite: C>S 168B (inviter sends) / S>C 176B (server relays to invitee). Same opcode both dirs, size differs."
+updated = "2026-05-27"
+comment = "Invite into an EXISTING group (inviter already grouped); OP_GroupInvite (ee64) is used to form a NEW group. Same groupInviteStruct layout (invitee@0, inviter@64), C>S 168B. Re-confirmed post-2026-05-22 patch (group-invite2: fired only when adding a 3rd member, naming the same inviter + new invitee)."
 
   [[zone.payloads]]
   dir           = "both"
