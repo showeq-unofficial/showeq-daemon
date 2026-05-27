@@ -650,10 +650,10 @@ comment = "Server replying with deny information after /deny"
   sizechecktype = "match"
 
 [[zone]]
-id      = "130c"
+id      = "08fb"
 name    = "OP_ManaChange"
-updated = "2026-04-25"
-comment = "Mana change. Bards send this up with no size. Casters receive this for mana updates."
+updated = "2026-05-26"
+comment = "Resource update after spell/ability use (S>C, 20b): {i32 curMana, i32 field4, i32 spellOrAbilityId, u8[8]}. Fires once per cast or combat ability; spellId@8 cross-refs OP_CastSpell. field4 is NOT maxMana (legacy label wrong post-patch): constant for mana-only casters, fluctuates for endurance-users -> likely current endurance. Re-confirmed post-2026-05-22 patch."
 
   [[zone.payloads]]
   dir           = "server"
@@ -890,10 +890,10 @@ comment = "List of guild members - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "37ad"
+id      = "36d1"
 name    = "OP_ManaUpdate"
-updated = "2026-05-07"
-comment = "Mana Update opcode - 10 bytes (spawn_id u16, cur u32, max u32). Parallel to OP_EndUpdate; fires per regen tick."
+updated = "2026-05-26"
+comment = "Mana bar update - 10 bytes (spawn_id u16, cur u32, max u32). Per-spawn broadcast (not just local player); local player shows +10/tick regen. Same wire shape as OP_EndUpdate. Re-confirmed post-2026-05-22 patch."
 
   [[zone.payloads]]
   dir           = "server"
