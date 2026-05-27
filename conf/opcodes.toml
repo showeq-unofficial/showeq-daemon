@@ -2118,9 +2118,9 @@ updated = "2026-05-25"
 comment = "Server response to OP_AAAction; carries 12B records (ability_id, rank, _) for player's full AA list incl. auto-grants and purchased ranks"
 
 [[world]]
-id      = "ffff"
+id      = "bc01"
 name    = "OP_GuildList"
-comment = "old GuildListCode. Live candidates from world handshake: S>C 1932b (0xeb30) early in handshake, or S>C 36805b (0x627f) catalog dump — needs payload inspection."
+comment = "GuildListCode - S>C ~14KB at login, full server guild roster (list of guild-name strings). Confirmed 2026-05-27 (login-charmgmt): inline guild names in a 14176b login packet."
 
   [[world.payloads]]
   dir           = "server"
@@ -2128,9 +2128,9 @@ comment = "old GuildListCode. Live candidates from world handshake: S>C 1932b (0
   sizechecktype = "none"
 
 [[world]]
-id      = "ffff"
+id      = "f8e0"
 name    = "OP_MOTD"
-comment = "old MOTDCode Server message of the day. Live candidates: S>C 157b (0x08aa) or 1188b (0x0fe3); not yet payload-confirmed."
+comment = "MOTDCode - server message of the day, S>C world-stream post-EnterWorld. Confirmed 2026-05-27 (login-charmgmt): 154b payload = readable MOTD text (\"Greetings Norrathians! ...\")."
 
   [[world.payloads]]
   dir           = "server"
@@ -2227,22 +2227,22 @@ updated = "2026-05-25"
 comment = "Client telling world server it is done. Live: 0b C>S, last C>S packet of session immediately after OP_ZoneServerInfo. World replies by disconnecting. 2/2 confirmations."
 
 [[world]]
-id      = "f768"
+id      = "48f9"
 name    = "OP_DeleteCharacter"
-updated = "2026-05-06"
-comment = "Delete character @ char select. Live: 68b C>S, name@offset 0. 1/1 confirmation (fired exactly when user deleted a freshly-created char)."
+updated = "2026-05-27"
+comment = "Delete character @ char select. Live: 68b C>S world, name@offset 0. Re-confirmed post-2026-05-22 patch (login-charmgmt): 1 C>S fire carrying the deleted char name."
 
 [[world]]
-id      = "b677"
+id      = "0634"
 name    = "OP_CharacterCreate"
-updated = "2026-05-06"
-comment = "Create character @ char select. Live: 168b C>S, fires once per submitted creation right after OP_ApproveName response."
+updated = "2026-05-27"
+comment = "Create character @ char select. Live: 168b C>S world (name[64] + gender/race/class/deity/appearance fields), fires once per submitted creation right after OP_ApproveName response. Re-confirmed post-2026-05-22 patch (login-charmgmt)."
 
 [[world]]
-id      = "4451"
+id      = "a24a"
 name    = "OP_ApproveName"
-updated = "2026-05-06"
-comment = "Approving new character name @ char creation. Live: 84b C>S name candidate, 1b S>C status (taken vs available). 2/2 confirmations across reject + accept cycle."
+updated = "2026-05-27"
+comment = "Approving new character name @ char creation. Live: 84b C>S name candidate, 1b S>C status (taken vs available). Re-confirmed post-2026-05-22 patch (login-charmgmt): fires right before OP_CharacterCreate."
 
 [[world]]
 id      = "ffff"
