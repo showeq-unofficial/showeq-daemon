@@ -71,7 +71,7 @@
         <payload dir="server" typename="newCorpseStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="0ecf" name="OP_WearChange" updated="05/27/26">
-        <comment>Multi-slot appearance update. Header=wearChangeStruct(11B), then slotCount*wearChangeSlotStruct(16B+varname), then 2B pad. count=0→13B (hash refresh), count=N→header+N slots (~+23B/slot incl short name). Re-confirmed post-2026-05-22 patch: slotCount@9 correlates exactly with size (0→13B, 1→34B, 2→57B), unk8=1 in all samples.</comment>
+        <comment>Spawn-state / appearance broadcast (multi-slot). Header=wearChangeStruct(11B), then slotCount*wearChangeSlotStruct(16B+varname), then 2B pad. count=0→13B (hash refresh), count=N→header+N slots (~+23B/slot incl short name). slotCount@9 correlates with size; unk8=1 in equipment samples. Re-confirmed equipment form 2026-05-27 (wearchange-clean: 30 fires on equip/remove, 13B refresh, field@4=material code). POLYMORPHIC: this same wire opcode also carries buff-icon arrays (21B blocks: {spellID, value, caster-name\0}) as a spawn-state broadcast — multiple spawn ids, fires on zone-in and around buff events. Those variants don't match SpawnUpdateStruct (SZC_Match) so they're unhandled, but appear in --list-events/--dump-payload — do NOT mistake them for a buff/BuffQuery opcode (cost a full 2026-05-27 hunt). Dedicated buff broadcast is OP_Buff 0x18b4 (trailing flag distinguishes).</comment>
         <payload dir="server" typename="wearChangeStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="9826" name="OP_SpawnAppearance" updated="05/20/26">
@@ -576,8 +576,8 @@
         <comment>C>S: {u32 buff_slot, u32 self_spawn_id} (8 bytes). Client requests server reconfirm buff slot N at zone-in. Fires once per occupied buff slot on the SECOND zone-in after a buff was applied (not the first — the buff must survive one full zone cycle before the client requests verification). Server responds with OP_Buff for that slot. Wire-verified: slot=0 → OP_Buff IVU(225) spellslot=0; slot=1 → DE(352) spellslot=1; slot=2/1/0 → SLW/SoW/Regen.</comment>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="3f37" name="OP_BuffWindow" updated="05/25/26">
-        <comment>S>C: fires 10x per zone-in (slots 0-9), one packet per slot. Payload: {u32 slot, u32 spellid=0xffffffff_empty, u32 pad} (12 bytes). Initializes the short-duration buff window at zone-in. Field2 always 0xffffffff in all observed captures — active buffs come via OP_Buff/OP_BuffQuery instead. Never fires mid-session. Wire-verified across 4 captures (100 total fires).</comment>
+    <opcode id="0a37" name="OP_BuffWindow" updated="05/27/26">
+        <comment>S>C: fires 10x per zone-in (slots 0-9), one packet per slot. Payload: {u32 slot, u32 spellid=0xffffffff_empty, u32 pad} (12 bytes). Initializes the short-duration buff window at zone-in. Field2 always 0xffffffff in all observed captures — long-duration buffs come via OP_Buff / the buff-bar sync instead. Never fires mid-session. Re-confirmed 2026-05-27 (buffquery-fresh2: 30 fires = 10 slots × 3 zone-ins, byte-exact). The prior 0x3f37 assignment (2026-05-25) was a misidentification — 0x3f37 does not fire at all in clean buff captures.</comment>
         <payload dir="server" typename="buffWindowSlotStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="8cd3" name="OP_SpawnAppearance2" updated="05/27/26">
