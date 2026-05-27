@@ -179,20 +179,20 @@
         <comment>S>C buff broadcast — variable length, no legacy 168b buffStruct fit. Observed forms: 13b (likely fade: {u32 spawnID, u32 spellID, u16=0x0001, u8=0, u8 slot, u8=0}); 30b (single self-buff add, no caster); 34/51/53/59b (one or two embedded blocks each carrying {tag=0x036a u32, counter u32, padding, caster-name\0}); 85b (3-block form). Pre-patch OP_Buff 0x55b9 no longer fires; this slot carries all buff broadcasts. Confirmed across 53 fires (3 captures) — only opcode firing this variable-size buff-shaped pattern.</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="271f" name="OP_BeginCast" updated="05/11/26">
-        <comment>BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad}</comment>
+    <opcode id="e6dd" name="OP_BeginCast" updated="05/26/26">
+        <comment>BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad}. Re-confirmed post-2026-05-22 patch (castTime decodes to real ms: 4000/6500/9000).</comment>
         <payload dir="server" typename="beginCastStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="f571" name="OP_CastSpell" updated="05/11/26">
-        <comment>StartCastCode</comment>
+    <opcode id="ead6" name="OP_CastSpell" updated="05/26/26">
+        <comment>StartCastCode - C>S 39B: {i32 gemSlot, u32 spellId, u8[10] 0xff, u32 targetId, ...}. Re-confirmed post-2026-05-22 patch.</comment>
         <payload dir="client" typename="startCastStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_SwapSpell" updated="07/19/23">
         <comment>TradeSpellBookSlotsCode</comment>
         <payload dir="both" typename="tradeSpellBookSlotsStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="e42f" name="OP_MemorizeSpell" updated="05/13/26">
-        <comment>Bidirectional 16B: {u32 gem_slot, u32 spellId, int16 action, int16 pad, u8[4] unknown}. action=1 C>S begin memorizing (no ack); action=2 C>S+S>C memorize complete (client shows 'You have finished memorizing'); action=3 C>S+S>C zone-in spell sync (declare existing spell in slot). Wire-verified: gem6/7 + IVU(225)/EC(235)/spell347.</comment>
+    <opcode id="904f" name="OP_MemorizeSpell" updated="05/26/26">
+        <comment>Bidirectional 16B: {u32 gem_slot, u32 spellId, int16 action, int16 pad, u8[4] unknown}. action=1 C>S begin memorizing (no ack); action=2 C>S+S>C memorize complete (client shows 'You have finished memorizing'); action=3 C>S+S>C zone-in spell sync (declare existing spell in slot); action=4 observed post-patch (gem clear/forget, semantics TBD). Re-confirmed post-2026-05-22 patch: 11 C>S + 11 S>C balanced.</comment>
         <payload dir="both" typename="memSpellStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="57f1" name="OP_InspectAnswer" updated="05/25/26">
