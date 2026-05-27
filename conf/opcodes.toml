@@ -375,10 +375,10 @@ comment = "Grouped invite: C>S 168B (inviter sends) / S>C 176B (server relays to
   sizechecktype = "none"
 
 [[zone]]
-id      = "bf04"
+id      = "7ee2"
 name    = "OP_GroupCancelInvite"
-updated = "2026-05-07"
-comment = "Client-side decline-invite OR leave/disband-group request (modern: 168 bytes; name fields = self+self when leaving). C>S only in observed captures."
+updated = "2026-05-27"
+comment = "Client-side decline-invite OR leave/disband-group request (168 bytes; name fields = self+self when leaving). C>S only in observed captures. Re-confirmed post-2026-05-22 patch (group-2variants: only C>S group-action unknown, fires before disband, self+self)."
 
   [[zone.payloads]]
   dir           = "client"
@@ -397,10 +397,10 @@ comment = "Member added (modern: 68 bytes, name at offset 0)."
   sizechecktype = "none"
 
 [[zone]]
-id      = "e92d"
+id      = "4396"
 name    = "OP_GroupFollow2"
-updated = "2026-05-07"
-comment = "Player joins your group (modern: 168 bytes; member name at offset 64, leading 64 bytes zero)"
+updated = "2026-05-27"
+comment = "Player joins your group (168 bytes; member name at offset 64, leading 64 bytes zero, lean tail w/ level field). Re-confirmed post-2026-05-22 patch (group-2variants: fires per form, S>C, simplest of the two form-time structs)."
 
   [[zone.payloads]]
   dir           = "server"
@@ -868,10 +868,10 @@ comment = "Seems to be sent to handle a variety of UI updates - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "b7c6"
+id      = "7324"
 name    = "OP_GroupMemberList"
-updated = "2026-05-07"
-comment = "List of group members - Variable length. Fires S>C once per form-event broadcast to all current members; in 2-person captures observed at 168 bytes (name+name+rich trailer)."
+updated = "2026-05-27"
+comment = "List of group members - Variable length. Fires S>C once per form-event; in 2-person captures observed at 168 bytes (member name@64 + rich descriptor tail: level, spawn id, multiple fields). Re-confirmed post-2026-05-22 patch (group-2variants: richer of the two form-time structs vs lean OP_GroupFollow2)."
 
   [[zone.payloads]]
   dir           = "server"
