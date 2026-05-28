@@ -64,6 +64,9 @@ class GroupMgr: public QObject
   void player(const charProfileStruct* player); 
   void groupUpdate(const uint8_t* data, size_t size);
   void addGroupMember(const uint8_t* data);
+  // OP_GroupFollow2 carries the joining member's name at offset 64
+  // (groupFollowStruct shape), not offset 0 like OP_GroupFollow.
+  void addGroupMember2(const uint8_t* data);
   void removeGroupMember(const uint8_t* data);
   void addItem(const Item* item);
   void delItem(const Item* item);

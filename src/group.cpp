@@ -110,10 +110,10 @@ void GroupMgr::groupUpdate(const uint8_t* /*data*/, size_t /*size*/)
 
 void GroupMgr::addGroupMember(const uint8_t* data)
 {
-   // Modern OP_GroupFollow (opcode 0x1bcd, 68 bytes) puts the joining
-   // member's name as a null-terminated string at offset 0 (max 64
-   // bytes). The legacy groupFollowStruct laid out invitee[64] at
-   // offset 64 with a leading zero block — that shape is gone.
+   // OP_GroupFollow (opcode 0x01dc, 68 bytes) puts the joining member's
+   // name as a null-terminated string at offset 0 (max 64 bytes). The
+   // legacy groupFollowStruct laid out invitee[64] at offset 64 with a
+   // leading zero block — that shape moved to OP_GroupFollow2 below.
    const char* nameBytes = reinterpret_cast<const char*>(data);
    const QString name = QString::fromLatin1(
        nameBytes, qstrnlen(nameBytes, 64));
@@ -122,6 +122,44 @@ void GroupMgr::addGroupMember(const uint8_t* data)
 
    for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
    {
+      if (m_members[i]->m_name == name) return;  // already tracked
+      if (m_members[i]->m_name.isEmpty())
+      {
+         m_members[i]->m_name = name;
+         m_memberCount++;
+
+         m_members[i]->m_spawn = m_spawnShell->findPlayerByDisplayName(name);
+         if (m_members[i]->m_spawn)
+            m_membersInZoneCount++;
+
+         emit added(name, m_members[i]->m_spawn);
+         break;
+      }
+   }
+}
+
+void GroupMgr::addGroupMember2(const uint8_t* data)
+{
+   // OP_GroupFollow2 (opcode 0xb5b6, 152-byte groupFollowStruct).
+   // Member name at offset 64; offset 132 carries the joining level
+   // we don't yet surface. Fires both on live joins AND on zone-in
+   // replay of the existing roster — the latter is the only way the
+   // daemon can recover group members who joined before this process
+   // started. The dedupe in the loop guards against the replay path
+   // double-counting members tracked via OP_GroupFollow.
+   const char* nameBytes = reinterpret_cast<const char*>(data + 64);
+   const QString name = QString::fromLatin1(
+       nameBytes, qstrnlen(nameBytes, 64));
+
+   if (name.isEmpty()) return;
+
+   // The player's own name shows up in some forms — don't list yourself
+   // as a group peer.
+   if (m_player && name == m_player->name()) return;
+
+   for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
+   {
+      if (m_members[i]->m_name == name) return;  // already tracked
       if (m_members[i]->m_name.isEmpty())
       {
          m_members[i]->m_name = name;

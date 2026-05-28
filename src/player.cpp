@@ -374,17 +374,16 @@ void Player::loadProfile(const playerProfileStruct& player)
     m_purchasedAA.push_back({player.aa_array[i].AA, player.aa_array[i].value});
   }
 
-  // Buffs
-  int buffnumber;
-  const struct spellBuff *buff;
-  for (buffnumber=0;buffnumber<MAX_BUFFS;buffnumber++)
-  {
-    if (player.buffs[buffnumber].spellid && player.buffs[buffnumber].duration)
-    {
-      buff = &(player.buffs[buffnumber]);
-      emit buffLoad(buff);
-    }
-  }
+  // Buffs: the legacy charProfileStruct.buffs[42] array at offset 0x8140
+  // (spellBuff{u32 playerId@4, i32 duration@12, i32 spellid@21, ...}, 110b
+  // each) no longer matches the modern profile layout — the surrounding
+  // profile fields are already known stale (see CLAUDE.md on MANA@950 /
+  // curHp@954 / stat block 956–983). Reading these bytes lands in unrelated
+  // profile content, but the spellid+duration!=0 gate passes for most
+  // entries by coincidence, producing 30+ bogus buffs with hour-scale
+  // durations in BuffsPanel. Active buffs now come from OP_Buff
+  // (variable-size; SpellShell::buff handles the wire form) and
+  // OP_Action; nothing here is the source of truth.
 }
 
 void Player::player(const charProfileStruct* player)

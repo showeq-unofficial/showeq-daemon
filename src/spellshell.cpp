@@ -300,71 +300,99 @@ void SpellShell::buffLoad(const spellBuff* c)
   }
 }
 
-void SpellShell::buff(const uint8_t* data, size_t, uint8_t dir)
+void SpellShell::buff(const uint8_t* data, size_t size, uint8_t dir)
 {
-  // we only care about the server
+  // Server-side broadcasts only — the client never sends OP_Buff with
+  // useful state, and DIR_Client fires are echo/noise.
   if (dir == DIR_Client)
     return;
 
-  const buffStruct* b = (const buffStruct*)data;
+  // Post-2026-05-22 OP_Buff (opcode 0x18b4) is variable-size; the legacy
+  // 168-byte buffStruct is dead. Wire forms cracked from captures
+  // (buffquery-fresh2.vpk, 9 fires):
+  //
+  //   Header (all forms): u32 spawnID, u32 spellID
+  //   13b "fade": u16 0x0001, u8 0, u8 slot, u8 0
+  //   30b "slot occupied, no metadata" (OP_BuffQuery initial sync):
+  //     {u8 0, u8 slot, u8 0, u8 1, u8[3] 0, u32 0xffffffff,
+  //      u8[9] 0, u16 0x0001}
+  //   34/55/76b "live update": {u8 1, u8 block_count, u8[5] 0} followed
+  //     by N blocks of {u32 dur_ticks, u32 init_ticks, u32 pad,
+  //     char caster_name[]\0} separated by a 4-byte inter-block sep
+  //     and a trailing u16 0x0001 terminator. Block 1's duration is
+  //     the buff's remaining time; subsequent blocks are sub-effect
+  //     stacks the panel doesn't surface.
+  //
+  // BuffsPanel only renders the local player's buffs, so any other
+  // spawnID (groupmate or random nearby player) is broadcast noise.
+  // Filter early instead of letting m_spellList grow into a zone-wide
+  // buff dump.
+  if (size < 8) return;
 
-  // spellid=0xffffffff is a legacy no-op marker; ignore it.
-  if (b->spellid == 0xffffffff)
+  const uint32_t spawnId =
+      uint32_t(data[0]) | (uint32_t(data[1]) << 8) |
+      (uint32_t(data[2]) << 16) | (uint32_t(data[3]) << 24);
+  const uint32_t spellId =
+      uint32_t(data[4]) | (uint32_t(data[5]) << 8) |
+      (uint32_t(data[6]) << 16) | (uint32_t(data[7]) << 24);
+
+  if (m_player->id() != 0 && spawnId != m_player->id())
     return;
 
-  // spellid=0 with duration=0 means the server cleared a buff slot.
-  // Find the spell occupying that slot by slot index and remove it.
-  if (b->spellid == 0) {
-    if (b->duration == 0) {
-      SpellItem* slot_item = findSpellBySlot(b->spellslot);
-      if (slot_item)
-        deleteSpell(slot_item);
-    }
+  // 0xffffffff is a legacy no-op marker that occasionally appears as a
+  // spellID in 13b forms — drop silently.
+  if (spellId == 0xffffffff || spellId == 0)
+    return;
+
+  const Spell* spell = m_spells->spell(spellId);
+  SpellItem* item = findSpell(spellId, spawnId, QString());
+
+  // 13-byte fade: clear the buff if we're tracking it.
+  if (size == 13) {
+    if (item) deleteSpell(item);
+    return;
+  }
+
+  // 30-byte initial-sync form has no on-wire duration — fall back to the
+  // spell DB's level-scaled value (matches action() and the legacy buff
+  // load path). If the DB doesn't know the spell we can't synthesize a
+  // sensible duration; skip rather than emit a 0-second flicker.
+  int duration = 0;
+  uint8_t slot = 0xff;
+  if (size == 30) {
+    slot = data[9];
+    if (spell) duration = spell->calcDuration(m_player->level()) * 6;
+    if (duration <= 0) return;
+  } else if (size >= 34) {
+    // Block 1 starts at offset 15 (after the 15-byte header). Block 1's
+    // duration tick count is the player's remaining time.
+    if (size < 15 + 4) return;
+    const uint32_t durTicks =
+        uint32_t(data[15]) | (uint32_t(data[16]) << 8) |
+        (uint32_t(data[17]) << 16) | (uint32_t(data[18]) << 24);
+    duration = int(durTicks) * 6;
+    if (duration <= 0) return;
+  } else {
+    // Unrecognized size — defer to a future capture rather than guessing.
+#ifdef DIAG_SPELLSHELL
+    seqDebug("OP_Buff: unrecognized size %zu for spell %d", size, spellId);
+#endif
     return;
   }
 
 #ifdef DIAG_SPELLSHELL
-  seqDebug("Changing buff - id=%d from spawn=%d dur=%d", b->spellid, b->spawnid, b->duration);
-#endif // DIAG_SPELLSHELL
+  seqDebug("OP_Buff %zub - spell=%d spawn=%d dur=%ds", size, spellId, spawnId, duration);
+#endif
 
-  const Spell* spell = m_spells->spell(b->spellid);
-
-  // find the spell item
-  SpellItem* item;
-  const Item* s;
-  QString targetName;
-  if (!spell || spell->targetType() != 6)
-  {
-    if (b->spawnid &&
-        ((s = m_spawnShell->findID(tSpawn, b->spawnid))))
-      targetName = s->name();
-
-    item = findSpell(b->spellid, b->spawnid, targetName);
-  }
-  else
-    item = findSpell(b->spellid);
-
-  // On Live, changetype is always 1 for all buff state changes. Use
-  // duration==0 as the removal signal instead.
-  if (b->duration == 0) {
-    if (item)
-      deleteSpell(item);
-    return;
-  }
-
-  // duration > 0: buff applied or refreshed.
-  int duration = b->duration * 6;
   if (item) {
     item->setDuration(duration);
-    item->setBuffSlot(b->spellslot);
+    if (slot != 0xff) item->setBuffSlot(slot);
     emit changeSpell(item);
   } else {
-    // Buff not previously tracked (e.g. zone-in load from OP_Buff before
-    // action() fires, or a buff cast while the daemon wasn't running).
     item = new SpellItem();
-    item->update(b->spellid, spell, duration,
-                 0, QString(), b->spawnid, targetName);
-    item->setBuffSlot(b->spellslot);
+    item->update(spellId, spell, duration,
+                 0, QString(), spawnId, QString());
+    if (slot != 0xff) item->setBuffSlot(slot);
     m_spellList.append(item);
     if (!m_timer->isActive())
       m_timer->start(1000 *

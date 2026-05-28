@@ -706,6 +706,15 @@ void DaemonApp::wireSpawnShell()
                        "groupFollowStruct", SZC_None,
                        m_groupMgr,
                        SLOT(addGroupMember(const uint8_t*)));
+    // OP_GroupFollow2 (152b form, name at offset 64). The TOML notes it
+    // fires per existing roster member at zone-in — the only path to
+    // recover a pre-existing group when the daemon starts mid-session
+    // (charProfileStruct.groupMembers[] no longer exists, OP_GroupUpdate
+    // carries no peer identity).
+    m_packet->connect2("OP_GroupFollow2", SP_Zone, DIR_Server,
+                       "groupFollowStruct", SZC_None,
+                       m_groupMgr,
+                       SLOT(addGroupMember2(const uint8_t*)));
     m_packet->connect2("OP_GroupDisband", SP_Zone, DIR_Server,
                        "groupDisbandStruct", SZC_None,
                        m_groupMgr,
@@ -720,8 +729,13 @@ void DaemonApp::wireSpawnShell()
                        "startCastStruct", SZC_Match,
                        m_spellShell,
                        SLOT(selfStartSpellCast(const uint8_t*)));
-    m_packet->connect2("OP_Buff", SP_Zone, DIR_Server|DIR_Client,
-                       "buffStruct", SZC_Match,
+    // OP_Buff is variable-size on modern Live (13/30/34/55/76b — see the
+    // size-dispatch in SpellShell::buff). The TOML registers it as
+    // uint8_t/SZC_None to suppress the size guard; match that here so the
+    // dispatch actually fires instead of silently dropping every packet
+    // via EQPacketStream::connect2's typeName mismatch.
+    m_packet->connect2("OP_Buff", SP_Zone, DIR_Server,
+                       "uint8_t", SZC_None,
                        m_spellShell,
                        SLOT(buff(const uint8_t*, size_t, uint8_t)));
     m_packet->connect2("OP_Action", SP_Zone, DIR_Server|DIR_Client,
