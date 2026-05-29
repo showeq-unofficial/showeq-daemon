@@ -634,6 +634,47 @@ void ZoneMgr::zonePlayer(const uint8_t* data, size_t len)
            sizeof(player->profile.skills));
   }
 
+  // Buffs: same parser-skid story as skills, plus the buff array offset
+  // *varies between captures* (observed 0x30e4 / 0x31c1 / 0x330b across
+  // 19 OP_PlayerProfile dumps) because the netstream parser consumes
+  // different numbers of bytes upstream depending on what else is in
+  // the profile. Locate the array by signature: each 110-byte spellBuff
+  // slot carries `float 1.0` at +98 (the per-buff modifier the server
+  // initializes for every slot, occupied or empty). Scan for runs of
+  // ≥3 such floats at 110-byte intervals in the rough region where the
+  // array lives (0x3000..end), pick the longest run, and overlay the
+  // whole 42*110=4620-byte array onto player->profile.buffs.
+  // The slot's field layout shifted post-patch — the leading 12-byte
+  // unknown block in legacy spellBuff is gone, so spellid / duration /
+  // initDuration / level / effect all sit 12 bytes earlier than their
+  // legacy comment-offsets. See the updated spellBuff in everquest.h.
+  {
+    constexpr size_t kModOffset = offsetof(spellBuff, modifier);
+    constexpr uint32_t kOneLE = 0x3f800000u;  // float 1.0 little-endian
+    size_t buffArrayStart = 0;
+    size_t bestRun = 0;
+    for (size_t off = 0x3000; off + sizeof(spellBuff) <= len; ++off) {
+      uint32_t v;
+      std::memcpy(&v, data + off + kModOffset, sizeof(v));
+      if (v != kOneLE) continue;
+      // Count consecutive 110-apart anchors starting here.
+      size_t run = 1;
+      size_t cur = off + sizeof(spellBuff);
+      while (cur + sizeof(spellBuff) <= len) {
+        std::memcpy(&v, data + cur + kModOffset, sizeof(v));
+        if (v != kOneLE) break;
+        ++run; cur += sizeof(spellBuff);
+      }
+      if (run > bestRun) { bestRun = run; buffArrayStart = off; }
+    }
+    if (bestRun >= 3) {
+      const size_t bufBytes = sizeof(player->profile.buffs);
+      const size_t copyBytes =
+          std::min(bufBytes, len - buffArrayStart);
+      std::memcpy(player->profile.buffs, data + buffArrayStart, copyBytes);
+    }
+  }
+
   m_shortZoneName = zoneNameFromID(player->zoneId);
   m_longZoneName = zoneLongNameFromID(player->zoneId);
   m_zone_exp_multiplier = defaultZoneExperienceMultiplier;

@@ -30,6 +30,7 @@
 
 #include <cstring>
 
+#include <QSet>
 #include <QTextStream>
 
 GroupMgr::GroupMgr(SpawnShell* spawnShell,
@@ -108,69 +109,100 @@ void GroupMgr::groupUpdate(const uint8_t* /*data*/, size_t /*size*/)
   // and reconcile m_members ordering if the UI ever needs it.
 }
 
-void GroupMgr::addGroupMember(const uint8_t* data)
+void GroupMgr::groupMemberList(const uint8_t* data, size_t size)
 {
-   // OP_GroupFollow (opcode 0x01dc, 68 bytes) puts the joining member's
-   // name as a null-terminated string at offset 0 (max 64 bytes). The
-   // legacy groupFollowStruct laid out invitee[64] at offset 64 with a
-   // leading zero block — that shape moved to OP_GroupFollow2 below.
-   const char* nameBytes = reinterpret_cast<const char*>(data);
-   const QString name = QString::fromLatin1(
-       nameBytes, qstrnlen(nameBytes, 64));
+   // OP_GroupMemberList (0x312a) wire layout (cracked 2026-05-28 from
+   // groupbuff-repro.vpk + group-2variants.vpk):
+   //
+   //   u32 group_id
+   //   u32 member_count          // 1..6
+   //   <slot 0 — leader, extended record: 48b solo, ~56b w/ assist,
+   //    ~58b with full leader-class field; null-padded name fields and
+   //    an i32 level-or-class value follow>
+   //   For i in 1..member_count-1:
+   //     u32 slot_idx = i
+   //     char name[]; null-terminated, padded to 8 or 16 bytes
+   //     i32 level
+   //     u8[~36] padding
+   //
+   // The slot-0 (leader) record has variable per-capture width because
+   // both name field and an embedded assist-name field are individually
+   // null-padded — the exact padding depends on string length. Rather
+   // than reverse-engineer every field, we scan forward for printable
+   // ASCII strings: each non-empty run between nulls is a member name,
+   // capped at member_count and de-duplicated (the leader name appears
+   // twice in the slot-0 record, and the player's own name shouldn't be
+   // re-added as a peer). This handles every observed packet shape
+   // without needing per-size special cases.
+   if (size < 8) return;
+   const uint32_t memberCount =
+       uint32_t(data[4]) | (uint32_t(data[5]) << 8) |
+       (uint32_t(data[6]) << 16) | (uint32_t(data[7]) << 24);
+   if (memberCount == 0 || memberCount > MAX_GROUP_MEMBERS) return;
 
-   if (name.isEmpty()) return;
+   // Walk the payload first into a peer set; do not touch m_members yet
+   // — we want a *diff* so subscribers see only the actual change (one
+   // `added` on a mid-zone join, one `removed` on a mid-zone leave),
+   // not a "remove all → re-add all" churn that would briefly empty the
+   // panel on every roster mutation.
+   const QString self = m_player ? m_player->name() : QString();
+   QSet<QString> incoming;
+   incoming.reserve(int(memberCount));
+   // EQ names are capitalized and ≥3 characters; this guards against
+   // stray printable bytes (e.g. 0x3c = '<' from a small u32 level field
+   // adjacent to the name area) being mis-scanned as 1-char names.
+   auto isNameStart = [](uint8_t b) { return b >= 'A' && b <= 'Z'; };
+   auto isNameByte  = [](uint8_t b) { return (b >= 'A' && b <= 'Z') ||
+                                             (b >= 'a' && b <= 'z') ||
+                                             (b >= '0' && b <= '9') ||
+                                              b == '_'; };
 
-   for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
-   {
-      if (m_members[i]->m_name == name) return;  // already tracked
-      if (m_members[i]->m_name.isEmpty())
-      {
-         m_members[i]->m_name = name;
-         m_memberCount++;
+   size_t pos = 8;
+   while (pos < size) {
+      while (pos < size && !isNameStart(data[pos])) ++pos;
+      if (pos >= size) break;
+      const size_t start = pos;
+      while (pos < size && isNameByte(data[pos])) ++pos;
+      if (pos - start < 3) continue;  // too short to be an EQ name
+      const QString name = QString::fromLatin1(
+          reinterpret_cast<const char*>(data + start),
+          int(pos - start));
+      if (pos < size) ++pos;  // consume terminator
+      if (name == self) continue;  // peer set excludes self
+      incoming.insert(name);
+   }
 
-         m_members[i]->m_spawn = m_spawnShell->findPlayerByDisplayName(name);
-         if (m_members[i]->m_spawn)
-            m_membersInZoneCount++;
-
-         emit added(name, m_members[i]->m_spawn);
-         break;
+   // Remove members no longer present.
+   for (int i = 0; i < MAX_GROUP_MEMBERS; ++i) {
+      const QString& n = m_members[i]->m_name;
+      if (!n.isEmpty() && !incoming.contains(n)) {
+         emit removed(n, m_members[i]->m_spawn);
+         if (m_members[i]->m_spawn) m_membersInZoneCount--;
+         m_members[i]->m_name.clear();
+         m_members[i]->m_spawn = nullptr;
+         m_memberCount--;
       }
    }
-}
 
-void GroupMgr::addGroupMember2(const uint8_t* data)
-{
-   // OP_GroupFollow2 (opcode 0xb5b6, 152-byte groupFollowStruct).
-   // Member name at offset 64; offset 132 carries the joining level
-   // we don't yet surface. Fires both on live joins AND on zone-in
-   // replay of the existing roster — the latter is the only way the
-   // daemon can recover group members who joined before this process
-   // started. The dedupe in the loop guards against the replay path
-   // double-counting members tracked via OP_GroupFollow.
-   const char* nameBytes = reinterpret_cast<const char*>(data + 64);
-   const QString name = QString::fromLatin1(
-       nameBytes, qstrnlen(nameBytes, 64));
-
-   if (name.isEmpty()) return;
-
-   // The player's own name shows up in some forms — don't list yourself
-   // as a group peer.
-   if (m_player && name == m_player->name()) return;
-
-   for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
-   {
-      if (m_members[i]->m_name == name) return;  // already tracked
-      if (m_members[i]->m_name.isEmpty())
-      {
-         m_members[i]->m_name = name;
-         m_memberCount++;
-
-         m_members[i]->m_spawn = m_spawnShell->findPlayerByDisplayName(name);
-         if (m_members[i]->m_spawn)
-            m_membersInZoneCount++;
-
-         emit added(name, m_members[i]->m_spawn);
-         break;
+   // Add members not yet tracked. Existing entries keep their slot index
+   // so subscribers that key on slot don't re-order on every mutation.
+   QSet<QString> existing;
+   for (int i = 0; i < MAX_GROUP_MEMBERS; ++i) {
+      if (!m_members[i]->m_name.isEmpty())
+         existing.insert(m_members[i]->m_name);
+   }
+   for (const QString& name : incoming) {
+      if (existing.contains(name)) continue;
+      for (int slot = 0; slot < MAX_GROUP_MEMBERS; ++slot) {
+         if (m_members[slot]->m_name.isEmpty()) {
+            m_members[slot]->m_name = name;
+            m_members[slot]->m_spawn =
+                m_spawnShell->findPlayerByDisplayName(name);
+            m_memberCount++;
+            if (m_members[slot]->m_spawn) m_membersInZoneCount++;
+            emit added(name, m_members[slot]->m_spawn);
+            break;
+         }
       }
    }
 }

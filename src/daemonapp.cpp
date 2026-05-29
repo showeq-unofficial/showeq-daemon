@@ -702,19 +702,16 @@ void DaemonApp::wireSpawnShell()
                        "uint8_t", SZC_None,
                        m_groupMgr,
                        SLOT(groupUpdate(const uint8_t*, size_t)));
-    m_packet->connect2("OP_GroupFollow", SP_Zone, DIR_Server,
-                       "groupFollowStruct", SZC_None,
+    // OP_GroupMemberList (0x312a) is the modern roster broadcast — full
+    // refresh on zone-in AND on every join/leave (group-2variants
+    // capture: every OP_GroupFollow fires alongside two 0x312a packets).
+    // It supersedes the per-member OP_GroupFollow/OP_GroupFollow2
+    // handlers that would otherwise produce spurious remove-then-re-add
+    // churn when both wires fire on the same event.
+    m_packet->connect2("OP_GroupMemberList", SP_Zone, DIR_Server,
+                       "uint8_t", SZC_None,
                        m_groupMgr,
-                       SLOT(addGroupMember(const uint8_t*)));
-    // OP_GroupFollow2 (152b form, name at offset 64). The TOML notes it
-    // fires per existing roster member at zone-in — the only path to
-    // recover a pre-existing group when the daemon starts mid-session
-    // (charProfileStruct.groupMembers[] no longer exists, OP_GroupUpdate
-    // carries no peer identity).
-    m_packet->connect2("OP_GroupFollow2", SP_Zone, DIR_Server,
-                       "groupFollowStruct", SZC_None,
-                       m_groupMgr,
-                       SLOT(addGroupMember2(const uint8_t*)));
+                       SLOT(groupMemberList(const uint8_t*, size_t)));
     m_packet->connect2("OP_GroupDisband", SP_Zone, DIR_Server,
                        "groupDisbandStruct", SZC_None,
                        m_groupMgr,

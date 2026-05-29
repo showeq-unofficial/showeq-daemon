@@ -312,8 +312,12 @@
         <comment>Seems to be sent to handle a variety of UI updates - Variable length</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="7324" name="OP_GroupMemberList" updated="05/27/26">
-        <comment>List of group members - Variable length. Fires S>C once per form-event; in 2-person captures observed at 168 bytes (member name@64 + rich descriptor tail: level, spawn id, multiple fields). Re-confirmed post-2026-05-22 patch (group-2variants: richer of the two form-time structs vs lean OP_GroupFollow2).</comment>
+    <opcode id="7324" name="OP_GroupMemberInfo" updated="05/28/26">
+        <comment>Recipient-only group event notification (modern: 168 bytes; recipient name@64, leading 64b zero, tail u32 epoch + group_id + spawn_id fields). NOT the actual roster — that's OP_GroupMemberList=0x312a. Misidentified previously based on 'fires per form-event' shape alone; content fingerprint shows only the recipient's own name with no peer identity. Kept named distinctly to avoid confusion; needs a real purpose attribution.</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+    </opcode>
+    <opcode id="312a" name="OP_GroupMemberList" updated="05/28/26">
+        <comment>Modern group roster broadcast. Variable length (54-301b observed: 1-2 members at 54-107b, 6-member group at 301b). Wire layout: {u32 groupId, u32 memberCount} header, then a slot-0 leader extended record (2 null-padded name fields + u32 level/class + flags), then (memberCount-1) regular slot records each prefixed with u32 slotIdx (1, 2, …) and a null-padded name. Fires S>C at zone-in (existing roster recovery) AND on every roster mutation. Confirmed against groupbuff-repro.vpk (6-member, leader name + 5 slot markers found at 48-byte intervals starting at offset 0x42) and group-2variants.vpk (1- and 2-member cases).</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="4058" name="OP_GuildMemberList" updated="05/20/26">

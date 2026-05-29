@@ -449,20 +449,30 @@ struct Color_Struct
 * Used in charProfileStruct. Buffs
 * Length: 110 Octets
 */
+// Post-2026-05-22 patch: the leading 12-byte unknown block + playerId
+// (caster spawn id) is GONE. Field offsets compacted by 12; the trailing
+// padding grew to keep the 110-byte slot size constant. Cracked from
+// groupbuff-repro.vpk PlayerProfile (spell 0xdb 'Center' in slot 0,
+// duration 227 ticks of 270 init, level 16) with the `float 1.0` modifier
+// at +99 used as the per-slot anchor for the array-locator scan in
+// ZoneMgr::zonePlayer. caster spawn id no longer reachable from here;
+// SpellShell::buff (OP_Buff wire) is the new source for caster spawn id.
 struct spellBuff
 {
-/*0000*/ uint8_t unknown0000;                    //
-/*0001*/ uint8_t unknown0001;                    //
-/*0002*/ uint8_t unknown0002;                    //
-/*0003*/ uint8_t unknown0003;                    //
-/*0004*/ uint32_t playerId;                      // Global id of caster (for wear off)
-/*0008*/ uint32_t unknown0008;                   // *** Placeholder
-/*0012*/ int32_t duration;                       // Time remaining in ticks
-/*0016*/ int32_t unknown0016;                    // Buff length in ticks
-/*0020*/ int8_t level;                           // Level of person who cast buff
-/*0021*/ int32_t spellid;                        // Spell
-/*0025*/ int32_t effect;                         // holds the dmg absorb amount on runes
-/*0029*/ uint8_t unknown0029[81];
+/*0000*/ int32_t duration;                       // Time remaining in ticks
+/*0004*/ int32_t initDuration;                   // Buff length in ticks
+/*0008*/ int8_t level;                           // Level of caster
+/*0009*/ int32_t spellid;                        // Spell (unaligned!)
+/*0013*/ int32_t effect;                         // Dmg-absorb amount on runes
+/*0017*/ uint8_t unknown0017[81];                // 81 bytes of zeros + 0xff
+                                                 // sentinel cells (slot-empty
+                                                 // markers for sub-effects)
+/*0098*/ float    modifier;                      // per-buff multiplier (always
+                                                 // observed = 1.0); used by
+                                                 // ZoneMgr::zonePlayer as the
+                                                 // 110-byte-period anchor for
+                                                 // locating the buff array
+/*0102*/ uint8_t unknown0102[8];                 // tail padding
 /*0110*/
 };
 
