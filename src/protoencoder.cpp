@@ -301,7 +301,7 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
 
 void fillGroupUpdate(seq::v1::GroupUpdate* out, GroupMgr& g)
 {
-    for (uint16_t slot = 0; slot < MAX_GROUP_MEMBERS; ++slot) {
+    for (uint16_t slot = 0; slot < MAX_GROUP_PEERS; ++slot) {
         auto* m = out->add_members();
         m->set_slot(slot);
         const QString name = g.memberNameBySlot(slot);

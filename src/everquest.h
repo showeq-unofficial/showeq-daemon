@@ -121,6 +121,9 @@
 #define MAX_KNOWN_LANGS                 32
 #define MAX_SPELLBOOK_SLOTS             800
 #define MAX_GROUP_MEMBERS               6
+// Peer slots: the local player is filtered out of the GroupMgr roster, so
+// only up to MAX_GROUP_MEMBERS-1 = 5 peers are ever tracked/emitted.
+#define MAX_GROUP_PEERS                 (MAX_GROUP_MEMBERS - 1)
 #define MAX_BUFFS                       42
 #define MAX_GUILDS                      32768
 #define MAX_AA                          300

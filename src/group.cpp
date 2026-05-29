@@ -43,19 +43,19 @@ GroupMgr::GroupMgr(SpawnShell* spawnShell,
     m_membersInZoneCount(0)
 {
   setObjectName(name);
-  for (int i=0; i<MAX_GROUP_MEMBERS; i++)
+  for (int i=0; i<MAX_GROUP_PEERS; i++)
   {
     m_members[i] = new GroupMember();
   }
 
   // clear the array of members
-  for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
+  for (int i = 0; i < MAX_GROUP_PEERS; i++)
     m_members[i]->m_spawn = 0;
 }
 
 GroupMgr::~GroupMgr()
 {
-  for (int i=0; i<MAX_GROUP_MEMBERS; i++)
+  for (int i=0; i<MAX_GROUP_PEERS; i++)
   {
     delete m_members[i];
   }
@@ -77,7 +77,7 @@ void GroupMgr::player(const charProfileStruct* player)
 //            need to reset the data as done above.
 #if 0
   // initialize the array of members with information from the player profile
-  for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
+  for (int i = 0; i < MAX_GROUP_PEERS; i++)
   {
      m_members[i]->m_name = player->groupMembers[i];
 
@@ -173,7 +173,7 @@ void GroupMgr::groupMemberList(const uint8_t* data, size_t size)
    }
 
    // Remove members no longer present.
-   for (int i = 0; i < MAX_GROUP_MEMBERS; ++i) {
+   for (int i = 0; i < MAX_GROUP_PEERS; ++i) {
       const QString& n = m_members[i]->m_name;
       if (!n.isEmpty() && !incoming.contains(n)) {
          emit removed(n, m_members[i]->m_spawn);
@@ -187,13 +187,13 @@ void GroupMgr::groupMemberList(const uint8_t* data, size_t size)
    // Add members not yet tracked. Existing entries keep their slot index
    // so subscribers that key on slot don't re-order on every mutation.
    QSet<QString> existing;
-   for (int i = 0; i < MAX_GROUP_MEMBERS; ++i) {
+   for (int i = 0; i < MAX_GROUP_PEERS; ++i) {
       if (!m_members[i]->m_name.isEmpty())
          existing.insert(m_members[i]->m_name);
    }
    for (const QString& name : incoming) {
       if (existing.contains(name)) continue;
-      for (int slot = 0; slot < MAX_GROUP_MEMBERS; ++slot) {
+      for (int slot = 0; slot < MAX_GROUP_PEERS; ++slot) {
          if (m_members[slot]->m_name.isEmpty()) {
             m_members[slot]->m_name = name;
             m_members[slot]->m_spawn =
@@ -217,7 +217,7 @@ void GroupMgr::removeGroupMember(const uint8_t* data)
       m_memberCount = 0;
       m_membersInZoneCount = 0;
 
-      for(int i = 0; i < MAX_GROUP_MEMBERS; i++)
+      for(int i = 0; i < MAX_GROUP_PEERS; i++)
       {
          m_members[i]->m_name = "";
          m_members[i]->m_spawn = 0;
@@ -227,7 +227,7 @@ void GroupMgr::removeGroupMember(const uint8_t* data)
    }
    else
    {
-      for(int i = 0; i < MAX_GROUP_MEMBERS; i++)
+      for(int i = 0; i < MAX_GROUP_PEERS; i++)
       {
          // is this the member?
          if(m_members[i]->m_name == gmem->membername)
@@ -269,7 +269,7 @@ void GroupMgr::addItem(const Item* item)
   // isn't guaranteed.
   const QString raw = spawn->name();
   const QString display = spawn->transformedName();
-  for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
+  for (int i = 0; i < MAX_GROUP_PEERS; i++)
   {
     if (m_members[i]->m_name.isEmpty()) continue;
     if (m_members[i]->m_name == raw || m_members[i]->m_name == display)
@@ -295,7 +295,7 @@ void GroupMgr::delItem(const Item* item)
   // Match against either form (see addItem)
   const QString raw = spawn->name();
   const QString display = spawn->transformedName();
-  for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
+  for (int i = 0; i < MAX_GROUP_PEERS; i++)
   {
     if (m_members[i]->m_name.isEmpty()) continue;
     if (m_members[i]->m_name == raw || m_members[i]->m_name == display)
@@ -321,7 +321,7 @@ void GroupMgr::killSpawn(const Item* item)
   // Match against either form (see addItem)
   const QString raw = spawn->name();
   const QString display = spawn->transformedName();
-  for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
+  for (int i = 0; i < MAX_GROUP_PEERS; i++)
   {
     if (m_members[i]->m_name.isEmpty()) continue;
     if (m_members[i]->m_name == raw || m_members[i]->m_name == display)
@@ -349,7 +349,7 @@ void GroupMgr::dumpInfo(QTextStream& out)
     out << totalLevels() << Qt::endl;
 
   // iterate over the group members
-  for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
+  for (int i = 0; i < MAX_GROUP_PEERS; i++)
   {
     if (m_members[i]->m_name.isEmpty())
       continue;
@@ -387,7 +387,7 @@ unsigned long GroupMgr::totalLevels()
   unsigned long total = 0;
 
   // iterate over the group members
-  for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
+  for (int i = 0; i < MAX_GROUP_PEERS; i++)
   {
     // add up the group member levels
     if (m_members[i]->m_spawn)
@@ -404,7 +404,7 @@ unsigned long GroupMgr::totalLevels()
 const Spawn* GroupMgr::memberByID(uint16_t id)
 {
   // iterate over the members until a matching spawn id is found
-  for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
+  for (int i = 0; i < MAX_GROUP_PEERS; i++)
   {
     // if this member is in zone, and the spawnid matches, return it
     if (m_members[i]->m_spawn && (m_members[i]->m_spawn->id() == id))
@@ -418,7 +418,7 @@ const Spawn* GroupMgr::memberByID(uint16_t id)
 const Spawn* GroupMgr::memberByName(const QString& name)
 {
   // iterate over the members until a matching spawn name is found
-  for (int i = 0; i < MAX_GROUP_MEMBERS; i++)
+  for (int i = 0; i < MAX_GROUP_PEERS; i++)
   {
     // if this member has the name, return its spawn
     if (m_members[i]->m_name == name)
@@ -432,7 +432,7 @@ const Spawn* GroupMgr::memberByName(const QString& name)
 const Spawn* GroupMgr::memberBySlot(uint16_t slot )
 {
   // validate slot value
-  if (slot >= MAX_GROUP_MEMBERS)
+  if (slot >= MAX_GROUP_PEERS)
     return 0;
 
   // return the spawn object associated with the group slot, if any
@@ -441,7 +441,7 @@ const Spawn* GroupMgr::memberBySlot(uint16_t slot )
 
 QString GroupMgr::memberNameBySlot(uint16_t slot) const
 {
-  if (slot >= MAX_GROUP_MEMBERS) return QString();
+  if (slot >= MAX_GROUP_PEERS) return QString();
   if (!m_members[slot]) return QString();
   return m_members[slot]->m_name;
 }

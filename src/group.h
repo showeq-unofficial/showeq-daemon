@@ -89,7 +89,7 @@ class GroupMgr: public QObject
   {
     QString m_name;
     const Spawn* m_spawn;
-  }* m_members[MAX_GROUP_MEMBERS];
+  }* m_members[MAX_GROUP_PEERS];
   size_t m_memberCount;
   size_t m_membersInZoneCount;
 };
