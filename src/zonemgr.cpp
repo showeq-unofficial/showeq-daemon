@@ -638,31 +638,49 @@ void ZoneMgr::zonePlayer(const uint8_t* data, size_t len)
   // *varies between captures* (observed 0x30e4 / 0x31c1 / 0x330b across
   // 19 OP_PlayerProfile dumps) because the netstream parser consumes
   // different numbers of bytes upstream depending on what else is in
-  // the profile. Locate the array by signature: each 110-byte spellBuff
-  // slot carries `float 1.0` at +98 (the per-buff modifier the server
-  // initializes for every slot, occupied or empty). Scan for runs of
-  // ≥3 such floats at 110-byte intervals in the rough region where the
-  // array lives (0x3000..end), pick the longest run, and overlay the
-  // whole 42*110=4620-byte array onto player->profile.buffs.
+  // the profile.
+  //
   // The slot's field layout shifted post-patch — the leading 12-byte
   // unknown block in legacy spellBuff is gone, so spellid / duration /
   // initDuration / level / effect all sit 12 bytes earlier than their
   // legacy comment-offsets. See the updated spellBuff in everquest.h.
+  //
+  // Locate the array by *strict* signature. Each 110-byte spellBuff
+  // slot has a recognizable fingerprint that the server initializes on
+  // every slot (occupied or empty):
+  //   - float 1.0 (= 0x3f800000) at +98 (per-buff modifier)
+  //   - 0xFFFFFFFF at +26, +38, +50, +62, +74, +86 (six 12-byte-strided
+  //     u32 sentinels — appear to be vacant sub-block effect-ID
+  //     placeholders)
+  //
+  // A previous version anchored on the +98 float alone, which produced
+  // false-positive starts up to 220 bytes before the real array (other
+  // regions of the profile happen to have 0x3f800000 at some byte
+  // position). With the full 7-marker fingerprint we get exactly one
+  // run per profile across 22 captures. Overlay the 42*110=4620-byte
+  // array onto player->profile.buffs.
   {
     constexpr size_t kModOffset = offsetof(spellBuff, modifier);
-    constexpr uint32_t kOneLE = 0x3f800000u;  // float 1.0 little-endian
+    constexpr uint32_t kOneLE = 0x3f800000u;
+    constexpr uint32_t kFF = 0xffffffffu;
+    constexpr size_t kMarkers[] = {26, 38, 50, 62, 74, 86};
+    auto looksLikeSlot = [&](size_t off) {
+      uint32_t v;
+      std::memcpy(&v, data + off + kModOffset, sizeof(v));
+      if (v != kOneLE) return false;
+      for (size_t m : kMarkers) {
+        std::memcpy(&v, data + off + m, sizeof(v));
+        if (v != kFF) return false;
+      }
+      return true;
+    };
     size_t buffArrayStart = 0;
     size_t bestRun = 0;
     for (size_t off = 0x3000; off + sizeof(spellBuff) <= len; ++off) {
-      uint32_t v;
-      std::memcpy(&v, data + off + kModOffset, sizeof(v));
-      if (v != kOneLE) continue;
-      // Count consecutive 110-apart anchors starting here.
+      if (!looksLikeSlot(off)) continue;
       size_t run = 1;
       size_t cur = off + sizeof(spellBuff);
-      while (cur + sizeof(spellBuff) <= len) {
-        std::memcpy(&v, data + cur + kModOffset, sizeof(v));
-        if (v != kOneLE) break;
+      while (cur + sizeof(spellBuff) <= len && looksLikeSlot(cur)) {
         ++run; cur += sizeof(spellBuff);
       }
       if (run > bestRun) { bestRun = run; buffArrayStart = off; }
