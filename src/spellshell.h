@@ -63,7 +63,7 @@ class SpellItem
   SpellItem();
   
   // get accessors
-  uint16_t spellId() const;
+  uint32_t spellId() const;
   uint16_t targetId() const;
   uint16_t casterId() const;
   time_t castTime() const;
@@ -78,7 +78,7 @@ class SpellItem
   void setBuffSlot(int slot);
 
   // set accessors
-  void setSpellId(uint16_t spellid);
+  void setSpellId(uint32_t spellid);
   void setTargetId(uint16_t target);
   void setCasterId(uint16_t caster);
   void setSpellName(const QString& name);
@@ -86,7 +86,7 @@ class SpellItem
   void setTargetName(const QString& name);
   void updateCastTime();
 
-  void update(uint16_t spellId, const Spell* spell, int duration,
+  void update(uint32_t spellId, const Spell* spell, int duration,
 	      uint16_t casterId, const QString& casterName,
 	      uint16_t targetId, const QString& targetName);
   
@@ -97,7 +97,7 @@ class SpellItem
   int m_duration;
   timeval m_castTime;
 
-  uint16_t m_spellId;
+  uint32_t m_spellId;
   uint16_t m_casterId;
   uint16_t m_targetId;
   int m_buffSlot;
@@ -106,7 +106,7 @@ class SpellItem
 };
 
 
-inline uint16_t SpellItem::spellId() const 
+inline uint32_t SpellItem::spellId() const
 {
   return m_spellId;
 }
@@ -161,7 +161,7 @@ inline const QString SpellItem::casterName() const
   return m_casterName;
 }
 
-inline void SpellItem::setSpellId(uint16_t spellid)
+inline void SpellItem::setSpellId(uint32_t spellid)
 {
   m_spellId = spellid;
 }
@@ -222,10 +222,10 @@ class SpellShell : public QObject
 
  protected:
   void deleteSpell(SpellItem *);
-  SpellItem* findSpell(uint16_t spellId,
+  SpellItem* findSpell(uint32_t spellId,
 		       uint16_t targetId, const QString& targetName);
-  SpellItem* findSpell(int spell_id);
-  SpellItem* FindSpell(int spell_id, int target_id);
+  SpellItem* findSpell(uint32_t spell_id);
+  SpellItem* FindSpell(uint32_t spell_id, int target_id);
   SpellItem* findSpellBySlot(int slot);
   
  private:

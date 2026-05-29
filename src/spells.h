@@ -45,7 +45,7 @@ class Spell
   ~Spell();
 
   // accessors
-  uint16_t spell() const { return m_spell; }
+  uint32_t spell() const { return m_spell; }
   const QString& name() const { return m_name; }
   uint8_t level(uint8_t class_) const;
   uint8_t targetType() const { return m_targetType; }
@@ -56,7 +56,7 @@ class Spell
 
  private:
   QString m_name;
-  uint16_t m_spell;
+  uint32_t m_spell;
   int16_t m_buffDurationFormula;
   int16_t m_buffDurationArgument;
   uint8_t m_targetType;
@@ -71,11 +71,11 @@ class Spells
   void loadSpells(const QString& spellsFileName);
   void unloadSpells(void);
     
-  const Spell* spell(uint16_t spell) const;
-  uint16_t maxSpell() const { return m_maxSpell; }
+  const Spell* spell(uint32_t spell) const;
+  uint32_t maxSpell() const { return m_maxSpell; }
 
  private:
-  uint16_t m_maxSpell;
+  uint32_t m_maxSpell;
   Spell** m_spells;
 };
 

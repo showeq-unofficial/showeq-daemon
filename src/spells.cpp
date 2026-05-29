@@ -171,7 +171,7 @@ Spell::Spell(const QString& spells_enLine)
   QStringList spellInfo = spells_enLine.split("^");
 
   // I'll add support for the rest of the fields later
-  m_spell = spellInfo[0].toUShort();
+  m_spell = spellInfo[0].toUInt();
   m_name = spellInfo[1];
   m_buffDurationFormula = spellInfo[11].toUShort();		//spells_us.txt layout changed December 2018
   m_buffDurationArgument = spellInfo[12].toUShort();		//spells_us.txt layout changed December 2018
@@ -338,7 +338,7 @@ void Spells::unloadSpells(void)
   // if a spell list has been allocated, delete it's elements and then itself
   if (m_spells)
   {
-    for (int i = 0; i <= m_maxSpell; i++)
+    for (uint32_t i = 0; i <= m_maxSpell; i++)
     {
       if (m_spells[i] != NULL)
       {
@@ -352,7 +352,7 @@ void Spells::unloadSpells(void)
   }
 }
 
-const Spell* Spells::spell(uint16_t spell) const
+const Spell* Spells::spell(uint32_t spell) const
 {
   // make sure the spell is within range
   if (spell >= m_maxSpell)

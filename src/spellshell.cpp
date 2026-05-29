@@ -86,7 +86,7 @@ QString SpellItem::durationStr() const
    return text;
 }
 
-void SpellItem::update(uint16_t spellId, const Spell* spell, int duration,
+void SpellItem::update(uint32_t spellId, const Spell* spell, int duration,
 		       uint16_t casterId, const QString& casterName,
 		       uint16_t targetId, const QString& targetName)
 {
@@ -141,7 +141,7 @@ SpellShell::~SpellShell()
   clear();
 }
 
-SpellItem* SpellShell::findSpell(uint16_t spellId, 
+SpellItem* SpellShell::findSpell(uint32_t spellId,
 				 uint16_t targetId, const QString& targetName)
 {
   for(QList<SpellItem*>::Iterator it = m_spellList.begin();
@@ -160,7 +160,7 @@ SpellItem* SpellShell::findSpell(uint16_t spellId,
   return NULL;
 }
 
-SpellItem* SpellShell::findSpell(int spell_id)
+SpellItem* SpellShell::findSpell(uint32_t spell_id)
 {
   for(QList<SpellItem*>::Iterator it = m_spellList.begin();
       it != m_spellList.end();

@@ -113,7 +113,7 @@ QString classString(uint8_t classVal)
 }
 
 QString
-spell_name (uint16_t spellId)
+spell_name (uint32_t spellId)
 {
    if (spellId < (sizeof(spellInfo) / sizeof(spellInfoStruct)))
      return spellInfo[spellId].name;

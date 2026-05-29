@@ -41,7 +41,7 @@ void CombatRouter::action2(const uint8_t* data, size_t len, uint8_t /*dir*/)
 
     QString spellName;
     if (a->spell > 0 && m_spells) {
-        if (const Spell* sp = m_spells->spell(static_cast<uint16_t>(a->spell))) {
+        if (const Spell* sp = m_spells->spell(static_cast<uint32_t>(a->spell))) {
             spellName = sp->name();
         }
     }
