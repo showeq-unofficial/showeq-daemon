@@ -63,8 +63,13 @@ class GroupMgr: public QObject
  public slots:
   void player(const charProfileStruct* player); 
   void groupUpdate(const uint8_t* data, size_t size);
-  void addGroupMember(const uint8_t* data);
   void removeGroupMember(const uint8_t* data);
+  // OP_GroupMemberList (0x312a) carries the full roster (the only opcode
+  // that does post-patch). Variable-length per group size. Always replaces
+  // existing membership — this is a full refresh, not an incremental, so
+  // the per-member OP_GroupFollow handlers are intentionally NOT wired
+  // alongside this one (they'd race and double-emit).
+  void groupMemberList(const uint8_t* data, size_t size);
   void addItem(const Item* item);
   void delItem(const Item* item);
   void killSpawn(const Item* item);
@@ -84,7 +89,7 @@ class GroupMgr: public QObject
   {
     QString m_name;
     const Spawn* m_spawn;
-  }* m_members[MAX_GROUP_MEMBERS];
+  }* m_members[MAX_GROUP_PEERS];
   size_t m_memberCount;
   size_t m_membersInZoneCount;
 };

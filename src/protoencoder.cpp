@@ -108,6 +108,7 @@ void fillSpawn(seq::v1::Spawn* out, const Item& it,
         out->set_guild_id(sp->guildID());
         out->set_guild_server_id(sp->guildServerID());
         out->set_is_gm(sp->gm() != 0);
+        out->set_locked(sp->locked());
         out->set_filter_flags(sp->filterFlags());
         fillPos(out->mutable_pos(), *sp);
     } else {
@@ -219,6 +220,19 @@ void fillMapGeometry(seq::v1::MapGeometry* out, const MapData& map)
     }
 }
 
+void fillMapPackages(seq::v1::MapPackagesUpdate* out,
+                     const std::vector<MapPackageInfo>& packages,
+                     const QString& activeId)
+{
+    for (const auto& p : packages) {
+        auto* pkg = out->add_packages();
+        pkg->set_id(p.id.toStdString());
+        pkg->set_label(p.label.toStdString());
+        pkg->set_zone_count(p.zoneCount);
+    }
+    out->set_active_id(activeId.toStdString());
+}
+
 void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
 {
     // Cast away const because the legacy accessors (HP, maxHP, getMana,
@@ -300,7 +314,7 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
 
 void fillGroupUpdate(seq::v1::GroupUpdate* out, GroupMgr& g)
 {
-    for (uint16_t slot = 0; slot < MAX_GROUP_MEMBERS; ++slot) {
+    for (uint16_t slot = 0; slot < MAX_GROUP_PEERS; ++slot) {
         auto* m = out->add_members();
         m->set_slot(slot);
         const QString name = g.memberNameBySlot(slot);

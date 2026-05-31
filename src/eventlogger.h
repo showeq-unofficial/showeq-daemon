@@ -21,11 +21,12 @@ class EQPacketOPCode;
 // before OP_PlayerProfile arrived with new aa_spent? what arrived during
 // the boat handoff window?). External slicing with awk/grep/python.
 //
-// Timestamps come from QDateTime::currentMSecsSinceEpoch() at the moment
-// the slot fires, which is correct for ordering but does NOT reflect the
-// .vpk's recorded wall time during --replay (replay runs at "fast as
-// possible", so all events cluster within milliseconds). Order is
-// preserved, which is what time-correlation hunts actually need.
+// Timestamps come from EQPacket::currentPacketTimeMs(): during --replay that
+// is the .vpk's recorded epoch time (second resolution), so a regenerated
+// timeline matches the original capture's wall clock and is usable for time-
+// windowing. In live capture that returns 0 and we fall back to
+// QDateTime::currentMSecsSinceEpoch() (real ms). Each row is flushed
+// immediately so an unclean process exit can't truncate the tail.
 class EventLogger : public QObject {
     Q_OBJECT
 public:
@@ -43,6 +44,7 @@ private:
     void writeRow(uint8_t dir, uint16_t opcode, size_t len,
                   const EQPacketOPCode* entry, const char* stream);
 
+    EQPacket*                m_packet;
     QString                  m_outPath;
     std::unique_ptr<QFile>   m_file;
     QTextStream              m_out;

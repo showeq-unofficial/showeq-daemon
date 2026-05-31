@@ -30,6 +30,7 @@ extern "C" { // pcap headers aren't c++-clean
 #include "player.h"
 #include "prefsbroker.h"
 #include "protoencoder.h"
+#include "mappackagehost.h"
 #include "spawn.h"
 #include "spawnmonitor.h"
 #include "spawnshell.h"
@@ -231,6 +232,32 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
         } else {
             qInfo("rename_spawn_point: unknown key %s",
                   qUtf8Printable(key));
+        }
+        return;
+    }
+    if (env.has_list_map_packages()) {
+        // Session-scoped reply, not broadcast — mirrors ListDevices. The
+        // picker is per-tab UI; selection (SetMapPackage) is what fans out.
+        seq::v1::Envelope reply;
+        if (m_mapPackageHost) {
+            seq::encode::fillMapPackages(reply.mutable_map_packages(),
+                                         m_mapPackageHost->mapPackages(),
+                                         m_mapPackageHost->activeMapPackage());
+        } else {
+            reply.mutable_map_packages();
+        }
+        sendOrBuffer(std::move(reply));
+        return;
+    }
+    if (env.has_set_map_package()) {
+        // Apply daemon-globally. The host persists the choice, re-resolves
+        // the current zone, and broadcasts a fresh MapPackagesUpdate +
+        // ZoneChanged to every connected client (including this one), so no
+        // per-socket reply is needed here. Unknown ids fall back to
+        // "default" inside the host.
+        if (m_mapPackageHost) {
+            m_mapPackageHost->setMapPackage(
+                QString::fromStdString(env.set_map_package().id()));
         }
         return;
     }
@@ -519,6 +546,9 @@ void SessionAdapter::startStreaming()
     if (m_boxes) {
         sendBoxList();
     }
+    // Initial MapPackagesUpdate so the client can populate its package
+    // picker. Suppressed in deterministic/golden mode (sendMapPackages).
+    sendMapPackages();
 
     // STEP 3: drain anything that arrived during the iteration.
     for (auto& env : m_buffered) {
@@ -654,6 +684,29 @@ void SessionAdapter::sendSnapshot()
     }
 
     emitEnvelope(std::move(env));
+}
+
+void SessionAdapter::sendMapPackages()
+{
+    // Suppress in deterministic/golden mode so tier-2 replay goldens stay
+    // byte-identical (mirrors session_id handling in sendSnapshot).
+    if (m_deterministic) return;
+    if (!m_mapPackageHost) return;
+    seq::v1::Envelope env;
+    seq::encode::fillMapPackages(env.mutable_map_packages(),
+                                 m_mapPackageHost->mapPackages(),
+                                 m_mapPackageHost->activeMapPackage());
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::deliverBroadcast(const seq::v1::Envelope& env)
+{
+    // Copy: the caller owns the source Envelope and fans it to many
+    // adapters. Each adapter stamps its own seq/server_ts_ms in
+    // emitEnvelope. Suppressed on the golden adapter to keep goldens stable.
+    if (m_deterministic) return;
+    seq::v1::Envelope copy = env;
+    sendOrBuffer(std::move(copy));
 }
 
 void SessionAdapter::emitEnvelope(seq::v1::Envelope&& env)

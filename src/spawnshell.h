@@ -139,6 +139,7 @@ public slots:
 		    uint8_t animation);
    void updateSpawns(const uint8_t* updates);
    void updateSpawnInfo(const uint8_t* spawnupdate);
+   void updateSpawnLock(const uint8_t* spawnappearance2);
    void renameSpawn(const uint8_t* renameupdate);
    void illusionSpawn(const uint8_t* illusionupdate);
    void updateSpawnAppearance(const uint8_t* appearanceupdate);

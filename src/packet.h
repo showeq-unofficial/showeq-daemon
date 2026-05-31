@@ -112,6 +112,12 @@ class EQPacket : public QObject
    void setSnapLen(int len) { m_snaplen = len; }
    void setBufferSize(int size) { m_buffersize = size; }
 
+   // Epoch-ms timestamp of the packet currently being dispatched. During
+   // --replay this is the *recorded* time (epoch seconds from the .vpk,
+   // ×1000) so regenerated timelines match the original capture; 0 in live
+   // capture, where consumers fall back to wall-clock.
+   qint64 currentPacketTimeMs(void) const { return m_currentPacketTimeMs; }
+
    void exportHandoffState(const QString& configDir) const;
    bool importHandoffState(const QString& configDir);
 
@@ -188,6 +194,7 @@ class EQPacket : public QObject
    bool m_busy_decoding;
    bool m_detectingClient;
    in_addr_t m_client_addr;
+   qint64 m_currentPacketTimeMs = 0;
 
    uint16_t m_arqSeqGiveUp;
    QString m_device;

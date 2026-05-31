@@ -134,6 +134,11 @@ int main(int argc, char** argv)
         "Directory holding zone .map / .txt files. Defaults to "
         "~/.showeq/maps (shared with showeq), falling back to "
         "$config-dir/maps.", "dir");
+    QCommandLineOption mapPackageOpt(QStringList{"map-package"},
+        "Active map package: a subdirectory under a maps root holding a "
+        "per-zone set of .map/.txt files, or \"default\" for the flat "
+        "root. Overrides the persisted [Maps] Package preference for this "
+        "run.", "id");
     QCommandLineOption recordVpkOpt(QStringList{"record-vpk"},
         "Record raw EQ packets to FILE.vpk for later --replay. Combine "
         "with --device for live capture.", "file");
@@ -177,6 +182,7 @@ int main(int argc, char** argv)
     parser.addOption(replayOpt);
     parser.addOption(configDirOpt);
     parser.addOption(mapsDirOpt);
+    parser.addOption(mapPackageOpt);
     parser.addOption(recordVpkOpt);
     parser.addOption(recordGoldenOpt);
     parser.addOption(opcodeStatsOpt);
@@ -193,6 +199,7 @@ int main(int argc, char** argv)
     cfg.replay       = parser.value(replayOpt);
     cfg.configDir    = parser.value(configDirOpt);
     cfg.mapsDir      = parser.value(mapsDirOpt);
+    cfg.mapPackage   = parser.value(mapPackageOpt);
     cfg.recordVpk    = parser.value(recordVpkOpt);
     cfg.recordGolden = parser.value(recordGoldenOpt);
     cfg.opcodeStats  = parser.value(opcodeStatsOpt);

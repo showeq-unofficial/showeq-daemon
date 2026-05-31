@@ -2,6 +2,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QSet>
 #include <QFileInfo>
 #include <QLoggingCategory>
 #include <QStandardPaths>
@@ -37,6 +38,7 @@
 #include "spells.h"
 #include "spellshell.h"
 #include "wsserver.h"
+#include "protoencoder.h"
 #include "xmlpreferences.h"
 #include "zonemgr.h"
 #include "zoneservermgr.h"
@@ -289,6 +291,15 @@ bool DaemonApp::start()
     // handles that and just persists to XML.
     m_prefsBroker->setPacket(m_packet);
 
+    // Resolve the active map package: CLI --map-package wins, else the
+    // persisted [Maps] Package pref, else "default".
+    if (!m_cfg.mapPackage.isEmpty()) {
+        m_mapPackage = m_cfg.mapPackage;
+    } else {
+        m_mapPackage = pSEQPrefs->getPrefString("Package", "Maps",
+                                                QStringLiteral("default"));
+    }
+
     // Load the initial zone map if we already know the zone (e.g. replay
     // mode with zone already fixed). Otherwise loadZoneMap fires on the
     // first zone-resolving signal.
@@ -319,6 +330,7 @@ bool DaemonApp::start()
                    m_prefsBroker, m_spawnMonitor, m_itemCache,
                    m_dateTimeMgr, m_zoneServerMgr,
                    m_packet ? &m_packet->boxRegistry() : nullptr);
+    m_ws->setMapPackageHost(this);
 
     // --record-golden: spin up an internal SessionAdapter writing into a
     // FileSink. Subscribe is synthesized immediately so the on-disk
@@ -344,6 +356,7 @@ bool DaemonApp::start()
         // strip wall-clock fields so the tier-2 byte-cmp is stable
         // across runs.
         m_goldenAdapter->setDeterministic(true);
+        m_goldenAdapter->setMapPackageHost(this);
         seq::v1::ClientEnvelope subEnv;
         subEnv.mutable_subscribe();
         QByteArray subBytes;
@@ -591,6 +604,12 @@ void DaemonApp::wireSpawnShell()
                        "SpawnUpdateStruct", SZC_Match,
                        m_spawnShell,
                        SLOT(updateSpawnInfo(const uint8_t*)));
+    // OP_SpawnAppearance2 type=0x2c = TLP mob-lock / FTE flag (S>C only).
+    // updateSpawnLock filters by type and updates Spawn::locked.
+    m_packet->connect2("OP_SpawnAppearance2", SP_Zone, DIR_Server,
+                       "spawnAppearance2Struct", SZC_Match,
+                       m_spawnShell,
+                       SLOT(updateSpawnLock(const uint8_t*)));
     m_packet->connect2("OP_HPUpdate", SP_Zone, DIR_Server|DIR_Client,
                        "hpNpcUpdateStruct", SZC_Match,
                        m_spawnShell,
@@ -727,10 +746,16 @@ void DaemonApp::wireSpawnShell()
                        "uint8_t", SZC_None,
                        m_groupMgr,
                        SLOT(groupUpdate(const uint8_t*, size_t)));
-    m_packet->connect2("OP_GroupFollow", SP_Zone, DIR_Server,
-                       "groupFollowStruct", SZC_None,
+    // OP_GroupMemberList (0x312a) is the modern roster broadcast — full
+    // refresh on zone-in AND on every join/leave (group-2variants
+    // capture: every OP_GroupFollow fires alongside two 0x312a packets).
+    // It supersedes the per-member OP_GroupFollow/OP_GroupFollow2
+    // handlers that would otherwise produce spurious remove-then-re-add
+    // churn when both wires fire on the same event.
+    m_packet->connect2("OP_GroupMemberList", SP_Zone, DIR_Server,
+                       "uint8_t", SZC_None,
                        m_groupMgr,
-                       SLOT(addGroupMember(const uint8_t*)));
+                       SLOT(groupMemberList(const uint8_t*, size_t)));
     m_packet->connect2("OP_GroupDisband", SP_Zone, DIR_Server,
                        "groupDisbandStruct", SZC_None,
                        m_groupMgr,
@@ -745,8 +770,13 @@ void DaemonApp::wireSpawnShell()
                        "startCastStruct", SZC_Match,
                        m_spellShell,
                        SLOT(selfStartSpellCast(const uint8_t*)));
-    m_packet->connect2("OP_Buff", SP_Zone, DIR_Server|DIR_Client,
-                       "buffStruct", SZC_Match,
+    // OP_Buff is variable-size on modern Live (13/30/34/55/76b — see the
+    // size-dispatch in SpellShell::buff). The TOML registers it as
+    // uint8_t/SZC_None to suppress the size guard; match that here so the
+    // dispatch actually fires instead of silently dropping every packet
+    // via EQPacketStream::connect2's typeName mismatch.
+    m_packet->connect2("OP_Buff", SP_Zone, DIR_Server,
+                       "uint8_t", SZC_None,
                        m_spellShell,
                        SLOT(buff(const uint8_t*, size_t, uint8_t)));
     m_packet->connect2("OP_Action", SP_Zone, DIR_Server|DIR_Client,
@@ -804,8 +834,23 @@ void DaemonApp::loadZoneMap(const QString& shortZoneName)
         return;
     }
 
-    const QStringList dirs = mapSearchPaths(m_cfg.mapsDir,
-                                            m_dataLocationMgr.get());
+    const QStringList roots = mapSearchPaths(m_cfg.mapsDir,
+                                             m_dataLocationMgr.get());
+
+    // Build the effective search path. When an active package is set
+    // (!= "default"), look in <root>/<package>/ FIRST across all roots,
+    // then fall back to the flat roots (the synthetic "default" package)
+    // so a package that lacks the current zone still renders from the
+    // shared maps root. Numbered-layer loading then operates within
+    // whichever directory provided the base file (locateMap order).
+    QStringList dirs;
+    const bool usePackage =
+        !m_mapPackage.isEmpty() && m_mapPackage != QStringLiteral("default");
+    if (usePackage) {
+        for (const QString& root : roots)
+            dirs.append(root + QLatin1Char('/') + m_mapPackage);
+    }
+    dirs.append(roots);
 
     // Mirrors showeq/src/map.cpp:370-423 — locate the base .map/.txt then
     // any numbered layer files (_1, _2, ...). import=true for layer files so
@@ -848,6 +893,112 @@ void DaemonApp::loadZoneMap(const QString& shortZoneName)
     qInfo("loaded map for zone '%s' (%lld layer(s) from %s)",
           qUtf8Printable(shortZoneName), (long long)files.size(),
           qUtf8Printable(QFileInfo(files.first()).absolutePath()));
+}
+
+// Count base zone files (.map/.txt) in `dir`, ignoring numbered layer
+// files <zone>_N.{map,txt} — those are layers of an existing base map,
+// not distinct zones. A zone with both a .map and a .txt counts once.
+static uint32_t countZoneFiles(const QString& dir)
+{
+    QDir d(dir);
+    const QStringList filters{QStringLiteral("*.map"), QStringLiteral("*.txt")};
+    QSet<QString> bases;
+    for (const QString& name : d.entryList(filters, QDir::Files)) {
+        QString base = QFileInfo(name).completeBaseName();
+        const int us = base.lastIndexOf(QLatin1Char('_'));
+        if (us > 0 && us + 1 < base.size()) {
+            bool numeric = false;
+            base.mid(us + 1).toInt(&numeric);
+            if (numeric)
+                continue; // <zone>_N layer file
+        }
+        bases.insert(base);
+    }
+    return static_cast<uint32_t>(bases.size());
+}
+
+std::vector<MapPackageInfo>
+DaemonApp::mapPackagesIn(const QStringList& roots) const
+{
+    std::vector<MapPackageInfo> out;
+
+    // Synthetic "default" package == the flat root(s). Sum base zone files
+    // sitting directly in the search roots.
+    uint32_t defaultZones = 0;
+    for (const QString& root : roots)
+        defaultZones += countZoneFiles(root);
+    out.push_back({QStringLiteral("default"), QStringLiteral("default"),
+                   defaultZones});
+
+    // Each immediate subdir holding at least one .map/.txt is a package.
+    // First root wins on duplicate package names across roots.
+    QSet<QString> seen;
+    for (const QString& root : roots) {
+        QDir d(root);
+        for (const QString& sub :
+             d.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+            if (sub == QStringLiteral("default"))
+                continue; // reserved id
+            if (seen.contains(sub))
+                continue;
+            const uint32_t zones =
+                countZoneFiles(root + QLatin1Char('/') + sub);
+            if (zones == 0)
+                continue;
+            seen.insert(sub);
+            out.push_back({sub, sub, zones});
+        }
+    }
+    return out;
+}
+
+std::vector<MapPackageInfo> DaemonApp::mapPackages() const
+{
+    return mapPackagesIn(mapSearchPaths(m_cfg.mapsDir,
+                                        m_dataLocationMgr.get()));
+}
+
+QString DaemonApp::setMapPackage(const QString& id)
+{
+    // Fall back to "default" when the requested package is unknown.
+    QString resolved = QStringLiteral("default");
+    if (!id.isEmpty() && id != QStringLiteral("default")) {
+        for (const auto& p : mapPackages()) {
+            if (p.id == id) { resolved = id; break; }
+        }
+    }
+    m_mapPackage = resolved;
+
+    // Persist (XMLPreferences, [Maps] Package). Mirrors how Network/Device
+    // is read/written elsewhere via pSEQPrefs.
+    if (pSEQPrefs)
+        pSEQPrefs->setPrefString("Package", "Maps", resolved);
+
+    // Re-resolve the current zone's map within the (new) active package and
+    // broadcast a fresh MapPackagesUpdate + ZoneChanged so every client
+    // re-renders. No-op gracefully if no zone is known yet.
+    const QString zone = m_zoneMgr ? m_zoneMgr->shortZoneName() : QString();
+    if (!zone.isEmpty())
+        loadZoneMap(zone);
+
+    if (m_ws) {
+        seq::v1::Envelope upd;
+        seq::encode::fillMapPackages(upd.mutable_map_packages(), mapPackages(),
+                                     m_mapPackage);
+        m_ws->broadcast(upd);
+
+        if (!zone.isEmpty()) {
+            seq::v1::Envelope zc;
+            auto* z = zc.mutable_zone_changed();
+            z->set_zone_short(zone.toStdString());
+            if (m_zoneMgr)
+                z->set_zone_long(m_zoneMgr->longZoneName().toStdString());
+            if (m_mapData)
+                seq::encode::fillMapGeometry(z->mutable_geometry(), *m_mapData);
+            m_ws->broadcast(zc);
+        }
+    }
+    return resolved;
 }
 
 void DaemonApp::exportHandoffState(const QString& configDir) const

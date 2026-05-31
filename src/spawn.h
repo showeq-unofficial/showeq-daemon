@@ -249,6 +249,9 @@ class Spawn : public Item
   QString equipmentStr(uint8_t wearingSlot) const;
   uint8_t typeflag() const { return m_typeflag; }
   uint8_t gm() const {return m_gm; }
+  // TLP mob-lock / FTE state: true = locked (unattackable), false = attackable.
+  // Set from OP_SpawnAppearance2 type=0x2c; always false on standard Live.
+  bool locked() const { return m_locked; }
   QString typeString() const;
   const SpawnTrackList& trackList() const { return m_spawnTrackList; }
   SpawnTrackList& trackList() { return m_spawnTrackList; }
@@ -341,6 +344,7 @@ class Spawn : public Item
   void setNPC(uint8_t NPC) { m_NPC = NPC; }
   void setTypeflag(uint8_t typeflag) { m_typeflag = typeflag; }
   void setGM(uint8_t gm) { m_gm = gm; }
+  void setLocked(bool locked) { m_locked = locked; }
   void setIsMount(bool isMount) { m_isMount = isMount; }
   void setIsMercenary(uint8_t isMercenary) {m_isMercenary = (isMercenary != 0); }
   void setIsAura(unsigned aura) {m_isAura = (aura != 0); }
@@ -392,6 +396,10 @@ class Spawn : public Item
   bool m_isAura;
   bool m_considered;
   bool m_notUpdated;
+  // Inline-initialized (unlike the siblings above, which each ctor sets) so
+  // every Spawn ctor path starts attackable; only OP_SpawnAppearance2 type=0x2c
+  // flips it, and only on lock-ruleset (TLP) servers.
+  bool m_locked = false;
 };
 
 

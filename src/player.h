@@ -293,7 +293,7 @@ public:
   bool m_freshKill;
   
   // last spell cast on this player
-  uint16_t m_lastSpellOnId;
+  uint32_t m_lastSpellOnId;
   
   int16_t m_headingDegrees;
   // Wether or not we use defaults, determined by wether or not we could 

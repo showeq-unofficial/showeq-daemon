@@ -374,15 +374,19 @@ void Player::loadProfile(const playerProfileStruct& player)
     m_purchasedAA.push_back({player.aa_array[i].AA, player.aa_array[i].value});
   }
 
-  // Buffs
-  int buffnumber;
-  const struct spellBuff *buff;
-  for (buffnumber=0;buffnumber<MAX_BUFFS;buffnumber++)
+  // Buffs: modern spellBuff is 110 bytes (same total as legacy) but the
+  // field layout shifted (-12 bytes) — see everquest.h. The buff array
+  // is overlaid from the wire at the locator-derived offset by
+  // ZoneMgr::zonePlayer (the netstream parser's position drifts on the
+  // post-patch wire), so reading via the struct field offsets here is
+  // safe and produces the player's actual zone-in buff list.
+  for (int buffnumber = 0; buffnumber < MAX_BUFFS; buffnumber++)
   {
-    if (player.buffs[buffnumber].spellid && player.buffs[buffnumber].duration)
+    if (player.buffs[buffnumber].spellid > 0 &&
+        player.buffs[buffnumber].spellid != int32_t(0xffffffff) &&
+        player.buffs[buffnumber].duration > 0)
     {
-      buff = &(player.buffs[buffnumber]);
-      emit buffLoad(buff);
+      emit buffLoad(&player.buffs[buffnumber]);
     }
   }
 }

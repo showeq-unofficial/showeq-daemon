@@ -121,6 +121,9 @@
 #define MAX_KNOWN_LANGS                 32
 #define MAX_SPELLBOOK_SLOTS             800
 #define MAX_GROUP_MEMBERS               6
+// Peer slots: the local player is filtered out of the GroupMgr roster, so
+// only up to MAX_GROUP_MEMBERS-1 = 5 peers are ever tracked/emitted.
+#define MAX_GROUP_PEERS                 (MAX_GROUP_MEMBERS - 1)
 #define MAX_BUFFS                       42
 #define MAX_GUILDS                      32768
 #define MAX_AA                          300
@@ -449,20 +452,30 @@ struct Color_Struct
 * Used in charProfileStruct. Buffs
 * Length: 110 Octets
 */
+// Post-2026-05-22 patch: the leading 12-byte unknown block + playerId
+// (caster spawn id) is GONE. Field offsets compacted by 12; the trailing
+// padding grew to keep the 110-byte slot size constant. Cracked from
+// groupbuff-repro.vpk PlayerProfile (spell 0xdb 'Center' in slot 0,
+// duration 227 ticks of 270 init, level 16) with the `float 1.0` modifier
+// at +99 used as the per-slot anchor for the array-locator scan in
+// ZoneMgr::zonePlayer. caster spawn id no longer reachable from here;
+// SpellShell::buff (OP_Buff wire) is the new source for caster spawn id.
 struct spellBuff
 {
-/*0000*/ uint8_t unknown0000;                    //
-/*0001*/ uint8_t unknown0001;                    //
-/*0002*/ uint8_t unknown0002;                    //
-/*0003*/ uint8_t unknown0003;                    //
-/*0004*/ uint32_t playerId;                      // Global id of caster (for wear off)
-/*0008*/ uint32_t unknown0008;                   // *** Placeholder
-/*0012*/ int32_t duration;                       // Time remaining in ticks
-/*0016*/ int32_t unknown0016;                    // Buff length in ticks
-/*0020*/ int8_t level;                           // Level of person who cast buff
-/*0021*/ int32_t spellid;                        // Spell
-/*0025*/ int32_t effect;                         // holds the dmg absorb amount on runes
-/*0029*/ uint8_t unknown0029[81];
+/*0000*/ int32_t duration;                       // Time remaining in ticks
+/*0004*/ int32_t initDuration;                   // Buff length in ticks
+/*0008*/ int8_t level;                           // Level of caster
+/*0009*/ int32_t spellid;                        // Spell (unaligned!)
+/*0013*/ int32_t effect;                         // Dmg-absorb amount on runes
+/*0017*/ uint8_t unknown0017[81];                // 81 bytes of zeros + 0xff
+                                                 // sentinel cells (slot-empty
+                                                 // markers for sub-effects)
+/*0098*/ float    modifier;                      // per-buff multiplier (always
+                                                 // observed = 1.0); used by
+                                                 // ZoneMgr::zonePlayer as the
+                                                 // 110-byte-period anchor for
+                                                 // locating the buff array
+/*0102*/ uint8_t unknown0102[8];                 // tail padding
 /*0110*/
 };
 
@@ -1121,29 +1134,26 @@ struct spawnStruct
            struct
            {
 
-              unsigned pitch:12;                          // pitch (up/down heading)
-              signed   y:19;                              // y coord (2nd loc value)
-              unsigned padding00:1;
-
-              unsigned heading:12;                        // heading
               signed   animation:10;                      // current animation
-              unsigned padding01:10;
+              unsigned pitch:12;                          // pitch (up/down heading)
+              unsigned padding00:10;
 
-              signed   x:19;                              // x coord (1st loc value)
-              unsigned padding02:13;
+              signed   deltaZ:13;                         // change in z
+              signed   deltaHeading:10;                   // change in heading
+              unsigned padding01:9;
 
               signed   z:19;                              // z coord (3rd loc value)
-              signed   deltaZ:13;                         // change in z
-
-              signed   deltaHeading:10;                   // change in heading
-              signed   deltaY:13;                         // change in y
-              unsigned padding04:9;
+              unsigned heading:12;                        // heading
+              unsigned padding02:1;
 
               signed   deltaX:13;                         // change in x
-              unsigned padding05:19;
+              signed   y:19;                              // y coord (2nd loc value)
+
+              signed   deltaY:13;                         // change in y
+              signed   x:19;                              // x coord (1st loc value)
 
            };
-           int32_t posData[6];
+           int32_t posData[5];
          };
 
 /*0000*/ union
@@ -2030,7 +2040,7 @@ struct remDropStruct
 
 /*
 ** Consider Struct
-** Length: 28 Octets
+** Length: 32 Octets
 ** OpCode: considerCode
 */
 
@@ -2043,7 +2053,8 @@ struct considerStruct
 /*0016*/ int32_t  unknown0016;                   // unknown
 /*0020*/ int32_t  unknown0020;                   // unknown (rarity?)
 /*0024*/ int32_t  unknown0024;                   // unknown
-/*0028*/
+/*0028*/ int32_t  unknown0028;                   // unknown
+/*0032*/
 };
 
 /*
@@ -2195,7 +2206,7 @@ struct actionStruct
 {
 /*0000*/ uint16_t target;                        // Target ID
 /*0002*/ uint16_t source;                        // SourceID
-/*0004*/ int16_t  spell;                         // SpellID
+/*0004*/ uint16_t spell;                         // SpellID (unsigned: modern IDs > 32767 sign-extend if int16)
 /*0006*/ uint8_t  unknown0006[6];
 /*0012*/ uint8_t  level;                         // Caster level
 /*0013*/ uint8_t  unknown0013[43];               // ***Placeholder
@@ -2211,7 +2222,7 @@ struct actionAltStruct
 {
 /*0000*/ uint16_t target;                        // Target ID
 /*0002*/ uint16_t source;                        // SourceID
-/*0004*/ int16_t  spell;                         // SpellID
+/*0004*/ uint16_t spell;                         // SpellID (unsigned: modern IDs > 32767 sign-extend if int16)
 /*0006*/ uint8_t  unknown0006[6];
 /*0012*/ uint8_t  level;                         // Caster level
 /*0013*/ uint8_t  unknown0013[43];               // ***Placeholder
@@ -2258,9 +2269,9 @@ struct startCastStruct
 
 struct manaDecrementStruct
 {
-/*0000*/ int32_t newMana;                        // New Mana Amount
-/*0004*/ int32_t maxMana;                        // Max Mana (grows on level-up)
-/*0008*/ int32_t spellId;                        // Last Spell Cast
+/*0000*/ int32_t newMana;                        // New (current) mana amount
+/*0004*/ int32_t curEndurance;                   // Current endurance, NOT max mana — confirmed 2026-05-26 by cross-ref against OP_EndUpdate cur (monk fixture). EQ never sends max mana on the wire.
+/*0008*/ int32_t spellId;                        // Spell or combat-ability id just used
 /*0012*/ uint8_t unknown0012[4];
 /*0016*/ uint8_t unknown0016[4];
 /*0020*/
@@ -2386,7 +2397,7 @@ struct wearChangeSlotStruct
 
 /*
 ** Level Update
-** Length: 16 Octets
+** Length: 24 Octets
 ** OpCode: LevelUpUpdateCode
 */
 
@@ -2396,7 +2407,9 @@ struct levelUpUpdateStruct
 /*0004*/ uint32_t levelOld;                      // Old level
 /*0008*/ uint32_t exp;                           // Current Experience
 /*0012*/ uint32_t  unknown0012;                  // unknown
-/*0016*/
+/*0016*/ uint32_t  unknown0016;                  // 2026-05-22 patch padding
+/*0020*/ uint32_t  unknown0020;                  // 2026-05-22 patch padding
+/*0024*/
 };
 
 /*
@@ -2561,7 +2574,7 @@ struct randomStruct
 
 /*
 ** Player Position Update
-** Length: 28 Octets
+** Length: 24 Octets
 ** OpCode: PlayerPosCode
 */
 struct playerSpawnPosStruct
@@ -2569,27 +2582,24 @@ struct playerSpawnPosStruct
 /*0000*/ uint16_t spawnId;
 /*0002*/ uint16_t spawnId2;
 /*0004*/
-         unsigned pitch:12;                        // pitch (up/down heading)
-         signed   y:19;                            // y coord (2nd loc value)
-         unsigned padding00:1;
-/*0008*/
-         unsigned heading:12;                      // heading
          signed   animation:10;                    // current animation
-         unsigned padding01:10;
-/*0012*/
-         signed   x:19;                            // x coord (1st loc value)
-         unsigned padding02:13;
-/*0016*/
-         signed   z:19;                            // z coord (3rd loc value)
+         unsigned pitch:12;                        // pitch (up/down heading)
+         unsigned padding00:10;
+/*0008*/
          signed   deltaZ:13;                       // change in z
-/*0020*/
          signed   deltaHeading:10;                 // change in heading
-         signed   deltaY:13;                       // change in y
-         unsigned padding04:9;
-/*0024*/
+         unsigned padding01:9;
+/*0012*/
+         signed   z:19;                            // z coord (3rd loc value)
+         unsigned heading:12;                      // heading
+         unsigned padding02:1;
+/*0016*/
          signed   deltaX:13;                       // change in x
-         unsigned padding05:19;
-/*0028*/
+         signed   y:19;                            // y coord (2nd loc value)
+/*0020*/
+         signed   deltaY:13;                       // change in y
+         signed   x:19;                            // x coord (1st loc value)
+/*0024*/
 };
 
 /*
@@ -2603,27 +2613,27 @@ struct playerSelfPosStruct
 /*0002*/ uint16_t spawnId;                       // Player's spawn id
 /*0004*/ uint16_t unknown0004;                   // ***Placeholder
 /*0006*/
-	 unsigned pitch:12;                  // pitch (up/down heading)
-	 unsigned padding00:20;
-/*0010*/
-	 float    deltaX;                    // change in x
-/*0014*/
-	 float    z;                         // z coord (3rd loc value)
-/*0018*/
 	 float    y;                         // y coord (2nd loc value)
-/*0022*/
-	 float    deltaZ;                    // change in z
-/*0026*/
-	 signed   animation:10;              // current animation
+/*0010*/
+	 unsigned pitch:12;                  // pitch (up/down heading)
 	 unsigned heading:12;                // heading
-	 unsigned padding05:10;
-/*0030*/
+	 unsigned padding01:8;
+/*0014*/
 	 float    deltaY;                    // change in y
+/*0018*/
+	 signed   animation:10;              // current animation
+	 unsigned padding03:22;
+/*0022*/
+	 float    z;                         // z coord (3rd loc value)
+/*0026*/
+	 float    x;                         // x coord (1st loc value)
+/*0030*/
+	 float    deltaX;                    // change in x
 /*0034*/
 	 signed   deltaHeading:10;           // change in heading
 	 unsigned padding07:22;
 /*0038*/
-	 float    x;                         // x coord (1st loc value)
+	 float    deltaZ;                    // change in z
 /*0042*/
 };
 
@@ -2639,6 +2649,19 @@ struct spawnAppearanceStruct
 /*0002*/ uint16_t type;                          // Type of data sent
 /*0004*/ uint32_t parameter;                     // Values associated with the type
 /*0008*/
+};
+
+// OP_SpawnAppearance2 (0x8cd3) — 24-byte extended appearance update. On
+// lock-ruleset (TLP) servers, S>C type=0x2c (44) carries the mob-lock / FTE
+// attackable flag (value: 1=locked/unattackable, 0=attackable). Other types
+// carry guild/cast/appearance state; C>S type=0x24 is OP_ClickBuffOff.
+struct spawnAppearance2Struct
+{
+/*0000*/ uint32_t spawnId;                       // ID of the spawn
+/*0004*/ uint32_t type;                          // appearance type (0x2c = lock)
+/*0008*/ uint32_t value;                          // type-specific value
+/*0012*/ uint8_t  unknown0012[12];               // padding / unused
+/*0024*/
 };
 
 

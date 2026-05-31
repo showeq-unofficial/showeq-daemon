@@ -113,6 +113,7 @@ AddStruct(randomStruct);
 AddStruct(playerSpawnPosStruct);
 AddStruct(playerSelfPosStruct);
 AddStruct(spawnAppearanceStruct);
+AddStruct(spawnAppearance2Struct);
 AddStruct(bindWoundStruct);
 AddStruct(inspectedStruct);
 AddStruct(attack1Struct);

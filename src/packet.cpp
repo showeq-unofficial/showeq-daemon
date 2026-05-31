@@ -569,6 +569,10 @@ void EQPacket::processPlaybackPackets (void)
     {
       if (PACKETVERSION == version)
       {
+	// Stamp the dispatch with the packet's *recorded* time so EventLogger
+	// (and any other consumer) can regenerate a timeline from a .vpk that
+	// matches the original capture, instead of replay wall-clock.
+	m_currentPacketTimeMs = (qint64) now * 1000;
 	dispatchPacket ( size - sizeof (struct ether_header),
 		       (unsigned char *) buffer + sizeof (struct ether_header)
 		       );
