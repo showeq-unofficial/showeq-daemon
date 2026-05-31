@@ -158,34 +158,27 @@ void EQPacketFragmentSequence::addFragment(EQProtocolPacket& packet)
              *(uint16_t*)(m_data));
 #endif
       
-      const size_t needed = m_dataSize + packet.payloadLength();
-      if (needed > m_dataAllocSize)
+      if (m_dataSize + packet.payloadLength() > m_dataAllocSize)
       {
-        // The first fragment under-reported the total. This happens on
-        // legitimate large bulk packets (a few hundred bytes short on
-        // stream 3) AND on wrong-session data. GROW the buffer to fit —
-        // preserving every byte, so no continuation is silently dropped
-        // (the cascade trap from the reverted soft-drop attempt). Past the
-        // hard cap it's almost certainly foreign-session garbage, so we
-        // abandon the sequence instead of growing without bound or
-        // aborting the daemon.
-        if (needed > kMaxFragmentBuffer)
-        {
-          seqWarn("EQPacketFragmentSequence: fragment sequence on stream %d "
-            "seq %04x exceeds cap (%zu > %u) — abandoning (likely "
-            "wrong-session data).",
-            m_streamid, packet.arqSeq(), needed, kMaxFragmentBuffer);
-          reset();
-          return;
-        }
-        seqWarn("EQPacketFragmentSequence: growing fragment buffer %u -> %zu "
-          "on stream %d seq %04x (first-fragment total under-reported).",
-          m_dataAllocSize, needed, m_streamid, packet.arqSeq());
-        uint8_t* grown = new uint8_t[needed];
-        memcpy(grown, m_data, m_dataSize);
-        delete[] m_data;
-        m_data = grown;
-        m_dataAllocSize = needed;
+        // The data arriving exceeds the buffer the first fragment declared.
+        // The fragmentation protocol's ONLY completion signal is that
+        // declared total (isComplete() == (m_dataSize == m_totalLength)),
+        // so once the total is wrong we can neither size the buffer nor
+        // know where the packet ends. This happens when a stream decodes
+        // fragments with the wrong session key (foreign-session bytes
+        // mis-routed in multibox) — the real fix is to not route foreign
+        // data here at all. Abandon this sequence: the packet is lost, but
+        // the daemon survives (formerly seqFatal → exit) and the next first
+        // fragment re-aligns the stream. We do NOT grow the buffer — that
+        // would let m_dataSize pass m_totalLength so isComplete() never
+        // fires, stranding the stream in a never-completing reassembly.
+        seqWarn("EQPacketFragmentSequence: abandoning sequence on stream %d "
+          "seq %04x — data exceeds declared total %u (filled %zu, +%u). "
+          "Likely wrong-session/corrupt header.",
+          m_streamid, packet.arqSeq(), m_dataAllocSize, m_dataSize,
+          packet.payloadLength());
+        reset();
+        return;
       }
 
       memcpy(m_data + m_dataSize, packet.payload(), packet.payloadLength());
