@@ -241,12 +241,15 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
               box.zone_c2s, &EQPacketStream::receiveSessionKey);
       connect(box.zone_c2s, &EQPacketStream::sessionKey,
               box.zone_s2c, &EQPacketStream::receiveSessionKey);
-      // ZoneServerInfo S>C on world tells the daemon which port the
-      // box is about to connect to — used to bind incoming zone-stream
-      // traffic to this box (Stage 3a of MULTIBOX_PLAN.md).
-      new ZoneServerObserver(&box, box.world_s2c, this);
       c2s = box.world_c2s;
     }
+    // ZoneServerInfo S>C on world tells the daemon which port the box is
+    // about to connect to — used to bind incoming zone-stream traffic to
+    // this box. EVERY box needs one, including the primary: its zone
+    // session must be identifiable so dispatchPacket can route bound
+    // zone traffic to it (the global streams) and DROP unbound traffic
+    // rather than letting foreign sessions interleave on those streams.
+    new ZoneServerObserver(&box, box.world_s2c, this);
     new NamePromoter(&box, &m_boxes, c2s, this);
 
     // Per-box opcode wiring is owned by DaemonApp::onBoxCreated (it owns
@@ -784,15 +787,15 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
     // its own session key. Primary's NamePromoter runs on the global
     // stream; first OP_EnterWorld wins and subsequent ones are
     // ignored (the early-out in NamePromoter::onDecodedPacket).
-    if (packet.getIPv4SourceN() == m_client_addr)
-    {
-      m_client2WorldStream->handlePacket(packet);
-    }
-    else
-    {
-      m_world2ClientStream->handlePacket(packet);
-    }
-
+    // Route world traffic to the OWNING box's world streams by the full
+    // 5-tuple. Each box's world session has a unique ephemeral client port
+    // even same-host, so this never mixes sessions. This matters because
+    // the primary box's world streams ALIAS the global ones: if we instead
+    // dumped every box's world traffic onto the globals (by client_ip, the
+    // same for all same-host boxes), the primary's ZoneServerObserver and
+    // NamePromoter would see — and steal — other boxes' handshakes. observe()
+    // created the box for this 5-tuple at the top of dispatchPacket, so a
+    // miss here is unexpected (and simply drops, harming nothing).
     const bool srcIsServer = srcIsWorld;
     const in_addr_t client_ip = srcIsServer ? packet.getIPv4DestN()
                                             : packet.getIPv4SourceN();
@@ -801,7 +804,7 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
     const in_port_t server_port = htons(srcIsServer ? srcPortHost
                                                     : dstPortHost);
     Box* box = m_boxes.lookupByWorld(client_ip, client_port, server_port);
-    if (box && !box->is_primary)
+    if (box)
     {
       EQPacketStream* s = srcIsServer ? box->world_s2c : box->world_c2s;
       if (s) s->handlePacket(packet);
@@ -855,20 +858,35 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
     Box* box = nullptr;
     bool srcIsClient = false;
     const bool matched = pickBox(box, srcIsClient);
-    if (matched && box && !box->is_primary && box->zone_c2s && box->zone_s2c) {
+    if (matched && box && box->zone_c2s && box->zone_s2c) {
+      // Route to THIS box's zone streams. The primary box's zone streams
+      // alias the global ones, so its bound session still decodes through
+      // the global pipeline — but now keyed on the box's session, not on
+      // m_client_addr (which is identical for every same-host box).
       EQPacketStream* s = srcIsClient ? box->zone_c2s : box->zone_s2c;
       s->handlePacket(packet);
       return;
     }
 
-    // Fallback: primary box / unbound traffic → global streams.
-    if (packet.getIPv4SourceN() == m_client_addr)
-    {
-      m_client2ZoneStream->handlePacket(packet);
-    }
-    else
-    {
-      m_zone2ClientStream->handlePacket(packet);
+    // Unmatched zone traffic. With a SINGLE box (or none) there's no other
+    // session to confuse it with, so fall back to the global streams as the
+    // legacy single-client pipeline always did — this keeps mid-session
+    // captures decoding even when their OP_ZoneServerInfo (and thus the
+    // zone binding) was never seen.
+    //
+    // With MULTIPLE same-host boxes we DROP instead: every box shares one
+    // client_ip, so an unidentified session routed to the shared global
+    // streams would interleave foreign-session packets and corrupt fragment
+    // reassembly (the buffer-overflow crash). A box's own session binds via
+    // ZoneServerObserver → lookupByExpectedZone on its SessionRequest, after
+    // which lookupBoundZone routes it precisely; anything still unmatched is
+    // undecodable here and is safe to drop.
+    if (m_boxes.size() <= 1) {
+      if (packet.getIPv4SourceN() == m_client_addr) {
+        m_client2ZoneStream->handlePacket(packet);
+      } else {
+        m_zone2ClientStream->handlePacket(packet);
+      }
     }
   }
 } /* end dispatchPacket() */

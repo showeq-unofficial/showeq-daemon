@@ -7,6 +7,8 @@
 #include "packetinfo.h"
 #include "packetstream.h"
 
+#include <QDateTime>
+
 namespace {
 constexpr size_t kZsiLen = sizeof(zoneServerInfoStruct); // 130
 }
@@ -38,6 +40,15 @@ void ZoneServerObserver::onDecodedPacket(const uint8_t* data, size_t len,
 
     const auto* zsi = reinterpret_cast<const zoneServerInfoStruct*>(data);
     m_box->expected_zone_server_port = htons(zsi->port);
+    // This box is about to open a NEW zone session, so clear any prior
+    // zone binding: it's once again "awaiting" a SessionRequest. This lets
+    // dispatchPacket's lookupByExpectedZone skip boxes that are already
+    // bound to a live session, so when two same-host boxes zone to the same
+    // server PORT the second SessionRequest binds the second box instead of
+    // re-matching the first.
+    m_box->zone_client_port = 0;
+    m_box->zone_server_port_bound = 0;
+    m_box->zone_await_ms = QDateTime::currentMSecsSinceEpoch();
     // Hostname-to-IP resolution is async + costly; defer. dispatchPacket
     // matches on (client_ip, server_port) — for distinct ports per zone
     // it's enough. Two boxes zoning to the same server port simultaneously

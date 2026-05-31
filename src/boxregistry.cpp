@@ -160,21 +160,31 @@ Box* BoxRegistry::lookupByExpectedZone(in_addr_t client_ip,
                                        in_addr_t server_ip,
                                        in_port_t server_zone_port)
 {
+    // Among boxes that match (client_ip, server_port) and are NOT already
+    // bound to a live zone session, pick the one notified most recently by
+    // OP_ZoneServerInfo. The client connects immediately after being told
+    // where to zone, so when two same-host boxes await the same server port
+    // the newest notification owns the SessionRequest arriving now. Without
+    // this tiebreak the first box in the list (always the primary) would
+    // grab every session and the others would never bind.
+    Box* best = nullptr;
     for (auto& b : m_boxes) {
         if (b->is_merged()) continue;
         if (b->client_ip != client_ip) continue;
+        // Skip boxes already bound to a live zone session — ZoneServerObserver
+        // clears the binding on a fresh OP_ZoneServerInfo so a re-zoning box
+        // becomes available again.
+        if (b->zone_client_port != 0) continue;
         // ZoneServerObserver defers hostname→IP resolution (sets only the
         // port), so expected_zone_server_ip is usually 0. Match on
         // (client_ip, server_port) in that case; only enforce the IP when
-        // it's actually known. Distinct per-zone ports disambiguate; two
-        // boxes zoning to the same server port at once is the documented
-        // v1 hole (recovers on the next handshake).
+        // it's actually known.
         if (b->expected_zone_server_ip != 0 &&
             b->expected_zone_server_ip != server_ip) continue;
         if (b->expected_zone_server_port != server_zone_port) continue;
-        return b.get();
+        if (!best || b->zone_await_ms > best->zone_await_ms) best = b.get();
     }
-    return nullptr;
+    return best;
 }
 
 size_t BoxRegistry::distinctCount() const

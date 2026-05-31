@@ -68,6 +68,13 @@ public:
     in_port_t       zone_client_port          = 0;
     in_port_t       zone_server_port_bound    = 0;
 
+    // Wall-clock ms when this box last received OP_ZoneServerInfo (set by
+    // ZoneServerObserver). When two same-host boxes await a zone on the
+    // same server port, lookupByExpectedZone binds the MOST RECENTLY
+    // notified one — the client connects immediately after being told
+    // where to go, so the newest notification owns the next SessionRequest.
+    qint64          zone_await_ms             = 0;
+
     // Placeholder until OP_EnterWorld arrives. Hex string of the
     // creation-time 5-tuple — stable for the box's lifetime.
     QString   box_id;
