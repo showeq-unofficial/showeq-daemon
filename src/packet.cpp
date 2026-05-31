@@ -252,7 +252,15 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
     // Stage 3b: replay all recorded EQPacket::connect2 intents on
     // this box's streams. Non-active boxes start muted; only the
     // currently-active box's streams fire opcode dispatchers.
-    wireBox(box);
+    //
+    // The primary box's four streams ARE the global streams, which
+    // EQPacket::connect2 now wires directly (so decode works even for a
+    // capture that never creates a box — a zone-only replay fixture
+    // with no world handshake). Re-running wireBox on the primary would
+    // double-install every dispatcher, so skip it for the primary.
+    if (!box.is_primary) {
+      wireBox(box);
+    }
     const bool isActive = m_boxes.activeBoxId().isEmpty()
                           ? box.is_primary
                           : (box.box_id == m_boxes.activeBoxId());
@@ -1340,11 +1348,24 @@ bool EQPacket::connect2(const QString& opcodeName, EQStreamPairs sp,
       if (dir & DIR_Server) wireOne(box.zone_s2c);
     }
   }
-  // No eager-wire-on-globals fallback: primary box's streams alias
-  // the globals (see setBoxCreatedHook), so wireBox(primary) will
-  // install the dispatcher there exactly once. Wiring eagerly here
-  // would double-install dispatchers (twice per OP_X) and double-
-  // emit every signal once primary is observed.
+  // Eagerly wire the global streams as well. Decode must work even
+  // when no Box is ever created — e.g. a zone-only replay fixture that
+  // starts mid-session with no world handshake (the `moblock` golden).
+  // The primary box's streams ALIAS these globals, so setBoxCreatedHook
+  // skips wireBox() for the primary to avoid double-installing every
+  // dispatcher. Non-primary boxes own distinct streams and are wired
+  // via wireBox() at creation time.
+  auto wireGlobal = [&](EQPacketStream* s) {
+    if (s) res = s->connect2(opcodeName, payload, szt, receiver, member) || res;
+  };
+  if (sp & SP_World) {
+    if (dir & DIR_Client) wireGlobal(m_client2WorldStream);
+    if (dir & DIR_Server) wireGlobal(m_world2ClientStream);
+  }
+  if (sp & SP_Zone) {
+    if (dir & DIR_Client) wireGlobal(m_client2ZoneStream);
+    if (dir & DIR_Server) wireGlobal(m_zone2ClientStream);
+  }
   return res;
 }
 
