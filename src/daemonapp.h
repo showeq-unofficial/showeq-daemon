@@ -52,7 +52,8 @@ class ZoneServerMgr;
 // That means EQPacket + ZoneMgr + Player + SpawnShell + their dependencies.
 // Spell, group, chat, experience, combat, filter-notification subsystems are
 // deferred to later phases.
-class DaemonApp : public QObject, public IMapPackageHost {
+class DaemonApp : public QObject, public IMapPackageHost,
+                  public ManagerSetProvider {
     Q_OBJECT
 public:
     struct Config {
@@ -153,6 +154,12 @@ public:
     // they don't depend on the DataLocationMgr cascade.
     std::vector<MapPackageInfo> mapPackagesIn(const QStringList& roots) const;
 
+    // --- ManagerSetProvider ------------------------------------------------
+    // Resolve a box's per-box ManagerSet (empty id = active box). Returns
+    // nullptr if unknown. Backed by m_boxManagers (populated in
+    // onBoxCreated); falls back to the active set.
+    const ManagerSet* managersForBox(const QString& boxId) const override;
+
 private slots:
     // Mirrors showeq/src/map.cpp:370 — MapMgr::loadZoneMap. Called on every
     // ZoneMgr::zoneChanged so SessionAdapter has fresh geometry to stream.
@@ -215,10 +222,11 @@ private:
     // The active box's ManagerSet — what the m_* members above mirror and
     // what wireBoxPipeline binds to the global streams at startup.
     ManagerSet                      m_activeManagers;
-    // Per-box ManagerSet bundles, keyed by box_id. The managers themselves
-    // are QObjects parented to `this`; this map just records which set
-    // belongs to which box so SessionAdapter can resolve the active one.
-    QHash<QString, ManagerSet>      m_boxManagers;
+    // Per-box ManagerSet bundles, keyed by the stable Box* (box_id mutates
+    // placeholder→name-hash on promotion, so it's a poor key). The managers
+    // themselves are QObjects parented to `this`; this map just records
+    // which set belongs to which box so SessionAdapter can resolve one.
+    QHash<const Box*, ManagerSet>   m_boxManagers;
     std::unique_ptr<MapData>        m_mapData;
     // Active map package id ("default" = flat maps root). Restored from
     // XMLPreferences in start(), overridden by Config::mapPackage.

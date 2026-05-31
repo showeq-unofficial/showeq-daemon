@@ -17,6 +17,7 @@ extern "C" { // pcap headers aren't c++-clean
 #include <sys/socket.h>
 
 #include "boxregistry.h"
+#include "managerset.h"
 #include "category.h"
 #include "combatrouter.h"
 #include "datetimemgr.h"
@@ -324,16 +325,23 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
 // Phase 1 ignores the topic set and always starts a full spawn/zone/player
 // stream. Finer-grained subscription lands when Chat / Combat / Exp / Group
 // messages are populated in later phases.
-void SessionAdapter::startStreaming()
+void SessionAdapter::disconnectPerBox()
 {
-    if (!m_spawnShell) {
-        qWarning("Subscribe received before state managers were wired");
-        return;
-    }
+    // QObject::disconnect(sender, 0, this, 0) tears down every connection
+    // from one sender to this adapter in a single call — eight calls, not
+    // ~35. Global managers are untouched (they don't change on switch).
+    if (m_spawnShell)   disconnect(m_spawnShell,   nullptr, this, nullptr);
+    if (m_player)       disconnect(m_player,       nullptr, this, nullptr);
+    if (m_zoneMgr)      disconnect(m_zoneMgr,      nullptr, this, nullptr);
+    if (m_messageShell) disconnect(m_messageShell, nullptr, this, nullptr);
+    if (m_groupMgr)     disconnect(m_groupMgr,     nullptr, this, nullptr);
+    if (m_spellShell)   disconnect(m_spellShell,   nullptr, this, nullptr);
+    if (m_combatRouter) disconnect(m_combatRouter, nullptr, this, nullptr);
+    if (m_spawnMonitor) disconnect(m_spawnMonitor, nullptr, this, nullptr);
+}
 
-    // STEP 1: connect signals — handlers push into m_buffered until the
-    //         snapshot is drained. This MUST happen before any iteration
-    //         of SpawnShell state so mid-iteration changes are captured.
+void SessionAdapter::connectPerBox()
+{
     connect(m_spawnShell, &SpawnShell::addItem,
             this,         &SessionAdapter::onAddItem);
     connect(m_spawnShell, &SpawnShell::delItem,
@@ -452,6 +460,38 @@ void SessionAdapter::startStreaming()
                                    uint32_t, const QString&)));
     }
 
+    if (m_spawnMonitor) {
+        // SpawnMonitor surfaces four signals — newSpawnPoint (promoted
+        // from candidate to tracked), spawnPointUpdated (re-pop / kill
+        // restart), spawnPointDeleted (explicit user delete), and
+        // clearSpawnPoints (zone change / clear-all). The current
+        // promoted set is iterated into the Snapshot below.
+        connect(m_spawnMonitor, &SpawnMonitor::newSpawnPoint,
+                this,           &SessionAdapter::onSpawnPointAdded);
+        connect(m_spawnMonitor, &SpawnMonitor::spawnPointUpdated,
+                this,           &SessionAdapter::onSpawnPointUpdated);
+        connect(m_spawnMonitor, &SpawnMonitor::spawnPointDeleted,
+                this,           &SessionAdapter::onSpawnPointDeleted);
+        connect(m_spawnMonitor, &SpawnMonitor::clearSpawnPoints,
+                this,           &SessionAdapter::onSpawnPointsCleared);
+    }
+}
+
+void SessionAdapter::startStreaming()
+{
+    if (!m_spawnShell) {
+        qWarning("Subscribe received before state managers were wired");
+        return;
+    }
+
+    // STEP 1: connect signals — handlers push into m_buffered until the
+    //         snapshot is drained. This MUST happen before any iteration
+    //         of SpawnShell state so mid-iteration changes are captured.
+    //         Per-box manager signals go through connectPerBox() so an
+    //         active-box switch can disconnect+reconnect them; the
+    //         daemon-global managers below are wired once and never move.
+    connectPerBox();
+
     if (m_categoryMgr) {
         // CategoryMgr's add/del/cleared/loaded signals all fire on
         // mutation; coalesce into one slot that resends the full list.
@@ -476,22 +516,6 @@ void SessionAdapter::startStreaming()
         // emits its own PrefChanged envelope.
         connect(m_prefsBroker, &PrefsBroker::prefChanged,
                 this,          &SessionAdapter::onPrefChanged);
-    }
-
-    if (m_spawnMonitor) {
-        // SpawnMonitor surfaces four signals — newSpawnPoint (promoted
-        // from candidate to tracked), spawnPointUpdated (re-pop / kill
-        // restart), spawnPointDeleted (explicit user delete), and
-        // clearSpawnPoints (zone change / clear-all). The current
-        // promoted set is iterated into the Snapshot below.
-        connect(m_spawnMonitor, &SpawnMonitor::newSpawnPoint,
-                this,           &SessionAdapter::onSpawnPointAdded);
-        connect(m_spawnMonitor, &SpawnMonitor::spawnPointUpdated,
-                this,           &SessionAdapter::onSpawnPointUpdated);
-        connect(m_spawnMonitor, &SpawnMonitor::spawnPointDeleted,
-                this,           &SessionAdapter::onSpawnPointDeleted);
-        connect(m_spawnMonitor, &SpawnMonitor::clearSpawnPoints,
-                this,           &SessionAdapter::onSpawnPointsCleared);
     }
 
     if (m_dateTimeMgr) {
@@ -1083,17 +1107,36 @@ void SessionAdapter::onZoneServerChanged(const QString& host, quint16 port)
 
 void SessionAdapter::onActiveBoxChanged()
 {
-    // Clear the singleton state managers so stale state from the
-    // previously-active box doesn't leak into the new box's view.
-    // The reset is destructive — the new box's UI populates as
-    // packets continue to flow in (the per-box stream gate is
-    // already flipped by EQPacket's activeBoxChanged hook).
-    if (m_spawnShell) m_spawnShell->clear();
-    if (m_spellShell) m_spellShell->clear();
-    if (m_player)     m_player->clear();
-    // Send a fresh Snapshot reflecting the (now-empty) state so the
-    // client redraws.
+    // Non-destructive switch. Every box has been decoding into its own
+    // ManagerSet all along, so we just detach from the old box's managers,
+    // repoint to the new box's (already-populated) managers, reattach, and
+    // ship a fresh Snapshot from the new state — no clear(), no waiting for
+    // packets to repopulate.
+    if (!m_liveTailing) return;          // not streaming yet — startStreaming binds
+    if (!m_managerProvider || !m_boxes) return;
+    const ManagerSet* ns =
+        m_managerProvider->managersForBox(m_boxes->activeBoxId());
+    if (!ns || !ns->spawnShell) return;
+    if (ns->spawnShell == m_spawnShell) return;  // already active — no-op
+
+    disconnectPerBox();
+    m_spawnShell   = ns->spawnShell;
+    m_zoneMgr      = ns->zoneMgr;
+    m_player       = ns->player;
+    m_messageShell = ns->messageShell;
+    m_groupMgr     = ns->groupMgr;
+    m_spellShell   = ns->spellShell;
+    m_combatRouter = ns->combatRouter;
+    m_spawnMonitor = ns->spawnMonitor;
+    connectPerBox();
+
+    // Re-prime the client from the new box's current state. sendSnapshot
+    // re-establishes spawns/zone/player; the derived envelopes catch the
+    // stats/group/buff panels that aren't part of the Snapshot.
     sendSnapshot();
+    sendPlayerStats();
+    sendGroupUpdate();
+    sendBuffsUpdate();
 }
 
 void SessionAdapter::sendBoxList()

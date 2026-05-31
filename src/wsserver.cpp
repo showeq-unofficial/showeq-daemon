@@ -264,6 +264,7 @@ SessionAdapter* WsServer::makeAdapter(IEnvelopeSink* sink, QObject* parent)
                               m_boxes,
                               parent);
     adapter->setMapPackageHost(m_mapPackageHost);
+    adapter->setManagerProvider(m_managerProvider);
     return adapter;
 }
 

@@ -295,6 +295,7 @@ bool DaemonApp::start()
                    m_dateTimeMgr, m_zoneServerMgr,
                    m_packet ? &m_packet->boxRegistry() : nullptr);
     m_ws->setMapPackageHost(this);
+    m_ws->setManagerProvider(this);
 
     // --record-golden: spin up an internal SessionAdapter writing into a
     // FileSink. Subscribe is synthesized immediately so the on-disk
@@ -321,6 +322,7 @@ bool DaemonApp::start()
         // across runs.
         m_goldenAdapter->setDeterministic(true);
         m_goldenAdapter->setMapPackageHost(this);
+        m_goldenAdapter->setManagerProvider(this);
         seq::v1::ClientEnvelope subEnv;
         subEnv.mutable_subscribe();
         QByteArray subBytes;
@@ -779,17 +781,29 @@ void DaemonApp::onBoxCreated(Box* box)
         // The primary box's four streams ARE the global streams, already
         // wired to the active ManagerSet in start(). Just record the
         // mapping so SessionAdapter can resolve it.
-        m_boxManagers.insert(box->box_id, m_activeManagers);
+        m_boxManagers.insert(box, m_activeManagers);
         return;
     }
     // Every non-primary box decodes continuously into its OWN ManagerSet
     // (no mute gate), wired onto its own streams — so switching the active
     // box is a rebind, not a clear+resnapshot.
     const ManagerSet ms = buildManagerSet();
-    m_boxManagers.insert(box->box_id, ms);
+    m_boxManagers.insert(box, ms);
     wireBoxPipeline(box->world_c2s, box->world_s2c,
                     box->zone_c2s, box->zone_s2c, ms,
                     /*wireGlobalSinks=*/false);
+}
+
+const ManagerSet* DaemonApp::managersForBox(const QString& boxId) const
+{
+    if (!m_packet) {
+        return m_activeManagers.spawnShell ? &m_activeManagers : nullptr;
+    }
+    BoxRegistry& reg = m_packet->boxRegistry();
+    const Box* b = boxId.isEmpty() ? reg.primary() : reg.findById(boxId);
+    if (!b) return nullptr;
+    const auto it = m_boxManagers.find(b);
+    return it != m_boxManagers.end() ? &it.value() : nullptr;
 }
 
 static QStringList mapSearchPaths(const QString& override,

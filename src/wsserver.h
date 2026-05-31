@@ -23,6 +23,7 @@ class PrefsBroker;
 class BoxRegistry;
 class SessionAdapter;
 class IMapPackageHost;
+class ManagerSetProvider;
 class SpawnMonitor;
 class SpawnShell;
 class SpellShell;
@@ -63,6 +64,7 @@ public:
     // SessionAdapter so clients can list/select packages. Set after
     // setState, before listen().
     void setMapPackageHost(IMapPackageHost* host) { m_mapPackageHost = host; }
+    void setManagerProvider(ManagerSetProvider* p) { m_managerProvider = p; }
 
     // Fan a server->client Envelope out to every connected session's
     // adapter. Used for daemon-global state changes (e.g. active map
@@ -129,4 +131,5 @@ private:
     BoxRegistry*   m_boxes         = nullptr;
     bool           m_firstClientFired = false;
     IMapPackageHost* m_mapPackageHost = nullptr;
+    ManagerSetProvider* m_managerProvider = nullptr;
 };

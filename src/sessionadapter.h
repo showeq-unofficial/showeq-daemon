@@ -31,6 +31,7 @@ class SpellShell;
 class ZoneMgr;
 class ZoneServerMgr;
 class IMapPackageHost;
+class ManagerSetProvider;
 
 // SessionAdapter is the per-client bridge between in-process QObject signals
 // (SpawnShell::addItem, ZoneMgr::zoneChanged, Player::posChanged, ...) and
@@ -105,6 +106,12 @@ public:
     // and apply SetMapPackage. Set by WsServer on connect; may be null in
     // unit tests / smoke-test modes (handlers then no-op gracefully).
     void setMapPackageHost(IMapPackageHost* host) { m_mapPackageHost = host; }
+
+    // Resolver for the active box's per-box ManagerSet. Set by WsServer
+    // on connect (and by DaemonApp for the golden adapter). Used by
+    // onActiveBoxChanged() to rebind to the newly-active box's managers.
+    // Null in unit tests / smoke modes — switching then no-ops.
+    void setManagerProvider(ManagerSetProvider* p) { m_managerProvider = p; }
 
     // Deliver a daemon-broadcast Envelope to this client (emit if live-
     // tailing, else buffer through the snapshot). Used by WsServer::broadcast
@@ -183,6 +190,16 @@ private slots:
 
 private:
     void startStreaming();
+    // Connect / disconnect this adapter's slots to the eight per-box
+    // managers it currently points at (m_spawnShell, m_zoneMgr, m_player,
+    // m_messageShell, m_groupMgr, m_spellShell, m_combatRouter,
+    // m_spawnMonitor). startStreaming() calls connectPerBox() once;
+    // onActiveBoxChanged() disconnect→repoint→reconnect for a live,
+    // non-destructive box switch. The daemon-global managers (ItemCache,
+    // CategoryMgr, FilterMgr, PrefsBroker, DateTimeMgr, ZoneServerMgr) are
+    // wired directly in startStreaming() and never rebind.
+    void connectPerBox();
+    void disconnectPerBox();
     void sendSnapshot();
     void sendPlayerStats();
     void sendGroupUpdate();
@@ -223,6 +240,7 @@ private:
     ZoneServerMgr*               m_zoneServerMgr = nullptr;
     BoxRegistry*                 m_boxes         = nullptr;
     IMapPackageHost*             m_mapPackageHost = nullptr;
+    ManagerSetProvider*          m_managerProvider = nullptr;
 
     QString                      m_sessionId;
     bool                         m_subscribed = false;
