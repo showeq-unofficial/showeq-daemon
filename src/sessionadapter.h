@@ -29,6 +29,7 @@ class SpellItem;
 class SpellShell;
 class ZoneMgr;
 class ZoneServerMgr;
+class IMapPackageHost;
 
 // SessionAdapter is the per-client bridge between in-process QObject signals
 // (SpawnShell::addItem, ZoneMgr::zoneChanged, Player::posChanged, ...) and
@@ -97,6 +98,16 @@ public:
     // across runs. DaemonApp turns this on for the --record-golden
     // adapter only; live client adapters keep wall-clock data.
     void setDeterministic(bool on) { m_deterministic = on; }
+
+    // Borrowed map-package host (DaemonApp), used to answer ListMapPackages
+    // and apply SetMapPackage. Set by WsServer on connect; may be null in
+    // unit tests / smoke-test modes (handlers then no-op gracefully).
+    void setMapPackageHost(IMapPackageHost* host) { m_mapPackageHost = host; }
+
+    // Deliver a daemon-broadcast Envelope to this client (emit if live-
+    // tailing, else buffer through the snapshot). Used by WsServer::broadcast
+    // for daemon-global state changes like the active map package.
+    void deliverBroadcast(const seq::v1::Envelope& env);
 
 private slots:
     // Signal handlers wired to the shared state managers. Before
@@ -177,6 +188,7 @@ private:
     void sendCategoriesUpdate();
     void sendFilterRulesUpdate();
     void sendPrefsSnapshot();
+    void sendMapPackages();
     void emitEnvelope(seq::v1::Envelope&& env);
     void sendOrBuffer(seq::v1::Envelope&& env);
 
@@ -196,6 +208,7 @@ private:
     ItemCache*                   m_itemCache    = nullptr;
     DateTimeMgr*                 m_dateTimeMgr  = nullptr;
     ZoneServerMgr*               m_zoneServerMgr = nullptr;
+    IMapPackageHost*             m_mapPackageHost = nullptr;
 
     QString                      m_sessionId;
     bool                         m_subscribed = false;

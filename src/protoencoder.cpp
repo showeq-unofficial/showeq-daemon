@@ -220,6 +220,19 @@ void fillMapGeometry(seq::v1::MapGeometry* out, const MapData& map)
     }
 }
 
+void fillMapPackages(seq::v1::MapPackagesUpdate* out,
+                     const std::vector<MapPackageInfo>& packages,
+                     const QString& activeId)
+{
+    for (const auto& p : packages) {
+        auto* pkg = out->add_packages();
+        pkg->set_id(p.id.toStdString());
+        pkg->set_label(p.label.toStdString());
+        pkg->set_zone_count(p.zoneCount);
+    }
+    out->set_active_id(activeId.toStdString());
+}
+
 void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
 {
     // Cast away const because the legacy accessors (HP, maxHP, getMana,

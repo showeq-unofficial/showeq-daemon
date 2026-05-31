@@ -84,3 +84,20 @@ target_compile_options(itemcache_test PRIVATE
 )
 
 add_test(NAME itemcache_test COMMAND itemcache_test)
+
+add_executable(mappackages_test
+  mappackages_test.cpp
+)
+
+target_link_libraries(mappackages_test PRIVATE
+  seq-daemon-core
+  Qt${QT_VERSION_MAJOR}::Test
+)
+
+target_compile_options(mappackages_test PRIVATE
+  -Wall
+  -Wno-unused-parameter
+  -Wno-deprecated-declarations
+)
+
+add_test(NAME mappackages_test COMMAND mappackages_test)

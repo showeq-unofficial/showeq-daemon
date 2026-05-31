@@ -244,12 +244,26 @@ void WsServer::attachNewSession(QWebSocket* sock, const QString& sessionId)
 
 SessionAdapter* WsServer::makeAdapter(IEnvelopeSink* sink, QObject* parent)
 {
-    return new SessionAdapter(sink, m_spawnShell, m_zoneMgr, m_player,
+    auto* adapter = new SessionAdapter(sink, m_spawnShell, m_zoneMgr, m_player,
                               m_mapData, m_messageShell, m_groupMgr,
                               m_spellShell, m_combatRouter, m_categoryMgr,
                               m_filterMgr, m_prefsBroker, m_spawnMonitor,
                               m_itemCache, m_dateTimeMgr, m_zoneServerMgr,
                               parent);
+    adapter->setMapPackageHost(m_mapPackageHost);
+    return adapter;
+}
+
+void WsServer::broadcast(const seq::v1::Envelope& env)
+{
+    // Fan to every session's adapter. Each adapter stamps its own
+    // seq/server_ts_ms and honors its own snapshot-vs-live buffering
+    // (deliverBroadcast no-ops on the deterministic golden adapter, which
+    // isn't tracked in m_sessions anyway).
+    for (auto& sess : m_sessions) {
+        if (sess.adapter)
+            sess.adapter->deliverBroadcast(env);
+    }
 }
 
 QString WsServer::generateSessionId() const

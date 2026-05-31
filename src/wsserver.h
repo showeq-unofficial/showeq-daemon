@@ -21,11 +21,14 @@ class MessageShell;
 class Player;
 class PrefsBroker;
 class SessionAdapter;
+class IMapPackageHost;
 class SpawnMonitor;
 class SpawnShell;
 class SpellShell;
 class ZoneMgr;
 class ZoneServerMgr;
+
+namespace seq::v1 { class Envelope; }
 
 // WsServer owns a QWebSocketServer on the same event loop as the capture
 // pipeline. It also brokers session resume:
@@ -53,6 +56,17 @@ public:
                   CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
                   PrefsBroker* pb, SpawnMonitor* sm, ItemCache* ic,
                   DateTimeMgr* dtm, ZoneServerMgr* zsm);
+
+    // Borrowed map-package host (DaemonApp). Forwarded to each
+    // SessionAdapter so clients can list/select packages. Set after
+    // setState, before listen().
+    void setMapPackageHost(IMapPackageHost* host) { m_mapPackageHost = host; }
+
+    // Fan a server->client Envelope out to every connected session's
+    // adapter. Used for daemon-global state changes (e.g. active map
+    // package) that all clients must see. Each adapter stamps its own
+    // seq + server_ts_ms.
+    void broadcast(const seq::v1::Envelope& env);
 
     bool listen(const QHostAddress& host, quint16 port);
 
@@ -103,4 +117,5 @@ private:
     ItemCache*     m_itemCache     = nullptr;
     DateTimeMgr*   m_dateTimeMgr   = nullptr;
     ZoneServerMgr* m_zoneServerMgr = nullptr;
+    IMapPackageHost* m_mapPackageHost = nullptr;
 };

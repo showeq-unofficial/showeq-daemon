@@ -5,6 +5,9 @@
 #include <QString>
 #include <QStringList>
 #include <memory>
+#include <vector>
+
+#include "mappackagehost.h"
 
 // Forward declarations of the extracted showeq types. We keep them out of
 // this header to minimize the include footprint for files that only need the
@@ -44,7 +47,7 @@ class ZoneServerMgr;
 // That means EQPacket + ZoneMgr + Player + SpawnShell + their dependencies.
 // Spell, group, chat, experience, combat, filter-notification subsystems are
 // deferred to later phases.
-class DaemonApp : public QObject {
+class DaemonApp : public QObject, public IMapPackageHost {
     Q_OBJECT
 public:
     struct Config {
@@ -63,6 +66,11 @@ public:
         // Overrides the zone-map search directory. Empty string triggers
         // the default cascade: ~/.showeq/maps → $configDir/maps.
         QString      mapsDir;
+        // Selects the active map package (subdirectory under a maps root,
+        // or "default" for the flat root). Empty = restore the persisted
+        // value (XMLPreferences [Maps] Package), itself defaulting to
+        // "default". A CLI --map-package value overrides the persisted one.
+        QString      mapPackage;
         // If set, raw EQ packets are recorded to this .vpk path while
         // capturing — wraps the legacy XMLPreferences `[VPacket]` mode.
         QString      recordVpk;
@@ -114,6 +122,21 @@ public:
     // was restored, false if no handoff file was present.
     bool importHandoffState(const QString& configDir);
 
+    // --- IMapPackageHost ---------------------------------------------------
+    // Discover packages across all map search roots (always includes the
+    // synthetic "default"). zone_count counts base zone files, ignoring
+    // numbered _N layer files.
+    std::vector<MapPackageInfo> mapPackages() const override;
+    QString activeMapPackage() const override { return m_mapPackage; }
+    // Set + persist active package (falls back to "default" if unknown),
+    // re-resolve the current zone, then broadcast MapPackagesUpdate +
+    // ZoneChanged to every connected client. Returns the applied id.
+    QString setMapPackage(const QString& id) override;
+
+    // Discovery over an explicit set of roots — exposed for unit tests so
+    // they don't depend on the DataLocationMgr cascade.
+    std::vector<MapPackageInfo> mapPackagesIn(const QStringList& roots) const;
+
 private slots:
     // Mirrors showeq/src/map.cpp:370 — MapMgr::loadZoneMap. Called on every
     // ZoneMgr::zoneChanged so SessionAdapter has fresh geometry to stream.
@@ -149,6 +172,9 @@ private:
     CombatRouter*                   m_combatRouter   = nullptr;
     PrefsBroker*                    m_prefsBroker    = nullptr;
     std::unique_ptr<MapData>        m_mapData;
+    // Active map package id ("default" = flat maps root). Restored from
+    // XMLPreferences in start(), overridden by Config::mapPackage.
+    QString                         m_mapPackage = QStringLiteral("default");
 
     std::unique_ptr<WsServer>       m_ws;
 

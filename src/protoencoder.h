@@ -5,7 +5,10 @@
 // stay focused on wire I/O, and so the future Rust decoder (Phase 4) has a
 // clear spec to match byte-for-byte.
 
+#include <vector>
+
 #include "seq/v1/events.pb.h"
+#include "mappackagehost.h"
 
 class CategoryMgr;
 class FilterMgr;
@@ -40,6 +43,13 @@ void fillPos(seq::v1::Pos* out, const Spawn& in);
 // output will be empty geometry with zeroed bounds, which callers are
 // expected to treat as "no map available for this zone".
 void fillMapGeometry(seq::v1::MapGeometry* out, const MapData& map);
+
+// Fills `out` with one MapPackage per discovered package and sets
+// active_id. Trivial id/label/zone_count copy; discovery + active-state
+// tracking live in DaemonApp (IMapPackageHost).
+void fillMapPackages(seq::v1::MapPackagesUpdate* out,
+                     const std::vector<MapPackageInfo>& packages,
+                     const QString& activeId);
 
 // Fills `out` from current Player state (HP/mana/stamina/exp/level/stats).
 // Always fills every field; fields are 0 before the player profile loads,
