@@ -3,13 +3,13 @@
 #include "boxregistry.h"
 #include "diagnosticmessages.h"
 #include "packetcommon.h"
+#include "packetinfo.h"
 #include "packetstream.h"
 
 #include <QByteArray>
 #include <QCryptographicHash>
 
 namespace {
-constexpr uint16_t kOpEnterWorld = 0x0839;
 constexpr size_t   kEnterWorldClientLen = 72;
 constexpr size_t   kCharNameSlot = 64;
 }
@@ -33,10 +33,14 @@ NamePromoter::NamePromoter(Box* box, BoxRegistry* registry,
 }
 
 void NamePromoter::onDecodedPacket(const uint8_t* data, size_t len,
-                                   uint8_t dir, uint16_t opcode,
-                                   const EQPacketOPCode* /*entry*/)
+                                   uint8_t dir, uint16_t /*opcode*/,
+                                   const EQPacketOPCode* entry)
 {
-    if (opcode != kOpEnterWorld) return;
+    // Match by opcode NAME, not a numeric id — OP_EnterWorld's wire opcode
+    // drifts every patch (was 0x0839, now 0x9bdc for the C>S form). The
+    // C>S variant carries the char name; the 72-byte length filter selects
+    // it over the server's shorter echo variants that share the name.
+    if (!entry || entry->name() != QLatin1String("OP_EnterWorld")) return;
     if (dir != DIR_Client) return;
     if (len != kEnterWorldClientLen) return;
     if (!m_box->display_name.isEmpty()) return;  // already promoted

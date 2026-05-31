@@ -4,11 +4,11 @@
 #include "diagnosticmessages.h"
 #include "everquest.h"
 #include "packetcommon.h"
+#include "packetinfo.h"
 #include "packetstream.h"
 
 namespace {
-constexpr uint16_t kOpZoneServerInfo = 0x55e6;
-constexpr size_t   kZsiLen           = sizeof(zoneServerInfoStruct); // 130
+constexpr size_t kZsiLen = sizeof(zoneServerInfoStruct); // 130
 }
 
 ZoneServerObserver::ZoneServerObserver(Box* box, EQPacketStream* world_s2c,
@@ -26,10 +26,13 @@ ZoneServerObserver::ZoneServerObserver(Box* box, EQPacketStream* world_s2c,
 }
 
 void ZoneServerObserver::onDecodedPacket(const uint8_t* data, size_t len,
-                                         uint8_t dir, uint16_t opcode,
-                                         const EQPacketOPCode* /*entry*/)
+                                         uint8_t dir, uint16_t /*opcode*/,
+                                         const EQPacketOPCode* entry)
 {
-    if (opcode != kOpZoneServerInfo) return;
+    // Match by opcode NAME, not a numeric id — the wire opcode drifts every
+    // EQ patch (OP_ZoneServerInfo was 0x55e6, then 0xf21f). The name comes
+    // from the loaded opcode XML, so this stays correct across patches.
+    if (!entry || entry->name() != QLatin1String("OP_ZoneServerInfo")) return;
     if (dir != DIR_Server) return;
     if (len != kZsiLen) return;
 
