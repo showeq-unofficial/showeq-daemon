@@ -163,7 +163,14 @@ Box* BoxRegistry::lookupByExpectedZone(in_addr_t client_ip,
     for (auto& b : m_boxes) {
         if (b->is_merged()) continue;
         if (b->client_ip != client_ip) continue;
-        if (b->expected_zone_server_ip != server_ip) continue;
+        // ZoneServerObserver defers hostname→IP resolution (sets only the
+        // port), so expected_zone_server_ip is usually 0. Match on
+        // (client_ip, server_port) in that case; only enforce the IP when
+        // it's actually known. Distinct per-zone ports disambiguate; two
+        // boxes zoning to the same server port at once is the documented
+        // v1 hole (recovers on the next handshake).
+        if (b->expected_zone_server_ip != 0 &&
+            b->expected_zone_server_ip != server_ip) continue;
         if (b->expected_zone_server_port != server_zone_port) continue;
         return b.get();
     }
