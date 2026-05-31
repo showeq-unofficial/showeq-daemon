@@ -5,8 +5,10 @@
 #include <QString>
 #include <QStringList>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
+#include "managerset.h"
 #include "mappackagehost.h"
 
 // Forward declarations of the extracted showeq types. We keep them out of
@@ -156,6 +158,15 @@ private slots:
 private:
     bool startServer();
     bool startCapture();
+    // Construct one per-box set of state managers (ZoneMgr, Player,
+    // SpawnShell, SpellShell, GroupMgr, MessageShell, CombatRouter,
+    // SpawnMonitor) and run the cross-manager connect()s between them.
+    // The daemon-global managers (GuildMgr, FilterMgr, Messages, Spells,
+    // ...) must already be constructed — they're shared into every set.
+    // Multibox will call this once per box; today it's called once for
+    // the single active set. Does NOT wire opcode dispatch (see
+    // wireZoneMgr/wireSpawnShell) or assign m_* members — the caller does.
+    ManagerSet buildManagerSet();
     void wireZoneMgr();
     void wireSpawnShell();
 

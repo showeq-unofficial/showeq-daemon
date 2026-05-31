@@ -180,82 +180,43 @@ bool DaemonApp::start()
         }
     }
 
-    m_zoneMgr = new ZoneMgr(this, "zonemgr");
-
+    // Daemon-global managers shared into every per-box ManagerSet. These
+    // are server-uniform / config / stateless, so all boxes share one
+    // instance. Constructed before buildManagerSet() because the per-box
+    // managers depend on them.
     const QFileInfo guildFile =
         m_dataLocationMgr->findWriteFile("tmp", "guilds2.dat");
     m_guildMgr = new GuildMgr(guildFile.absoluteFilePath(), this, "guildmgr");
-
-    m_player = new Player(this, m_zoneMgr, m_guildMgr);
-
     m_filterMgr = new FilterMgr(
         m_dataLocationMgr.get(),
         /*filterFile*/ "global.xml",
         /*caseSensitive*/ false);
+    m_messageFilters = new MessageFilters(this, "messageFilters");
+    m_messages = new Messages(m_dateTimeMgr, m_messageFilters,
+                              this, "messages");
+
+    // Per-box state managers. Multibox builds one ManagerSet per box so
+    // each box decodes into its own game state; today a single active set
+    // drives the decode pipeline. The m_* members track the ACTIVE set —
+    // they're what loadZoneMap(), wireZoneMgr()/wireSpawnShell(), and the
+    // SessionAdapter wiring read.
+    const ManagerSet active = buildManagerSet();
+    m_zoneMgr      = active.zoneMgr;
+    m_player       = active.player;
+    m_spawnShell   = active.spawnShell;
+    m_spawnMonitor = active.spawnMonitor;
+    m_groupMgr     = active.groupMgr;
+    m_messageShell = active.messageShell;
+    m_spellShell   = active.spellShell;
+    m_combatRouter = active.combatRouter;
+
+    // Per-zone filter overlay for an already-known zone (e.g. replay mode
+    // with the zone fixed). Needs the active ZoneMgr, so it runs after
+    // buildManagerSet(). The signal it would emit has no listener yet.
     const QString shortZoneName = m_zoneMgr->shortZoneName();
     if (!shortZoneName.isEmpty()) {
         m_filterMgr->loadZone(shortZoneName);
     }
-
-    m_spawnShell = new SpawnShell(*m_filterMgr, m_zoneMgr, m_player, m_guildMgr);
-
-    // SpawnMonitor learns recurring NPC pop locations + their respawn
-    // timers from observed spawn/kill cycles. Mirrors showeq
-    // interface.cpp:326. The monitor connects its own slots to the
-    // SpawnShell + ZoneMgr signals it needs in its ctor.
-    m_spawnMonitor = new SpawnMonitor(m_dataLocationMgr.get(),
-                                      m_zoneMgr, m_spawnShell,
-                                      this, "spawnMonitor");
-    // Persist on shutdown. SpawnMonitor's normal save path fires on
-    // zone-change; without this hook, points learned mid-zone are lost
-    // when the daemon receives SIGINT/SIGTERM (saveSpawnPoints itself
-    // is a no-op when m_modified is false, so this is cheap on idle
-    // exits). aboutToQuit is invoked from the Qt event loop after
-    // QCoreApplication::quit() — fired by main.cpp's signal bridge —
-    // so the monitor still sees a live DataLocationMgr.
-    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit,
-            m_spawnMonitor, &SpawnMonitor::saveSpawnPoints);
-
-    // GroupMgr tracks group members. Wiring matches showeq/src/
-    // interface.cpp:593-615 — needs the player profile signal, three
-    // group opcode handlers, and the spawn lifecycle slots.
-    m_groupMgr = new GroupMgr(m_spawnShell, m_player, this, "groupMgr");
-    connect(m_zoneMgr,    SIGNAL(playerProfile(const charProfileStruct*)),
-            m_groupMgr,   SLOT(player(const charProfileStruct*)));
-    connect(m_spawnShell, SIGNAL(addItem(const Item*)),
-            m_groupMgr,   SLOT(addItem(const Item*)));
-    connect(m_spawnShell, SIGNAL(delItem(const Item*)),
-            m_groupMgr,   SLOT(delItem(const Item*)));
-    connect(m_spawnShell, SIGNAL(killSpawn(const Item*, const Item*, uint16_t)),
-            m_groupMgr,   SLOT(killSpawn(const Item*)));
-
-    // MessageShell parses chat / system / NPC text packets and emits
-    // structured signals (Phase 3 only consumes chatMessage; the rest of
-    // its slots stay idle until later phases wire their opcodes). Needs
-    // MessageFilters + Messages even though we don't query them today.
-    m_messageFilters = new MessageFilters(this, "messageFilters");
-    m_messages = new Messages(m_dateTimeMgr, m_messageFilters,
-                              this, "messages");
-    m_messageShell = new MessageShell(m_messages, m_eqStrings, m_spells,
-                                      m_zoneMgr, m_spawnShell, m_player,
-                                      this, "messageShell");
-
-    // SpellShell tracks active buffs / outgoing casts. Wires player
-    // signals + clear-on-zone, mirroring showeq interface.cpp:967-988.
-    m_spellShell = new SpellShell(m_player, m_spawnShell, m_spells);
-    m_spellShell->setParent(this);
-    connect(m_player, SIGNAL(newPlayer()),
-            m_spellShell, SLOT(clear()));
-    connect(m_player, SIGNAL(buffLoad(const spellBuff*)),
-            m_spellShell, SLOT(buffLoad(const spellBuff*)));
-    connect(m_zoneMgr, SIGNAL(zoneChanged(const QString&)),
-            m_spellShell, SLOT(zoneChanged()));
-    connect(m_spawnShell, SIGNAL(killSpawn(const Item*, const Item*, uint16_t)),
-            m_spellShell, SLOT(killSpawn(const Item*)));
-
-    // CombatRouter parses OP_Action2 into structured combat events for
-    // the websocket layer.
-    m_combatRouter = new CombatRouter(m_spawnShell, m_spells, this);
 
     // CategoryMgr loads user-defined Category groupings from the
     // pSEQPrefs XML preferences (section "CategoryMgr"). seqdef.xml ships
@@ -506,6 +467,70 @@ bool DaemonApp::startCapture()
         qInfo("recording raw packets to %s", qUtf8Printable(m_cfg.recordVpk));
     }
     return true;
+}
+
+ManagerSet DaemonApp::buildManagerSet()
+{
+    // Constructs one set of per-box state managers in the SAME order (and
+    // with the same cross-manager connect()s) the daemon has always used,
+    // so single-box decode output stays byte-identical. The daemon-global
+    // managers (m_guildMgr, m_filterMgr, m_messages, m_messageFilters,
+    // m_spells, m_eqStrings, m_dateTimeMgr, m_dataLocationMgr) must already
+    // exist — they're shared into every set.
+    ManagerSet ms;
+
+    ms.zoneMgr = new ZoneMgr(this, "zonemgr");
+    ms.player  = new Player(this, ms.zoneMgr, m_guildMgr);
+    ms.spawnShell =
+        new SpawnShell(*m_filterMgr, ms.zoneMgr, ms.player, m_guildMgr);
+
+    // SpawnMonitor learns recurring NPC pop locations + respawn timers
+    // from observed spawn/kill cycles (showeq interface.cpp:326). It
+    // connects its own slots to the SpawnShell + ZoneMgr in its ctor.
+    ms.spawnMonitor = new SpawnMonitor(m_dataLocationMgr.get(),
+                                       ms.zoneMgr, ms.spawnShell,
+                                       this, "spawnMonitor");
+    // Persist on shutdown. saveSpawnPoints is a no-op unless modified, so
+    // this is cheap; aboutToQuit fires from the event loop after quit().
+    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit,
+            ms.spawnMonitor, &SpawnMonitor::saveSpawnPoints);
+
+    // GroupMgr tracks group members. Wiring matches showeq/src/
+    // interface.cpp:593-615 — player profile signal, group opcode
+    // handlers, and the spawn lifecycle slots.
+    ms.groupMgr = new GroupMgr(ms.spawnShell, ms.player, this, "groupMgr");
+    connect(ms.zoneMgr,    SIGNAL(playerProfile(const charProfileStruct*)),
+            ms.groupMgr,   SLOT(player(const charProfileStruct*)));
+    connect(ms.spawnShell, SIGNAL(addItem(const Item*)),
+            ms.groupMgr,   SLOT(addItem(const Item*)));
+    connect(ms.spawnShell, SIGNAL(delItem(const Item*)),
+            ms.groupMgr,   SLOT(delItem(const Item*)));
+    connect(ms.spawnShell, SIGNAL(killSpawn(const Item*, const Item*, uint16_t)),
+            ms.groupMgr,   SLOT(killSpawn(const Item*)));
+
+    // MessageShell parses chat / system / NPC text into structured
+    // signals. Needs the global MessageFilters + Messages.
+    ms.messageShell = new MessageShell(m_messages, m_eqStrings, m_spells,
+                                       ms.zoneMgr, ms.spawnShell, ms.player,
+                                       this, "messageShell");
+
+    // SpellShell tracks active buffs / outgoing casts. Wires player
+    // signals + clear-on-zone, mirroring showeq interface.cpp:967-988.
+    ms.spellShell = new SpellShell(ms.player, ms.spawnShell, m_spells);
+    ms.spellShell->setParent(this);
+    connect(ms.player, SIGNAL(newPlayer()),
+            ms.spellShell, SLOT(clear()));
+    connect(ms.player, SIGNAL(buffLoad(const spellBuff*)),
+            ms.spellShell, SLOT(buffLoad(const spellBuff*)));
+    connect(ms.zoneMgr, SIGNAL(zoneChanged(const QString&)),
+            ms.spellShell, SLOT(zoneChanged()));
+    connect(ms.spawnShell, SIGNAL(killSpawn(const Item*, const Item*, uint16_t)),
+            ms.spellShell, SLOT(killSpawn(const Item*)));
+
+    // CombatRouter parses OP_Action2 into structured combat events.
+    ms.combatRouter = new CombatRouter(ms.spawnShell, m_spells, this);
+
+    return ms;
 }
 
 void DaemonApp::wireZoneMgr()
