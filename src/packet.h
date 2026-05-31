@@ -246,6 +246,15 @@ class EQPacket : public QObject
    const BoxRegistry& boxRegistry() const { return m_boxes; }
    BoxRegistry&       boxRegistry()       { return m_boxes; }
 
+   // The four global decode streams. The primary box aliases these (see
+   // BoxRegistry's BoxCreatedHook), so DaemonApp wires the active
+   // ManagerSet onto them at startup via wireBoxPipeline(). Non-primary
+   // boxes own their own streams (Box::{world,zone}_{c2s,s2c}).
+   EQPacketStream* worldClientStream() const { return m_client2WorldStream; }
+   EQPacketStream* worldServerStream() const { return m_world2ClientStream; }
+   EQPacketStream* zoneClientStream()  const { return m_client2ZoneStream; }
+   EQPacketStream* zoneServerStream()  const { return m_zone2ClientStream; }
+
    void connectStream(EQPacketStream* stream);
    void dispatchPacket   (int size, unsigned char *buffer);
    void dispatchPacket(EQUDPIPPacketFormat& packet);

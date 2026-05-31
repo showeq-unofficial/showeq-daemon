@@ -249,44 +249,11 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
     }
     new NamePromoter(&box, &m_boxes, c2s, this);
 
-    // Stage 3b: replay all recorded EQPacket::connect2 intents on
-    // this box's streams. Non-active boxes start muted; only the
-    // currently-active box's streams fire opcode dispatchers.
-    //
-    // The primary box's four streams ARE the global streams, which
-    // EQPacket::connect2 now wires directly (so decode works even for a
-    // capture that never creates a box — a zone-only replay fixture
-    // with no world handshake). Re-running wireBox on the primary would
-    // double-install every dispatcher, so skip it for the primary.
-    if (!box.is_primary) {
-      wireBox(box);
-    }
-    const bool isActive = m_boxes.activeBoxId().isEmpty()
-                          ? box.is_primary
-                          : (box.box_id == m_boxes.activeBoxId());
-    if (!isActive) {
-      if (box.world_c2s) box.world_c2s->setMuted(true);
-      if (box.world_s2c) box.world_s2c->setMuted(true);
-      if (box.zone_c2s)  box.zone_c2s->setMuted(true);
-      if (box.zone_s2c)  box.zone_s2c->setMuted(true);
-    }
-  });
-
-  // active-box switch: mute old, unmute new.
-  connect(&m_boxes, &BoxRegistry::activeBoxChanged, this,
-          [this](Box* oldBox, Box* newBox) {
-    auto setStreamsMuted = [](Box* b, bool muted) {
-      if (!b) return;
-      if (b->world_c2s) b->world_c2s->setMuted(muted);
-      if (b->world_s2c) b->world_s2c->setMuted(muted);
-      if (b->zone_c2s)  b->zone_c2s->setMuted(muted);
-      if (b->zone_s2c)  b->zone_s2c->setMuted(muted);
-    };
-    setStreamsMuted(oldBox, true);
-    setStreamsMuted(newBox, false);
-    seqInfo("EQPacket: active box switched %s -> %s",
-            oldBox ? qUtf8Printable(oldBox->box_id) : "(none)",
-            newBox ? qUtf8Printable(newBox->box_id) : "(none)");
+    // Per-box opcode wiring is owned by DaemonApp::onBoxCreated (it owns
+    // the per-box ManagerSets and wires each box's streams to its own
+    // managers via wireBoxPipeline). Every box decodes continuously into
+    // its own managers — there is no mute gate — so the active box can be
+    // switched by rebinding SessionAdapter rather than clearing state.
   });
 
   // no client/server ports yet

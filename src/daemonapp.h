@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QHostAddress>
 #include <QObject>
 #include <QString>
@@ -14,9 +15,11 @@
 // Forward declarations of the extracted showeq types. We keep them out of
 // this header to minimize the include footprint for files that only need the
 // DaemonApp shape.
+class Box;
 class DataLocationMgr;
 class DateTimeMgr;
 class EQPacket;
+class EQPacketStream;
 class EQStr;
 class CategoryMgr;
 class CombatRouter;
@@ -167,8 +170,23 @@ private:
     // the single active set. Does NOT wire opcode dispatch (see
     // wireZoneMgr/wireSpawnShell) or assign m_* members — the caller does.
     ManagerSet buildManagerSet();
-    void wireZoneMgr();
-    void wireSpawnShell();
+    // Wire one box's four decode streams to one ManagerSet's managers
+    // (plus the daemon-global ItemCache/DateTimeMgr/ZoneServerMgr). This
+    // is the single source of opcode→handler wiring: start() calls it for
+    // the active set on the global streams; onBoxCreated() calls it per
+    // non-primary box on that box's own streams. The connect() order here
+    // is golden-sensitive (shared-opcode dispatch order) — preserve it.
+    // wireGlobalSinks: also wire the daemon-global sinks (ItemCache,
+    // DateTimeMgr, ZoneServerMgr) onto these streams. Only the active box
+    // should — feeding them from every box emits redundant ZoneServer /
+    // EqTimeSync / ItemLearned envelopes.
+    void wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS2C,
+                         EQPacketStream* zoneC2S, EQPacketStream* zoneS2C,
+                         const ManagerSet& ms, bool wireGlobalSinks);
+    // BoxRegistry::boxCreated handler. Primary box reuses the active set
+    // (already wired to the global streams in start()); every other box
+    // gets its own ManagerSet + wireBoxPipeline on its own streams.
+    void onBoxCreated(Box* box);
 
     Config                          m_cfg;
 
@@ -193,6 +211,14 @@ private:
     MessageShell*                   m_messageShell   = nullptr;
     CombatRouter*                   m_combatRouter   = nullptr;
     PrefsBroker*                    m_prefsBroker    = nullptr;
+
+    // The active box's ManagerSet — what the m_* members above mirror and
+    // what wireBoxPipeline binds to the global streams at startup.
+    ManagerSet                      m_activeManagers;
+    // Per-box ManagerSet bundles, keyed by box_id. The managers themselves
+    // are QObjects parented to `this`; this map just records which set
+    // belongs to which box so SessionAdapter can resolve the active one.
+    QHash<QString, ManagerSet>      m_boxManagers;
     std::unique_ptr<MapData>        m_mapData;
     // Active map package id ("default" = flat maps root). Restored from
     // XMLPreferences in start(), overridden by Config::mapPackage.
