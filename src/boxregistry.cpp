@@ -168,6 +168,19 @@ Box* BoxRegistry::promoteByName(Box* box, const QString& name)
     }
     onPromoted(box, old_box_id);
 
+    // If the currently-active box is a stale, never-promoted placeholder
+    // (the first-seen box was a partial/dead session that never resolved a
+    // character — common when a capture/daemon starts mid-session), adopt
+    // this newly-decoded DISTINCT character as the active one. Otherwise
+    // SessionAdapter would stream an empty box while the real data lives in
+    // a non-primary box.
+    if (!parent) {
+        Box* active = findById(m_activeBoxId);
+        if (!active || active->display_name.isEmpty()) {
+            m_activeBoxId = box->box_id;
+        }
+    }
+
     // If this box belongs to the ACTIVE character, the current decode box
     // just rolled to it (newest zone session) — nudge SessionAdapter to
     // rebind so the live view follows the character into its new zone.
