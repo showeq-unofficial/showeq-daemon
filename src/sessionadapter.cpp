@@ -1158,6 +1158,25 @@ void SessionAdapter::sendBoxList()
         meta->set_client_ip(
             QHostAddress(ntohl(b.client_ip)).toString().toStdString());
         meta->set_packet_count(uint32_t(b.packet_count));
+        // Enrich with the box's live zone + level (Phase 3). Resolve the
+        // box's CURRENT decode managers (currentBoxFor follows re-handshake
+        // merges to the newest zone session) and read the short zone name +
+        // player level. Empty zone / zero level serialize as proto defaults,
+        // so a not-yet-decoded box simply omits them.
+        if (m_managerProvider) {
+            if (const ManagerSet* ms =
+                    m_managerProvider->managersForBox(b.box_id)) {
+                if (ms->zoneMgr)
+                    meta->set_zone(ms->zoneMgr->shortZoneName().toStdString());
+                // Only surface level for a promoted box (display_name set =
+                // OP_PlayerProfile decoded). Player::level() returns the
+                // DefaultLevel pref (1) for an undecoded box, which would
+                // mislabel transient placeholder entries as "L1".
+                if (!b.display_name.isEmpty() && ms->player &&
+                    ms->player->level() > 0)
+                    meta->set_level(uint32_t(ms->player->level()));
+            }
+        }
     });
     upd->set_active_box_id(m_boxes->activeBoxId().toStdString());
     sendOrBuffer(std::move(env));
