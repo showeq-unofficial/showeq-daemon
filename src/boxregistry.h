@@ -152,6 +152,22 @@ public:
     // the same character. nullptr if no other Box has the name.
     Box* lookupByName(const QString& name, const Box* exclude = nullptr);
 
+    // Promote a box to a character name (hashed box_id + display_name) and,
+    // if another box already holds that character (a zone-change
+    // re-handshake), merge this box into it. Idempotent. Returns the parent
+    // if merged, else nullptr. Emits activeBoxChanged when the merge rolls
+    // the active character's CURRENT decode box to this newest one. The
+    // caller must pass the authoritative name (charProfileStruct.name) — NOT
+    // Player::name(), which returns the "You" default until the per-Player
+    // auto-detect flags settle (long after OP_PlayerProfile's newPlayer).
+    Box* promoteByName(Box* box, const QString& name);
+
+    // The CURRENT (latest-seen) box for a character, given any of its
+    // box_ids. A character accumulates one box per zone session
+    // (re-handshakes merge into the first); only the latest decodes the
+    // live zone, so SessionAdapter resolves managers through this.
+    Box* currentBoxFor(const QString& box_id);
+
     size_t size() const { return m_boxes.size(); }
 
     // Iterator access — needed by EQPacket::connect2 / wireBox to

@@ -15,6 +15,7 @@
 #include "datalocationmgr.h"
 #include "datetimemgr.h"
 #include "eqstr.h"
+#include "everquest.h"
 #include "filesink.h"
 #include "filtermgr.h"
 #include "group.h"
@@ -782,16 +783,34 @@ void DaemonApp::onBoxCreated(Box* box)
         // wired to the active ManagerSet in start(). Just record the
         // mapping so SessionAdapter can resolve it.
         m_boxManagers.insert(box, m_activeManagers);
-        return;
+    } else {
+        // Every non-primary box decodes continuously into its OWN ManagerSet
+        // (no mute gate), wired onto its own streams — so switching the
+        // active box is a rebind, not a clear+resnapshot.
+        const ManagerSet ms = buildManagerSet();
+        m_boxManagers.insert(box, ms);
+        wireBoxPipeline(box->world_c2s, box->world_s2c,
+                        box->zone_c2s, box->zone_s2c, ms,
+                        /*wireGlobalSinks=*/false);
     }
-    // Every non-primary box decodes continuously into its OWN ManagerSet
-    // (no mute gate), wired onto its own streams — so switching the active
-    // box is a rebind, not a clear+resnapshot.
-    const ManagerSet ms = buildManagerSet();
-    m_boxManagers.insert(box, ms);
-    wireBoxPipeline(box->world_c2s, box->world_s2c,
-                    box->zone_c2s, box->zone_s2c, ms,
-                    /*wireGlobalSinks=*/false);
+
+    // Promote + merge the box by its CHARACTER name on every OP_PlayerProfile
+    // (i.e. each zone-in). Read the AUTHORITATIVE name straight off
+    // charProfileStruct.name — Player::name() returns the "You" default at
+    // this point (its auto-detect flags haven't settled), which would
+    // collapse every box into one bogus character. Re-handshakes of the same
+    // character merge into one picker entry; promoteByName rolls the
+    // character's current decode box to this newest zone session.
+    if (ZoneMgr* zm = m_boxManagers[box].zoneMgr) {
+        connect(zm, &ZoneMgr::playerProfile, this,
+                [this, box](const charProfileStruct* p) {
+            if (!p) return;
+            const QString name =
+                QString::fromLatin1(p->name,
+                                    int(qstrnlen(p->name, sizeof(p->name))));
+            m_packet->boxRegistry().promoteByName(box, name);
+        });
+    }
 }
 
 const ManagerSet* DaemonApp::managersForBox(const QString& boxId) const
@@ -800,7 +819,10 @@ const ManagerSet* DaemonApp::managersForBox(const QString& boxId) const
         return m_activeManagers.spawnShell ? &m_activeManagers : nullptr;
     }
     BoxRegistry& reg = m_packet->boxRegistry();
-    const Box* b = boxId.isEmpty() ? reg.primary() : reg.findById(boxId);
+    // Resolve to the character's CURRENT (latest) decode box, so switching
+    // to a character shows the zone it's in now, not a stale earlier one.
+    const QString id = boxId.isEmpty() ? reg.activeBoxId() : boxId;
+    const Box* b = id.isEmpty() ? reg.primary() : reg.currentBoxFor(id);
     if (!b) return nullptr;
     const auto it = m_boxManagers.find(b);
     return it != m_boxManagers.end() ? &it.value() : nullptr;

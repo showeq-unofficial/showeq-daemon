@@ -2,6 +2,7 @@
 
 #include "diagnosticmessages.h"
 
+#include <QCryptographicHash>
 #include <QHash>
 #include <QHostAddress>
 
@@ -139,6 +140,59 @@ Box* BoxRegistry::lookupByName(const QString& name, const Box* exclude)
         if (b->display_name == name) return b.get();
     }
     return nullptr;
+}
+
+Box* BoxRegistry::promoteByName(Box* box, const QString& name)
+{
+    if (!box || name.isEmpty()) return nullptr;
+    if (box->display_name == name) return nullptr;  // already promoted
+
+    const QString old_box_id = box->box_id;
+    box->display_name = name;
+    // Stable, scrub-safe id = hash of the character name. The same
+    // character (a re-handshake) hashes to the same box_id, so the picker
+    // shows one entry; display_name carries the human-readable label.
+    const QByteArray digest = QCryptographicHash::hash(
+        name.toLatin1(), QCryptographicHash::Sha256);
+    box->box_id =
+        QStringLiteral("b-") + QString::fromLatin1(digest.left(8).toHex());
+
+    Box* parent = lookupByName(name, box);
+    if (parent) {
+        box->merged_into = parent->box_id;
+        seqInfo("BoxRegistry: box promoted, merged into character %s",
+                qUtf8Printable(parent->box_id));
+    } else {
+        seqInfo("BoxRegistry: box promoted to character %s",
+                qUtf8Printable(box->box_id));
+    }
+    onPromoted(box, old_box_id);
+
+    // If this box belongs to the ACTIVE character, the current decode box
+    // just rolled to it (newest zone session) — nudge SessionAdapter to
+    // rebind so the live view follows the character into its new zone.
+    const QString charId = parent ? parent->box_id : box->box_id;
+    if (m_activeBoxId == charId) {
+        emit activeBoxChanged(nullptr, box);
+    }
+    emit changed();
+    return parent;
+}
+
+Box* BoxRegistry::currentBoxFor(const QString& box_id)
+{
+    Box* parent = findById(box_id);
+    if (!parent) return nullptr;
+    Box* current = parent;
+    // Among the character's boxes (the non-merged parent + every box merged
+    // into it), the live one is the most recently seen.
+    for (auto& b : m_boxes) {
+        if (b->merged_into == parent->box_id &&
+            b->first_seen_ms >= current->first_seen_ms) {
+            current = b.get();
+        }
+    }
+    return current;
 }
 
 Box* BoxRegistry::lookupBoundZone(in_addr_t client_ip,
