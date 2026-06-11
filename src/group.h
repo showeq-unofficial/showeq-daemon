@@ -73,6 +73,12 @@ class GroupMgr: public QObject
   void addItem(const Item* item);
   void delItem(const Item* item);
   void killSpawn(const Item* item);
+  // SpawnShell::clear() (zone change) frees every Spawn via qDeleteAll but
+  // only emits clearItems() — not per-spawn delItem/killSpawn. Without this
+  // slot wired to clearItems(), our m_spawn pointers dangle past the zone and
+  // the next group-member walk (e.g. fillGroupUpdate) is a use-after-free.
+  // Keeps membership (names); members re-attach via addItem as they re-enter.
+  void clear();
 
   // dump debug info
   void dumpInfo(QTextStream& out);

@@ -333,6 +333,17 @@ void GroupMgr::killSpawn(const Item* item)
   }
 }
 
+void GroupMgr::clear()
+{
+  // Zone change: SpawnShell just freed every Spawn. Drop the now-dangling
+  // spawn pointers but keep the roster (names) — group membership survives
+  // zoning. Members re-attach via addItem() as their spawns re-enter zone,
+  // which re-increments m_membersInZoneCount from this zeroed baseline.
+  for (int i = 0; i < MAX_GROUP_PEERS; i++)
+    m_members[i]->m_spawn = 0;
+  m_membersInZoneCount = 0;
+}
+
 void GroupMgr::dumpInfo(QTextStream& out)
 {
   // dump general group manager information
@@ -433,6 +444,11 @@ const Spawn* GroupMgr::memberBySlot(uint16_t slot )
 {
   // validate slot value
   if (slot >= MAX_GROUP_PEERS)
+    return 0;
+
+  // guard the slot pointer too (cf. memberNameBySlot) — don't deref a
+  // null GroupMember before reaching m_spawn
+  if (!m_members[slot])
     return 0;
 
   // return the spawn object associated with the group slot, if any

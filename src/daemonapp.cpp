@@ -228,6 +228,11 @@ bool DaemonApp::start()
             m_groupMgr,   SLOT(delItem(const Item*)));
     connect(m_spawnShell, SIGNAL(killSpawn(const Item*, const Item*, uint16_t)),
             m_groupMgr,   SLOT(killSpawn(const Item*)));
+    // SpawnShell::clear() (zone change) bulk-frees spawns and emits only
+    // clearItems() — without this the GroupMgr m_spawn pointers dangle past
+    // the zone and fillGroupUpdate dereferences freed Spawns (UAF crash).
+    connect(m_spawnShell, SIGNAL(clearItems()),
+            m_groupMgr,   SLOT(clear()));
 
     // MessageShell parses chat / system / NPC text packets and emits
     // structured signals (Phase 3 only consumes chatMessage; the rest of
