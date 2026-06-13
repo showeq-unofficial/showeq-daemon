@@ -16,6 +16,8 @@ extern "C" { // pcap headers aren't c++-clean
 #include <ifaddrs.h>
 #include <sys/socket.h>
 
+#include "boxregistry.h"
+#include "managerset.h"
 #include "category.h"
 #include "combatrouter.h"
 #include "datetimemgr.h"
@@ -37,6 +39,8 @@ extern "C" { // pcap headers aren't c++-clean
 #include "zonemgr.h"
 #include "zoneservermgr.h"
 
+#include <QHostAddress>
+
 #include "seq/v1/client.pb.h"
 
 SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
@@ -55,6 +59,7 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
                                ItemCache*     itemCache,
                                DateTimeMgr*   dateTimeMgr,
                                ZoneServerMgr* zoneServerMgr,
+                               BoxRegistry*   boxes,
                                QObject*       parent)
     : QObject(parent)
     , m_sink(sink)
@@ -73,7 +78,14 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
     , m_itemCache(itemCache)
     , m_dateTimeMgr(dateTimeMgr)
     , m_zoneServerMgr(zoneServerMgr)
+    , m_boxes(boxes)
 {
+    if (m_boxes) {
+        connect(m_boxes, &BoxRegistry::changed,
+                this, &SessionAdapter::sendBoxList);
+        connect(m_boxes, &BoxRegistry::activeBoxChanged,
+                this, [this](Box*, Box*) { onActiveBoxChanged(); });
+    }
 }
 
 SessionAdapter::~SessionAdapter() = default;
@@ -296,21 +308,40 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
         sendOrBuffer(std::move(reply));
         return;
     }
+    if (env.has_set_active_box()) {
+        if (!m_boxes) return;
+        const QString id =
+            QString::fromStdString(env.set_active_box().box_id());
+        if (!m_boxes->setActiveBoxId(id)) {
+            qInfo("set_active_box: unknown box_id %s",
+                  qUtf8Printable(id));
+        }
+        // setActiveBoxId emits changed() on success → sendBoxList()
+        // already fires via the registry signal.
+        return;
+    }
 }
 
 // Phase 1 ignores the topic set and always starts a full spawn/zone/player
 // stream. Finer-grained subscription lands when Chat / Combat / Exp / Group
 // messages are populated in later phases.
-void SessionAdapter::startStreaming()
+void SessionAdapter::disconnectPerBox()
 {
-    if (!m_spawnShell) {
-        qWarning("Subscribe received before state managers were wired");
-        return;
-    }
+    // QObject::disconnect(sender, 0, this, 0) tears down every connection
+    // from one sender to this adapter in a single call — eight calls, not
+    // ~35. Global managers are untouched (they don't change on switch).
+    if (m_spawnShell)   disconnect(m_spawnShell,   nullptr, this, nullptr);
+    if (m_player)       disconnect(m_player,       nullptr, this, nullptr);
+    if (m_zoneMgr)      disconnect(m_zoneMgr,      nullptr, this, nullptr);
+    if (m_messageShell) disconnect(m_messageShell, nullptr, this, nullptr);
+    if (m_groupMgr)     disconnect(m_groupMgr,     nullptr, this, nullptr);
+    if (m_spellShell)   disconnect(m_spellShell,   nullptr, this, nullptr);
+    if (m_combatRouter) disconnect(m_combatRouter, nullptr, this, nullptr);
+    if (m_spawnMonitor) disconnect(m_spawnMonitor, nullptr, this, nullptr);
+}
 
-    // STEP 1: connect signals — handlers push into m_buffered until the
-    //         snapshot is drained. This MUST happen before any iteration
-    //         of SpawnShell state so mid-iteration changes are captured.
+void SessionAdapter::connectPerBox()
+{
     connect(m_spawnShell, &SpawnShell::addItem,
             this,         &SessionAdapter::onAddItem);
     connect(m_spawnShell, &SpawnShell::delItem,
@@ -429,6 +460,38 @@ void SessionAdapter::startStreaming()
                                    uint32_t, const QString&)));
     }
 
+    if (m_spawnMonitor) {
+        // SpawnMonitor surfaces four signals — newSpawnPoint (promoted
+        // from candidate to tracked), spawnPointUpdated (re-pop / kill
+        // restart), spawnPointDeleted (explicit user delete), and
+        // clearSpawnPoints (zone change / clear-all). The current
+        // promoted set is iterated into the Snapshot below.
+        connect(m_spawnMonitor, &SpawnMonitor::newSpawnPoint,
+                this,           &SessionAdapter::onSpawnPointAdded);
+        connect(m_spawnMonitor, &SpawnMonitor::spawnPointUpdated,
+                this,           &SessionAdapter::onSpawnPointUpdated);
+        connect(m_spawnMonitor, &SpawnMonitor::spawnPointDeleted,
+                this,           &SessionAdapter::onSpawnPointDeleted);
+        connect(m_spawnMonitor, &SpawnMonitor::clearSpawnPoints,
+                this,           &SessionAdapter::onSpawnPointsCleared);
+    }
+}
+
+void SessionAdapter::startStreaming()
+{
+    if (!m_spawnShell) {
+        qWarning("Subscribe received before state managers were wired");
+        return;
+    }
+
+    // STEP 1: connect signals — handlers push into m_buffered until the
+    //         snapshot is drained. This MUST happen before any iteration
+    //         of SpawnShell state so mid-iteration changes are captured.
+    //         Per-box manager signals go through connectPerBox() so an
+    //         active-box switch can disconnect+reconnect them; the
+    //         daemon-global managers below are wired once and never move.
+    connectPerBox();
+
     if (m_categoryMgr) {
         // CategoryMgr's add/del/cleared/loaded signals all fire on
         // mutation; coalesce into one slot that resends the full list.
@@ -453,22 +516,6 @@ void SessionAdapter::startStreaming()
         // emits its own PrefChanged envelope.
         connect(m_prefsBroker, &PrefsBroker::prefChanged,
                 this,          &SessionAdapter::onPrefChanged);
-    }
-
-    if (m_spawnMonitor) {
-        // SpawnMonitor surfaces four signals — newSpawnPoint (promoted
-        // from candidate to tracked), spawnPointUpdated (re-pop / kill
-        // restart), spawnPointDeleted (explicit user delete), and
-        // clearSpawnPoints (zone change / clear-all). The current
-        // promoted set is iterated into the Snapshot below.
-        connect(m_spawnMonitor, &SpawnMonitor::newSpawnPoint,
-                this,           &SessionAdapter::onSpawnPointAdded);
-        connect(m_spawnMonitor, &SpawnMonitor::spawnPointUpdated,
-                this,           &SessionAdapter::onSpawnPointUpdated);
-        connect(m_spawnMonitor, &SpawnMonitor::spawnPointDeleted,
-                this,           &SessionAdapter::onSpawnPointDeleted);
-        connect(m_spawnMonitor, &SpawnMonitor::clearSpawnPoints,
-                this,           &SessionAdapter::onSpawnPointsCleared);
     }
 
     if (m_dateTimeMgr) {
@@ -517,6 +564,11 @@ void SessionAdapter::startStreaming()
     // Initial PrefsSnapshot — every allowlisted pref's current value.
     if (m_prefsBroker) {
         sendPrefsSnapshot();
+    }
+    // Initial BoxListUpdated so the picker UI has data before any
+    // registry mutation. Stage 4 of docs/MULTIBOX_PLAN.md.
+    if (m_boxes) {
+        sendBoxList();
     }
     // Initial MapPackagesUpdate so the client can populate its package
     // picker. Suppressed in deterministic/golden mode (sendMapPackages).
@@ -1050,5 +1102,82 @@ void SessionAdapter::onZoneServerChanged(const QString& host, quint16 port)
     auto* zs = env.mutable_zone_server();
     zs->set_host(host.toStdString());
     zs->set_port(port);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onActiveBoxChanged()
+{
+    // Non-destructive switch. Every box has been decoding into its own
+    // ManagerSet all along, so we just detach from the old box's managers,
+    // repoint to the new box's (already-populated) managers, reattach, and
+    // ship a fresh Snapshot from the new state — no clear(), no waiting for
+    // packets to repopulate.
+    if (!m_liveTailing) return;          // not streaming yet — startStreaming binds
+    if (!m_managerProvider || !m_boxes) return;
+    const ManagerSet* ns =
+        m_managerProvider->managersForBox(m_boxes->activeBoxId());
+    if (!ns || !ns->spawnShell) return;
+    if (ns->spawnShell == m_spawnShell) return;  // already active — no-op
+
+    disconnectPerBox();
+    m_spawnShell   = ns->spawnShell;
+    m_zoneMgr      = ns->zoneMgr;
+    m_player       = ns->player;
+    m_messageShell = ns->messageShell;
+    m_groupMgr     = ns->groupMgr;
+    m_spellShell   = ns->spellShell;
+    m_combatRouter = ns->combatRouter;
+    m_spawnMonitor = ns->spawnMonitor;
+    connectPerBox();
+
+    // Re-prime the client from the new box's current state. sendSnapshot
+    // re-establishes spawns/zone/player; the derived envelopes catch the
+    // stats/group/buff panels that aren't part of the Snapshot.
+    sendSnapshot();
+    sendPlayerStats();
+    sendGroupUpdate();
+    sendBuffsUpdate();
+}
+
+void SessionAdapter::sendBoxList()
+{
+    if (!m_boxes) return;
+    // Golden recorder (deterministic mode): BoxListUpdated content
+    // depends on the packet stream's exact 5-tuples and the timing of
+    // OP_EnterWorld arrivals, which makes byte-cmp against pre-Stage-4
+    // goldens flap. Production WebSocket clients still get the
+    // envelope; only the golden flow suppresses it.
+    if (m_deterministic) return;
+    seq::v1::Envelope env;
+    auto* upd = env.mutable_box_list_updated();
+    m_boxes->forEach([&](const Box& b) {
+        if (b.is_merged()) return;
+        auto* meta = upd->add_boxes();
+        meta->set_box_id(b.box_id.toStdString());
+        meta->set_display_name(b.display_name.toStdString());
+        meta->set_client_ip(
+            QHostAddress(ntohl(b.client_ip)).toString().toStdString());
+        meta->set_packet_count(uint32_t(b.packet_count));
+        // Enrich with the box's live zone + level (Phase 3). Resolve the
+        // box's CURRENT decode managers (currentBoxFor follows re-handshake
+        // merges to the newest zone session) and read the short zone name +
+        // player level. Empty zone / zero level serialize as proto defaults,
+        // so a not-yet-decoded box simply omits them.
+        if (m_managerProvider) {
+            if (const ManagerSet* ms =
+                    m_managerProvider->managersForBox(b.box_id)) {
+                if (ms->zoneMgr)
+                    meta->set_zone(ms->zoneMgr->shortZoneName().toStdString());
+                // Only surface level for a promoted box (display_name set =
+                // OP_PlayerProfile decoded). Player::level() returns the
+                // DefaultLevel pref (1) for an undecoded box, which would
+                // mislabel transient placeholder entries as "L1".
+                if (!b.display_name.isEmpty() && ms->player &&
+                    ms->player->level() > 0)
+                    meta->set_level(uint32_t(ms->player->level()));
+            }
+        }
+    });
+    upd->set_active_box_id(m_boxes->activeBoxId().toStdString());
     sendOrBuffer(std::move(env));
 }

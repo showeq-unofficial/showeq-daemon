@@ -69,7 +69,8 @@ void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
                         MessageShell* ms, GroupMgr* gm, SpellShell* sps,
                         CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
                         PrefsBroker* pb, SpawnMonitor* sm, ItemCache* ic,
-                        DateTimeMgr* dtm, ZoneServerMgr* zsm)
+                        DateTimeMgr* dtm, ZoneServerMgr* zsm,
+                        BoxRegistry* boxes)
 {
     m_spawnShell    = ss;
     m_zoneMgr       = zm;
@@ -86,6 +87,7 @@ void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
     m_itemCache     = ic;
     m_dateTimeMgr   = dtm;
     m_zoneServerMgr = zsm;
+    m_boxes         = boxes;
 }
 
 bool WsServer::listen(const QHostAddress& host, quint16 port)
@@ -214,6 +216,11 @@ void WsServer::resumeSession(Session& s, QWebSocket* sock, quint64 lastSeq)
     // replay what we have; a richer scheme can ship later if a real
     // user trips it.)
     s.adapter->replaySince(lastSeq);
+
+    if (!m_firstClientFired) {
+        m_firstClientFired = true;
+        emit firstClientSubscribed();
+    }
 }
 
 void WsServer::attachNewSession(QWebSocket* sock, const QString& sessionId)
@@ -240,6 +247,11 @@ void WsServer::attachNewSession(QWebSocket* sock, const QString& sessionId)
 
     qInfo("ws session opened: id=%s (%lld active)",
           qUtf8Printable(sessionId), (long long)m_sessions.size());
+
+    if (!m_firstClientFired) {
+        m_firstClientFired = true;
+        emit firstClientSubscribed();
+    }
 }
 
 SessionAdapter* WsServer::makeAdapter(IEnvelopeSink* sink, QObject* parent)
@@ -249,8 +261,10 @@ SessionAdapter* WsServer::makeAdapter(IEnvelopeSink* sink, QObject* parent)
                               m_spellShell, m_combatRouter, m_categoryMgr,
                               m_filterMgr, m_prefsBroker, m_spawnMonitor,
                               m_itemCache, m_dateTimeMgr, m_zoneServerMgr,
+                              m_boxes,
                               parent);
     adapter->setMapPackageHost(m_mapPackageHost);
+    adapter->setManagerProvider(m_managerProvider);
     return adapter;
 }
 

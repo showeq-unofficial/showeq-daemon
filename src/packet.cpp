@@ -38,6 +38,9 @@
 
 #include "everquest.h"
 #include "packet.h"
+#include "boxregistry.h"
+#include "namepromoter.h"
+#include "zoneserverobserver.h"
 #include "packetcommon.h"
 #include "packetcapture.h"
 #include "packetformat.h"
@@ -46,6 +49,8 @@
 #include "vpacket.h"
 #include "everquest.h"
 #include "diagnosticmessages.h"
+
+#include <QDateTime>
 
 //----------------------------------------------------------------------
 // Macros
@@ -183,6 +188,76 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
   m_streams[world2client] = m_world2ClientStream;
   m_streams[client2zone] = m_client2ZoneStream;
   m_streams[zone2client] = m_zone2ClientStream;
+
+  // Stage 2 of multibox-sessions (docs/MULTIBOX_PLAN.md): every new
+  // Box gets a NamePromoter so OP_EnterWorld (world C>S, char name @
+  // offset 0) fills in display_name + a stable hashed box_id. The
+  // primary box re-uses the global world streams (its wiring is
+  // intact); non-primary boxes get their own world stream pair so
+  // their session-key handshake and decode don't collide with the
+  // primary's. Zone streams stay global — same-host zone demux is
+  // deferred to a later stage.
+  m_boxes.setBoxCreatedHook([this](Box& box) {
+    EQPacketStream* c2s = nullptr;
+    if (box.is_primary) {
+      // Primary box aliases the global stream pointers so the
+      // per-Box wiring path (Stage 3b of MULTIBOX_PLAN.md) treats it
+      // uniformly with non-primary boxes — wireBoxOpcodes just walks
+      // box->{world,zone}_{c2s,s2c} regardless.
+      box.world_c2s = m_client2WorldStream;
+      box.world_s2c = m_world2ClientStream;
+      box.zone_c2s  = m_client2ZoneStream;
+      box.zone_s2c  = m_zone2ClientStream;
+      c2s = m_client2WorldStream;
+    } else {
+      box.world_c2s = new EQPacketStream(client2world, DIR_Client,
+                                         m_arqSeqGiveUp, *m_worldOPCodeDB,
+                                         this, "box-world-c2s");
+      box.world_s2c = new EQPacketStream(world2client, DIR_Server,
+                                         m_arqSeqGiveUp, *m_worldOPCodeDB,
+                                         this, "box-world-s2c");
+      box.zone_c2s  = new EQPacketStream(client2zone, DIR_Client,
+                                         m_arqSeqGiveUp, *m_zoneOPCodeDB,
+                                         this, "box-zone-c2s");
+      box.zone_s2c  = new EQPacketStream(zone2client, DIR_Server,
+                                         m_arqSeqGiveUp, *m_zoneOPCodeDB,
+                                         this, "box-zone-s2c");
+      box.world_c2s->setSessionTracking(m_session_tracking);
+      box.world_s2c->setSessionTracking(m_session_tracking);
+      box.zone_c2s->setSessionTracking(m_session_tracking);
+      box.zone_s2c->setSessionTracking(m_session_tracking);
+      // Streams are unidirectional: world_s2c parses the SessionResponse
+      // (carries the key) and world_c2s parses the SessionRequest, but
+      // neither sees the other's bytes. Cross-wire sessionKey so the
+      // sibling can decrypt. We deliberately don't connect to EQPacket's
+      // dispatchSessionKey — that broadcasts to the global four streams
+      // which belong to the primary box, not this box. Same pattern for
+      // zone streams.
+      connect(box.world_s2c, &EQPacketStream::sessionKey,
+              box.world_c2s, &EQPacketStream::receiveSessionKey);
+      connect(box.world_c2s, &EQPacketStream::sessionKey,
+              box.world_s2c, &EQPacketStream::receiveSessionKey);
+      connect(box.zone_s2c, &EQPacketStream::sessionKey,
+              box.zone_c2s, &EQPacketStream::receiveSessionKey);
+      connect(box.zone_c2s, &EQPacketStream::sessionKey,
+              box.zone_s2c, &EQPacketStream::receiveSessionKey);
+      c2s = box.world_c2s;
+    }
+    // ZoneServerInfo S>C on world tells the daemon which port the box is
+    // about to connect to — used to bind incoming zone-stream traffic to
+    // this box. EVERY box needs one, including the primary: its zone
+    // session must be identifiable so dispatchPacket can route bound
+    // zone traffic to it (the global streams) and DROP unbound traffic
+    // rather than letting foreign sessions interleave on those streams.
+    new ZoneServerObserver(&box, box.world_s2c, this);
+    new NamePromoter(&box, &m_boxes, c2s, this);
+
+    // Per-box opcode wiring is owned by DaemonApp::onBoxCreated (it owns
+    // the per-box ManagerSets and wires each box's streams to its own
+    // managers via wireBoxPipeline). Every box decodes continuously into
+    // its own managers — there is no mute gate — so the active box can be
+    // switched by rebinding SessionAdapter rather than clearing state.
+  });
 
   // no client/server ports yet
   m_clientPort = 0;
@@ -628,9 +703,32 @@ void EQPacket::dispatchPacket(int size, unsigned char *buffer)
 void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
 {
   // Detect client by world server port traffic...
-  if (m_detectingClient &&
-        (packet.getSourcePort() >= WorldServerGeneralMinPort
-         && packet.getSourcePort() <= WorldServerGeneralMaxPort))
+  const in_port_t srcPortHost = packet.getSourcePort();
+  const in_port_t dstPortHost = packet.getDestPort();
+  const bool srcIsWorld =
+      (srcPortHost >= WorldServerGeneralMinPort &&
+       srcPortHost <= WorldServerGeneralMaxPort);
+  const bool dstIsWorld =
+      (dstPortHost >= WorldServerGeneralMinPort &&
+       dstPortHost <= WorldServerGeneralMaxPort);
+
+  // Stage 1 of multibox-sessions (docs/MULTIBOX_PLAN.md): observe
+  // every distinct EQ client on the wire. Runs alongside the legacy
+  // single-shot m_detectingClient lock — primary box (first seen)
+  // still feeds the existing decode pipeline; the registry is
+  // observational until later stages split per-box decode.
+  if (srcIsWorld || dstIsWorld) {
+    const in_addr_t client_ip   = srcIsWorld ? packet.getIPv4DestN()
+                                             : packet.getIPv4SourceN();
+    const in_port_t client_port = htons(srcIsWorld ? dstPortHost
+                                                   : srcPortHost);
+    const in_port_t server_port = htons(srcIsWorld ? srcPortHost
+                                                   : dstPortHost);
+    m_boxes.observe(client_ip, client_port, server_port,
+                    QDateTime::currentMSecsSinceEpoch());
+  }
+
+  if (m_detectingClient && srcIsWorld)
   {
     m_ip = packet.getIPv4DestA();
     m_client_addr = packet.getIPv4DestN();
@@ -638,9 +736,7 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
     emit clientChanged(m_client_addr);
     seqInfo("Client Detected: %s", m_ip.toLatin1().data());
   }
-  else if (m_detectingClient &&
-            (packet.getDestPort() >= WorldServerGeneralMinPort
-             && packet.getDestPort() <= WorldServerGeneralMaxPort))
+  else if (m_detectingClient && dstIsWorld)
   {
     m_ip = packet.getIPv4SourceA();
     m_client_addr = packet.getIPv4SourceN();
@@ -681,26 +777,116 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
            (packet.getSourcePort() >= WorldServerGeneralMinPort &&
             packet.getSourcePort() <= WorldServerGeneralMaxPort))
   {
-    // World server traffic. Dispatch it.
-    if (packet.getIPv4SourceN() == m_client_addr)
+    // World server traffic. Route to the global streams as today so
+    // ZoneServerMgr (the only connect2'd world opcode handler) keeps
+    // firing on every world handshake regardless of which Box it
+    // belongs to — single-client multi-zone fixtures rely on this.
+    // ADDITIONALLY mirror non-primary boxes' traffic into their
+    // per-box streams so each box's NamePromoter (Stage 2 of
+    // docs/MULTIBOX_PLAN.md) can decrypt and read OP_EnterWorld with
+    // its own session key. Primary's NamePromoter runs on the global
+    // stream; first OP_EnterWorld wins and subsequent ones are
+    // ignored (the early-out in NamePromoter::onDecodedPacket).
+    // Route world traffic to the OWNING box's world streams by the full
+    // 5-tuple. Each box's world session has a unique ephemeral client port
+    // even same-host, so this never mixes sessions. This matters because
+    // the primary box's world streams ALIAS the global ones: if we instead
+    // dumped every box's world traffic onto the globals (by client_ip, the
+    // same for all same-host boxes), the primary's ZoneServerObserver and
+    // NamePromoter would see — and steal — other boxes' handshakes. observe()
+    // created the box for this 5-tuple at the top of dispatchPacket, so a
+    // miss here is unexpected (and simply drops, harming nothing).
+    const bool srcIsServer = srcIsWorld;
+    const in_addr_t client_ip = srcIsServer ? packet.getIPv4DestN()
+                                            : packet.getIPv4SourceN();
+    const in_port_t client_port = htons(srcIsServer ? dstPortHost
+                                                    : srcPortHost);
+    const in_port_t server_port = htons(srcIsServer ? srcPortHost
+                                                    : dstPortHost);
+    Box* box = m_boxes.lookupByWorld(client_ip, client_port, server_port);
+    if (box)
     {
-      m_client2WorldStream->handlePacket(packet);
-    }
-    else
-    {
-      m_world2ClientStream->handlePacket(packet);
+      EQPacketStream* s = srcIsServer ? box->world_s2c : box->world_c2s;
+      if (s) s->handlePacket(packet);
     }
   }
   else
   {
-    // Anything else we assume is zone server traffic.
-    if (packet.getIPv4SourceN() == m_client_addr)
-    {
-      m_client2ZoneStream->handlePacket(packet);
+    // Anything else we assume is zone server traffic. Per-box demux
+    // (Stage 3a of docs/MULTIBOX_PLAN.md): bind the 5-tuple to a Box
+    // on first sighting, then route to that box's per-box zone streams.
+    // Primary box (and any unbound traffic) falls through to the global
+    // streams as today so the legacy decode pipeline keeps working.
+    //
+    // Direction: zone packets don't have a port-range identifier; we
+    // look up the box by client_ip first (registered when its world
+    // handshake was observed). If the source IP matches a known
+    // non-primary box's client_ip, this is C>S; otherwise S>C.
+    const in_addr_t src_ip = packet.getIPv4SourceN();
+    const in_addr_t dst_ip = packet.getIPv4DestN();
+    const in_port_t src_port = htons(packet.getSourcePort());
+    const in_port_t dst_port = htons(packet.getDestPort());
+
+    auto pickBox = [&](Box*& box, bool& srcIsClient) -> bool {
+      // Try the already-bound (client_ip, client_port, server_port)
+      // first.
+      box = m_boxes.lookupBoundZone(src_ip, src_port, dst_port);
+      if (box) { srcIsClient = true; return true; }
+      box = m_boxes.lookupBoundZone(dst_ip, dst_port, src_port);
+      if (box) { srcIsClient = false; return true; }
+      // Unbound 5-tuple: try expected-zone-server match. The
+      // SessionRequest's destination is the zone server (the side that
+      // matches `expected_zone_server_port`), the source is the new
+      // ephemeral client port.
+      box = m_boxes.lookupByExpectedZone(src_ip, dst_ip, dst_port);
+      if (box) {
+        box->zone_client_port = src_port;
+        box->zone_server_port_bound = dst_port;
+        srcIsClient = true;
+        return true;
+      }
+      box = m_boxes.lookupByExpectedZone(dst_ip, src_ip, src_port);
+      if (box) {
+        box->zone_client_port = dst_port;
+        box->zone_server_port_bound = src_port;
+        srcIsClient = false;
+        return true;
+      }
+      return false;
+    };
+
+    Box* box = nullptr;
+    bool srcIsClient = false;
+    const bool matched = pickBox(box, srcIsClient);
+    if (matched && box && box->zone_c2s && box->zone_s2c) {
+      // Route to THIS box's zone streams. The primary box's zone streams
+      // alias the global ones, so its bound session still decodes through
+      // the global pipeline — but now keyed on the box's session, not on
+      // m_client_addr (which is identical for every same-host box).
+      EQPacketStream* s = srcIsClient ? box->zone_c2s : box->zone_s2c;
+      s->handlePacket(packet);
+      return;
     }
-    else
-    {
-      m_zone2ClientStream->handlePacket(packet);
+
+    // Unmatched zone traffic. With a SINGLE box (or none) there's no other
+    // session to confuse it with, so fall back to the global streams as the
+    // legacy single-client pipeline always did — this keeps mid-session
+    // captures decoding even when their OP_ZoneServerInfo (and thus the
+    // zone binding) was never seen.
+    //
+    // With MULTIPLE same-host boxes we DROP instead: every box shares one
+    // client_ip, so an unidentified session routed to the shared global
+    // streams would interleave foreign-session packets and corrupt fragment
+    // reassembly (the buffer-overflow crash). A box's own session binds via
+    // ZoneServerObserver → lookupByExpectedZone on its SessionRequest, after
+    // which lookupBoundZone routes it precisely; anything still unmatched is
+    // undecodable here and is safe to drop.
+    if (m_boxes.size() <= 1) {
+      if (packet.getIPv4SourceN() == m_client_addr) {
+        m_client2ZoneStream->handlePacket(packet);
+      } else {
+        m_zone2ClientStream->handlePacket(packet);
+      }
     }
   }
 } /* end dispatchPacket() */
@@ -1109,27 +1295,88 @@ void EQPacket::setRealtime(bool val)
 }
 
 bool EQPacket::connect2(const QString& opcodeName, EQStreamPairs sp,
-		 uint8_t dir, const char* payload,  EQSizeCheckType szt, 
+		 uint8_t dir, const char* payload,  EQSizeCheckType szt,
 		 const QObject* receiver, const char* member)
 {
+  // Stage 3b of MULTIBOX_PLAN.md: record the wire intent so it can be
+  // replayed on every Box's stream as boxes come into existence.
+  // Boxes that aren't currently active (BoxRegistry::activeBoxId)
+  // have their streams muted so the same singleton receiver only
+  // receives one box's stream of decoded events at a time.
+  WireSpec spec;
+  spec.opName = opcodeName;
+  spec.sp = uint8_t(sp);
+  spec.dir = dir;
+  spec.payloadType = QByteArray(payload);
+  spec.szt = szt;
+  spec.receiver = receiver;
+  spec.slotMember = QByteArray(member);
+  m_wirings.push_back(spec);
+
+  // Replay on already-existing boxes (handles the case where
+  // connect2 is called after some box was observed during the same
+  // session — uncommon but legal). Returns true if at least one
+  // stream accepted the wire. Boxes created after this call pick up
+  // the wiring via wireBox() in the hook.
   bool res = false;
-
-  if (sp & SP_World)
-  {
-    if (dir & DIR_Client)
-      res = m_client2WorldStream->connect2(opcodeName, payload, szt, receiver, member);
-    if (dir & DIR_Server)
-      res = m_world2ClientStream->connect2(opcodeName, payload, szt, receiver, member);
+  for (const auto& upBox : m_boxes.boxes()) {
+    Box& box = *upBox;
+    auto wireOne = [&](EQPacketStream* s) {
+      if (s) res = s->connect2(opcodeName, payload, szt, receiver, member) || res;
+    };
+    if (sp & SP_World) {
+      if (dir & DIR_Client) wireOne(box.world_c2s);
+      if (dir & DIR_Server) wireOne(box.world_s2c);
+    }
+    if (sp & SP_Zone) {
+      if (dir & DIR_Client) wireOne(box.zone_c2s);
+      if (dir & DIR_Server) wireOne(box.zone_s2c);
+    }
   }
-  if (sp & SP_Zone)
-  {
-    if (dir & DIR_Client)
-      res = m_client2ZoneStream->connect2(opcodeName, payload, szt, receiver, member);
-    if (dir & DIR_Server)
-      res = m_zone2ClientStream->connect2(opcodeName, payload, szt, receiver, member);
+  // Eagerly wire the global streams as well. Decode must work even
+  // when no Box is ever created — e.g. a zone-only replay fixture that
+  // starts mid-session with no world handshake (the `moblock` golden).
+  // The primary box's streams ALIAS these globals, so setBoxCreatedHook
+  // skips wireBox() for the primary to avoid double-installing every
+  // dispatcher. Non-primary boxes own distinct streams and are wired
+  // via wireBox() at creation time.
+  auto wireGlobal = [&](EQPacketStream* s) {
+    if (s) res = s->connect2(opcodeName, payload, szt, receiver, member) || res;
+  };
+  if (sp & SP_World) {
+    if (dir & DIR_Client) wireGlobal(m_client2WorldStream);
+    if (dir & DIR_Server) wireGlobal(m_world2ClientStream);
   }
-
+  if (sp & SP_Zone) {
+    if (dir & DIR_Client) wireGlobal(m_client2ZoneStream);
+    if (dir & DIR_Server) wireGlobal(m_zone2ClientStream);
+  }
   return res;
+}
+
+void EQPacket::wireBox(Box& box)
+{
+  // Replay every recorded wire intent onto this box's streams.
+  // Primary box aliases the global streams (see the
+  // setBoxCreatedHook lambda), so wirings on primary go to the same
+  // dispatchers that EQPacket::connect2 installed at startup — fine,
+  // EQPacketStream::connect2 is idempotent (existing dispatchers
+  // are reused via the m_dispatchers map).
+  for (const auto& w : m_wirings) {
+    if (!w.receiver) continue;
+    auto wireOne = [&](EQPacketStream* s) {
+      if (s) s->connect2(w.opName, w.payloadType.constData(), w.szt,
+                         w.receiver, w.slotMember.constData());
+    };
+    if (w.sp & SP_World) {
+      if (w.dir & DIR_Client) wireOne(box.world_c2s);
+      if (w.dir & DIR_Server) wireOne(box.world_s2c);
+    }
+    if (w.sp & SP_Zone) {
+      if (w.dir & DIR_Client) wireOne(box.zone_c2s);
+      if (w.dir & DIR_Server) wireOne(box.zone_s2c);
+    }
+  }
 }
 
 ///////////////////////////////////////////

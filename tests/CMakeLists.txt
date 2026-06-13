@@ -101,3 +101,37 @@ target_compile_options(mappackages_test PRIVATE
 )
 
 add_test(NAME mappackages_test COMMAND mappackages_test)
+
+add_executable(boxregistry_test
+  boxregistry_test.cpp
+)
+
+target_link_libraries(boxregistry_test PRIVATE
+  seq-daemon-core
+  Qt${QT_VERSION_MAJOR}::Test
+)
+
+target_compile_options(boxregistry_test PRIVATE
+  -Wall
+  -Wno-unused-parameter
+  -Wno-deprecated-declarations
+)
+
+add_test(NAME boxregistry_test COMMAND boxregistry_test)
+
+add_executable(namepromoter_test
+  namepromoter_test.cpp
+)
+
+target_link_libraries(namepromoter_test PRIVATE
+  seq-daemon-core
+  Qt${QT_VERSION_MAJOR}::Test
+)
+
+target_compile_options(namepromoter_test PRIVATE
+  -Wall
+  -Wno-unused-parameter
+  -Wno-deprecated-declarations
+)
+
+add_test(NAME namepromoter_test COMMAND namepromoter_test)

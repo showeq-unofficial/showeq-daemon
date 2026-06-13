@@ -25,7 +25,10 @@
 #define _PACKET_H_
 
 #include <QObject>
+#include <QPointer>
 #include <QTimer>
+#include <vector>
+#include "boxregistry.h"
 #include "packetcommon.h"
 #include "packetinfo.h"
 
@@ -214,6 +217,43 @@ class EQPacket : public QObject
    EQPacketTypeDB* m_packetTypeDB;
    EQPacketOPCodeDB* m_worldOPCodeDB;
    EQPacketOPCodeDB* m_zoneOPCodeDB;
+
+   // Stage 1 of multibox-sessions: observe every world-port-talking
+   // client_ip on the wire. Read-only sibling of the legacy
+   // m_detectingClient single-shot auto-detect. See
+   // docs/MULTIBOX_PLAN.md.
+   BoxRegistry m_boxes;
+
+   // Stage 3b of multibox-sessions: connect2() requests are
+   // accumulated here and replayed per-Box on each new box's
+   // streams. This lets every Box have an identical dispatcher
+   // graph; the active-box gate (EQPacketStream::setMuted) decides
+   // which one of them actually fires opcode handlers at any given
+   // moment.
+   struct WireSpec {
+       QString  opName;
+       uint8_t  sp;
+       uint8_t  dir;
+       QByteArray payloadType;
+       EQSizeCheckType szt;
+       QPointer<const QObject> receiver;
+       QByteArray slotMember;
+   };
+   std::vector<WireSpec> m_wirings;
+   void wireBox(Box& box);
+
+ public:
+   const BoxRegistry& boxRegistry() const { return m_boxes; }
+   BoxRegistry&       boxRegistry()       { return m_boxes; }
+
+   // The four global decode streams. The primary box aliases these (see
+   // BoxRegistry's BoxCreatedHook), so DaemonApp wires the active
+   // ManagerSet onto them at startup via wireBoxPipeline(). Non-primary
+   // boxes own their own streams (Box::{world,zone}_{c2s,s2c}).
+   EQPacketStream* worldClientStream() const { return m_client2WorldStream; }
+   EQPacketStream* worldServerStream() const { return m_world2ClientStream; }
+   EQPacketStream* zoneClientStream()  const { return m_client2ZoneStream; }
+   EQPacketStream* zoneServerStream()  const { return m_zone2ClientStream; }
 
    void connectStream(EQPacketStream* stream);
    void dispatchPacket   (int size, unsigned char *buffer);

@@ -20,8 +20,10 @@ class MapData;
 class MessageShell;
 class Player;
 class PrefsBroker;
+class BoxRegistry;
 class SessionAdapter;
 class IMapPackageHost;
+class ManagerSetProvider;
 class SpawnMonitor;
 class SpawnShell;
 class SpellShell;
@@ -55,12 +57,14 @@ public:
                   MessageShell* ms, GroupMgr* gm, SpellShell* sps,
                   CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
                   PrefsBroker* pb, SpawnMonitor* sm, ItemCache* ic,
-                  DateTimeMgr* dtm, ZoneServerMgr* zsm);
+                  DateTimeMgr* dtm, ZoneServerMgr* zsm,
+                  BoxRegistry* boxes);
 
     // Borrowed map-package host (DaemonApp). Forwarded to each
     // SessionAdapter so clients can list/select packages. Set after
     // setState, before listen().
     void setMapPackageHost(IMapPackageHost* host) { m_mapPackageHost = host; }
+    void setManagerProvider(ManagerSetProvider* p) { m_managerProvider = p; }
 
     // Fan a server->client Envelope out to every connected session's
     // adapter. Used for daemon-global state changes (e.g. active map
@@ -69,6 +73,13 @@ public:
     void broadcast(const seq::v1::Envelope& env);
 
     bool listen(const QHostAddress& host, quint16 port);
+
+signals:
+    // Fires exactly once, on the first client to attach a
+    // SessionAdapter (either fresh attachNewSession or resume).
+    // Used by --replay --wait-for-client to gate playback start
+    // on a real consumer being wired up.
+    void firstClientSubscribed();
 
 private slots:
     void onNewConnection();
@@ -117,5 +128,8 @@ private:
     ItemCache*     m_itemCache     = nullptr;
     DateTimeMgr*   m_dateTimeMgr   = nullptr;
     ZoneServerMgr* m_zoneServerMgr = nullptr;
+    BoxRegistry*   m_boxes         = nullptr;
+    bool           m_firstClientFired = false;
     IMapPackageHost* m_mapPackageHost = nullptr;
+    ManagerSetProvider* m_managerProvider = nullptr;
 };

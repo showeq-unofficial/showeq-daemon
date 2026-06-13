@@ -1,20 +1,25 @@
 #pragma once
 
+#include <QHash>
 #include <QHostAddress>
 #include <QObject>
 #include <QString>
 #include <QStringList>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
+#include "managerset.h"
 #include "mappackagehost.h"
 
 // Forward declarations of the extracted showeq types. We keep them out of
 // this header to minimize the include footprint for files that only need the
 // DaemonApp shape.
+class Box;
 class DataLocationMgr;
 class DateTimeMgr;
 class EQPacket;
+class EQPacketStream;
 class EQStr;
 class CategoryMgr;
 class CombatRouter;
@@ -47,7 +52,8 @@ class ZoneServerMgr;
 // That means EQPacket + ZoneMgr + Player + SpawnShell + their dependencies.
 // Spell, group, chat, experience, combat, filter-notification subsystems are
 // deferred to later phases.
-class DaemonApp : public QObject, public IMapPackageHost {
+class DaemonApp : public QObject, public IMapPackageHost,
+                  public ManagerSetProvider {
     Q_OBJECT
 public:
     struct Config {
@@ -93,6 +99,17 @@ public:
         // recon: which C>S fired right before the OP_PlayerProfile that
         // showed the new aa_spent value? — slice externally with awk/grep.
         QString      listEvents;
+        // If true, BoxRegistry is dumped to stderr every 5s. Stage 1
+        // of the multibox feature (docs/MULTIBOX_PLAN.md). Pairs with
+        // --no-listen for client-less recon.
+        bool         listBoxes = false;
+        // --replay --wait-for-client: pause the .vpk playback until
+        // the first WebSocket client attaches a SessionAdapter (so
+        // early envelopes aren't dropped), and don't quit at EOF so
+        // the user can inspect final state in the UI. Useful for
+        // manual verification of UI features against recorded
+        // captures.
+        bool         waitForClient = false;
         // True to skip the WebSocket server entirely (--no-listen on
         // the CLI). Useful for capture / replay / diagnostic runs
         // where no client connects and the listen port is just a
@@ -137,6 +154,12 @@ public:
     // they don't depend on the DataLocationMgr cascade.
     std::vector<MapPackageInfo> mapPackagesIn(const QStringList& roots) const;
 
+    // --- ManagerSetProvider ------------------------------------------------
+    // Resolve a box's per-box ManagerSet (empty id = active box). Returns
+    // nullptr if unknown. Backed by m_boxManagers (populated in
+    // onBoxCreated); falls back to the active set.
+    const ManagerSet* managersForBox(const QString& boxId) const override;
+
 private slots:
     // Mirrors showeq/src/map.cpp:370 — MapMgr::loadZoneMap. Called on every
     // ZoneMgr::zoneChanged so SessionAdapter has fresh geometry to stream.
@@ -145,8 +168,32 @@ private slots:
 private:
     bool startServer();
     bool startCapture();
-    void wireZoneMgr();
-    void wireSpawnShell();
+    // Construct one per-box set of state managers (ZoneMgr, Player,
+    // SpawnShell, SpellShell, GroupMgr, MessageShell, CombatRouter,
+    // SpawnMonitor) and run the cross-manager connect()s between them.
+    // The daemon-global managers (GuildMgr, FilterMgr, Messages, Spells,
+    // ...) must already be constructed — they're shared into every set.
+    // Multibox will call this once per box; today it's called once for
+    // the single active set. Does NOT wire opcode dispatch (see
+    // wireZoneMgr/wireSpawnShell) or assign m_* members — the caller does.
+    ManagerSet buildManagerSet();
+    // Wire one box's four decode streams to one ManagerSet's managers
+    // (plus the daemon-global ItemCache/DateTimeMgr/ZoneServerMgr). This
+    // is the single source of opcode→handler wiring: start() calls it for
+    // the active set on the global streams; onBoxCreated() calls it per
+    // non-primary box on that box's own streams. The connect() order here
+    // is golden-sensitive (shared-opcode dispatch order) — preserve it.
+    // wireGlobalSinks: also wire the daemon-global sinks (ItemCache,
+    // DateTimeMgr, ZoneServerMgr) onto these streams. Only the active box
+    // should — feeding them from every box emits redundant ZoneServer /
+    // EqTimeSync / ItemLearned envelopes.
+    void wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS2C,
+                         EQPacketStream* zoneC2S, EQPacketStream* zoneS2C,
+                         const ManagerSet& ms, bool wireGlobalSinks);
+    // BoxRegistry::boxCreated handler. Primary box reuses the active set
+    // (already wired to the global streams in start()); every other box
+    // gets its own ManagerSet + wireBoxPipeline on its own streams.
+    void onBoxCreated(Box* box);
 
     Config                          m_cfg;
 
@@ -171,6 +218,15 @@ private:
     MessageShell*                   m_messageShell   = nullptr;
     CombatRouter*                   m_combatRouter   = nullptr;
     PrefsBroker*                    m_prefsBroker    = nullptr;
+
+    // The active box's ManagerSet — what the m_* members above mirror and
+    // what wireBoxPipeline binds to the global streams at startup.
+    ManagerSet                      m_activeManagers;
+    // Per-box ManagerSet bundles, keyed by the stable Box* (box_id mutates
+    // placeholder→name-hash on promotion, so it's a poor key). The managers
+    // themselves are QObjects parented to `this`; this map just records
+    // which set belongs to which box so SessionAdapter can resolve one.
+    QHash<const Box*, ManagerSet>   m_boxManagers;
     std::unique_ptr<MapData>        m_mapData;
     // Active map package id ("default" = flat maps root). Restored from
     // XMLPreferences in start(), overridden by Config::mapPackage.

@@ -27,6 +27,18 @@
 #include "packetformat.h"
 #include "diagnosticmessages.h"
 
+#include <cstring>
+
+//----------------------------------------------------------------------
+// Constants
+
+// Hard ceiling on a reassembled fragment sequence. Legitimate bulk
+// packets (e.g. dense zone-spawn dumps) reach ~180 KB; anything past a
+// few MB is almost always a fragment decoded with the wrong session key
+// (foreign-session bytes mis-routed onto this stream in multibox). Past
+// this we abandon the sequence rather than allocate unbounded memory.
+static constexpr uint32_t kMaxFragmentBuffer = 4u * 1024u * 1024u; // 4 MB
+
 //----------------------------------------------------------------------
 // Macros
 
@@ -98,6 +110,20 @@ void EQPacketFragmentSequence::addFragment(EQProtocolPacket& packet)
          seqWarn("Oversized packet fragment requested buffer of size 0 on stream %d OpCode %04x seq %04x",
            m_streamid, *(uint16_t*)&packet.payload()[4], packet.arqSeq());
       }
+      else if (m_totalLength > kMaxFragmentBuffer)
+      {
+         // Implausibly large declared total — almost always a fragment
+         // decoded with the wrong session key (foreign-session bytes
+         // mis-routed onto this stream). Abandon the sequence rather than
+         // allocate a huge buffer or abort the daemon.
+         seqWarn("EQPacketFragmentSequence: rejecting oversized first "
+           "fragment (declared %u > cap %u) on stream %d OpCode %04x seq %04x "
+           "— likely wrong-session data; dropping sequence.",
+           m_totalLength, kMaxFragmentBuffer, m_streamid,
+           *(uint16_t*)&packet.payload()[4], packet.arqSeq());
+         reset();
+         return;
+      }
       else if (m_totalLength > m_dataAllocSize)
       {
         // Buffer isn't big enough. Enlargen it.
@@ -132,11 +158,27 @@ void EQPacketFragmentSequence::addFragment(EQProtocolPacket& packet)
              *(uint16_t*)(m_data));
 #endif
       
-      if (m_data+m_dataSize+packet.payloadLength() > m_data+m_dataAllocSize)
+      if (m_dataSize + packet.payloadLength() > m_dataAllocSize)
       {
-        seqFatal("!!!! EQPacketFragmentSequence::addFragment(): buffer overflow adding in new fragment to buffer with seq %04x on stream %d, opcode %04x. Buffer is size %d and has been filled up to %d, but tried to add %d more!",
-          packet.arqSeq(), m_streamid, *(uint16_t*)(m_data),
-          m_dataAllocSize, m_dataSize, packet.payloadLength());
+        // The data arriving exceeds the buffer the first fragment declared.
+        // The fragmentation protocol's ONLY completion signal is that
+        // declared total (isComplete() == (m_dataSize == m_totalLength)),
+        // so once the total is wrong we can neither size the buffer nor
+        // know where the packet ends. This happens when a stream decodes
+        // fragments with the wrong session key (foreign-session bytes
+        // mis-routed in multibox) — the real fix is to not route foreign
+        // data here at all. Abandon this sequence: the packet is lost, but
+        // the daemon survives (formerly seqFatal → exit) and the next first
+        // fragment re-aligns the stream. We do NOT grow the buffer — that
+        // would let m_dataSize pass m_totalLength so isComplete() never
+        // fires, stranding the stream in a never-completing reassembly.
+        seqWarn("EQPacketFragmentSequence: abandoning sequence on stream %d "
+          "seq %04x — data exceeds declared total %u (filled %zu, +%u). "
+          "Likely wrong-session/corrupt header.",
+          m_streamid, packet.arqSeq(), m_dataAllocSize, m_dataSize,
+          packet.payloadLength());
+        reset();
+        return;
       }
 
       memcpy(m_data + m_dataSize, packet.payload(), packet.payloadLength());
