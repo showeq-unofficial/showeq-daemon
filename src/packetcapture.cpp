@@ -149,9 +149,29 @@ void PacketCaptureThread::start(const char *device, const char *host,
 
     m_pcache_first = m_pcache_last = NULL;
 
+    // Install the capture filter BEFORE launching the read loop. pcap_loop() and
+    // pcap_setfilter() both touch the non-thread-safe pcap_t handle; on a
+    // freshly-activated handle, the loop thread's mmap ring-buffer setup races
+    // with pcap_setfilter() and segfaults inside libpcap (null deref in the mmap
+    // read path) when a device is selected. Compiling/installing the filter on
+    // this thread first, then spawning the loop, serializes all handle setup.
+    this->setFilter(device, host, realtime, address_type, 0, 0);
+
     pthread_create (&m_tid, NULL, loop, (void*)this);
 
-    this->setFilter(device, host, realtime, address_type, 0, 0);
+    // Now that the capture thread exists, raise its priority if requested. This
+    // previously lived in setFilter(), which forced setFilter() to run after
+    // thread creation and is what created the race above.
+    if (realtime)
+    {
+        struct sched_param sp;
+        memset (&sp, 0, sizeof (sp));
+        sp.sched_priority = 1;
+        if (pthread_setschedparam (m_tid, SCHED_RR, &sp) != 0)
+        {
+            seqWarn("Failed to set capture thread realtime.");
+        }
+    }
 
 }
 
@@ -374,7 +394,6 @@ void PacketCaptureThread::setFilter (const char *device,
     char* pfb = filter_buf;
     char ebuf[PCAP_ERRBUF_SIZE];
     struct bpf_program bpp;
-    struct sched_param sp;
     bpf_u_int32 mask = 0; // sniff device netmask
     bpf_u_int32 net = 0 ; // sniff device ip
 
@@ -444,15 +463,10 @@ void PacketCaptureThread::setFilter (const char *device,
 
     seqDebug("PCAP Filter Set: %s", filter_buf);
 
-    if (realtime)
-    {
-        memset (&sp, 0, sizeof (sp));
-        sp.sched_priority = 1;
-        if (pthread_setschedparam (m_tid, SCHED_RR, &sp) != 0)
-        {
-            seqWarn("Failed to set capture thread realtime.");
-        }
-    }
+    // realtime priority is applied once at thread creation in start(); see note
+    // there. Re-applying it on every filter change is unnecessary (the capture
+    // thread keeps its SCHED_RR priority for its lifetime).
+    (void)realtime;
 
     m_pcapFilter = filter_buf;
 }
