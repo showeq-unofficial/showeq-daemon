@@ -52,11 +52,8 @@ PacketCaptureThread::PacketCaptureThread(int snaplen, int buffersize) : PacketCa
 
 PacketCaptureThread::~PacketCaptureThread()
 {
-    if (m_pcache_pcap)
-    {
-        // Turn off pcap
-        pcap_close(m_pcache_pcap);
-    }
+    // Stop the capture thread and close the handle safely (see stop()).
+    stop();
 }
 
 void PacketCaptureThread::setPlaybackSpeed(int playbackSpeed)
@@ -212,6 +209,18 @@ void PacketCaptureThread::stop()
     // close the pcap session
     if (m_pcache_pcap)
     {
+        // Stop the capture thread BEFORE closing the handle. The thread is
+        // blocked in pcap_loop() on m_pcache_pcap; pcap_close()ing it out from
+        // under the running loop is a use-after-free inside libpcap. Mark the
+        // cache closed, break the loop (libpcap >= 1.10 wakes a blocked read),
+        // join the thread, then close the handle.
+        pthread_mutex_lock(&m_pcache_mutex);
+        m_pcache_closed = true;
+        pthread_mutex_unlock(&m_pcache_mutex);
+
+        pcap_breakloop(m_pcache_pcap);
+        pthread_join(m_tid, NULL);
+
         pcap_close(m_pcache_pcap);
         m_pcache_pcap = NULL;
     }
