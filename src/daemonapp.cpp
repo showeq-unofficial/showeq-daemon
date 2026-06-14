@@ -836,6 +836,25 @@ void DaemonApp::onBoxCreated(Box* box)
             m_packet->boxRegistry().promoteByName(box, name);
         });
     }
+
+    // Keep the shared MapData in sync when the ACTIVE non-primary box zones.
+    // The primary's zoneMgr is wired straight to loadZoneMap in start(); a
+    // non-primary box that's promoted at login shows its name before its
+    // OP_NewZone decodes, so a switch to it loads an empty map and the later
+    // zoneChanged (which makes SessionAdapter re-send geometry) would still
+    // read a stale MapData. Reload here so that late zone refreshes the map
+    // with no second manual swap. Guarded on active so a background box zoning
+    // doesn't clobber the active box's map.
+    if (!box->is_primary) {
+        if (ZoneMgr* zm = m_boxManagers[box].zoneMgr) {
+            connect(zm, qOverload<const QString&>(&ZoneMgr::zoneChanged), this,
+                    [this, box](const QString& zone) {
+                BoxRegistry& reg = m_packet->boxRegistry();
+                if (reg.currentBoxFor(reg.activeBoxId()) == box)
+                    loadZoneMap(zone);
+            });
+        }
+    }
 }
 
 const ManagerSet* DaemonApp::managersForBox(const QString& boxId) const
