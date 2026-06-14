@@ -216,18 +216,33 @@ void SpawnMonitor::newSpawn(const Item* item)
 
 void SpawnMonitor::killSpawn(const Item* killedSpawn)
 {
-  QHashIterator<QString, SpawnPoint*> it( m_points );
-
-  SpawnPoint* sp;
-  while (it.hasNext())
   {
-    it.next();
-    sp = it.value();
-
-    if ( killedSpawn->id() == sp->lastID() )
+    QHashIterator<QString, SpawnPoint*> it( m_points );
+    while (it.hasNext())
     {
-      restartSpawnPoint(sp);
-      break;
+      it.next();
+      SpawnPoint* sp = it.value();
+      if ( killedSpawn->id() == sp->lastID() )
+      {
+        restartSpawnPoint(sp);
+        return;
+      }
+    }
+  }
+
+  // Record death on candidates so that when they're promoted on the next
+  // respawn, update() sees a non-zero deathTime and can compute diffTime.
+  {
+    QHashIterator<QString, SpawnPoint*> it( m_spawns );
+    while (it.hasNext())
+    {
+      it.next();
+      SpawnPoint* sp = it.value();
+      if ( killedSpawn->id() == sp->lastID() )
+      {
+        sp->restart();
+        return;
+      }
     }
   }
 }
@@ -430,6 +445,10 @@ void SpawnMonitor::loadSpawnPoints()
 
     EQPoint	loc(x, y, z);
     SpawnPoint*	p = new SpawnPoint( 0, loc, name, diffTime, count );
+    // Seed deathTime so the ETA countdown is live immediately on load.
+    // The first observed kill will replace this with the real death time.
+    if (diffTime > 0)
+      p->restart();
     if (p)
     {
       QString key = p->key();
