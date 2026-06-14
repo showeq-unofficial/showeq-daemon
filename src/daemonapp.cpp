@@ -399,6 +399,26 @@ bool DaemonApp::start()
         connect(&m_packet->boxRegistry(), &BoxRegistry::boxCreated,
                 this, [this](Box* box) { onBoxCreated(box); });
 
+        // On an active-box switch the newly-active box is already sitting in
+        // its zone, so no zoneChanged fires and the shared MapData still holds
+        // the PREVIOUS box's geometry — the re-snapshot would re-ship the old
+        // map. Reload MapData for the new box's current zone here, resolving
+        // the same managers SessionAdapter will. Connected at startup, this
+        // runs before any per-client SessionAdapter::onActiveBoxChanged (those
+        // attach when a ws client connects, strictly later), so sendSnapshot
+        // reads fresh geometry.
+        connect(&m_packet->boxRegistry(), &BoxRegistry::activeBoxChanged,
+                this, [this](Box* old, Box* target) {
+            // Only a genuine switch needs this. The first box becoming active
+            // (old == nullptr, e.g. adopt-first-character) loads its map via
+            // the normal zoneChanged path; reloading here would just re-clear
+            // MapData mid-replay and flip goldens.
+            if (!old || !target) return;
+            const ManagerSet* ns = managersForBox(target->box_id);
+            if (ns && ns->zoneMgr)
+                loadZoneMap(ns->zoneMgr->shortZoneName());
+        });
+
         // Replay normally quits at EOF (golden generation /
         // opcode-stats / --no-listen one-shots all want this). With
         // --wait-for-client, however, we're driving the web UI from a
