@@ -11,17 +11,18 @@ BoxRegistry::BoxRegistry(QObject* parent) : QObject(parent) {}
 QString Box::summary() const
 {
     const QString ip = QHostAddress(ntohl(client_ip)).toString();
-    const QString name = display_name.isEmpty() ? QStringLiteral("(unknown)")
-                                                : display_name;
     const char* primary = is_primary ? "*" : " ";
-    return QStringLiteral("%1box %2  ip=%3  ports=%4->%5  pkts=%6  name=%7")
+    // box_id already encodes identity (a hash of the character name once
+    // promoted); never print the raw display_name — keep EQ character names
+    // out of logs. promoted= conveys the same recon signal name-safely.
+    return QStringLiteral("%1box %2  ip=%3  ports=%4->%5  pkts=%6  promoted=%7")
         .arg(primary)
         .arg(box_id)
         .arg(ip)
         .arg(ntohs(client_world_port))
         .arg(ntohs(server_world_port))
         .arg(packet_count)
-        .arg(name);
+        .arg(display_name.isEmpty() ? QStringLiteral("no") : QStringLiteral("yes"));
 }
 
 Box* BoxRegistry::observe(in_addr_t client_ip,
