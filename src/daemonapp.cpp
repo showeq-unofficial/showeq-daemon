@@ -1100,9 +1100,14 @@ QString DaemonApp::setMapPackage(const QString& id)
     m_mapPackage = resolved;
 
     // Persist (XMLPreferences, [Maps] Package). Mirrors how Network/Device
-    // is read/written elsewhere via pSEQPrefs.
-    if (pSEQPrefs)
+    // is read/written elsewhere via pSEQPrefs. XMLPreferences batches
+    // modifications in memory, so flush with save() — same pattern as
+    // PrefsBroker::apply — otherwise the choice is lost on restart (the
+    // daemon hot-reloads via _exit(75), bypassing any aboutToQuit flush).
+    if (pSEQPrefs) {
         pSEQPrefs->setPrefString("Package", "Maps", resolved);
+        pSEQPrefs->save();
+    }
 
     // Re-resolve the current zone's map within the (new) active package and
     // broadcast a fresh MapPackagesUpdate + ZoneChanged so every client
