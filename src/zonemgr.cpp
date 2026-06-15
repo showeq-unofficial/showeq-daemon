@@ -645,45 +645,65 @@ void ZoneMgr::zonePlayer(const uint8_t* data, size_t len)
   // initDuration / level / effect all sit 12 bytes earlier than their
   // legacy comment-offsets. See the updated spellBuff in everquest.h.
   //
-  // Locate the array by *strict* signature. Each 110-byte spellBuff
-  // slot has a recognizable fingerprint that the server initializes on
-  // every slot (occupied or empty):
-  //   - float 1.0 (= 0x3f800000) at +98 (per-buff modifier)
-  //   - 0xFFFFFFFF at +26, +38, +50, +62, +74, +86 (six 12-byte-strided
-  //     u32 sentinels — appear to be vacant sub-block effect-ID
-  //     placeholders)
+  // Locate the array by per-slot signature. The ONLY field the server
+  // initializes identically on every slot (occupied or empty) is a run
+  // of six 0xFFFFFFFF sentinels at +26, +38, +50, +62, +74, +86 (vacant
+  // sub-effect cells). That 24-byte fingerprint is the discriminator.
   //
-  // A previous version anchored on the +98 float alone, which produced
-  // false-positive starts up to 220 bytes before the real array (other
-  // regions of the profile happen to have 0x3f800000 at some byte
-  // position). With the full 7-marker fingerprint we get exactly one
-  // run per profile across 22 captures. Overlay the 42*110=4620-byte
-  // array onto player->profile.buffs.
+  // Do NOT anchor on the +98 'modifier' float: it is 1.0 on occupied
+  // slots but holds residual garbage (e.g. 1.02) on some EMPTY slots, so
+  // requiring it splits the array at the first such slot. A 3-buff
+  // profile (buff3.vpk: Summon Frostreaver@slot0, Armor of Faith@slot2,
+  // Symbol of Naltron@slot5, with an empty-but-dirty slot4) was decoding
+  // only Symbol — the longest float+marker run started *after* slot4,
+  // dropping the two buffs before it.
+  //
+  // The buff array is adjacent to another 110-strided 0xff-marker
+  // structure, so the longest marker run alone is ambiguous. Pick the
+  // run whose 42-slot window holds the MOST plausible occupied buffs
+  // (valid spellid/duration/level); tie-break on run length so an empty
+  // buff array still resolves to the right region. Overlay the
+  // 42*110=4620-byte array onto player->profile.buffs.
   {
-    constexpr size_t kModOffset = offsetof(spellBuff, modifier);
-    constexpr uint32_t kOneLE = 0x3f800000u;
     constexpr uint32_t kFF = 0xffffffffu;
     constexpr size_t kMarkers[] = {26, 38, 50, 62, 74, 86};
-    auto looksLikeSlot = [&](size_t off) {
+    auto markersOk = [&](size_t off) {
+      if (off + sizeof(spellBuff) > len) return false;
       uint32_t v;
-      std::memcpy(&v, data + off + kModOffset, sizeof(v));
-      if (v != kOneLE) return false;
       for (size_t m : kMarkers) {
         std::memcpy(&v, data + off + m, sizeof(v));
         if (v != kFF) return false;
       }
       return true;
     };
+    auto countBuffs = [&](size_t start) {
+      int n = 0;
+      for (int i = 0; i < MAX_BUFFS; ++i) {
+        const size_t b = start + size_t(i) * sizeof(spellBuff);
+        if (b + sizeof(spellBuff) > len) break;
+        int32_t dur, sp;
+        std::memcpy(&dur, data + b, sizeof(dur));
+        std::memcpy(&sp, data + b + 9, sizeof(sp)); // unaligned spellid
+        const uint8_t lvl = data[b + 8];
+        if (sp >= 1 && sp <= 200000 && dur >= 1 && dur <= 400000 &&
+            lvl >= 1 && lvl <= 127)
+          ++n;
+      }
+      return n;
+    };
     size_t buffArrayStart = 0;
+    int bestBuffs = -1;
     size_t bestRun = 0;
-    for (size_t off = 0x3000; off + sizeof(spellBuff) <= len; ++off) {
-      if (!looksLikeSlot(off)) continue;
+    for (size_t off = 0x3000; off + sizeof(spellBuff) <= len; ) {
+      if (!markersOk(off)) { ++off; continue; }
       size_t run = 1;
       size_t cur = off + sizeof(spellBuff);
-      while (cur + sizeof(spellBuff) <= len && looksLikeSlot(cur)) {
-        ++run; cur += sizeof(spellBuff);
+      while (markersOk(cur)) { ++run; cur += sizeof(spellBuff); }
+      const int nb = countBuffs(off);
+      if (nb > bestBuffs || (nb == bestBuffs && run > bestRun)) {
+        bestBuffs = nb; bestRun = run; buffArrayStart = off;
       }
-      if (run > bestRun) { bestRun = run; buffArrayStart = off; }
+      off = cur;
     }
     if (bestRun >= 3) {
       const size_t bufBytes = sizeof(player->profile.buffs);
