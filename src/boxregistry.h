@@ -205,6 +205,25 @@ public:
     // Box and by setActiveBoxId().
     void notifyChanged();
 
+    // Reclaim boxes whose EQ session has gone idle (no packet seen for
+    // ttl_ms). Each zone change opens a fresh world socket, so a long
+    // multibox session accumulates one Box per character per zone; this
+    // reaps the superseded ones. Eviction is group-aware (a character =
+    // a non-merged parent + its merged re-handshake aliases):
+    //   - superseded, stale aliases are reaped individually;
+    //   - a whole character group is reaped once its LIVE decode box
+    //     (currentBoxFor) is itself stale (the character logged off);
+    //   - the primary box, the active character's live box, and every
+    //     still-active character's live box are never reaped — and a
+    //     non-merged parent is only removed when its whole group goes,
+    //     so a surviving alias never orphans its identity anchor.
+    // Emits boxAboutToBeRemoved(box) for each victim BEFORE freeing it
+    // (subscribers hold raw Box* and must release per-box resources
+    // first), then a single changed(). Returns the number removed.
+    // now_ms / ttl_ms are caller-supplied (wall clock in production) so
+    // the sweep is unit-testable with injected timestamps.
+    int evictStale(qint64 now_ms, qint64 ttl_ms);
+
 signals:
     // Fires every time the registry state changes (add, promote,
     // merge, active-switch). SessionAdapter listens to re-emit
@@ -216,6 +235,12 @@ signals:
     // docs/MULTIBOX_PLAN.md) — separate from the synchronous hook
     // EQPacket uses for stream allocation.
     void boxCreated(Box* box);
+    // Fires once per Box about to be evicted by evictStale(), BEFORE the
+    // Box is freed. EQPacket tears down the box's streams + observers and
+    // DaemonApp tears down its ManagerSet in response — the reverse of the
+    // boxCreated construction path. The Box* is still valid for the
+    // duration of the slot; do not retain it past the call.
+    void boxAboutToBeRemoved(Box* box);
     // Fires when the active box pointer changes.
     void activeBoxChanged(Box* oldBox, Box* newBox);
 

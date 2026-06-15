@@ -159,6 +159,36 @@ present via `--opcode-stats`. Lands in `tests/replay/multibox-2c.*`.
   boxes' active-decode emissions in sequence.
 - Add `--box <ip>` replay flag to pick active box for golden recording.
 
+### Stage 6 — idle session reaping (shipped)
+
+Every zone change opens a fresh world socket (`namepromoter.cpp:66`),
+so a long multibox session accumulates one `Box` per character per zone,
+each with its own `ManagerSet` + four streams. `BoxRegistry::evictStale(
+now_ms, ttl_ms)` reclaims the dead ones; `DaemonApp` runs it on a periodic
+`QTimer` (interval = clamp(ttl, 5s, 60s); skipped for `--replay`).
+
+- **Activity signal:** `observe()` only stamps `last_seen_ms` on *world*
+  traffic, so a box settled into a zone would look idle. `dispatchPacket`'s
+  zone-matched branch now stamps `last_seen_ms` too — without it the sweep
+  would reap an actively-playing box.
+- **Group-aware policy** (a character = a non-merged parent + its merged
+  re-handshake aliases): superseded stale aliases are reaped individually;
+  a whole character group is reaped only once its *live* box
+  (`currentBoxFor`) is itself stale (logged off). Never reaped: the primary
+  box, the active character's live box, every still-active character's live
+  box. A non-merged parent only goes when its whole group goes, so a
+  surviving alias never orphans its identity anchor.
+- **Teardown:** `boxAboutToBeRemoved(Box*)` fires before the `Box` is
+  freed. `EQPacket` parents each non-primary box's streams + observers
+  under a per-box `QObject` root, `DaemonApp` does the same for its
+  `ManagerSet`; the slots `deleteLater()` the root for order-safe subtree
+  teardown. Removal propagates to the web picker for free —
+  `SessionAdapter::sendBoxList()` rebuilds from the registry on `changed()`.
+- **Flag:** `--box-idle-ttl SECONDS` (default 600; 0 disables).
+- Tier-1: `boxregistry_test` eviction cases (superseded-alias reap,
+  logged-off whole-group reap, primary/active/fresh protection, no-orphan,
+  disabled/no-op).
+
 ## Out of scope (v1)
 
 - Multi-active (parallel decode → parallel emits). v2.

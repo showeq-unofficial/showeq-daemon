@@ -210,18 +210,24 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
       box.zone_s2c  = m_zone2ClientStream;
       c2s = m_client2WorldStream;
     } else {
+      // All of this non-primary box's owned QObjects hang off one root so
+      // BoxRegistry::evictStale can reclaim them with a single deleteLater
+      // (see onBoxAboutToBeRemoved). The root is itself parented to
+      // EQPacket so a box never evicted still gets cleaned up at shutdown.
+      QObject* root = new QObject(this);
+      m_boxRoots.insert(&box, root);
       box.world_c2s = new EQPacketStream(client2world, DIR_Client,
                                          m_arqSeqGiveUp, *m_worldOPCodeDB,
-                                         this, "box-world-c2s");
+                                         root, "box-world-c2s");
       box.world_s2c = new EQPacketStream(world2client, DIR_Server,
                                          m_arqSeqGiveUp, *m_worldOPCodeDB,
-                                         this, "box-world-s2c");
+                                         root, "box-world-s2c");
       box.zone_c2s  = new EQPacketStream(client2zone, DIR_Client,
                                          m_arqSeqGiveUp, *m_zoneOPCodeDB,
-                                         this, "box-zone-c2s");
+                                         root, "box-zone-c2s");
       box.zone_s2c  = new EQPacketStream(zone2client, DIR_Server,
                                          m_arqSeqGiveUp, *m_zoneOPCodeDB,
-                                         this, "box-zone-s2c");
+                                         root, "box-zone-s2c");
       box.world_c2s->setSessionTracking(m_session_tracking);
       box.world_s2c->setSessionTracking(m_session_tracking);
       box.zone_c2s->setSessionTracking(m_session_tracking);
@@ -249,8 +255,11 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
     // session must be identifiable so dispatchPacket can route bound
     // zone traffic to it (the global streams) and DROP unbound traffic
     // rather than letting foreign sessions interleave on those streams.
-    new ZoneServerObserver(&box, box.world_s2c, this);
-    new NamePromoter(&box, &m_boxes, c2s, this);
+    // Parent the observers under the box root (non-primary) so they're
+    // torn down with the box on eviction; the primary's hang off EQPacket.
+    QObject* observerParent = m_boxRoots.value(&box, this);
+    new ZoneServerObserver(&box, box.world_s2c, observerParent);
+    new NamePromoter(&box, &m_boxes, c2s, observerParent);
 
     // Per-box opcode wiring is owned by DaemonApp::onBoxCreated (it owns
     // the per-box ManagerSets and wires each box's streams to its own
@@ -258,6 +267,12 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
     // its own managers — there is no mute gate — so the active box can be
     // switched by rebinding SessionAdapter rather than clearing state.
   });
+
+  // Reclaim a box's streams + observers when BoxRegistry::evictStale
+  // retires its idle session (DaemonApp drives the periodic sweep and
+  // tears down the matching ManagerSet on the same signal).
+  connect(&m_boxes, &BoxRegistry::boxAboutToBeRemoved,
+          this, &EQPacket::onBoxAboutToBeRemoved);
 
   // no client/server ports yet
   m_clientPort = 0;
@@ -859,6 +874,13 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
     bool srcIsClient = false;
     const bool matched = pickBox(box, srcIsClient);
     if (matched && box && box->zone_c2s && box->zone_s2c) {
+      // Mark zone-stream activity. observe() only stamps last_seen on
+      // WORLD traffic (login / zone handshakes); a box that's settled into
+      // a zone talks exclusively on the zone stream, so without this its
+      // last_seen would freeze at zone-in and BoxRegistry::evictStale would
+      // reap an actively-playing box. Stamp the box that owns this session.
+      box->last_seen_ms = QDateTime::currentMSecsSinceEpoch();
+      ++box->packet_count;
       // Route to THIS box's zone streams. The primary box's zone streams
       // alias the global ones, so its bound session still decodes through
       // the global pipeline — but now keyed on the box's session, not on
@@ -890,6 +912,24 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
     }
   }
 } /* end dispatchPacket() */
+
+////////////////////////////////////////////////////
+// Reclaim a non-primary box's owned objects when the registry evicts it.
+void EQPacket::onBoxAboutToBeRemoved(Box* box)
+{
+  if (!box || box->is_primary) return;   // primary aliases the globals
+
+  // Drop the stream pointers first. The registry frees the Box right after
+  // this returns; nulling here means a stray lookup before the deleteLater
+  // lands can't hand a dead pointer to dispatchPacket. The streams + the
+  // box's ZoneServerObserver/NamePromoter all hang off the root, so one
+  // deleteLater unwinds the whole subtree (and its signal connections) on
+  // the next event-loop pass — safe because the box is already gone from
+  // the registry, so no further packet can route to these streams.
+  box->world_c2s = box->world_s2c = box->zone_c2s = box->zone_s2c = nullptr;
+  if (QObject* root = m_boxRoots.take(box))
+    root->deleteLater();
+}
 
 ////////////////////////////////////////////////////
 // Handle zone2client stream closing

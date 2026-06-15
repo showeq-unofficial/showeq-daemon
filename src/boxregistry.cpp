@@ -2,6 +2,8 @@
 
 #include "diagnosticmessages.h"
 
+#include <algorithm>
+
 #include <QCryptographicHash>
 #include <QHash>
 #include <QHostAddress>
@@ -111,6 +113,77 @@ void BoxRegistry::onPromoted(Box* box, const QString& old_box_id)
 void BoxRegistry::notifyChanged()
 {
     emit changed();
+}
+
+int BoxRegistry::evictStale(qint64 now_ms, qint64 ttl_ms)
+{
+    if (ttl_ms <= 0) return 0;
+    const qint64 cutoff = now_ms - ttl_ms;
+    const QString activeId = m_activeBoxId;
+
+    // Collect victims one character group at a time. A group is a
+    // non-merged parent plus every Box merged into it; processing whole
+    // groups is what keeps us from removing a parent (the identity anchor
+    // every alias' merged_into points at) while one of its aliases lives.
+    std::vector<Box*> victims;
+    for (auto& up : m_boxes) {
+        Box* parent = up.get();
+        if (parent->is_merged()) continue;     // visited with its parent
+
+        std::vector<Box*> group{parent};
+        for (auto& a : m_boxes)
+            if (a->merged_into == parent->box_id) group.push_back(a.get());
+
+        // The live decode box of the character is the newest by first_seen
+        // (currentBoxFor's rule) — SessionAdapter binds here, so it must
+        // survive as long as the character is around.
+        Box* current = parent;
+        for (Box* b : group)
+            if (b->first_seen_ms >= current->first_seen_ms) current = b;
+
+        const bool isPrimaryGroup = parent->is_primary;  // primary never merges
+        const bool isActiveGroup  = (parent->box_id == activeId);
+        const bool currentFresh   = current->last_seen_ms >= cutoff;
+
+        // The character is gone (logged off / camped) once even its live
+        // box has been silent past the TTL. Reap the whole group then —
+        // unless it's the primary or the box the user is actively viewing.
+        const bool reapWholeGroup =
+            !isPrimaryGroup && !isActiveGroup && !currentFresh;
+
+        for (Box* b : group) {
+            if (b->is_primary) continue;       // the global-stream box: never
+            if (reapWholeGroup) { victims.push_back(b); continue; }
+            // Group survives: reap only its stale, superseded aliases.
+            // Keep the live box, any still-fresh box, and the parent (its
+            // box_id anchors the aliases that remain).
+            if (b == current) continue;
+            if (b == parent)  continue;
+            if (b->last_seen_ms >= cutoff) continue;
+            victims.push_back(b);
+        }
+    }
+
+    if (victims.empty()) return 0;
+
+    // Let subscribers (EQPacket streams/observers, DaemonApp ManagerSets)
+    // release their per-box resources while the Box is still valid.
+    for (Box* v : victims) {
+        seqInfo("BoxRegistry: evicting idle box %s", qUtf8Printable(v->box_id));
+        emit boxAboutToBeRemoved(v);
+    }
+
+    // Now free the Boxes. Erase by identity — the per-victim erase is O(N)
+    // but victim counts are small (a handful per sweep at most).
+    for (Box* v : victims) {
+        m_boxes.erase(
+            std::remove_if(m_boxes.begin(), m_boxes.end(),
+                [v](const std::unique_ptr<Box>& up) { return up.get() == v; }),
+            m_boxes.end());
+    }
+
+    emit changed();
+    return int(victims.size());
 }
 
 Box* BoxRegistry::primary()

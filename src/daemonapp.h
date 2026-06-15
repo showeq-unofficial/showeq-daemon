@@ -115,6 +115,12 @@ public:
         // where no client connects and the listen port is just a
         // collision risk against the user's main daemon instance.
         bool         noListen = false;
+        // Idle TTL (ms) after which BoxRegistry::evictStale reclaims a box
+        // whose EQ session has gone silent — reaping the per-zone Box churn
+        // a long multibox session accumulates. --box-idle-ttl SECONDS sets
+        // it; 0 disables eviction entirely. Not applied to --replay runs
+        // (their wall-clock last_seen stays fresh over a short playback).
+        qint64       boxIdleTtlMs = 10 * 60 * 1000;
         QHostAddress listenHost;
         quint16      listenPort = 9090;
     };
@@ -194,6 +200,10 @@ private:
     // (already wired to the global streams in start()); every other box
     // gets its own ManagerSet + wireBoxPipeline on its own streams.
     void onBoxCreated(Box* box);
+    // BoxRegistry::boxAboutToBeRemoved handler. Drops the evicted box's
+    // ManagerSet record and deleteLater's its per-box manager root (the
+    // reverse of onBoxCreated). No-op for the primary box.
+    void onBoxAboutToBeRemoved(Box* box);
 
     Config                          m_cfg;
 
@@ -223,10 +233,15 @@ private:
     // what wireBoxPipeline binds to the global streams at startup.
     ManagerSet                      m_activeManagers;
     // Per-box ManagerSet bundles, keyed by the stable Box* (box_id mutates
-    // placeholder→name-hash on promotion, so it's a poor key). The managers
-    // themselves are QObjects parented to `this`; this map just records
-    // which set belongs to which box so SessionAdapter can resolve one.
+    // placeholder→name-hash on promotion, so it's a poor key). This map
+    // records which set belongs to which box so SessionAdapter can resolve
+    // one; the managers themselves hang off the per-box root below.
     QHash<const Box*, ManagerSet>   m_boxManagers;
+    // Per-box parent QObject owning a non-primary box's ManagerSet managers.
+    // Reparented here in onBoxCreated so BoxRegistry::evictStale can reclaim
+    // the whole set with one deleteLater (order-safe subtree teardown). The
+    // primary box reuses m_activeManagers and has no entry here.
+    QHash<const Box*, QObject*>     m_boxManagerRoots;
     std::unique_ptr<MapData>        m_mapData;
     // Active map package id ("default" = flat maps root). Restored from
     // XMLPreferences in start(), overridden by Config::mapPackage.

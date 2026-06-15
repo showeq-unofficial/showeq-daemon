@@ -17,6 +17,10 @@
 
 #include "boxregistry.h"
 
+// So QSignalSpy can capture boxAboutToBeRemoved(Box*)'s argument (Box is a
+// plain struct, not a QObject, so it isn't auto-registered).
+Q_DECLARE_METATYPE(Box*)
+
 namespace {
 // Distinct same-host 5-tuples: one client IP, varying client world ports,
 // one world server port (the :9016 case that motivated multibox).
@@ -42,6 +46,10 @@ private slots:
   void setActiveBoxEmitsChange();
   void lookupBoundZoneMatches();
   void lookupByExpectedZoneRecencyAndSkipBound();
+  void evictStaleReapsSupersededAlias();
+  void evictStaleReapsLoggedOffGroup();
+  void evictStaleProtectsPrimaryActiveFresh();
+  void evictStaleDisabledAndNoVictims();
 };
 
 void BoxRegistryTest::observeCreatesPrimary()
@@ -209,6 +217,126 @@ void BoxRegistryTest::lookupByExpectedZoneRecencyAndSkipBound()
   // Once b binds a live zone session it's skipped, so a wins.
   b->zone_client_port = cport(6666);
   QCOMPARE(reg.lookupByExpectedZone(kClientIp, 0x01020304, cport(7000)), a);
+}
+
+// --- Eviction (evictStale) -------------------------------------------------
+//
+// Helper: observe a world session for `name`, stamp its first_seen so
+// currentBoxFor orders the group, and promote it. The 2nd+ session for a
+// name merges into the first as a re-handshake alias — the way a client
+// zoning produces one Box per zone for the same character.
+namespace {
+Box* addSession(BoxRegistry& reg, uint16_t port, const QString& name,
+                qint64 firstSeen)
+{
+  Box* b = reg.observe(kClientIp, cport(port), kSrvPort, firstSeen);
+  b->first_seen_ms = firstSeen;
+  reg.promoteByName(b, name);
+  return b;
+}
+}  // namespace
+
+void BoxRegistryTest::evictStaleReapsSupersededAlias()
+{
+  qRegisterMetaType<Box*>("Box*");
+  BoxRegistry reg;
+  QSignalSpy spy(&reg, &BoxRegistry::boxAboutToBeRemoved);
+
+  // Primary character (active by default) — must be protected.
+  Box* prim = addSession(reg, 1000, QStringLiteral("Primary"), 1000);
+  QVERIFY(prim->is_primary);
+
+  // A second character with three world sessions: parent (zone 1), an old
+  // superseded alias (zone 2), and the live box (zone 3).
+  Box* p   = addSession(reg, 2000, QStringLiteral("Foo"), 2000);  // parent
+  Box* old = addSession(reg, 3000, QStringLiteral("Foo"), 3000);  // superseded
+  Box* cur = addSession(reg, 4000, QStringLiteral("Foo"), 4000);  // live
+  QVERIFY(old->is_merged());
+  QVERIFY(cur->is_merged());
+  QCOMPARE(reg.currentBoxFor(p->box_id), cur);
+  QCOMPARE(reg.size(), size_t(4));
+
+  // Live box still talking; parent + old alias went silent at zone-out.
+  const qint64 now = 1'000'000, ttl = 10'000;
+  prim->last_seen_ms = now;            // active char fresh
+  cur->last_seen_ms  = now;            // live box fresh
+  p->last_seen_ms    = 2000;           // stale, but the identity anchor
+  old->last_seen_ms  = 3000;           // stale + superseded -> reap
+
+  const int n = reg.evictStale(now, ttl);
+
+  // Only the superseded alias is reclaimed; the parent (identity) and live
+  // box survive, so the character is intact and still resolves.
+  QCOMPARE(n, 1);
+  QCOMPARE(spy.count(), 1);
+  QCOMPARE(qvariant_cast<Box*>(spy.at(0).at(0)), old);
+  QCOMPARE(reg.size(), size_t(3));
+  QCOMPARE(reg.distinctCount(), size_t(2));        // Primary + Foo
+  QCOMPARE(reg.currentBoxFor(p->box_id), cur);     // no orphan, live intact
+}
+
+void BoxRegistryTest::evictStaleReapsLoggedOffGroup()
+{
+  qRegisterMetaType<Box*>("Box*");
+  BoxRegistry reg;
+  QSignalSpy spy(&reg, &BoxRegistry::boxAboutToBeRemoved);
+
+  Box* prim = addSession(reg, 1000, QStringLiteral("Primary"), 1000);
+  Box* p    = addSession(reg, 2000, QStringLiteral("Gone"), 2000);  // parent
+  Box* cur  = addSession(reg, 3000, QStringLiteral("Gone"), 3000);  // live box
+
+  const qint64 now = 1'000'000, ttl = 10'000;
+  prim->last_seen_ms = now;            // active char still here
+  p->last_seen_ms    = 2000;           // whole "Gone" character went silent
+  cur->last_seen_ms  = 3000;
+
+  const int n = reg.evictStale(now, ttl);
+
+  // The live box itself is stale => the character logged off => the whole
+  // group (parent + alias) is reclaimed.
+  QCOMPARE(n, 2);
+  QCOMPARE(spy.count(), 2);
+  QCOMPARE(reg.size(), size_t(1));                 // only Primary left
+  QCOMPARE(reg.distinctCount(), size_t(1));
+  QVERIFY(reg.findById(p->box_id) == nullptr);     // Gone is gone
+}
+
+void BoxRegistryTest::evictStaleProtectsPrimaryActiveFresh()
+{
+  BoxRegistry reg;
+
+  Box* prim = addSession(reg, 1000, QStringLiteral("Primary"), 1000);
+  Box* act  = addSession(reg, 2000, QStringLiteral("Active"), 2000);
+  Box* fresh= addSession(reg, 3000, QStringLiteral("Fresh"), 3000);
+  QVERIFY(reg.setActiveBoxId(act->box_id));
+
+  const qint64 now = 1'000'000, ttl = 10'000;
+  prim->last_seen_ms  = 1000;          // primary stale...
+  act->last_seen_ms   = 2000;          // active char stale...
+  fresh->last_seen_ms = now;           // other char still talking
+
+  // Primary is never reaped; the actively-viewed character is never reaped
+  // even when idle; a still-fresh character is never reaped.
+  QCOMPARE(reg.evictStale(now, ttl), 0);
+  QCOMPARE(reg.size(), size_t(3));
+}
+
+void BoxRegistryTest::evictStaleDisabledAndNoVictims()
+{
+  BoxRegistry reg;
+  Box* prim = addSession(reg, 1000, QStringLiteral("Primary"), 1000);
+  Box* p    = addSession(reg, 2000, QStringLiteral("Foo"), 2000);
+  prim->last_seen_ms = 1000;
+  p->last_seen_ms    = 1000;
+  const qint64 now = 1'000'000;
+
+  // ttl <= 0 disables eviction outright.
+  QCOMPARE(reg.evictStale(now, 0), 0);
+  QCOMPARE(reg.size(), size_t(2));
+
+  // Nothing stale enough yet (huge ttl) -> no-op, no changed() churn.
+  QCOMPARE(reg.evictStale(now, 100'000'000), 0);
+  QCOMPARE(reg.size(), size_t(2));
 }
 
 QTEST_GUILESS_MAIN(BoxRegistryTest)

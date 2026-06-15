@@ -175,6 +175,11 @@ int main(int argc, char** argv)
         "With --replay: pause playback until the first WebSocket "
         "client subscribes, and don't quit at EOF. Use to drive the "
         "web UI from a recorded capture for manual verification.");
+    QCommandLineOption boxIdleTtlOpt(QStringList{"box-idle-ttl"},
+        "Reclaim a multibox session that's been idle for SECONDS "
+        "(default 600). Each zone change spawns a fresh per-character "
+        "Box; the sweep retires the superseded/logged-off ones. 0 "
+        "disables eviction.", "seconds");
 
     parser.addOption(deviceOpt);
     parser.addOption(ipOpt);
@@ -191,6 +196,7 @@ int main(int argc, char** argv)
     parser.addOption(listEventsOpt);
     parser.addOption(listBoxesOpt);
     parser.addOption(waitForClientOpt);
+    parser.addOption(boxIdleTtlOpt);
     parser.process(app);
 
     DaemonApp::Config cfg;
@@ -208,6 +214,18 @@ int main(int argc, char** argv)
     cfg.listEvents   = parser.value(listEventsOpt);
     cfg.listBoxes    = parser.isSet(listBoxesOpt);
     cfg.waitForClient = parser.isSet(waitForClientOpt);
+    if (parser.isSet(boxIdleTtlOpt)) {
+        bool ok = false;
+        const qint64 secs = parser.value(boxIdleTtlOpt).toLongLong(&ok);
+        if (ok && secs >= 0) {
+            cfg.boxIdleTtlMs = secs * 1000;
+        } else {
+            qWarning("--box-idle-ttl: expected a non-negative integer "
+                     "(seconds), got '%s'; keeping default %lld s",
+                     qUtf8Printable(parser.value(boxIdleTtlOpt)),
+                     cfg.boxIdleTtlMs / 1000);
+        }
+    }
 
     // Resolve record paths against cwd for the same reason --config-dir
     // is — under sudo, $HOME points at /root.

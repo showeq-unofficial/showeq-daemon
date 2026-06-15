@@ -1,6 +1,7 @@
 #include "daemonapp.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QSet>
 #include <QFileInfo>
@@ -364,6 +365,29 @@ bool DaemonApp::start()
             });
         }
 
+        // Periodically reclaim boxes whose EQ session has gone idle past the
+        // TTL (default 10 min; --box-idle-ttl SECONDS, 0 disables). Each zone
+        // change opens a fresh world socket, so a long multibox session piles
+        // up one Box (with its own ManagerSet + streams) per character per
+        // zone; this sweeps the superseded ones. Skipped for --replay: its
+        // wall-clock last_seen stays fresh across a short playback and we
+        // don't want eviction perturbing deterministic goldens.
+        if (m_cfg.replay.isEmpty() && m_cfg.boxIdleTtlMs > 0) {
+            // Sweep often enough to act promptly on a short TTL, but no more
+            // than once a minute for the common long TTL.
+            const qint64 ttl = m_cfg.boxIdleTtlMs;
+            const int interval = int(ttl < 5000 ? 5000 : (ttl > 60000 ? 60000
+                                                                       : ttl));
+            auto* sweep = new QTimer(this);
+            connect(sweep, &QTimer::timeout, this, [this]() {
+                const int n = m_packet->boxRegistry().evictStale(
+                    QDateTime::currentMSecsSinceEpoch(), m_cfg.boxIdleTtlMs);
+                if (n > 0)
+                    qInfo("BoxRegistry: evicted %d idle box session(s)", n);
+            });
+            sweep->start(interval);
+        }
+
         for (const QString& spec : m_cfg.dumpPayload) {
             const int colon = spec.indexOf(':');
             if (colon <= 0) {
@@ -398,6 +422,13 @@ bool DaemonApp::start()
         // packet that created it is routed to its streams.
         connect(&m_packet->boxRegistry(), &BoxRegistry::boxCreated,
                 this, [this](Box* box) { onBoxCreated(box); });
+
+        // Reclaim a box's ManagerSet when the registry evicts its idle
+        // session. EQPacket tears down the matching streams/observers on
+        // the same signal; order between the two slots doesn't matter
+        // since each only frees objects it owns (via deleteLater).
+        connect(&m_packet->boxRegistry(), &BoxRegistry::boxAboutToBeRemoved,
+                this, [this](Box* box) { onBoxAboutToBeRemoved(box); });
 
         // On an active-box switch the newly-active box is already sitting in
         // its zone, so no zoneChanged fires and the shared MapData still holds
@@ -814,6 +845,22 @@ void DaemonApp::onBoxCreated(Box* box)
         // active box is a rebind, not a clear+resnapshot.
         const ManagerSet ms = buildManagerSet();
         m_boxManagers.insert(box, ms);
+        // Reparent the set's managers under one per-box root so eviction
+        // (BoxRegistry::evictStale → onBoxAboutToBeRemoved) reclaims them
+        // with a single deleteLater. buildManagerSet() parents them to
+        // `this`; SpawnShell takes no parent, so adopt it here too.
+        auto* root = new QObject(this);
+        m_boxManagerRoots.insert(box, root);
+        for (QObject* m : {static_cast<QObject*>(ms.zoneMgr),
+                           static_cast<QObject*>(ms.player),
+                           static_cast<QObject*>(ms.spawnShell),
+                           static_cast<QObject*>(ms.spellShell),
+                           static_cast<QObject*>(ms.groupMgr),
+                           static_cast<QObject*>(ms.messageShell),
+                           static_cast<QObject*>(ms.combatRouter),
+                           static_cast<QObject*>(ms.spawnMonitor)}) {
+            if (m) m->setParent(root);
+        }
         wireBoxPipeline(box->world_c2s, box->world_s2c,
                         box->zone_c2s, box->zone_s2c, ms,
                         /*wireGlobalSinks=*/false);
@@ -855,6 +902,17 @@ void DaemonApp::onBoxCreated(Box* box)
             });
         }
     }
+}
+
+void DaemonApp::onBoxAboutToBeRemoved(Box* box)
+{
+    if (!box || box->is_primary) return;   // primary reuses m_activeManagers
+    // Drop the resolver record first so any sendBoxList re-emit triggered
+    // by this eviction can't hand SessionAdapter a set that's being torn
+    // down, then deleteLater the whole per-box manager subtree.
+    m_boxManagers.remove(box);
+    if (QObject* root = m_boxManagerRoots.take(box))
+        root->deleteLater();
 }
 
 const ManagerSet* DaemonApp::managersForBox(const QString& boxId) const

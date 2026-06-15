@@ -24,6 +24,7 @@
 #ifndef _PACKET_H_
 #define _PACKET_H_
 
+#include <QHash>
 #include <QObject>
 #include <QPointer>
 #include <QTimer>
@@ -141,6 +142,11 @@ class EQPacket : public QObject
    void closeStream(uint32_t sessionId, EQStreamID streamId);
    void unlatchClientPort();
    void lockOnClient(in_port_t serverPort, in_port_t clientPort, in_addr_t clientAddr);
+   // BoxRegistry::boxAboutToBeRemoved handler. Tears down the per-box
+   // streams + observers this EQPacket owns for the evicted box (the
+   // reverse of the BoxCreatedHook allocation). No-op for the primary box,
+   // whose streams alias the globals and which is never evicted.
+   void onBoxAboutToBeRemoved(Box* box);
 
  signals:
    // Emitted exactly once when a --replay session reaches end-of-file.
@@ -241,6 +247,14 @@ class EQPacket : public QObject
    };
    std::vector<WireSpec> m_wirings;
    void wireBox(Box& box);
+
+   // Per-box parent QObject for every non-primary Box's owned objects (its
+   // four EQPacketStreams + ZoneServerObserver + NamePromoter). Deleting
+   // the root cascade-deletes the whole subtree and unwinds its signal
+   // connections in one shot, so eviction teardown is order-safe. Keyed by
+   // the stable Box* (box_id mutates on promotion). The primary box owns no
+   // root — its streams are the globals.
+   QHash<const Box*, QObject*> m_boxRoots;
 
  public:
    const BoxRegistry& boxRegistry() const { return m_boxes; }
