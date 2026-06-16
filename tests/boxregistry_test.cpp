@@ -45,6 +45,7 @@ private slots:
   void adoptActiveFromStalePlaceholder();
   void setActiveBoxEmitsChange();
   void lookupBoundZoneMatches();
+  void lookupBoundZoneFindsMergedLiveBox();
   void lookupByExpectedZoneRecencyAndSkipBound();
   void evictStaleReapsSupersededAlias();
   void evictStaleReapsLoggedOffGroup();
@@ -196,6 +197,45 @@ void BoxRegistryTest::lookupBoundZoneMatches()
 
   QCOMPARE(reg.lookupBoundZone(kClientIp, cport(5555), cport(7000)), a);
   QVERIFY(reg.lookupBoundZone(kClientIp, cport(9999), cport(7000)) == nullptr);
+}
+
+void BoxRegistryTest::lookupBoundZoneFindsMergedLiveBox()
+{
+  // Regression: a zone-change/re-handshake box gets promoted+merged at
+  // OP_PlayerProfile, which lands right after its zone session binds. The
+  // routing lookups USED to skip merged boxes — so the live session became
+  // unroutable the instant the character was identified, dropping the spawn
+  // burst and ongoing position updates that follow the profile. (Symptom on
+  // the primary box: name+zone decode once, then no spawns / frozen position,
+  // never recovers; the freed session got grabbed by another same-host box.)
+  // merged_into is identity-only; routing keys on the physical 5-tuple.
+  BoxRegistry reg;
+  Box* first = reg.observe(kClientIp, cport(1000), kSrvPort, 1);
+  first->first_seen_ms = 1;
+  reg.promoteByName(first, QStringLiteral("Alpha"));   // Alpha's parent box
+
+  // Alpha zones: fresh world socket -> new box; its zone session binds.
+  Box* zoned = reg.observe(kClientIp, cport(1001), kSrvPort, 2);
+  zoned->first_seen_ms          = 2;
+  zoned->zone_client_port       = cport(5555);
+  zoned->zone_server_port_bound = cport(7000);
+  QCOMPARE(reg.lookupBoundZone(kClientIp, cport(5555), cport(7000)), zoned);
+
+  // OP_PlayerProfile -> promote merges the new box into Alpha's parent.
+  reg.promoteByName(zoned, QStringLiteral("Alpha"));
+  QVERIFY(zoned->is_merged());
+  QCOMPARE(reg.currentBoxFor(first->box_id), zoned);   // it IS the live box
+
+  // The merged-but-live box must STILL route by its zone 5-tuple.
+  QCOMPARE(reg.lookupBoundZone(kClientIp, cport(5555), cport(7000)), zoned);
+
+  // And after a reused-socket re-zone (ZoneServerObserver clears the binding),
+  // a merged box must remain re-bindable via the expected-zone path.
+  zoned->zone_client_port          = 0;
+  zoned->zone_server_port_bound    = 0;
+  zoned->expected_zone_server_port = cport(8000);
+  zoned->zone_await_ms             = 300;
+  QCOMPARE(reg.lookupByExpectedZone(kClientIp, 0x01020304, cport(8000)), zoned);
 }
 
 void BoxRegistryTest::lookupByExpectedZoneRecencyAndSkipBound()

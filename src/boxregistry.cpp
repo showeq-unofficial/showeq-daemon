@@ -287,7 +287,16 @@ Box* BoxRegistry::lookupBoundZone(in_addr_t client_ip,
                                   in_port_t server_zone_port)
 {
     for (auto& b : m_boxes) {
-        if (b->is_merged()) continue;
+        // Do NOT skip merged boxes here. `merged_into` is an IDENTITY/UI
+        // grouping (one picker entry per character); it says nothing about
+        // the physical session. A re-handshake/zone-change box is promoted —
+        // and thus merged into its character's parent — at OP_PlayerProfile,
+        // which lands moments after its zone session binds. That box keeps its
+        // OWN streams + ManagerSet and is still actively decoding; skipping it
+        // would make the just-bound session unroutable, so its spawn burst and
+        // ongoing position updates would be dropped (or grabbed by another
+        // same-host box via lookupByExpectedZone). Routing keys on the unique
+        // zone 5-tuple, which is identity-agnostic.
         if (b->client_ip == client_ip &&
             b->zone_client_port == client_zone_port &&
             b->zone_server_port_bound == server_zone_port) {
@@ -310,7 +319,13 @@ Box* BoxRegistry::lookupByExpectedZone(in_addr_t client_ip,
     // grab every session and the others would never bind.
     Box* best = nullptr;
     for (auto& b : m_boxes) {
-        if (b->is_merged()) continue;
+        // Merged boxes are NOT skipped: a box can reuse its world socket on a
+        // re-zone (ZoneServerObserver clears its binding to await the next
+        // SessionRequest) after it's already been identified+merged. It must
+        // still be able to rebind its own session. The `zone_client_port != 0`
+        // guard below already excludes boxes bound to a live session, so this
+        // only ever re-binds a genuinely-available box. (Merge is identity,
+        // not routing — see lookupBoundZone.)
         if (b->client_ip != client_ip) continue;
         // Skip boxes already bound to a live zone session — ZoneServerObserver
         // clears the binding on a fresh OP_ZoneServerInfo so a re-zoning box
