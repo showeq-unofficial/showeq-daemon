@@ -82,7 +82,8 @@ void fillPos(seq::v1::Pos* out, const Spawn& in)
 
 void fillSpawn(seq::v1::Spawn* out, const Item& it,
                const CategoryMgr* categories,
-               const FilterMgr* filterMgr)
+               const FilterMgr* filterMgr,
+               const ItemCache* itemCache)
 {
     out->set_id(it.id());
     out->set_type(typeFromItem(it));
@@ -111,6 +112,24 @@ void fillSpawn(seq::v1::Spawn* out, const Item& it,
         out->set_locked(sp->locked());
         out->set_filter_flags(sp->filterFlags());
         fillPos(out->mutable_pos(), *sp);
+
+        auto encodeHeldItem = [&](uint32_t itemId,
+                                  void (seq::v1::Spawn::*setId)(uint32_t),
+                                  void (seq::v1::Spawn::*setName)(const std::string&)) {
+            if (!itemId) return;
+            (out->*setId)(itemId);
+            if (itemCache) {
+                ItemTemplate tpl;
+                if (itemCache->lookup(itemId, &tpl))
+                    (out->*setName)(tpl.itemName.toStdString());
+            }
+        };
+        encodeHeldItem(sp->equipment(tPrimary).itemId,
+                       &seq::v1::Spawn::set_primary_item_id,
+                       &seq::v1::Spawn::set_primary_item_name);
+        encodeHeldItem(sp->equipment(tSecondary).itemId,
+                       &seq::v1::Spawn::set_secondary_item_id,
+                       &seq::v1::Spawn::set_secondary_item_name);
     } else {
         // Drops, doors: no Spawn state, just position on the Item base.
         // Their names don't carry the underscore/instance-suffix

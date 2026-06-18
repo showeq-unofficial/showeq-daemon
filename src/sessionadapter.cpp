@@ -645,7 +645,7 @@ void SessionAdapter::sendSnapshot()
 
     for (const Item* item : all) {
         seq::encode::fillSpawn(snap->add_spawns(), *item,
-                               m_categoryMgr, m_filterMgr);
+                               m_categoryMgr, m_filterMgr, m_itemCache);
     }
 
     // Seed any already-promoted SpawnPoints. QHash iteration order is
@@ -784,7 +784,7 @@ void SessionAdapter::onAddItem(const Item* item)
     if (!item) return;
     seq::v1::Envelope env;
     seq::encode::fillSpawn(env.mutable_spawn_added()->mutable_spawn(), *item,
-                           m_categoryMgr, m_filterMgr);
+                           m_categoryMgr, m_filterMgr, m_itemCache);
     sendOrBuffer(std::move(env));
 }
 
@@ -818,7 +818,7 @@ void SessionAdapter::onChangeItem(const Item* item, uint32_t changeType)
     if ((changeType & tSpawnChangedALL) == tSpawnChangedALL || filterChanged) {
         seq::v1::Envelope env;
         seq::encode::fillSpawn(env.mutable_spawn_added()->mutable_spawn(),
-                               *item, m_categoryMgr, m_filterMgr);
+                               *item, m_categoryMgr, m_filterMgr, m_itemCache);
         sendOrBuffer(std::move(env));
         return;
     }

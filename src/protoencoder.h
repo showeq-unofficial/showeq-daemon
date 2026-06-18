@@ -30,10 +30,12 @@ namespace seq::encode {
 // indices of any matching CategoryMgr Categories. `filterMgr`, when
 // passed alongside, lets categories that key off filter-type names
 // (e.g. seqdef Hunting → ":Hunt:") match — see fillSpawn impl for the
-// filterString prefix it inserts.
+// filterString prefix it inserts. `itemCache`, when non-null, is used to
+// resolve primary/secondary item names for NPC-held weapons.
 void fillSpawn(seq::v1::Spawn* out, const Item& in,
                const CategoryMgr* categories = nullptr,
-               const FilterMgr* filterMgr = nullptr);
+               const FilterMgr* filterMgr = nullptr,
+               const ItemCache* itemCache = nullptr);
 
 // Fills a Pos proto from a Spawn's current position + velocity + heading.
 void fillPos(seq::v1::Pos* out, const Spawn& in);
