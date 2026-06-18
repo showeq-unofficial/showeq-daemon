@@ -792,6 +792,9 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_SpecialMesg", SP_Zone, DIR_Server,
          "specialMessageStruct", SZC_None,
          ms.messageShell, SLOT(specialMessage(const uint8_t*, size_t, uint8_t)));
+    wire("OP_InspectAnswer", SP_Zone, DIR_Server,
+         "inspectDataStruct", SZC_Match,
+         ms.messageShell, SLOT(inspectData(const uint8_t*)));
 
     // --- GroupMgr.
     wire("OP_GroupUpdate", SP_Zone, DIR_Server,

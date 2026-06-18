@@ -477,6 +477,8 @@ void MessageShell::inspectData(const uint8_t* data)
     tempStr = QString::asprintf("His info: %s", inspt->mytext);
     m_messages->addMessage(MT_Inspect, tempStr);
   }
+
+  emit inspectReceived(inspt);
 }
 
 void MessageShell::logOut(const uint8_t*, size_t, uint8_t)

@@ -12,6 +12,7 @@
 
 class CategoryMgr;
 class FilterMgr;
+struct inspectDataStruct;
 class GroupMgr;
 class Item;
 class ItemCache;
@@ -30,12 +31,14 @@ namespace seq::encode {
 // indices of any matching CategoryMgr Categories. `filterMgr`, when
 // passed alongside, lets categories that key off filter-type names
 // (e.g. seqdef Hunting → ":Hunt:") match — see fillSpawn impl for the
-// filterString prefix it inserts. `itemCache`, when non-null, is used to
-// resolve primary/secondary item names for NPC-held weapons.
+// filterString prefix it inserts.
 void fillSpawn(seq::v1::Spawn* out, const Item& in,
                const CategoryMgr* categories = nullptr,
-               const FilterMgr* filterMgr = nullptr,
-               const ItemCache* itemCache = nullptr);
+               const FilterMgr* filterMgr = nullptr);
+
+// Translates an OP_InspectAnswer payload into the wire InspectAnswer proto.
+// item_names has 23 entries in EQ worn-slot order (empty string = empty slot).
+void fillInspectAnswer(seq::v1::InspectAnswer* out, const inspectDataStruct& in);
 
 // Fills a Pos proto from a Spawn's current position + velocity + heading.
 void fillPos(seq::v1::Pos* out, const Spawn& in);

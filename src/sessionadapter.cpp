@@ -34,6 +34,7 @@ extern "C" { // pcap headers aren't c++-clean
 #include "mappackagehost.h"
 #include "spawn.h"
 #include "spawnmonitor.h"
+#include "everquest.h"
 #include "spawnshell.h"
 #include "spellshell.h"
 #include "zonemgr.h"
@@ -425,6 +426,10 @@ void SessionAdapter::connectPerBox()
                 SLOT(onChatMessage(uint32_t, const QString&,
                                    const QString&, const QString&,
                                    uint32_t)));
+        connect(m_messageShell,
+                SIGNAL(inspectReceived(const inspectDataStruct*)),
+                this,
+                SLOT(onInspectAnswer(const inspectDataStruct*)));
     }
 
     if (m_groupMgr) {
@@ -645,7 +650,7 @@ void SessionAdapter::sendSnapshot()
 
     for (const Item* item : all) {
         seq::encode::fillSpawn(snap->add_spawns(), *item,
-                               m_categoryMgr, m_filterMgr, m_itemCache);
+                               m_categoryMgr, m_filterMgr);
     }
 
     // Seed any already-promoted SpawnPoints. QHash iteration order is
@@ -784,7 +789,7 @@ void SessionAdapter::onAddItem(const Item* item)
     if (!item) return;
     seq::v1::Envelope env;
     seq::encode::fillSpawn(env.mutable_spawn_added()->mutable_spawn(), *item,
-                           m_categoryMgr, m_filterMgr, m_itemCache);
+                           m_categoryMgr, m_filterMgr);
     sendOrBuffer(std::move(env));
 }
 
@@ -818,7 +823,7 @@ void SessionAdapter::onChangeItem(const Item* item, uint32_t changeType)
     if ((changeType & tSpawnChangedALL) == tSpawnChangedALL || filterChanged) {
         seq::v1::Envelope env;
         seq::encode::fillSpawn(env.mutable_spawn_added()->mutable_spawn(),
-                               *item, m_categoryMgr, m_filterMgr, m_itemCache);
+                               *item, m_categoryMgr, m_filterMgr);
         sendOrBuffer(std::move(env));
         return;
     }
@@ -1179,5 +1184,13 @@ void SessionAdapter::sendBoxList()
         }
     });
     upd->set_active_box_id(m_boxes->activeBoxId().toStdString());
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onInspectAnswer(const inspectDataStruct* data)
+{
+    if (!data) return;
+    seq::v1::Envelope env;
+    seq::encode::fillInspectAnswer(env.mutable_inspect_answer(), *data);
     sendOrBuffer(std::move(env));
 }

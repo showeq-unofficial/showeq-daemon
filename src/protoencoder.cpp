@@ -82,8 +82,7 @@ void fillPos(seq::v1::Pos* out, const Spawn& in)
 
 void fillSpawn(seq::v1::Spawn* out, const Item& it,
                const CategoryMgr* categories,
-               const FilterMgr* filterMgr,
-               const ItemCache* itemCache)
+               const FilterMgr* filterMgr)
 {
     out->set_id(it.id());
     out->set_type(typeFromItem(it));
@@ -113,23 +112,8 @@ void fillSpawn(seq::v1::Spawn* out, const Item& it,
         out->set_filter_flags(sp->filterFlags());
         fillPos(out->mutable_pos(), *sp);
 
-        auto encodeHeldItem = [&](uint32_t itemId,
-                                  void (seq::v1::Spawn::*setId)(uint32_t),
-                                  void (seq::v1::Spawn::*setName)(const std::string&)) {
-            if (!itemId) return;
-            (out->*setId)(itemId);
-            if (itemCache) {
-                ItemTemplate tpl;
-                if (itemCache->lookup(itemId, &tpl))
-                    (out->*setName)(tpl.itemName.toStdString());
-            }
-        };
-        encodeHeldItem(sp->equipment(tPrimary).itemId,
-                       &seq::v1::Spawn::set_primary_item_id,
-                       &seq::v1::Spawn::set_primary_item_name);
-        encodeHeldItem(sp->equipment(tSecondary).itemId,
-                       &seq::v1::Spawn::set_secondary_item_id,
-                       &seq::v1::Spawn::set_secondary_item_name);
+        for (int i = 0; i <= tLastCoreWearSlot; i++)
+            out->add_equip_models(sp->equipment(i).itemId);
     } else {
         // Drops, doors: no Spawn state, just position on the Item base.
         // Their names don't carry the underscore/instance-suffix
@@ -473,6 +457,15 @@ void fillWornSet(seq::v1::WornSet* out, const ItemCache& cache)
         out->add_slot_indices(slot);
         out->add_item_ids(worn.value(slot));
     }
+}
+
+void fillInspectAnswer(seq::v1::InspectAnswer* out, const inspectDataStruct& in)
+{
+    out->set_spawn_id(in.spawnId);
+    for (int i = 0; i < 23; i++)
+        out->add_item_names(std::string(in.itemNames[i],
+                                        strnlen(in.itemNames[i], 64)));
+    out->set_bio(std::string(in.mytext, strnlen(in.mytext, 200)));
 }
 
 } // namespace seq::encode

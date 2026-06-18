@@ -32,6 +32,7 @@ class ZoneMgr;
 class ZoneServerMgr;
 class IMapPackageHost;
 class ManagerSetProvider;
+struct inspectDataStruct;
 
 // SessionAdapter is the per-client bridge between in-process QObject signals
 // (SpawnShell::addItem, ZoneMgr::zoneChanged, Player::posChanged, ...) and
@@ -187,6 +188,10 @@ private slots:
     // ZoneServerMgr::zoneServerChanged handler. Caches the new endpoint
     // and emits a ZoneServer envelope.
     void onZoneServerChanged(const QString& host, quint16 port);
+
+    // MessageShell::inspectReceived handler. Pushes an InspectAnswer envelope
+    // to the client with item names and bio for the inspected spawn.
+    void onInspectAnswer(const inspectDataStruct* data);
 
 private:
     void startStreaming();

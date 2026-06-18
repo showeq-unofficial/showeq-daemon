@@ -45,6 +45,7 @@ class Player;
 struct ClientZoneEntryStruct;
 struct ServerZoneEntryStruct;
 struct charProfileStruct;
+struct inspectDataStruct;
 struct zoneChangeStruct;
 
 //----------------------------------------------------------------------
@@ -129,6 +130,10 @@ class MessageShell : public QObject
    void chatMessage(uint32_t channel, const QString& from,
                     const QString& target, const QString& text,
                     uint32_t chatColor);
+
+   // Emitted when OP_InspectAnswer arrives. SessionAdapter listens and
+   // forwards to clients as seq.v1.InspectAnswer.
+   void inspectReceived(const inspectDataStruct* data);
 
  protected:
    Messages* m_messages;
