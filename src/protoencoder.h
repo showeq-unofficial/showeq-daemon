@@ -102,4 +102,10 @@ void fillItemTotals(seq::v1::ItemCacheTotals* out, const ItemCache& cache);
 // ItemCache::wornSlots().
 void fillWornSet(seq::v1::WornSet* out, const ItemCache& cache);
 
+// Fills `out` from the per-kill experience tick emitted by Player::expGained.
+// xpGained is on the 0-100000 per-level scale (1000 = 0.1% of a level).
+void fillExperienceTick(seq::v1::ExperienceTick* out,
+                        const QString& mobName, int mobLevel,
+                        uint32_t xpGained, const QString& zoneName);
+
 } // namespace seq::encode

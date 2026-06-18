@@ -415,6 +415,8 @@ void SessionAdapter::connectPerBox()
         // the time we run the re-insert into m_players is already done.
         connect(m_player, SIGNAL(changedID(uint16_t, uint16_t)),
                 this,     SLOT(onPlayerIdChanged()));
+        connect(m_player, SIGNAL(expGained(const QString&, int, long, QString)),
+                this,     SLOT(onExpGained(const QString&, int, long, QString)));
     }
 
     if (m_messageShell) {
@@ -903,6 +905,17 @@ void SessionAdapter::onChatMessage(uint32_t channel, const QString& from,
     chat->set_target(target.toStdString());
     chat->set_text(text.toStdString());
     chat->set_chat_color(chatColor);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onExpGained(const QString& mobName, int mobLevel,
+                                  long xpGained, const QString& zoneName)
+{
+    seq::v1::Envelope env;
+    seq::encode::fillExperienceTick(env.mutable_exp(),
+        mobName, mobLevel,
+        static_cast<uint32_t>(xpGained > 0 ? xpGained : 0),
+        zoneName);
     sendOrBuffer(std::move(env));
 }
 

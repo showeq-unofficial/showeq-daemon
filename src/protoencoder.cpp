@@ -468,4 +468,14 @@ void fillInspectAnswer(seq::v1::InspectAnswer* out, const inspectDataStruct& in)
     out->set_bio(std::string(in.mytext, strnlen(in.mytext, 200)));
 }
 
+void fillExperienceTick(seq::v1::ExperienceTick* out,
+                        const QString& mobName, int mobLevel,
+                        uint32_t xpGained, const QString& zoneName)
+{
+    out->set_mob_name(mobName.toStdString());
+    out->set_mob_level(static_cast<uint32_t>(mobLevel));
+    out->set_xp_gained(xpGained);
+    out->set_zone_name(zoneName.toStdString());
+}
+
 } // namespace seq::encode

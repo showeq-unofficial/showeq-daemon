@@ -193,6 +193,11 @@ private slots:
     // to the client with item names and bio for the inspected spawn.
     void onInspectAnswer(const inspectDataStruct* data);
 
+    // Player::expGained handler. Pushes an ExperienceTick envelope for each
+    // kill-attributed XP gain.
+    void onExpGained(const QString& mobName, int mobLevel,
+                     long xpGained, const QString& zoneName);
+
 private:
     void startStreaming();
     // Connect / disconnect this adapter's slots to the eight per-box
