@@ -735,12 +735,22 @@ void Player::updateExp(const uint8_t* data)
                      m_lastSpawnKilledLevel,
                      expIncrement,
                      m_zoneMgr->longZoneName());
-      
+
      // have gained experience for the kill, it's no longer fresh
      m_freshKill = false;
   }
   else
+  {
      emit setExp(m_currentExp, exp->exp, m_minExp, m_maxExp, m_tickExp);
+     // Group kill — another member landed the killing blow so m_freshKill
+     // was never set, but XP still arrived. Emit with empty attribution
+     // so the exp log records every gain.
+     if (expIncrement > 0)
+        emit expGained( QString(),
+                        0,
+                        expIncrement,
+                        m_zoneMgr->longZoneName());
+  }
 //     emit expGained( "Unknown", // Randomly blessed with xp?
 //                     0, // don't know what gave it so, level 0
 //		     expIncrement,
