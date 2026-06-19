@@ -313,12 +313,22 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
         if (!m_boxes) return;
         const QString id =
             QString::fromStdString(env.set_active_box().box_id());
+        const bool alreadyActive = (m_boxes->activeBoxId() == id);
         if (!m_boxes->setActiveBoxId(id)) {
             qInfo("set_active_box: unknown box_id %s",
                   qUtf8Printable(id));
+            return;
         }
-        // setActiveBoxId emits changed() on success → sendBoxList()
-        // already fires via the registry signal.
+        // setActiveBoxId emits changed() on success → sendBoxList() fires.
+        // If the box didn't switch (same ID), treat it as a manual refresh:
+        // re-send the current snapshot so the client can resync without
+        // having to do a box-swap dance.
+        if (alreadyActive && m_liveTailing) {
+            sendSnapshot();
+            sendPlayerStats();
+            sendGroupUpdate();
+            sendBuffsUpdate();
+        }
         return;
     }
 }
@@ -489,6 +499,28 @@ void SessionAdapter::startStreaming()
     if (!m_spawnShell) {
         qWarning("Subscribe received before state managers were wired");
         return;
+    }
+
+    // Multibox: re-point to the current active box's managers before wiring
+    // signals. The constructor receives the initial box's managers from
+    // WsServer; if the active box was switched between construction and this
+    // Subscribe (e.g. a new browser tab opened to an already-running multibox
+    // session), the constructor-set managers are stale. Same re-bind logic as
+    // onActiveBoxChanged(), but without the m_liveTailing guard since we
+    // haven't started streaming yet.
+    if (m_managerProvider && m_boxes) {
+        const ManagerSet* ns =
+            m_managerProvider->managersForBox(m_boxes->activeBoxId());
+        if (ns && ns->spawnShell && ns->spawnShell != m_spawnShell) {
+            m_spawnShell   = ns->spawnShell;
+            m_zoneMgr      = ns->zoneMgr;
+            m_player       = ns->player;
+            m_messageShell = ns->messageShell;
+            m_groupMgr     = ns->groupMgr;
+            m_spellShell   = ns->spellShell;
+            m_combatRouter = ns->combatRouter;
+            m_spawnMonitor = ns->spawnMonitor;
+        }
     }
 
     // STEP 1: connect signals — handlers push into m_buffered until the
