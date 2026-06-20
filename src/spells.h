@@ -49,6 +49,12 @@ class Spell
   const QString& name() const { return m_name; }
   uint8_t level(uint8_t class_) const;
   uint8_t targetType() const { return m_targetType; }
+  // In the post-2018 spells_us.txt layout the Bard class-level column sits at
+  // index 5 of m_classLevels (awk field 44, 0-indexed field 43). This differs
+  // from EQ's canonical class number (8) because the 2018 format reshuffled
+  // the class column order. A non-255 value means Bard can cast the spell,
+  // which is the reliable discriminator for songs vs other spell types.
+  bool isSong() const { return m_classLevels[5] != 255; }
 
   QString spellField(uint8_t field) const;
 

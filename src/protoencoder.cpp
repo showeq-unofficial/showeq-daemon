@@ -406,6 +406,7 @@ void fillBuff(seq::v1::Buff* out, const SpellItem& s)
     out->set_caster_name(s.casterName().toStdString());
     out->set_target_id(s.targetId());
     out->set_target_name(s.targetName().toStdString());
+    out->set_is_song(s.isSong());
 }
 
 void fillItem(seq::v1::Item* out, const ItemTemplate& in)

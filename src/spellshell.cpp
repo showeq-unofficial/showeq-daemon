@@ -41,7 +41,8 @@ SpellItem::SpellItem()
     m_spellId(0),
     m_casterId(0),
     m_targetId(0),
-    m_buffSlot(-1)
+    m_buffSlot(-1),
+    m_isSong(false)
 {
     // m_cast (startCastStruct) is a wire struct populated by update();
     // not read until then. m_spellName/m_casterName/m_targetName default
@@ -97,6 +98,7 @@ void SpellItem::update(uint32_t spellId, const Spell* spell, int duration,
      if (spell)
      {
        setSpellName(spell->name());
+       m_isSong = spell->isSong();
 
        if (spell->targetType() != 0x06)
 	 setTargetId(targetId);
@@ -104,6 +106,7 @@ void SpellItem::update(uint32_t spellId, const Spell* spell, int duration,
      else
      {
        setSpellName(spell_name(spellId));
+       m_isSong = false;
        setTargetId(targetId);
      }
 

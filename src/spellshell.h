@@ -70,6 +70,7 @@ class SpellItem
   QString castTimeStr() const;
   int duration() const;
   QString durationStr() const;
+  bool isSong() const { return m_isSong; }
   const QString spellName() const;
   const QString targetName() const;
   const QString casterName() const;
@@ -101,6 +102,7 @@ class SpellItem
   uint16_t m_casterId;
   uint16_t m_targetId;
   int m_buffSlot;
+  bool m_isSong;
 
   struct startCastStruct m_cast; // Needed?
 };
