@@ -975,6 +975,16 @@ void SpawnShell::playerUpdate(const uint8_t* data, size_t len, uint8_t dir)
   if (m_zoneMgr->isZoning())
     return;
 
+  // Player::playerUpdateSelf handles the self-spawn via playerSelfPosStruct
+  // (float x/y/z). Both handlers are wired for DIR_Server, so without this
+  // guard the player's position gets emitted twice per packet — once from
+  // playerUpdateSelf and once here — using different struct layouts that
+  // produce slightly different coordinates. The smoother sees two distinct
+  // positions 0ms apart, collapsing lerp duration and causing stop-and-go.
+  const playerSpawnPosStruct* p = (const playerSpawnPosStruct*)data;
+  if (p->spawnId == m_player->id())
+    return;
+
 #if 0
   // Dump position updates for debugging client update changes
   for (int i=0; i<len; i++)
