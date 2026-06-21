@@ -711,15 +711,19 @@ void Player::updateExp(const uint8_t* data)
 #endif
   uint32_t realExp = (m_tickExp * exp->exp) + m_minExp;
   uint32_t expIncrement;
-  
-  // if realExperience is greater then current expereince, calculate the 
+
+  // if realExperience is greater then current expereince, calculate the
   // increment, otherwise this was a < 1/330'th kill and/or the calculated
   // real experience is in that funky rounding place that EQ has...
   if (realExp > m_currentExp)
     expIncrement = realExp - m_currentExp;
-  else 
+  else
     expIncrement = 0;
-  
+
+  // Save whether exp was already seeded (profile arrived) before marking
+  // valid — used below to suppress the spurious zone-in XP log entry that
+  // occurs when OP_ExpUpdate fires before OP_PlayerProfile sets the baseline.
+  bool hadValidExp = m_validExp;
   m_currentExp = realExp;
   m_validExp = true;
 
@@ -744,8 +748,9 @@ void Player::updateExp(const uint8_t* data)
      emit setExp(m_currentExp, exp->exp, m_minExp, m_maxExp, m_tickExp);
      // Group kill — another member landed the killing blow so m_freshKill
      // was never set, but XP still arrived. Emit with empty attribution
-     // so the exp log records every gain.
-     if (expIncrement > 0)
+     // so the exp log records every gain. Guard on hadValidExp to suppress
+     // the spurious zone-in entry when OP_ExpUpdate beats OP_PlayerProfile.
+     if (expIncrement > 0 && hadValidExp)
         emit expGained( QString(),
                         0,
                         expIncrement,
