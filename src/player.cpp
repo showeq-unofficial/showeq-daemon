@@ -696,42 +696,30 @@ void Player::updateExp(const uint8_t* data)
 {
   const expUpdateStruct* exp = (const expUpdateStruct*)data;
 
-  // if this is just setting the percentage, then do nothing (use info from
-  //   player packet).
-#if 0
-  if (exp->type == 0) 
-  {
-    // signal the setting of experience
-    emit setExp(m_currentExp, exp->exp, m_minExp, m_maxExp, m_tickExp);
-
-    // nothing more to do.
-    return;
-  }
-
-#endif
   uint32_t realExp = (m_tickExp * exp->exp) + m_minExp;
-  uint32_t expIncrement;
+  uint32_t expIncrement = (realExp > m_currentExp) ? realExp - m_currentExp : 0;
 
-  // if realExperience is greater then current expereince, calculate the
-  // increment, otherwise this was a < 1/330'th kill and/or the calculated
-  // real experience is in that funky rounding place that EQ has...
-  if (realExp > m_currentExp)
-    expIncrement = realExp - m_currentExp;
-  else
-    expIncrement = 0;
-
-  // Save whether exp was already seeded (profile arrived) before marking
-  // valid — used below to suppress the spurious zone-in XP log entry that
-  // occurs when OP_ExpUpdate fires before OP_PlayerProfile sets the baseline.
+  // Save whether exp was already seeded before marking valid — defense-in-depth
+  // for the group-kill path below, in case a type=0 slips through.
   bool hadValidExp = m_validExp;
   m_currentExp = realExp;
   m_validExp = true;
 
   // signal the new experience
-  emit newExp(expIncrement, realExp, exp->exp, 
+  emit newExp(expIncrement, realExp, exp->exp,
 	      m_minExp, m_maxExp, m_tickExp);
-  
+
   emit expChangedInt (realExp, m_minExp, m_maxExp);
+
+  // type=0 is a zone-in baseline delivery ("set"), not an actual exp gain.
+  // Update state and display signals above, but do not log it as experience earned.
+  if (exp->type == 0)
+  {
+    emit setExp(m_currentExp, exp->exp, m_minExp, m_maxExp, m_tickExp);
+    if (showeq_params->savePlayerState)
+      savePlayerState();
+    return;
+  }
 
   if(m_freshKill)
   {
@@ -748,8 +736,8 @@ void Player::updateExp(const uint8_t* data)
      emit setExp(m_currentExp, exp->exp, m_minExp, m_maxExp, m_tickExp);
      // Group kill — another member landed the killing blow so m_freshKill
      // was never set, but XP still arrived. Emit with empty attribution
-     // so the exp log records every gain. Guard on hadValidExp to suppress
-     // the spurious zone-in entry when OP_ExpUpdate beats OP_PlayerProfile.
+     // so the exp log records every gain. hadValidExp guard keeps any
+     // residual pre-profile delivery from leaking through.
      if (expIncrement > 0 && hadValidExp)
         emit expGained( QString(),
                         0,
