@@ -1061,11 +1061,10 @@ void Spawn::saveSpawn(QDataStream& d)
   d << m_lastName;
 }
 
-bool Spawn::calcIsMount(uint32_t race, uint8_t level)
+/*static*/ bool Spawn::calcIsMount(uint32_t race, uint8_t level)
 {
-  //Best known method to identify a mount, for now.
-  //Some races can be both a mount and a non-mount NPC.  This is why the level = 30 check is needed.
-  //Mounts are always level 30.
+  // Some races can be both a mount and a non-mount NPC, so level==30 is
+  // required as a tiebreak (mounts are always spawned at level 30).
   bool isMountRace;
   switch (race)
   {
@@ -1080,7 +1079,7 @@ bool Spawn::calcIsMount(uint32_t race, uint8_t level)
 	case 594: //Worg
 	case 597: //Cragslither
 	case 598: //Wrulon
-	case 623: //Wrulon Mount
+	case 623: //Feran Mount
 	case 625: //Sokokar Mount
 	case 631: //Hydra Mount
 	case 652: //Cliknar Mount
@@ -1091,31 +1090,50 @@ bool Spawn::calcIsMount(uint32_t race, uint8_t level)
 	case 671: //Topiary Lion Mount
 	case 672: //Rot Dog Mount
 	case 673: //Goral Mount
-	case 674: //Selyran Mount
+	case 674: //Selyrah Mount
 	case 675: //Sclera Mount
-	case 676: //Braxy Mount
+	case 676: //Braxi Mount
 	case 677: //Kangon Mount
 	case 679: //Wurm Mount
-	case 680: //???
-	case 682: //Helicopter backpack
-	case 684: //Steam Escalator
+	case 680: //Raptor Mount
+	case 682: //Whirligig
+	case 684: //Gnomish Rocket Pack
 	case 709: //Skystrider
-	case 720: //???
-	case 721: //Severed Hand
+	case 720: //Flying Carpet
+	case 721: //Carrier Hand
+	case 751: //Dragonfly Mount
+	case 752: //Ruishi Mount
+	case 753: //Komodo Dragon Mount
+	case 754: //Raptor Mount
+	case 757: //Reindeer Mount
+	case 794: //Prowler Mount
+	case 795: //Wyvern Mount
+	case 835: //Pridewing Mount
+	case 836: //Direhound Mount
+	case 850: //Horse
+	case 853: //Chokidai Mount
+	case 854: //Cockatrice Mount
+	case 859: //Bear Mount
+	case 861: //Snail Mount
+	case 875: //Griffin Mount
+	case 885: //Rabbit Mount
+	case 898: //Owlbear Mount
+	case 903: //Boar Mount
+	case 911: //Sonic Wolf Mount
+	case 912: //Shik'Nar Mount
+	case 921: //Squirrel Mount
+	case 923: //Phoenix Mount
+	case 952: //Leviathan Mount
+	case 953: //Scalewrought Mount
+	case 954: //Otter Mount
+	case 961: //Giant Bee Mount
       isMountRace = true;
 	  break;
 	default:
 	  isMountRace = false;
 	  break;
   }
-  if (level == 30 && isMountRace)
-  {
-	  return true;
-  }
-  else
-  {
-	  return false;
-  }
+  return (level == 30 && isMountRace);
 }
 
 //----------------------------------------------------------------------

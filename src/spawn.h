@@ -356,10 +356,11 @@ class Spawn : public Item
   void setNotUpdated(bool notUpdated) { m_notUpdated = notUpdated; }
 
 
+  static bool calcIsMount(uint32_t race, uint8_t level);
+
  protected:
   void calcRaceTeam();
   void calcDeityTeam();
-  bool calcIsMount(uint32_t, uint8_t);
 
   // spawn specific data
   QString m_lastName;

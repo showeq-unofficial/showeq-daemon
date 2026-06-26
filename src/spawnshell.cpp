@@ -893,6 +893,10 @@ void SpawnShell::newSpawn(const spawnStruct& s)
    if (s.NPC == SPAWN_SELF)
      return;
 
+   // Mounts are NPC children of the riding character; skip them.
+   if (Spawn::calcIsMount(s.race, s.level))
+     return;
+
    // not the player, so check if it's a recently deleted spawn
    for (int i =0; i < m_cntDeadSpawnIDs; i++)
    {
