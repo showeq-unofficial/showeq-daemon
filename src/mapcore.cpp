@@ -502,6 +502,8 @@ void MapData::clear()
   m_zoneZEM = 75;
 
   m_editLayer = 0;
+  m_heightHintAbove = 0;
+  m_heightHintBelow = 0;
 }
 
 MapLayer* MapData::mapLayer(uint8_t layerNum)
@@ -847,6 +849,22 @@ void MapData::loadMap(const QString& fileName, bool import)
 	
 	// adjust map boundaries
 	quickCheckPos(mx, my);
+
+	// Brewall P-lines use 8 comma-separated fields (count==7 after
+	// pop_front): x, y, z, r, g, b, size, name. The last field (index 6)
+	// may carry a height-filter hint such as "Height_Filter:_20/20".
+	// Take the first hint found per map load; ignore duplicates.
+	if (count == 7 && m_heightHintAbove == 0) {
+	    const QString brewallName = fields.at(6).trimmed();
+	    static const QRegularExpression hfRe(
+		R"(^Height_Filter:_(\d+)/(\d+))",
+		QRegularExpression::CaseInsensitiveOption);
+	    const QRegularExpressionMatch hfm = hfRe.match(brewallName);
+	    if (hfm.hasMatch()) {
+		m_heightHintAbove = hfm.captured(1).toUShort();
+		m_heightHintBelow = hfm.captured(2).toUShort();
+	    }
+	}
       }
       break;
 

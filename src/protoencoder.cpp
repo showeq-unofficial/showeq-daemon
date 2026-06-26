@@ -221,6 +221,11 @@ void fillMapGeometry(seq::v1::MapGeometry* out, const MapData& map)
             out_loc->set_layer(i);
         }
     }
+
+    if (map.heightHintAbove() > 0) {
+        out->set_height_hint_above(map.heightHintAbove());
+        out->set_height_hint_below(map.heightHintBelow());
+    }
 }
 
 void fillMapPackages(seq::v1::MapPackagesUpdate* out,

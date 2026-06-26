@@ -568,6 +568,8 @@ class MapData
   uint8_t numLayers() const { return m_mapLayers.count(); }
   QList<MapAggro*>& aggros() { return m_aggros; }
   bool isAggro(const QString& name, uint16_t* range) const;
+  uint16_t heightHintAbove() const { return m_heightHintAbove; }
+  uint16_t heightHintBelow() const { return m_heightHintBelow; }
 
   // make sure map is big enough, returns true if size modified
   bool checkPos(int16_t x, int16_t y);
@@ -606,6 +608,8 @@ class MapData
   QList<MapAggro*> m_aggros;
   uint8_t m_zoneZEM;
   uint8_t m_editLayer;
+  uint16_t m_heightHintAbove;
+  uint16_t m_heightHintBelow;
 };
 
 inline
