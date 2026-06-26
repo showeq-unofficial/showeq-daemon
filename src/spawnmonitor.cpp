@@ -106,10 +106,15 @@ void SpawnPoint::update(const Spawn* spawn)
     m_last = "";
   
   m_spawnTime = time(0);
-  
+
   if (m_deathTime != 0)
     m_diffTime = m_spawnTime - m_deathTime;
-  
+
+  // Mob has re-spawned — clear deathTime so the proto encoder sends
+  // death_time_s=0, which signals "mob is alive" to clients. Without
+  // this, clients see a non-zero death_time_s that never advances and
+  // display the point as permanently overdue ("now") across every cycle.
+  m_deathTime = 0;
   m_count++;
 }
 
