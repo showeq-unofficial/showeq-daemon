@@ -283,6 +283,7 @@ void PacketCaptureThread::packetCallBack(u_char * param,
     PacketCaptureThread* myThis = (PacketCaptureThread*)param;
     pc = (struct packetCache *) malloc (sizeof (struct packetCache) + ph->len);
     pc->len = ph->len;
+    pc->ts_ms = (int64_t)ph->ts.tv_sec * 1000 + ph->ts.tv_usec / 1000;
     memcpy (pc->data, data, ph->len);
     pc->next = NULL;
 

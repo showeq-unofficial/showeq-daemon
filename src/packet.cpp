@@ -514,7 +514,14 @@ void EQPacket::processPackets (void)
     /* Now.. we know the rest is an IP udp packet concerning the
      * host in question, because pcap takes care of that.
      */
-      
+
+    // Offline (--replay-pcap) playback: stamp dispatch with the packet's
+    // ORIGINAL capture time so EventLogger / --list-events reconstruct the
+    // real capture timeline instead of replay wall-clock. Live capture leaves
+    // m_currentPacketTimeMs at 0 (EventLogger then uses wall-clock, unchanged).
+    if (m_playbackPackets == PLAYBACK_FORMAT_TCPDUMP)
+      m_currentPacketTimeMs = m_packetCapture->lastCaptureMs();
+
     /* Now we assume its an everquest packet */
     if (m_recordPackets)
     {

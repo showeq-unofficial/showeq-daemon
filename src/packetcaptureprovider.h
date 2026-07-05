@@ -53,6 +53,12 @@ class PacketCaptureProviderThread
         // decode loop emit playbackFinished at EOF, mirroring the .vpk path.
         bool offlinePlaybackComplete();
 
+        // Capture time (unix ms) of the packet most recently returned by
+        // getPacket(). For offline (pcap) replay the caller stamps decode with
+        // this so --list-events reflects the ORIGINAL capture time, not replay
+        // wall-clock — matching the .vpk path's recorded-time behaviour.
+        int64_t lastCaptureMs() const { return m_lastCaptureMs; }
+
 
     protected:
 
@@ -64,12 +70,14 @@ class PacketCaptureProviderThread
         {
             struct packetCache *next;
             ssize_t len;
+            int64_t ts_ms;          // capture time (unix ms) from pcap_pkthdr
             unsigned char data[0];
         };
         struct packetCache *m_pcache_first;
         struct packetCache *m_pcache_last;
         bool m_pcache_closed;
         bool m_offline_eof;
+        int64_t m_lastCaptureMs;    // ts_ms of the last packet getPacket() popped
 
         pthread_t m_tid;
         pthread_mutex_t m_pcache_mutex;

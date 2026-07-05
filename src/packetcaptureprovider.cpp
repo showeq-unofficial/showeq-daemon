@@ -27,7 +27,8 @@ PacketCaptureProviderThread::PacketCaptureProviderThread() :
         m_pcache_first(NULL),
         m_pcache_last(NULL),
         m_pcache_closed(true),
-        m_offline_eof(false)
+        m_offline_eof(false),
+        m_lastCaptureMs(0)
 {
     pthread_mutex_init(&m_pcache_mutex, NULL);
 }
@@ -100,6 +101,7 @@ uint16_t PacketCaptureProviderThread::getPacket (unsigned char *buf)
     if (pc)
     {
         ret = pc->len;
+        m_lastCaptureMs = pc->ts_ms;
         memcpy (buf, pc->data, ret);
         free (pc);
     }
