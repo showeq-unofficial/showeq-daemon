@@ -125,6 +125,11 @@ int main(int argc, char** argv)
         "host:port", "127.0.0.1:9090");
     QCommandLineOption replayOpt(QStringList{"r", "replay"},
         "Replay a recorded .vpk file instead of live capture.", "file");
+    QCommandLineOption replayPcapOpt(QStringList{"replay-pcap"},
+        "Replay a raw pcap/tcpdump capture (e.g. from dumpcap/tcpdump) "
+        "through the offline decode path, instead of a .vpk. A UDP filter is "
+        "applied so mixed captures (TCP/HTTPS/etc.) decode cleanly. Mutually "
+        "exclusive with --replay.", "file");
     QCommandLineOption configDirOpt(QStringList{"c", "config-dir"},
         "Directory holding opcode XML and other shared read-only config. "
         "Overrides the compiled-in PKGDATADIR; the writable user dir "
@@ -185,6 +190,7 @@ int main(int argc, char** argv)
     parser.addOption(ipOpt);
     parser.addOption(listenOpt);
     parser.addOption(replayOpt);
+    parser.addOption(replayPcapOpt);
     parser.addOption(configDirOpt);
     parser.addOption(mapsDirOpt);
     parser.addOption(mapPackageOpt);
@@ -203,6 +209,19 @@ int main(int argc, char** argv)
     cfg.device       = parser.value(deviceOpt);
     cfg.ip           = parser.value(ipOpt);
     cfg.replay       = parser.value(replayOpt);
+    // --replay-pcap reuses the whole replay-session path (no device, quit at
+    // EOF, persistence off); it only differs in which offline reader runs, so
+    // fold it into cfg.replay and flag the format. Mutually exclusive with
+    // --replay since both feed the single VPacket Filename pref.
+    const QString replayPcap = parser.value(replayPcapOpt);
+    if (!cfg.replay.isEmpty() && !replayPcap.isEmpty()) {
+        qCritical("--replay and --replay-pcap are mutually exclusive");
+        return 2;
+    }
+    if (!replayPcap.isEmpty()) {
+        cfg.replay       = replayPcap;
+        cfg.replayIsPcap = true;
+    }
     cfg.configDir    = parser.value(configDirOpt);
     cfg.mapsDir      = parser.value(mapsDirOpt);
     cfg.mapPackage   = parser.value(mapPackageOpt);

@@ -201,6 +201,42 @@ void PacketCaptureThread::startOffline(const char* filename, int playbackSpeed)
 
     m_pcache_first = m_pcache_last = NULL;
 
+    // The decode pipeline (EQPacket::processPackets) assumes libpcap has already
+    // narrowed the stream to UDP — the live path guarantees this in setFilter().
+    // A raw offline capture (e.g. from dumpcap) carries the client's entire
+    // conversation (TCP/HTTPS/Steam/etc.), so without the same filter those
+    // frames get misparsed as EQ packets. Install the identical open-UDP filter
+    // used for live auto-detect, BEFORE the read loop starts (same handle-race
+    // reasoning as start()/setFilter()).
+    struct bpf_program bpp;
+    static const char udpFilter[] = "udp[0:2] > 1024 and udp[2:2] > 1024";
+    if (pcap_compile(m_pcache_pcap, &bpp, udpFilter, 1, 0) == 0)
+    {
+        if (pcap_setfilter(m_pcache_pcap, &bpp) == -1)
+            seqWarn("startOffline: pcap_setfilter failed: %s",
+                    pcap_geterr(m_pcache_pcap));
+        pcap_freecode(&bpp);
+    }
+    else
+    {
+        seqWarn("startOffline: pcap_compile(\"%s\") failed: %s — replaying "
+                "unfiltered; non-UDP frames may be misdecoded",
+                udpFilter, pcap_geterr(m_pcache_pcap));
+    }
+
+    // The pipeline strips a fixed 14-byte Ethernet header per frame. A capture
+    // taken with a different link-layer (Linux cooked SLL = 16B, raw IP = 0B)
+    // would be silently misaligned — every opcode would decode to garbage.
+    // Warn loudly rather than pretend to decode it.
+    const int dlt = pcap_datalink(m_pcache_pcap);
+    if (dlt != DLT_EN10MB)
+    {
+        const char* dltName = pcap_datalink_val_to_name(dlt);
+        seqWarn("startOffline: capture link-layer is %s (not Ethernet); decode "
+                "offsets assume a 14-byte Ethernet header and will be wrong",
+                dltName ? dltName : "unknown");
+    }
+
     pthread_create(&m_tid, NULL, loop, (void*)this);
 }
 
@@ -229,7 +265,13 @@ void PacketCaptureThread::stop()
 void* PacketCaptureThread::loop (void *param)
 {
     PacketCaptureThread* myThis = (PacketCaptureThread*)param;
-    pcap_loop (myThis->m_pcache_pcap, -1, packetCallBack, (u_char*)param);
+    const int rc = pcap_loop (myThis->m_pcache_pcap, -1, packetCallBack, (u_char*)param);
+    // rc == 0: pcap ran out of packets. For an offline capture that's EOF; a
+    // live capture only returns via pcap_breakloop() (PCAP_ERROR_BREAK == -2)
+    // or an error (-1). Flag EOF so the consumer emits playbackFinished once
+    // the queue drains.
+    if (rc == 0)
+        myThis->signalOfflineEof();
     return NULL;
 }
 

@@ -528,6 +528,19 @@ void EQPacket::processPackets (void)
 
   /* Clear decoding flag */
   m_busy_decoding = false;
+
+  // Offline (--replay-pcap) playback: once the reader thread hit EOF and the
+  // queue is fully drained, playback is complete. Mirror processPlaybackPackets
+  // (the .vpk path) so a pcap replay quits at EOF — driving --record-golden and
+  // flushing --opcode-stats exactly like --replay does. Guarded on the tcpdump
+  // format so live capture (PLAYBACK_OFF) never trips it.
+  if (m_playbackPackets == PLAYBACK_FORMAT_TCPDUMP &&
+      m_packetCapture->offlinePlaybackComplete())
+  {
+    seqInfo("End of pcap playback reached. Playback Finished!");
+    stop();
+    emit playbackFinished();
+  }
 }
 
 ////////////////////////////////////////////////////
@@ -936,10 +949,12 @@ void EQPacket::onBoxAboutToBeRemoved(Box* box)
 void EQPacket::closeStream(uint32_t sessionId, EQStreamID streamId)
 {
   // If this is the zone server session closing, reset the pcap filter to
-  // a non-exclusive form
+  // a non-exclusive form. Live capture only — offline pcap replay
+  // (PLAYBACK_FORMAT_TCPDUMP) must never mutate the filter mid-file or it
+  // drops the remaining packets it hasn't read yet; it reads the whole
+  // capture through the single static filter startOffline() installed.
   if ((streamId == zone2client || streamId == client2zone) &&
-         (m_playbackPackets == PLAYBACK_OFF || 
-          m_playbackPackets == PLAYBACK_FORMAT_TCPDUMP))
+         m_playbackPackets == PLAYBACK_OFF)
   {
     m_packetCapture->setFilter(m_device.toLatin1().data(), m_ip.toLatin1().data(),
             m_realtime, IP_ADDRESS_TYPE, 0, 0);
@@ -981,8 +996,10 @@ void EQPacket::lockOnClient(in_port_t serverPort, in_port_t clientPort, in_addr_
 
   in_addr ia = inet_makeaddr(ntohl(m_client_addr), ntohl(m_client_addr));
 
-  if (m_playbackPackets == PLAYBACK_OFF ||
-          m_playbackPackets == PLAYBACK_FORMAT_TCPDUMP)
+  // Live capture only — see closeStream(): offline replay must not re-narrow
+  // the pcap filter to the world client port, which would drop zone traffic
+  // on dynamic ports for the rest of the file.
+  if (m_playbackPackets == PLAYBACK_OFF)
   {
     if (m_mac.length() == 17)
     {
@@ -1184,12 +1201,11 @@ void EQPacket::monitorIPClient(const QString& ip)
   resetEQPacket();
 
   seqInfo("Listening for IP client: %s", (m_ip == AUTOMATIC_CLIENT_IP) ? "auto-detect" : m_ip.toLatin1().data());
-  if (m_playbackPackets == PLAYBACK_OFF ||
-          m_playbackPackets == PLAYBACK_FORMAT_TCPDUMP)
+  if (m_playbackPackets == PLAYBACK_OFF)
   {
     m_packetCapture->setFilter(m_device.toLatin1().data(),
             m_ip.toLatin1().data(),
-            m_realtime, 
+            m_realtime,
             IP_ADDRESS_TYPE, 0, 0);
     emit filterChanged();
   }
@@ -1212,8 +1228,7 @@ void EQPacket::monitorMACClient(const QString& mac)
   {
     seqInfo("Listening for MAC client: %s", m_mac.toLatin1().data());
 
-    if (m_playbackPackets == PLAYBACK_OFF ||
-            m_playbackPackets == PLAYBACK_FORMAT_TCPDUMP)
+    if (m_playbackPackets == PLAYBACK_OFF)
     {
         m_packetCapture->setFilter(m_device.toLatin1().data(),
                 m_mac.toLatin1().data(),
@@ -1244,8 +1259,7 @@ void EQPacket::monitorNextClient()
 
   seqInfo("Listening for next client seen. (you must zone for this to work!)");
 
-  if (m_playbackPackets == PLAYBACK_OFF ||
-          m_playbackPackets == PLAYBACK_FORMAT_TCPDUMP)
+  if (m_playbackPackets == PLAYBACK_OFF)
   {
     m_packetCapture->setFilter(m_device.toLatin1().data(), NULL,
             m_realtime,

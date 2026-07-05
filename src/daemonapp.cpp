@@ -530,7 +530,9 @@ bool DaemonApp::startCapture()
         /*buffersize*/ 4,
         /*sessionTracking*/ false,
         /*recordPackets*/ wantRecord,
-        /*playbackPackets*/ hasReplay ? 1 : PLAYBACK_OFF,
+        /*playbackPackets*/ hasReplay
+            ? (m_cfg.replayIsPcap ? PLAYBACK_FORMAT_TCPDUMP : PLAYBACK_FORMAT_SEQ)
+            : PLAYBACK_OFF,
         /*playbackSpeed*/ 0,
         this, "packet");
     if (wantRecord) {

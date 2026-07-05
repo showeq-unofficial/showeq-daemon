@@ -48,8 +48,17 @@ class PacketCaptureProviderThread
                 uint8_t address_type, uint16_t zone_server_port, uint16_t client_port) = 0;
         virtual const QString getFilter() = 0;
 
+        // Offline (pcap/tcpdump) playback only: true once the reader thread has
+        // hit end-of-file AND every queued packet has been consumed. Lets the
+        // decode loop emit playbackFinished at EOF, mirroring the .vpk path.
+        bool offlinePlaybackComplete();
+
 
     protected:
+
+        // Called by the derived reader thread when pcap_loop() reports the
+        // offline file is exhausted (rc == 0). No-op semantics for live capture.
+        void signalOfflineEof();
 
         struct packetCache
         {
@@ -60,6 +69,7 @@ class PacketCaptureProviderThread
         struct packetCache *m_pcache_first;
         struct packetCache *m_pcache_last;
         bool m_pcache_closed;
+        bool m_offline_eof;
 
         pthread_t m_tid;
         pthread_mutex_t m_pcache_mutex;

@@ -65,6 +65,12 @@ public:
         // onto whichever client's session it sees first.
         QString      ip;
         QString      replay;
+        // If true, `replay` holds a raw pcap/tcpdump file (--replay-pcap) fed
+        // through libpcap's offline reader, rather than a .vpk recorded by this
+        // daemon (--replay). Selects PLAYBACK_FORMAT_TCPDUMP over
+        // PLAYBACK_FORMAT_SEQ; every other aspect of a replay session (no
+        // device, quit at EOF, persistence disabled) is identical.
+        bool         replayIsPcap = false;
         // If set, opcode XML and other shared data is read from this
         // directory. Convenient for running against the in-tree conf/
         // without installing to PKGDATADIR.

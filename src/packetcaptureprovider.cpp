@@ -26,9 +26,28 @@
 PacketCaptureProviderThread::PacketCaptureProviderThread() :
         m_pcache_first(NULL),
         m_pcache_last(NULL),
-        m_pcache_closed(true)
+        m_pcache_closed(true),
+        m_offline_eof(false)
 {
     pthread_mutex_init(&m_pcache_mutex, NULL);
+}
+
+void PacketCaptureProviderThread::signalOfflineEof()
+{
+    pthread_mutex_lock(&m_pcache_mutex);
+    m_offline_eof = true;
+    pthread_mutex_unlock(&m_pcache_mutex);
+}
+
+bool PacketCaptureProviderThread::offlinePlaybackComplete()
+{
+    pthread_mutex_lock(&m_pcache_mutex);
+    // EOF reached by the reader AND the consumer has drained the queue. The
+    // reader sets m_offline_eof only after its last packetCallBack has already
+    // enqueued, so an empty queue here means nothing more is coming.
+    const bool done = m_offline_eof && (m_pcache_first == NULL);
+    pthread_mutex_unlock(&m_pcache_mutex);
+    return done;
 }
 
 PacketCaptureProviderThread::~PacketCaptureProviderThread()
