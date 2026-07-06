@@ -188,6 +188,8 @@ set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/itempacket.cpp
   src/itemcache.cpp
   src/zoneservermgr.cpp
+  src/dbstrings.cpp
+  src/spellmessages.cpp
 )
 
 # Regenerate {zone,world}opcodes.xml from opcodes.toml whenever the TOML

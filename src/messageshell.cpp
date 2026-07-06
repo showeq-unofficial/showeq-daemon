@@ -26,6 +26,8 @@
 #include "messages.h"
 #include "everquest.h"
 #include "spells.h"
+#include "spellmessages.h"
+#include "dbstrings.h"
 #include "zonemgr.h"
 #include "spawnshell.h"
 #include "player.h"
@@ -67,13 +69,16 @@ QString stripEqItemLinks(const QString& in)
 //----------------------------------------------------------------------
 // MessageShell
 MessageShell::MessageShell(Messages* messages, EQStr* eqStrings,
-			   Spells* spells, ZoneMgr* zoneMgr, 
-			   SpawnShell* spawnShell, Player* player, 
+			   Spells* spells, SpellMessages* spellMessages,
+			   DbStrings* dbStrings, ZoneMgr* zoneMgr,
+			   SpawnShell* spawnShell, Player* player,
                            QObject* parent, const char* name)
   : QObject(parent),
     m_messages(messages),
     m_eqStrings(eqStrings),
     m_spells(spells),
+    m_spellMessages(spellMessages),
+    m_dbStrings(dbStrings),
     m_zoneMgr(zoneMgr),
     m_spawnShell(spawnShell),
     m_player(player)
@@ -276,10 +281,21 @@ void MessageShell::formattedMessage(const uint8_t* data, size_t len, uint8_t dir
 
   size_t messagesLen = len - ((uint8_t*)&fmsg->messages[0] - (uint8_t*)fmsg);
   const MessageType mt = chatColor2MessageType(fmsg->messageColor);
-  const QString text = stripEqItemLinks(
-      m_eqStrings->formatMessage(fmsg->messageFormat,
-                                 fmsg->messages,
-                                 messagesLen));
+
+  // If eqstr has no template for this format id, fall back to dbstr_us.txt —
+  // modern EQ keeps a lot of /time-style status text + faction names there
+  // that legacy eqstr never had (so those lines would otherwise read
+  // "Unknown: <id>"). Only unique id2=0 dbstr entries are used; multi-meaning
+  // ids fall through. See DbStrings. (Ported from archive/test-client.)
+  QString text;
+  if (m_dbStrings && m_dbStrings->isLoaded() &&
+      m_eqStrings->find(fmsg->messageFormat).isEmpty())
+    text = m_dbStrings->uniqueText(fmsg->messageFormat);
+  if (text.isEmpty())
+    text = m_eqStrings->formatMessage(fmsg->messageFormat,
+                                      fmsg->messages,
+                                      messagesLen);
+  text = stripEqItemLinks(text);
   m_messages->addMessage(mt, text);
   // Forward to the websocket as a system-flavored chatMessage so the web
   // chat panel sees NPC speech, system warnings, exp ticks, etc. Pass
@@ -299,6 +315,21 @@ void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)
   QString tempStr;
 
   const MessageType mt = chatColor2MessageType(smsg->messageColor);
+
+  // TODO(live-verify): spell-flavored OP_SimpleMessage fires can carry a
+  // spells_us_str.txt column selector in messageFormat and the spell id in a
+  // param field, resolving to per-spell cast/effect/wear-off text via
+  // m_spellMessages (already loaded). On Test those selectors were 2553
+  // (CastedMe) / 2601 (CastedOther) / 2686 (CasterOther) / 2702 (SpellGone),
+  // with the spell id in simpleMessageStruct's second word. Both the selector
+  // values AND the struct-field offset were derived from Test captures — DO
+  // NOT enable on Live until re-verified against a current Live capture (Live's
+  // simpleMessageStruct layout / format ids may differ). Full logic:
+  // archive/test-client commit b403896. When confirmed, dispatch here:
+  //   switch (smsg->messageFormat) {
+  //     case 2553: text = m_spellMessages->text(spellId, SpellMessages::CastedMe); break;
+  //     ...  (falls through to the eqstr lookup below for non-spell fires)
+  //   }
   const QString text = stripEqItemLinks(m_eqStrings->message(smsg->messageFormat));
   m_messages->addMessage(mt, text);
   emit chatMessage(static_cast<uint32_t>(mt), QString(), QString(), text,
@@ -528,7 +559,7 @@ void MessageShell::zoneBegin(const QString& shortZoneName)
   m_messages->addMessage(MT_Zone, tempStr);
 }
 
-void MessageShell::zoneEnd(const QString& shortZoneName, 
+void MessageShell::zoneEnd(const QString& shortZoneName,
 			   const QString& longZoneName)
 {
   QString tempStr;
@@ -536,6 +567,15 @@ void MessageShell::zoneEnd(const QString& shortZoneName,
                     "' LongName = " + longZoneName;
 
   m_messages->addMessage(MT_Zone, tempStr);
+
+  // TODO(chat-synthesis): modern EQ renders "You have entered <zone>."
+  // client-side rather than sending it as chat, so the web chat panel never
+  // sees it. archive/test-client (commit b403896) synthesized it here via
+  //   emit chatMessage(MT_System, QString(), QString(),
+  //                    "You have entered " + longZoneName + ".", ...);
+  // This is wire-safe (zoneEnd already carries decoded names on Live), but it
+  // changes Live chat output + all zone-in replay goldens, so it's left opt-in
+  // pending a decision to enable it.
 }
 
 void MessageShell::zoneChanged(const QString& shortZoneName)
@@ -820,6 +860,16 @@ void MessageShell::groupDecline(const uint8_t* data)
   m_messages->addMessage(MT_Group, tempStr);
 }
 
+// TODO(chat-synthesis, live-verify): "X has joined the group",
+// "X disbands", "X is now the leader" are rendered CLIENT-SIDE on modern EQ,
+// not sent as chat — so the web panel never sees them. archive/test-client
+// (commit b403896) synthesized them by emitting chatMessage() from the three
+// group handlers below (they currently only call addMessage, which the WS sink
+// ignores) AND fanned OP_GroupFollow / OP_GroupDisband(2) / OP_GroupLeader out
+// to MessageShell in daemonapp's wiring. NOT ported active because it depends
+// on the Test groupFollowStruct layout (name@0[16], vs this struct's legacy
+// name@64) — re-verify the group struct offsets against a current Live capture
+// before wiring, and do NOT apply the Test everquest.h struct rewrite blindly.
 void MessageShell::groupFollow(const uint8_t* data)
 {
   const groupFollowStruct* gFollow = (const groupFollowStruct*)data;
