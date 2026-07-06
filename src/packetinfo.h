@@ -26,6 +26,8 @@
 #define _PACKETINFO_H_
 
 #include <cstdint>
+#include <functional>
+#include <vector>
 
 #include <QObject>
 #include <QList>
@@ -72,7 +74,17 @@ class EQPacketTypeDB
 };
 
 //----------------------------------------------------------------------
-// EQPacketDispatch
+// PacketHandler — a decoded opcode payload delivered to a handler. This is
+// the typed replacement for the old Qt string-SLOT dispatch: a handler is any
+// callable, so it no longer has to be a QObject slot resolved by moc.
+using PacketHandler = std::function<void(const uint8_t*, size_t, uint8_t)>;
+
+//----------------------------------------------------------------------
+// EQPacketDispatch — per-payload handler fan-out. Holds an ordered list of
+// PacketHandlers; activate() fires them in registration order (the order that
+// tier-2 goldens are sensitive to). The legacy Qt signal/connect path is
+// retained during the migration off connect2() and is removed once all wiring
+// goes through EQPacketStream::on().
 class EQPacketDispatch : public QObject
 {
   Q_OBJECT
@@ -81,18 +93,19 @@ class EQPacketDispatch : public QObject
   virtual ~EQPacketDispatch();
 
   void activate(const uint8_t*, size_t, uint8_t);
+  void add(PacketHandler handler);
   bool connect(const QObject* receiver, const char* member = 0);
   bool disconnect(const QObject* receiver, const char* member = 0);
 
  signals:
   void signal(const uint8_t*, size_t, uint8_t);
 
- protected:
-
  private:
   // disable copy constructor and operator=
   EQPacketDispatch(const EQPacketDispatch&);
   EQPacketDispatch& operator=(const EQPacketDispatch&);
+
+  std::vector<PacketHandler> m_handlers;
 };
 
 //----------------------------------------------------------------------

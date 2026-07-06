@@ -128,7 +128,17 @@ EQPacketDispatch::~EQPacketDispatch()
 
 void EQPacketDispatch::activate(const uint8_t* data, size_t len, uint8_t dir)
 {
+  // Legacy Qt-slot receivers (connect2). Removed once all wiring is on().
   emit signal(data, len, dir);
+
+  // Typed handlers (on()). Fire in registration order — goldens depend on it.
+  for (const PacketHandler& h : m_handlers)
+    h(data, len, dir);
+}
+
+void EQPacketDispatch::add(PacketHandler handler)
+{
+  m_handlers.push_back(std::move(handler));
 }
 
 bool EQPacketDispatch::connect(const QObject* receiver, const char* member)
@@ -139,7 +149,7 @@ bool EQPacketDispatch::connect(const QObject* receiver, const char* member)
 	  (const char*)member);
 #endif
 
-  return QObject::connect((QObject*)this, 
+  return QObject::connect((QObject*)this,
 			  SIGNAL(signal(const uint8_t*, size_t, uint8_t)),
 			  receiver, member);
 }

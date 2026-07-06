@@ -27,6 +27,8 @@
 #include <QObject>
 #include <QHash>
 #include <map>
+#include <memory>
+#include <utility>
 
 #include "packetcommon.h"
 #include "packetfragment.h"
@@ -85,9 +87,16 @@ class EQPacketStream : public QObject
   EQStreamID streamID();
   size_t currentCacheSize();
   uint16_t arqSeqExp();
-  bool connect2(const QString& opcodeName, 
-		const char* payload,  EQSizeCheckType szt, 
+  bool connect2(const QString& opcodeName,
+		const char* payload,  EQSizeCheckType szt,
 		const QObject* receiver, const char* member);
+  // Typed replacement for connect2(): register a PacketHandler for the
+  // opcode+payload+szt instead of a Qt string SLOT. Same opcode/payload
+  // lookup and size-check semantics; the handler is appended to the payload's
+  // dispatcher and fired in registration order (goldens depend on it).
+  bool on(const QString& opcodeName,
+	  const char* payload, EQSizeCheckType szt,
+	  PacketHandler handler);
   void receiveSessionKey(uint32_t sessionId, EQStreamID streamid, 
     uint32_t sessionKey);
   void close(uint32_t sessionId, EQStreamID streamid, uint8_t sessionTracking);
@@ -98,7 +107,7 @@ class EQPacketStream : public QObject
   // Multibox active-box gate (Stage 3b of MULTIBOX_PLAN.md). When
   // muted, dispatchPacket() still emits the 5-arg decodedPacket
   // signal (so per-box observers like NamePromoter / ZoneServerObserver
-  // keep firing) but skips the connect2-wired EQPacketDispatch
+  // keep firing) but skips the on()-wired EQPacketDispatch
   // activations and the 6-arg "with unknown flag" signal — so the
   // singleton state managers don't get duplicate hits from non-active
   // boxes. The session-key handshake and ARQ/fragment reassembly run
@@ -159,6 +168,10 @@ class EQPacketStream : public QObject
   void processPacket(EQProtocolPacket& packet, bool subpacket);
   void dispatchPacket(const uint8_t* data, size_t len,
 		      uint16_t opCode, const EQPacketOPCode* opcodeEntry);
+  // Lookup for on(): resolve opcode+payload+szt to its
+  // (lazily created) dispatcher, or nullptr with a diagnostic on miss.
+  EQPacketDispatch* dispatchFor(const QString& opcodeName,
+				const char* payloadType, EQSizeCheckType szt);
 
 
   EQPacketOPCodeDB& m_opcodeDB;
@@ -234,6 +247,50 @@ inline size_t EQPacketStream::currentCacheSize()
 inline uint16_t EQPacketStream::arqSeqExp()
 {
   return m_arqSeqExp;
+}
+
+//----------------------------------------------------------------------
+// seqBind — adapt a manager member function into a uniform 3-arg
+// PacketHandler. Handlers historically took 1, 2, or 3 args (Qt dropped the
+// extra signal args when connecting a shorter slot); these overloads
+// reproduce that by ignoring the unused trailing args. Replaces the old
+// SLOT("method(...)") string in the wiring tables.
+template <class T>
+inline PacketHandler seqBind(T* obj, void (T::*m)(const uint8_t*))
+{
+  return [obj, m](const uint8_t* d, size_t, uint8_t) { (obj->*m)(d); };
+}
+template <class T>
+inline PacketHandler seqBind(T* obj, void (T::*m)(const uint8_t*, size_t))
+{
+  return [obj, m](const uint8_t* d, size_t n, uint8_t) { (obj->*m)(d, n); };
+}
+template <class T>
+inline PacketHandler seqBind(T* obj,
+			     void (T::*m)(const uint8_t*, size_t, uint8_t))
+{
+  return [obj, m](const uint8_t* d, size_t n, uint8_t dir) { (obj->*m)(d, n, dir); };
+}
+
+// shared_ptr overloads — for a backend adapter (e.g. EqlDispatch) with no
+// QObject parent to own it. The captured shared_ptr keeps the adapter alive as
+// long as any wired dispatcher references the handler, so its lifetime tracks
+// the box's stream dispatchers rather than a QObject parent.
+template <class T>
+inline PacketHandler seqBind(std::shared_ptr<T> obj, void (T::*m)(const uint8_t*))
+{
+  return [obj = std::move(obj), m](const uint8_t* d, size_t, uint8_t) { ((obj.get())->*m)(d); };
+}
+template <class T>
+inline PacketHandler seqBind(std::shared_ptr<T> obj, void (T::*m)(const uint8_t*, size_t))
+{
+  return [obj = std::move(obj), m](const uint8_t* d, size_t n, uint8_t) { ((obj.get())->*m)(d, n); };
+}
+template <class T>
+inline PacketHandler seqBind(std::shared_ptr<T> obj,
+			     void (T::*m)(const uint8_t*, size_t, uint8_t))
+{
+  return [obj = std::move(obj), m](const uint8_t* d, size_t n, uint8_t dir) { ((obj.get())->*m)(d, n, dir); };
 }
 
 #endif //  _PACKETSTREAM_H_

@@ -110,20 +110,18 @@ EQPacketStream::~EQPacketStream()
 }
 
 ////////////////////////////////////////////////////
-// setup connection
-bool EQPacketStream::connect2(const QString& opcodeName, 
-			      const char* payloadType,  EQSizeCheckType szt, 
-			      const QObject* receiver, const char* member)
+// Resolve opcode+payload+szt to its (lazily created) dispatcher.
+// Shared by connect2() (legacy Qt SLOT) and on() (typed PacketHandler).
+EQPacketDispatch* EQPacketStream::dispatchFor(const QString& opcodeName,
+					      const char* payloadType,
+					      EQSizeCheckType szt)
 {
   const EQPacketOPCode* opcode = m_opcodeDB.find(opcodeName);
   if (!opcode)
   {
-    seqDebug("connect2: Unknown opcode '%s' with payload type '%s'",
+    seqDebug("dispatchFor: Unknown opcode '%s' with payload type '%s'",
             opcodeName.toLatin1().data(), payloadType);
-    seqDebug("\tfor receiver '%s' of type '%s' to member '%s'",
-            receiver->objectName().toLatin1().data(),
-            receiver->metaObject()->className(), member);
-    return false;
+    return nullptr;
   }
 
   EQPacketPayload* payload = nullptr;
@@ -136,24 +134,20 @@ bool EQPacketStream::connect2(const QString& opcodeName,
     if (!payload)
         break;
     // if all the parameters match, then use this payload
-    if ((payload->dir() & m_dir) && 
-	(payload->typeName() == payloadType) && 
+    if ((payload->dir() & m_dir) &&
+	(payload->typeName() == payloadType) &&
 	(payload->sizeCheckType() == szt))
       break;
   }
 
-  // if no payload found, create one and issue a warning
+  // if no payload found, issue a warning
   if (!payload)
   {
-    seqDebug("connect2: Warning! opcode '%s' has no matching payload.",
+    seqDebug("dispatchFor: Warning! opcode '%s' has no matching payload.",
             opcodeName.toLatin1().data());
     seqDebug("\tdir '%d' payload '%s' szt '%d'",
             m_dir, payloadType, szt);
-    seqDebug("\tfor receiver '%s' of type '%s' to member '%s'",
-            receiver->objectName().toLatin1().data(),
-            receiver->metaObject()->className(), member);
-
-    return false;
+    return nullptr;
   }
 
   // attempt to find an existing dispatch
@@ -177,8 +171,35 @@ bool EQPacketStream::connect2(const QString& opcodeName,
     m_dispatchers.insert((void*)payload, dispatch);
   }
 
+  return dispatch;
+}
+
+////////////////////////////////////////////////////
+// setup connection (legacy Qt string-SLOT path)
+bool EQPacketStream::connect2(const QString& opcodeName,
+			      const char* payloadType,  EQSizeCheckType szt,
+			      const QObject* receiver, const char* member)
+{
+  EQPacketDispatch* dispatch = dispatchFor(opcodeName, payloadType, szt);
+  if (!dispatch)
+    return false;
+
   // attempt to connect the dispatch object to the receiver
   return dispatch->connect(receiver, member);
+}
+
+////////////////////////////////////////////////////
+// setup connection (typed PacketHandler path)
+bool EQPacketStream::on(const QString& opcodeName,
+			const char* payloadType, EQSizeCheckType szt,
+			PacketHandler handler)
+{
+  EQPacketDispatch* dispatch = dispatchFor(opcodeName, payloadType, szt);
+  if (!dispatch)
+    return false;
+
+  dispatch->add(std::move(handler));
+  return true;
 }
 
 ////////////////////////////////////////////////////
@@ -418,7 +439,7 @@ void EQPacketStream::dispatchPacket(const uint8_t* data, size_t len,
   emit decodedPacket(data, len, m_dir, opCode, opcodeEntry);
 
   // Multibox active-box gate (Stage 3b): when muted, skip the
-  // connect2-wired EQPacketDispatch activations and the 6-arg
+  // on()-wired EQPacketDispatch activations and the 6-arg
   // signal so the singleton state managers receive at most one
   // box's stream of decoded events at a time.
   if (m_muted) return;
