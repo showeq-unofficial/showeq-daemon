@@ -3,7 +3,7 @@
 # from this file by tools/toml_to_xml.py (run via CMake on build).
 
 [[zone]]
-id      = "e284"
+id      = "aaed"
 name    = "OP_PlayerProfile"
 updated = "2026-05-20"
 comment = "CharProfileCode"
@@ -14,7 +14,7 @@ comment = "CharProfileCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "a5bf"
+id      = "be93"
 name    = "OP_ZoneEntry"
 updated = "2026-05-20"
 comment = "ZoneEntryCode"
@@ -30,7 +30,7 @@ comment = "ZoneEntryCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "7e22"
+id      = "ca54"
 name    = "OP_TimeOfDay"
 updated = "2026-05-20"
 comment = "TimeOfDayCode"
@@ -41,7 +41,7 @@ comment = "TimeOfDayCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "a923"
+id      = "5fc3"
 name    = "OP_NewZone"
 updated = "2026-05-20"
 comment = "NewZoneCode"
@@ -52,7 +52,7 @@ comment = "NewZoneCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "33ec"
+id      = "ae0a"
 name    = "OP_SpawnDoor"
 updated = "2026-05-20"
 comment = "DoorSpawnsCode"
@@ -63,7 +63,7 @@ comment = "DoorSpawnsCode"
   sizechecktype = "modulus"
 
 [[zone]]
-id      = "92dc"
+id      = "7b00"
 name    = "OP_GroundSpawn"
 updated = "2026-05-20"
 comment = "MakeDropCode"
@@ -79,7 +79,7 @@ comment = "MakeDropCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "ad5c"
+id      = "132d"
 name    = "OP_SendZonePoints"
 updated = "2026-05-20"
 comment = "Coords in a zone that will port you to another zone"
@@ -101,7 +101,7 @@ comment = "Receiving AA experience. Also when percent to AA changes."
   sizechecktype = "match"
 
 [[zone]]
-id      = "cf53"
+id      = "0d56"
 name    = "OP_ExpUpdate"
 updated = "2026-05-25"
 comment = "ExpUpdateCode"
@@ -123,7 +123,7 @@ comment = "GuildMOTD"
   sizechecktype = "none"
 
 [[zone]]
-id      = "f8d1"
+id      = "9377"
 name    = "OP_ClientUpdate"
 updated = "2026-05-20"
 comment = "Position updates"
@@ -139,7 +139,7 @@ comment = "Position updates"
   sizechecktype = "match"
 
 [[zone]]
-id      = "917c"
+id      = "aaca"
 name    = "OP_NpcMoveUpdate"
 updated = "2026-05-20"
 comment = "Position updates"
@@ -150,7 +150,7 @@ comment = "Position updates"
   sizechecktype = "none"
 
 [[zone]]
-id      = "4a4f"
+id      = "eff9"
 name    = "OP_MobUpdate"
 updated = "2026-05-20"
 comment = "MobUpdateCode"
@@ -161,7 +161,7 @@ comment = "MobUpdateCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "94d4"
+id      = "a183"
 name    = "OP_DeleteSpawn"
 updated = "2026-05-20"
 comment = "DeleteSpawnCode"
@@ -172,7 +172,7 @@ comment = "DeleteSpawnCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "eb88"
+id      = "394a"
 name    = "OP_RemoveSpawn"
 updated = "2026-05-20"
 comment = "Remove spawn from zone"
@@ -183,7 +183,7 @@ comment = "Remove spawn from zone"
   sizechecktype = "none"
 
 [[zone]]
-id      = "1eb2"
+id      = "f752"
 name    = "OP_Death"
 updated = "2026-05-20"
 comment = "old NewCorpseCode"
@@ -205,7 +205,7 @@ comment = "Spawn-state / appearance broadcast (multi-slot). Header=wearChangeStr
   sizechecktype = "none"
 
 [[zone]]
-id      = "9826"
+id      = "9fd4"
 name    = "OP_SpawnAppearance"
 updated = "2026-05-20"
 comment = "SpawnAppearanceCode"
@@ -216,7 +216,7 @@ comment = "SpawnAppearanceCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "60e7"
+id      = "786a"
 name    = "OP_Stamina"
 updated = "2026-05-25"
 comment = "Server updating on hunger/thirst"
@@ -227,7 +227,7 @@ comment = "Server updating on hunger/thirst"
   sizechecktype = "match"
 
 [[zone]]
-id      = "652f"
+id      = "0303"
 name    = "OP_HPUpdate"
 updated = "2026-05-25"
 comment = "NpcHpUpdateCode Update HP % of a PC or NPC"
@@ -249,7 +249,7 @@ comment = "Info regarding guild members"
   sizechecktype = "match"
 
 [[zone]]
-id      = "ab5e"
+id      = "f525"
 name    = "OP_ClickObject"
 updated = "2026-05-20"
 comment = "Items dropped on the ground"
@@ -260,7 +260,7 @@ comment = "Items dropped on the ground"
   sizechecktype = "match"
 
 [[zone]]
-id      = "049e"
+id      = "8ac8"
 name    = "OP_Action"
 updated = "2026-05-20"
 comment = "Spells cast etc"
@@ -276,7 +276,7 @@ comment = "Spells cast etc"
   sizechecktype = "match"
 
 [[zone]]
-id      = "32a9"
+id      = "4ad7"
 name    = "OP_Action2"
 updated = "2026-05-25"
 comment = "Combat actions i.e. bash, kick etc"
@@ -287,7 +287,7 @@ comment = "Combat actions i.e. bash, kick etc"
   sizechecktype = "match"
 
 [[zone]]
-id      = "a1e7"
+id      = "1ff6"
 name    = "OP_Consider"
 updated = "2026-05-20"
 comment = "ConsiderCode"
@@ -298,7 +298,7 @@ comment = "ConsiderCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "1994"
+id      = "c7ce"
 name    = "OP_TargetMouse"
 updated = "2026-05-20"
 comment = "Targeting a person - old ClientTargetCode"
@@ -342,7 +342,7 @@ comment = "Server putting players into shroud form"
   sizechecktype = "none"
 
 [[zone]]
-id      = "9148"
+id      = "cdf9"
 name    = "OP_ZoneChange"
 updated = "2026-05-20"
 comment = "old ZoneChangeCode"
@@ -353,7 +353,7 @@ comment = "old ZoneChangeCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "ee64"
+id      = "bdab"
 name    = "OP_GroupInvite"
 updated = "2026-05-25"
 comment = "You invite someone while ungrouped or get invited by someone ungrouped"
@@ -364,7 +364,7 @@ comment = "You invite someone while ungrouped or get invited by someone ungroupe
   sizechecktype = "none"
 
 [[zone]]
-id      = "7237"
+id      = "fc1d"
 name    = "OP_GroupInvite2"
 updated = "2026-05-27"
 comment = "Invite into an EXISTING group (inviter already grouped); OP_GroupInvite (ee64) is used to form a NEW group. Same groupInviteStruct layout (invitee@0, inviter@64), C>S 168B. Re-confirmed post-2026-05-22 patch (group-invite2: fired only when adding a 3rd member, naming the same inviter + new invitee)."
@@ -386,7 +386,7 @@ comment = "Client-side decline-invite OR leave/disband-group request (168 bytes;
   sizechecktype = "none"
 
 [[zone]]
-id      = "01dc"
+id      = "eeb4"
 name    = "OP_GroupFollow"
 updated = "2026-05-25"
 comment = "Member added (modern: 68 bytes, name at offset 0)."
@@ -408,7 +408,7 @@ comment = "Player joins your group (168 bytes; member name at offset 64, leading
   sizechecktype = "none"
 
 [[zone]]
-id      = "ccfc"
+id      = "8fa1"
 name    = "OP_GroupUpdate"
 updated = "2026-05-25"
 comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow."
@@ -419,7 +419,7 @@ comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Hand
   sizechecktype = "none"
 
 [[zone]]
-id      = "8a85"
+id      = "27fa"
 name    = "OP_GroupDisband"
 updated = "2026-05-25"
 comment = "Your group dissolved (modern: 168 bytes; membername=self at offset 64)"
@@ -430,7 +430,7 @@ comment = "Your group dissolved (modern: 168 bytes; membername=self at offset 64
   sizechecktype = "none"
 
 [[zone]]
-id      = "2c76"
+id      = "c2d8"
 name    = "OP_GroupDisband2"
 updated = "2026-05-25"
 comment = "S>C to all STAYERS when any member departs (not leader-only). 168 bytes; membername=peer at offset 64."
@@ -474,7 +474,7 @@ comment = "S>C broadcast to remaining members when any member leaves. 168 bytes.
   sizechecktype = "none"
 
 [[zone]]
-id      = "b269"
+id      = "04c7"
 name    = "OP_GroupLeader"
 updated = "2026-05-25"
 comment = "Group leader change (modern: 80 bytes)"
@@ -485,7 +485,7 @@ comment = "Group leader change (modern: 80 bytes)"
   sizechecktype = "none"
 
 [[zone]]
-id      = "18b4"
+id      = "d7f4"
 name    = "OP_Buff"
 updated = "2026-05-25"
 comment = "S>C buff broadcast — variable length, no legacy 168b buffStruct fit. Observed forms: 13b (likely fade: {u32 spawnID, u32 spellID, u16=0x0001, u8=0, u8 slot, u8=0}); 30b (single self-buff add, no caster); 34/51/53/59b (one or two embedded blocks each carrying {tag=0x036a u32, counter u32, padding, caster-name\\0}); 85b (3-block form). Pre-patch OP_Buff 0x55b9 no longer fires; this slot carries all buff broadcasts. Confirmed across 53 fires (3 captures) — only opcode firing this variable-size buff-shaped pattern."
@@ -562,7 +562,7 @@ comment = "EmoteTextCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "44a0"
+id      = "23a2"
 name    = "OP_SimpleMessage"
 updated = "2026-05-20"
 comment = "SimpleMessageCode"
@@ -573,7 +573,7 @@ comment = "SimpleMessageCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "5b40"
+id      = "9a58"
 name    = "OP_FormattedMessage"
 updated = "2026-05-20"
 comment = "FormattedMessageCode i.e. pet dismissed etc"
@@ -584,7 +584,7 @@ comment = "FormattedMessageCode i.e. pet dismissed etc"
   sizechecktype = "none"
 
 [[zone]]
-id      = "498b"
+id      = "9b04"
 name    = "OP_CommonMessage"
 updated = "2026-05-20"
 comment = "ChannelMessageCode i.e. /tell /ooc /shout etc"
@@ -595,7 +595,7 @@ comment = "ChannelMessageCode i.e. /tell /ooc /shout etc"
   sizechecktype = "none"
 
 [[zone]]
-id      = "7162"
+id      = "3f07"
 name    = "OP_SpecialMesg"
 updated = "2026-05-20"
 comment = "Communicate textual info to client including hail responses etc"
@@ -650,7 +650,7 @@ comment = "Server replying with deny information after /deny"
   sizechecktype = "match"
 
 [[zone]]
-id      = "08fb"
+id      = "5617"
 name    = "OP_ManaChange"
 updated = "2026-05-26"
 comment = "Resource update after spell/ability use (S>C, 20b): {i32 curMana, i32 curEndurance, i32 spellOrAbilityId, u8[8]}. Fires once per cast or combat ability; spellId@8 cross-refs OP_CastSpell. field4 = current endurance, NOT max mana (legacy label wrong) — confirmed 2026-05-26 by cross-ref against OP_EndUpdate cur. Re-confirmed post-2026-05-22 patch."
@@ -699,7 +699,7 @@ comment = "MoneyOnCorpseCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "6a60"
+id      = "fbcc"
 name    = "OP_SkillUpdate"
 updated = "2026-05-25"
 comment = "Skill up code"
@@ -710,7 +710,7 @@ comment = "Skill up code"
   sizechecktype = "match"
 
 [[zone]]
-id      = "9426"
+id      = "e461"
 name    = "OP_LevelUpdate"
 updated = "2026-05-25"
 comment = "LevelUpUpdateCode"
@@ -836,7 +836,7 @@ comment = "Leadership AA Exp Update"
   sizechecktype = "match"
 
 [[zone]]
-id      = "9e21"
+id      = "a994"
 name    = "OP_MovementHistory"
 updated = "2026-05-25"
 comment = "Movement history for speed/movement hack detection"
@@ -912,7 +912,7 @@ comment = "Mana bar update - 10 bytes (spawn_id u16, cur u32, max u32). Per-spaw
   sizechecktype = "match"
 
 [[zone]]
-id      = "f96e"
+id      = "16a3"
 name    = "OP_EndUpdate"
 updated = "2026-05-25"
 comment = "Endurance Update opcode - 10 bytes (spawn_id u16, cur u32, max u32)"
@@ -1187,7 +1187,7 @@ comment = "List of available titles - 1520 bytes"
   sizechecktype = "none"
 
 [[zone]]
-id      = "6dba"
+id      = "36c7"
 name    = "OP_Animation"
 updated = "2026-05-25"
 comment = "Combat animation, emote animations etc - 4 bytes"
@@ -1429,7 +1429,7 @@ comment = "DoorClickCode response from server - 2 bytes"
   sizechecktype = "none"
 
 [[zone]]
-id      = "dee3"
+id      = "e883"
 name    = "OP_MoveItem"
 updated = "2026-05-25"
 comment = "Client moving an item from one slot to another - 28 bytes. Resolved via inventory.opcodestats.txt: 30 C>S fires at exactly 28 bytes during a slot-swap session, no competing unknown opcode at that size+direction. Wire layout: two 12-byte invSlotStruct descriptors + uint32 stack count."
@@ -1693,7 +1693,7 @@ comment = "Free to play nags and other data - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "695f"
+id      = "0f64"
 name    = "OP_Find"
 updated = "2026-05-20"
 comment = "Find window data - variable length, 24 min"
@@ -1780,7 +1780,7 @@ name    = "OP_VeteranRewards"
 updated = "2011-04-18"
 
 [[zone]]
-id      = "ce3d"
+id      = "3d3b"
 name    = "OP_SendAATable"
 updated = "2026-05-25"
 comment = "Static AA ability-definition menu sent S>C on zone-in. Variable-length: u32 count + count records of base 44B + per-record prereq trailer."
@@ -1862,7 +1862,7 @@ updated = "2012-06-27"
 comment = "Initial health sent when a player clicks on the mob. Subsequent updated will be OP_MobHealth"
 
 [[zone]]
-id      = "8d24"
+id      = "d18f"
 name    = "OP_MobHealth"
 updated = "2026-05-25"
 comment = "health sent when a player clicks on the mob"
@@ -2123,7 +2123,7 @@ updated = "2007-02-13"
 comment = "Tribute information"
 
 [[zone]]
-id      = "fb0a"
+id      = "c893"
 name    = "OP_RespondAA"
 updated = "2026-05-25"
 comment = "Server response to OP_AAAction; carries 12B records (ability_id, rank, _) for player's full AA list incl. auto-grants and purchased ranks"
@@ -2139,7 +2139,7 @@ comment = "GuildListCode - S>C ~14KB at login, full server guild roster (list of
   sizechecktype = "none"
 
 [[world]]
-id      = "f8e0"
+id      = "dc1c"
 name    = "OP_MOTD"
 comment = "MOTDCode - server message of the day, S>C world-stream post-EnterWorld. Confirmed 2026-05-27 (login-charmgmt): 154b payload = readable MOTD text (\"Greetings Norrathians! ...\")."
 
@@ -2149,79 +2149,79 @@ comment = "MOTDCode - server message of the day, S>C world-stream post-EnterWorl
   sizechecktype = "none"
 
 [[world]]
-id      = "7b6a"
+id      = "aca4"
 name    = "OP_SendLoginInfo"
 updated = "2026-05-25"
 comment = "Client starting world session by asking for login information. Live: 464b C>S, first packet of every world session (5/5 confirmations)."
 
 [[world]]
-id      = "b537"
+id      = "4398"
 updated = "2026-05-25"
 name    = "OP_LogServer"
 comment = "Live candidate: S>C 24b (0x7f8e), fires immediately after OP_SendLoginInfo in the handshake band."
 
 [[world]]
-id      = "b8cc"
+id      = "c8ca"
 updated = "2026-05-25"
 name    = "OP_ApproveWorld"
 comment = "Live candidate: small S>C in handshake band; not isolated yet."
 
 [[world]]
-id      = "9bdc"
+id      = "f31f"
 name    = "OP_EnterWorld"
 updated = "2026-05-25"
 comment = "Client tells world server to enter world with selected char. Live: 72b C>S, char name (zero-padded) at offset 0 + 64b zeros + 0xffffffff trailer. 4/4 confirmations across char-create + login flows. Server reuses 0x0839 with shorter S>C variants (1b ack, 7b name echo) — XML maps the opcode to OP_EnterWorld for log naming."
 
 [[world]]
-id      = "6bcf"
+id      = "c26e"
 name    = "OP_ExpansionInfo"
 updated = "2026-05-25"
 comment = "Which expansions user has. Live: 64b fixed S>C in the post-LogServer / pre-ApproveWorld handshake band (5/5 confirmations)."
 
 [[world]]
-id      = "84f6"
+id      = "de55"
 name    = "OP_SendCharInfo"
 updated = "2026-05-25"
 comment = "Send all chars visible @ char select. Live: 14176b S>C (variable with character roster size), fires once early in world handshake."
 
 [[world]]
-id      = "2de1"
+id      = "2e9f"
 name    = "OP_SendSpellChecksum"
 updated = "2026-05-25"
 comment = "Contains a snippet of spell data. Live: 2056b C>S, payload tail shows caret-delimited spell-data text (matches spells_us.txt format). Capture-order position 2 of 4 in the post-handshake checksum burst."
 
 [[world]]
-id      = "44d9"
+id      = "d99c"
 name    = "OP_SendExeChecksum"
 updated = "2026-05-25"
 comment = "Client-side eqgame.exe checksum sample. Live: 2056b C>S, payload tail shows binary code-style content. Capture-order position 1 of 4 in the post-handshake checksum burst."
 
 [[world]]
-id      = "289c"
+id      = "34bb"
 name    = "OP_SendBaseDataChecksum"
 updated = "2026-05-25"
 comment = "Client-side base-data file sample. Live: 2056b C>S, payload tail shows caret-delimited text records. Capture-order position 3 of 4 in the post-handshake checksum burst. Mapping to BaseData (vs another text-format file) inferred by elimination + position."
 
 [[world]]
-id      = "a958"
+id      = "8927"
 name    = "OP_SendSkillCapsChecksum"
 updated = "2026-05-25"
 comment = "Client-side skillcaps checksum. Live: 64b C>S, opaque hash-style payload. Capture-order position 4 of 4 in the post-handshake checksum burst — the only one not at 2056b, fits the smaller skillcaps data table."
 
 [[world]]
-id      = "bb67"
+id      = "5f8b"
 updated = "2026-05-25"
 name    = "OP_SetChatServer"
 comment = "Legacy chatserver tuple. May be obsolete on Live — handshake capture shows only the SetChatServer2 catalog (no 56b S>C tuple observed, unlike Test)."
 
 [[world]]
-id      = "f22b"
+id      = "759e"
 name    = "OP_SetChatServer2"
 updated = "2026-05-25"
 comment = "Secondary chat / account / commerce service catalog. Live: 1464b S>C in handshake band (3/3 confirmations); ~18 plaintext Daybreak service URLs."
 
 [[world]]
-id      = "f21f"
+id      = "b67c"
 name    = "OP_ZoneServerInfo"
 updated = "2026-05-25"
 comment = "Zone server connection info. Live: 130b S>C, fires on world->zone handoff (zone server hostname + port). 2/2 confirmations."
@@ -2232,25 +2232,25 @@ comment = "Zone server connection info. Live: 130b S>C, fires on world->zone han
   sizechecktype = "match"
 
 [[world]]
-id      = "fc46"
+id      = "6530"
 name    = "OP_WorldComplete"
 updated = "2026-05-25"
 comment = "Client telling world server it is done. Live: 0b C>S, last C>S packet of session immediately after OP_ZoneServerInfo. World replies by disconnecting. 2/2 confirmations."
 
 [[world]]
-id      = "48f9"
+id      = "5afc"
 name    = "OP_DeleteCharacter"
 updated = "2026-05-27"
 comment = "Delete character @ char select. Live: 68b C>S world, name@offset 0. Re-confirmed post-2026-05-22 patch (login-charmgmt): 1 C>S fire carrying the deleted char name."
 
 [[world]]
-id      = "0634"
+id      = "cc83"
 name    = "OP_CharacterCreate"
 updated = "2026-05-27"
 comment = "Create character @ char select. Live: 168b C>S world (name[64] + gender/race/class/deity/appearance fields), fires once per submitted creation right after OP_ApproveName response. Re-confirmed post-2026-05-22 patch (login-charmgmt)."
 
 [[world]]
-id      = "a24a"
+id      = "e901"
 name    = "OP_ApproveName"
 updated = "2026-05-27"
 comment = "Approving new character name @ char creation. Live: 84b C>S name candidate, 1b S>C status (taken vs available). Re-confirmed post-2026-05-22 patch (login-charmgmt): fires right before OP_CharacterCreate."
@@ -2259,3 +2259,23 @@ comment = "Approving new character name @ char creation. Live: 84b C>S name cand
 id      = "ffff"
 name    = "OP_RandomNameGenerator"
 comment = "Returns a random name. May be obsolete on Live — repeated random-button presses during char creation produced no isolated wire request/response; names likely come pre-baked in char-select catalog dump."
+
+[[zone]]
+id      = "b3b7"
+name    = "OP_GroupMakeLeader"
+updated = "2026-07-05"
+comment = "Ported from test-client (Test-server opcode). Re-verify against a Test capture post-patch."
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[world]]
+id      = "001a"
+name    = "OP_LoginServerInfo"
+updated = "2026-07-05"
+comment = "Ported from test-client (Test-server opcode). Re-verify against a Test capture post-patch."
+  [[world.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
