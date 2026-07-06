@@ -89,9 +89,9 @@ signals:
     void wornSlotsChanged();
 
 public slots:
-    // connect2 entry point. Parses the raw OP_ItemPacket payload and
-    // inserts the resulting ItemTemplate. dir is unused but matches the
-    // slot signature expected by EQPacket::connect2.
+    // Packet handler (wired via EQPacketStream::on/seqBind). Parses the raw
+    // OP_ItemPacket payload and inserts the resulting ItemTemplate. dir is
+    // unused but matches the 3-arg PacketHandler signature.
     void onItemPacket(const uint8_t* data, size_t len, uint8_t dir);
 
 private slots:

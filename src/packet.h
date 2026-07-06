@@ -105,9 +105,6 @@ class EQPacket : public QObject
    uint16_t arqSeqGiveUp(void);
    bool session_tracking(void);
    bool realtime(void);
-   bool connect2(const QString& opcodeName, EQStreamPairs sp,
-		 uint8_t dir, const char* payload,  EQSizeCheckType szt, 
-		 const QObject* receiver, const char* member);
    int snaplen(void) { return m_snaplen; }
    int buffersize(void) { return m_buffersize; }
    void setSnapLen(int len) { m_snaplen = len; }
@@ -229,24 +226,6 @@ class EQPacket : public QObject
    // m_detectingClient single-shot auto-detect. See
    // docs/MULTIBOX_PLAN.md.
    BoxRegistry m_boxes;
-
-   // Stage 3b of multibox-sessions: connect2() requests are
-   // accumulated here and replayed per-Box on each new box's
-   // streams. This lets every Box have an identical dispatcher
-   // graph; the active-box gate (EQPacketStream::setMuted) decides
-   // which one of them actually fires opcode handlers at any given
-   // moment.
-   struct WireSpec {
-       QString  opName;
-       uint8_t  sp;
-       uint8_t  dir;
-       QByteArray payloadType;
-       EQSizeCheckType szt;
-       QPointer<const QObject> receiver;
-       QByteArray slotMember;
-   };
-   std::vector<WireSpec> m_wirings;
-   void wireBox(Box& box);
 
    // Per-box parent QObject for every non-primary Box's owned objects (its
    // four EQPacketStreams + ZoneServerObserver + NamePromoter). Deleting

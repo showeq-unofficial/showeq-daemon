@@ -116,10 +116,8 @@ void EQPacketTypeDB::addStruct(const char* typeName, size_t size)
 
 //----------------------------------------------------------------------
 // EQPacketDispatch
-EQPacketDispatch::EQPacketDispatch(QObject* parent, const char* name)
-  : QObject(parent)
+EQPacketDispatch::EQPacketDispatch()
 {
-    setObjectName(name);
 }
 
 EQPacketDispatch::~EQPacketDispatch()
@@ -128,10 +126,7 @@ EQPacketDispatch::~EQPacketDispatch()
 
 void EQPacketDispatch::activate(const uint8_t* data, size_t len, uint8_t dir)
 {
-  // Legacy Qt-slot receivers (connect2). Removed once all wiring is on().
-  emit signal(data, len, dir);
-
-  // Typed handlers (on()). Fire in registration order — goldens depend on it.
+  // Fire handlers in registration order — goldens depend on it.
   for (const PacketHandler& h : m_handlers)
     h(data, len, dir);
 }
@@ -139,26 +134,6 @@ void EQPacketDispatch::activate(const uint8_t* data, size_t len, uint8_t dir)
 void EQPacketDispatch::add(PacketHandler handler)
 {
   m_handlers.push_back(std::move(handler));
-}
-
-bool EQPacketDispatch::connect(const QObject* receiver, const char* member)
-{
-#ifdef PACKET_DISPATCH_DIAG
-  seqDebug("Connecting '%s:%s' to '%s:%s' objects %s.",
-	  className(), name(), receiver->className(), receiver->name(),
-	  (const char*)member);
-#endif
-
-  return QObject::connect((QObject*)this,
-			  SIGNAL(signal(const uint8_t*, size_t, uint8_t)),
-			  receiver, member);
-}
-
-bool EQPacketDispatch::disconnect(const QObject* receiver, const char* member)
-{
-  return QObject::disconnect((QObject*)this,
-			     SIGNAL(signal(const uint8_t*, size_t, uint8_t)),
-			     receiver, member);
 }
 
 //----------------------------------------------------------------------

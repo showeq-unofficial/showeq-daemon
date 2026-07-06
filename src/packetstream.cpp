@@ -110,8 +110,7 @@ EQPacketStream::~EQPacketStream()
 }
 
 ////////////////////////////////////////////////////
-// Resolve opcode+payload+szt to its (lazily created) dispatcher.
-// Shared by connect2() (legacy Qt SLOT) and on() (typed PacketHandler).
+// Resolve opcode+payload+szt to its (lazily created) dispatcher. Used by on().
 EQPacketDispatch* EQPacketStream::dispatchFor(const QString& opcodeName,
 					      const char* payloadType,
 					      EQSizeCheckType szt)
@@ -156,36 +155,14 @@ EQPacketDispatch* EQPacketStream::dispatchFor(const QString& opcodeName,
   // if no existing dispatch was found, create one
   if (!dispatch)
   {
-    // construct a name for the dispatch
-    QString dispatchName(256, '\0');
-    dispatchName = QString::asprintf("PacketDispatch:%s:%s:%d:%s:%d",
-            objectName().toLatin1().data(), opcodeName.toLatin1().data(),
-            payload->dir(), payload->typeName().toLatin1().data(),
-            payload->sizeCheckType());
-
-
-    // create new dispatch object
-    dispatch = new EQPacketDispatch(this, dispatchName.toLatin1().data());
+    // create new dispatch object (deleted via qDeleteAll(m_dispatchers) in dtor)
+    dispatch = new EQPacketDispatch();
 
     // insert dispatcher into dispatcher dictionary
     m_dispatchers.insert((void*)payload, dispatch);
   }
 
   return dispatch;
-}
-
-////////////////////////////////////////////////////
-// setup connection (legacy Qt string-SLOT path)
-bool EQPacketStream::connect2(const QString& opcodeName,
-			      const char* payloadType,  EQSizeCheckType szt,
-			      const QObject* receiver, const char* member)
-{
-  EQPacketDispatch* dispatch = dispatchFor(opcodeName, payloadType, szt);
-  if (!dispatch)
-    return false;
-
-  // attempt to connect the dispatch object to the receiver
-  return dispatch->connect(receiver, member);
 }
 
 ////////////////////////////////////////////////////

@@ -42,13 +42,13 @@ public:
 
     // First Box created is the "primary" — its packets keep flowing
     // through the existing global EQPacketStreams in EQPacket so all
-    // legacy connect2 wiring stays intact. Non-primary boxes get the
-    // per-box streams below.
+    // the wireBoxPipeline handler wiring stays intact. Non-primary boxes
+    // get the per-box streams below.
     bool      is_primary         = false;
 
     // Per-box world + zone streams. Non-null only on non-primary
     // boxes — the BoxCreatedHook installs them. Primary box re-uses
-    // EQPacket's global streams so the existing connect2 wiring
+    // EQPacket's global streams so the existing handler wiring
     // stays intact in Stages 2/3a.
     EQPacketStream* world_c2s    = nullptr;
     EQPacketStream* world_s2c    = nullptr;
@@ -170,8 +170,7 @@ public:
 
     size_t size() const { return m_boxes.size(); }
 
-    // Iterator access — needed by EQPacket::connect2 / wireBox to
-    // walk every box's streams. The exposed type is the
+    // Iterator access to walk every box's streams. The exposed type is the
     // unique_ptr-of-Box vector; callers use `for (auto& up : ...)`.
     const std::vector<std::unique_ptr<Box>>& boxes() const { return m_boxes; }
 

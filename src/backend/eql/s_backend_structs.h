@@ -3,9 +3,9 @@
  *
  * Spliced into the EQPacketTypeDB ctor in src/packetinfo.cpp right after
  * "s_everquest.h", where the AddStruct(typeName) macro is in scope. Registers
- * the Legends wire structs so connect2 SZC_Match (OP_ClientUpdate,
+ * the Legends wire structs so on()'s SZC_Match (OP_ClientUpdate,
  * OP_MobUpdate) and the SZC_None overlays (OP_PlayerProfile) resolve a valid
- * size — an unregistered type makes connect2 silently drop every packet.
+ * size — an unregistered type makes on() silently drop every packet.
  *
  * No include guard — this is #included inside a function body, once.
  */

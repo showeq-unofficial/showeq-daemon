@@ -82,23 +82,17 @@ using PacketHandler = std::function<void(const uint8_t*, size_t, uint8_t)>;
 //----------------------------------------------------------------------
 // EQPacketDispatch — per-payload handler fan-out. Holds an ordered list of
 // PacketHandlers; activate() fires them in registration order (the order that
-// tier-2 goldens are sensitive to). The legacy Qt signal/connect path is
-// retained during the migration off connect2() and is removed once all wiring
-// goes through EQPacketStream::on().
-class EQPacketDispatch : public QObject
+// tier-2 goldens are sensitive to). Plain (non-QObject): handlers are typed
+// callables registered via EQPacketStream::on(), so no moc/slot machinery is
+// involved.
+class EQPacketDispatch
 {
-  Q_OBJECT
  public:
-  EQPacketDispatch(QObject* parent = 0, const char* name = 0);
-  virtual ~EQPacketDispatch();
+  EQPacketDispatch();
+  ~EQPacketDispatch();
 
   void activate(const uint8_t*, size_t, uint8_t);
   void add(PacketHandler handler);
-  bool connect(const QObject* receiver, const char* member = 0);
-  bool disconnect(const QObject* receiver, const char* member = 0);
-
- signals:
-  void signal(const uint8_t*, size_t, uint8_t);
 
  private:
   // disable copy constructor and operator=

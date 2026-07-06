@@ -87,13 +87,9 @@ class EQPacketStream : public QObject
   EQStreamID streamID();
   size_t currentCacheSize();
   uint16_t arqSeqExp();
-  bool connect2(const QString& opcodeName,
-		const char* payload,  EQSizeCheckType szt,
-		const QObject* receiver, const char* member);
-  // Typed replacement for connect2(): register a PacketHandler for the
-  // opcode+payload+szt instead of a Qt string SLOT. Same opcode/payload
-  // lookup and size-check semantics; the handler is appended to the payload's
-  // dispatcher and fired in registration order (goldens depend on it).
+  // Register a PacketHandler for the opcode+payload+szt (typed dispatch, no Qt
+  // SLOT). The handler is appended to the payload's dispatcher and fired in
+  // registration order (goldens depend on it).
   bool on(const QString& opcodeName,
 	  const char* payload, EQSizeCheckType szt,
 	  PacketHandler handler);

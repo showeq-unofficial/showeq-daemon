@@ -813,7 +813,7 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
             packet.getSourcePort() <= WorldServerGeneralMaxPort))
   {
     // World server traffic. Route to the global streams as today so
-    // ZoneServerMgr (the only connect2'd world opcode handler) keeps
+    // ZoneServerMgr (the only world opcode handler wired via on()) keeps
     // firing on every world handshake regardless of which Box it
     // belongs to — single-client multi-zone fixtures rely on this.
     // ADDITIONALLY mirror non-primary boxes' traffic into their
@@ -1353,91 +1353,6 @@ void EQPacket::setArqSeqGiveUp(uint16_t giveUp)
 void EQPacket::setRealtime(bool val)
 {
   m_realtime = val;
-}
-
-bool EQPacket::connect2(const QString& opcodeName, EQStreamPairs sp,
-		 uint8_t dir, const char* payload,  EQSizeCheckType szt,
-		 const QObject* receiver, const char* member)
-{
-  // Stage 3b of MULTIBOX_PLAN.md: record the wire intent so it can be
-  // replayed on every Box's stream as boxes come into existence.
-  // Boxes that aren't currently active (BoxRegistry::activeBoxId)
-  // have their streams muted so the same singleton receiver only
-  // receives one box's stream of decoded events at a time.
-  WireSpec spec;
-  spec.opName = opcodeName;
-  spec.sp = uint8_t(sp);
-  spec.dir = dir;
-  spec.payloadType = QByteArray(payload);
-  spec.szt = szt;
-  spec.receiver = receiver;
-  spec.slotMember = QByteArray(member);
-  m_wirings.push_back(spec);
-
-  // Replay on already-existing boxes (handles the case where
-  // connect2 is called after some box was observed during the same
-  // session — uncommon but legal). Returns true if at least one
-  // stream accepted the wire. Boxes created after this call pick up
-  // the wiring via wireBox() in the hook.
-  bool res = false;
-  for (const auto& upBox : m_boxes.boxes()) {
-    Box& box = *upBox;
-    auto wireOne = [&](EQPacketStream* s) {
-      if (s) res = s->connect2(opcodeName, payload, szt, receiver, member) || res;
-    };
-    if (sp & SP_World) {
-      if (dir & DIR_Client) wireOne(box.world_c2s);
-      if (dir & DIR_Server) wireOne(box.world_s2c);
-    }
-    if (sp & SP_Zone) {
-      if (dir & DIR_Client) wireOne(box.zone_c2s);
-      if (dir & DIR_Server) wireOne(box.zone_s2c);
-    }
-  }
-  // Eagerly wire the global streams as well. Decode must work even
-  // when no Box is ever created — e.g. a zone-only replay fixture that
-  // starts mid-session with no world handshake (the `moblock` golden).
-  // The primary box's streams ALIAS these globals, so setBoxCreatedHook
-  // skips wireBox() for the primary to avoid double-installing every
-  // dispatcher. Non-primary boxes own distinct streams and are wired
-  // via wireBox() at creation time.
-  auto wireGlobal = [&](EQPacketStream* s) {
-    if (s) res = s->connect2(opcodeName, payload, szt, receiver, member) || res;
-  };
-  if (sp & SP_World) {
-    if (dir & DIR_Client) wireGlobal(m_client2WorldStream);
-    if (dir & DIR_Server) wireGlobal(m_world2ClientStream);
-  }
-  if (sp & SP_Zone) {
-    if (dir & DIR_Client) wireGlobal(m_client2ZoneStream);
-    if (dir & DIR_Server) wireGlobal(m_zone2ClientStream);
-  }
-  return res;
-}
-
-void EQPacket::wireBox(Box& box)
-{
-  // Replay every recorded wire intent onto this box's streams.
-  // Primary box aliases the global streams (see the
-  // setBoxCreatedHook lambda), so wirings on primary go to the same
-  // dispatchers that EQPacket::connect2 installed at startup — fine,
-  // EQPacketStream::connect2 is idempotent (existing dispatchers
-  // are reused via the m_dispatchers map).
-  for (const auto& w : m_wirings) {
-    if (!w.receiver) continue;
-    auto wireOne = [&](EQPacketStream* s) {
-      if (s) s->connect2(w.opName, w.payloadType.constData(), w.szt,
-                         w.receiver, w.slotMember.constData());
-    };
-    if (w.sp & SP_World) {
-      if (w.dir & DIR_Client) wireOne(box.world_c2s);
-      if (w.dir & DIR_Server) wireOne(box.world_s2c);
-    }
-    if (w.sp & SP_Zone) {
-      if (w.dir & DIR_Client) wireOne(box.zone_c2s);
-      if (w.dir & DIR_Server) wireOne(box.zone_s2c);
-    }
-  }
 }
 
 ///////////////////////////////////////////
