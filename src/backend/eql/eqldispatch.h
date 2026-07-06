@@ -34,15 +34,15 @@ public:
     EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player);
 
     // OP_PlayerProfile (0x5207) S>C: identity header (race/class/level).
-    void legendsProfile(const uint8_t* data, size_t len, uint8_t dir);
+    void profile(const uint8_t* data, size_t len, uint8_t dir);
     // OP_ClientUpdate (0x0b03) C>S: this player's float position + heading.
     void playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir);
     // OP_NewZone (0x5ab6) S>C: null-terminated short/long zone names.
-    void legendsNewZone(const uint8_t* data, size_t len, uint8_t dir);
+    void newZone(const uint8_t* data, size_t len, uint8_t dir);
     // OP_ZoneSpawns (0x7475) S>C: null-terminated name + fixed spawn block.
-    void legendsSpawn(const uint8_t* data, size_t len, uint8_t dir);
+    void spawn(const uint8_t* data, size_t len, uint8_t dir);
     // OP_MobUpdate (0x061b) S>C: per-mob position update.
-    void legendsMobUpdate(const uint8_t* data, size_t len, uint8_t dir);
+    void mobUpdate(const uint8_t* data, size_t len, uint8_t dir);
 
 private:
     ZoneMgr*    m_zoneMgr;

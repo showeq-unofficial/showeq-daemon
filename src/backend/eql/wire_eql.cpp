@@ -22,9 +22,8 @@
 
 #include "combatrouter.h"
 #include "datetimemgr.h"
-#include "eqldispatch.h"        // backend/eql (on the include path for eql)
+#include "eqldispatch.h"        // backend/eql (same-dir include)
 #include "everquest.h"
-#include "everquest_legends.h"  // backend/eql
 #include "group.h"
 #include "itemcache.h"
 #include "messageshell.h"
@@ -76,11 +75,10 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_ZoneEntry", SP_Zone, DIR_Client,
          "ClientZoneEntryStruct", SZC_Match,
          seqBind(ms.zoneMgr, &ZoneMgr::zoneEntryClient));
-    // EQ Legends OP_PlayerProfile (0x5207): header-only overlay of a ~38KB
-    // struct, so SZC_None; EqlDispatch casts legendsCharProfileHdr.
+    // EQ Legends OP_PlayerProfile (0x5207): header-only identity decode.
     wire("OP_PlayerProfile", SP_Zone, DIR_Server,
-         "legendsCharProfileHdr", SZC_None,
-         seqBind(eql, &EqlDispatch::legendsProfile));
+         "uint8_t", SZC_None,
+         seqBind(eql, &EqlDispatch::profile));
     wire("OP_ZoneChange", SP_Zone, DIR_Client | DIR_Server,
          "zoneChangeStruct", SZC_Match,
          seqBind(ms.zoneMgr, &ZoneMgr::zoneChange));
@@ -88,7 +86,7 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     // null-terminated short/long zone names.
     wire("OP_NewZone", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
-         seqBind(eql, &EqlDispatch::legendsNewZone));
+         seqBind(eql, &EqlDispatch::newZone));
     wire("OP_SendZonePoints", SP_Zone, DIR_Server,
          "zonePointsStruct", SZC_None,
          seqBind(ms.zoneMgr, &ZoneMgr::zonePoints));
@@ -105,9 +103,10 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
             ms.player,  SLOT(player(const charProfileStruct*)));
 
     // EQ Legends OP_ClientUpdate (0x0b03): C>S self-position (42B float).
-    // Wired DIR_Client only — the 24B S>C variant isn't decoded yet.
+    // Wired DIR_Client only — the 24B S>C variant isn't decoded yet. Payload is
+    // raw (uint8_t/SZC_None); EqlDispatch::playerUpdateSelf enforces len==42.
     wire("OP_ClientUpdate", SP_Zone, DIR_Client,
-         "legendsPlayerSelfPos", SZC_Match,
+         "uint8_t", SZC_None,
          seqBind(eql, &EqlDispatch::playerUpdateSelf));
 
     // OP_TimeOfDay / OP_ZoneServerInfo feed daemon-GLOBAL sinks. Only the
@@ -141,14 +140,15 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
          "uint8_t", SZC_None,
          seqBind(ms.spawnShell, &SpawnShell::zoneEntry));
     // EQ Legends OP_ZoneSpawns (0x7475): one spawn per payload (name + block);
-    // EqlDispatch parses the variable-length name and the fixed spawn struct.
+    // EqlDispatch parses the variable-length name and the fixed spawn block.
     wire("OP_ZoneSpawns", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
-         seqBind(eql, &EqlDispatch::legendsSpawn));
-    // EQ Legends OP_MobUpdate (0x061b): per-mob position update (14B).
+         seqBind(eql, &EqlDispatch::spawn));
+    // EQ Legends OP_MobUpdate (0x061b): per-mob position update (14B). Raw
+    // payload; EqlDispatch::mobUpdate enforces len==14.
     wire("OP_MobUpdate", SP_Zone, DIR_Server,
-         "legendsMobUpdateStruct", SZC_Match,
-         seqBind(eql, &EqlDispatch::legendsMobUpdate));
+         "uint8_t", SZC_None,
+         seqBind(eql, &EqlDispatch::mobUpdate));
     wire("OP_WearChange", SP_Zone, DIR_Server | DIR_Client,
          "SpawnUpdateStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::updateSpawnInfo));

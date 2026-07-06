@@ -1,22 +1,36 @@
 /*
  * eqldispatch.cpp — EverQuest Legends packet dispatch adapter.
  *
- * The Legends decode bodies were ported from the legends-client branch, where
- * they lived directly on the core managers. Here the wire-struct casts +
- * per-axis fixed-point decode stay local, and the state mutation / signal
- * emission is delegated to the managers' neutral primitives. See eqldispatch.h.
+ * The Legends decode bodies were ported from the legends-client branch. eql owns
+ * no wire-struct types: the Legends wire is read here by offset + per-axis scale
+ * (via the rd_* helpers below) and the state mutation / signal emission is
+ * delegated to the core managers' target-NEUTRAL primitives. So the frontend
+ * (SpawnShell / Player / ZoneMgr) keeps only Live's struct set; nothing named
+ * `legends*` exists anywhere. Field offsets/scales are /loc-confirmed — see
+ * OPCODES_LEGENDS.md for the per-field evidence. Layout shuffles per patch;
+ * re-derive from captures, don't memorize.
  */
 #include "eqldispatch.h"
 
 #include <cmath>
+#include <cstring>
 
 #include <QString>
 
-#include "everquest_legends.h"
 #include "packetcommon.h"   // DIR_Client / DIR_Server
 #include "player.h"
 #include "spawnshell.h"
 #include "zonemgr.h"
+
+// Little-endian scalar reads at a byte offset. memcpy (not a cast) because the
+// Legends offsets are unaligned (e.g. 231, 241) and #pragma-pack casts there are
+// UB; the compiler lowers these to a single load.
+namespace {
+inline uint16_t rd_u16(const uint8_t* p) { uint16_t v; std::memcpy(&v, p, 2); return v; }
+inline uint32_t rd_u32(const uint8_t* p) { uint32_t v; std::memcpy(&v, p, 4); return v; }
+inline int16_t  rd_i16(const uint8_t* p) { int16_t  v; std::memcpy(&v, p, 2); return v; }
+inline float    rd_f32(const uint8_t* p) { float    v; std::memcpy(&v, p, 4); return v; }
+}
 
 EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player)
     : m_zoneMgr(zoneMgr)
@@ -25,41 +39,57 @@ EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* playe
 {
 }
 
-void EqlDispatch::legendsProfile(const uint8_t* data, size_t len, uint8_t dir)
+void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
 {
-    if (dir != DIR_Server || len < sizeof(legendsCharProfileHdr))
+    // OP_PlayerProfile (0x5207) S>C: ~38KB profile; only the identity header is
+    // decoded. Classic EQ ids: race u32 @21 (6=Dark Elf), class u32 @25
+    // (5=Shadowknight), level u8 @33.
+    if (dir != DIR_Server || len < 34)
         return;
 
-    const legendsCharProfileHdr* p = (const legendsCharProfileHdr*)data;
-    m_player->setIdentity((uint16_t)p->race, (uint8_t)p->class1, p->level);
+    const uint16_t race  = (uint16_t)rd_u32(data + 21);
+    const uint8_t  class1 = (uint8_t)rd_u32(data + 25);
+    const uint8_t  level = data[33];
+    m_player->setIdentity(race, class1, level);
 }
 
 void EqlDispatch::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
 {
-    if (len < sizeof(legendsPlayerSelfPos))
+    // OP_ClientUpdate (0x0b03) C>S, 42B: position + deltas as IEEE floats (unlike
+    // Live's bit-packed struct). Offsets /loc-confirmed: spawnId u16 @2;
+    // x f32 @22 (E/W), z f32 @34 (height), y f32 @38 (N/S); deltaX f32 @30,
+    // deltaY f32 @10, deltaZ f32 @14; heading = 11-bit field (0=North) in the
+    // u32 @26: (packed>>10)&0x7FF.
+    if (len != 42)   // fixed size (was SZC_Match); wire is now uint8_t/SZC_None
         return;
 
-    const legendsPlayerSelfPos* p = (const legendsPlayerSelfPos*)data;
+    const uint16_t spawnId = rd_u16(data + 2);
 
     // Wired DIR_Client only, but keep the self-spawn guard from the branch.
     if (dir == DIR_Client && m_player->id() == 0)
-        m_player->setPlayerID(p->spawnId);
-    if (p->spawnId != m_player->id())
+        m_player->setPlayerID(spawnId);
+    if (spawnId != m_player->id())
         return;   // controlling another spawn (Eye of Zomm / boat) — not mapped
 
-    // legendsPlayerSelfPos carries position + deltas as floats; heading is an
-    // 11-bit field packed into `packed` (legendsHeading()). newSpeed uses the
-    // float deltas before the int16 cast so sub-unit velocity survives.
-    const uint16_t heading = legendsHeading(p);
-    const float speed = std::hypot(std::hypot(p->deltaX * 80.0f, p->deltaY * 80.0f),
-                                   p->deltaZ * 80.0f) / 119.46664f;
+    const float x  = rd_f32(data + 22);
+    const float z  = rd_f32(data + 34);
+    const float y  = rd_f32(data + 38);
+    const float dX = rd_f32(data + 30);
+    const float dY = rd_f32(data + 10);
+    const float dZ = rd_f32(data + 14);
+    const uint16_t heading = (uint16_t)((rd_u32(data + 26) >> 10) & 0x7FF);
 
-    m_player->applySelfPosition(int16_t(p->x), int16_t(p->y), int16_t(p->z),
-                                int16_t(p->deltaX), int16_t(p->deltaY), int16_t(p->deltaZ),
+    // newSpeed uses the float deltas before the int16 cast so sub-unit velocity
+    // survives.
+    const float speed = std::hypot(std::hypot(dX * 80.0f, dY * 80.0f),
+                                   dZ * 80.0f) / 119.46664f;
+
+    m_player->applySelfPosition(int16_t(x), int16_t(y), int16_t(z),
+                                int16_t(dX), int16_t(dY), int16_t(dZ),
                                 heading, speed);
 }
 
-void EqlDispatch::legendsNewZone(const uint8_t* data, size_t len, uint8_t dir)
+void EqlDispatch::newZone(const uint8_t* data, size_t len, uint8_t dir)
 {
     if (dir != DIR_Server || len < 2)
         return;
@@ -80,42 +110,47 @@ void EqlDispatch::legendsNewZone(const uint8_t* data, size_t len, uint8_t dir)
     m_zoneMgr->setZoneByName(shortName, longName);
 }
 
-void EqlDispatch::legendsSpawn(const uint8_t* data, size_t len, uint8_t dir)
+void EqlDispatch::spawn(const uint8_t* data, size_t len, uint8_t dir)
 {
     if (dir != DIR_Server)
         return;
 
-    // null-terminated name at the front, then the fixed block.
+    // null-terminated name at the front, then a fixed 326-byte NPC block.
     size_t nameLen = 0;
     while (nameLen < len && data[nameLen] != 0)
         nameLen++;
     if (nameLen == 0 || nameLen >= len)          // empty name or no terminator
         return;
 
+    const uint8_t* s = data + nameLen + 1;
     const size_t blockLen = len - nameLen - 1;
-    if (blockLen != sizeof(legendsSpawnStruct))  // scaffold: NPC form only
+    if (blockLen != 326)                          // scaffold: NPC form only
         return;
 
-    const legendsSpawnStruct* s = (const legendsSpawnStruct*)(data + nameLen + 1);
-    const uint16_t id = (uint16_t)s->spawnId;
-
-    // position: X/Z are 1/8-unit fixed-point, Y unscaled (everquest_legends.h).
-    const int16_t x = (int16_t)(s->x8 / 8);
-    const int16_t y = s->y;
-    const int16_t z = (int16_t)(s->z8 / 8);
+    // Block offsets /loc-confirmed: spawnId u32 @0, level u8 @4, curHpPct u8 @44,
+    // maxHpPct u8 @45; position int16 mixed-scale — X/Z at 1/8 unit (x8 @231,
+    // z8 @227), Y unscaled (y @241).
+    const uint16_t id = (uint16_t)rd_u32(s + 0);
+    const int16_t  x  = (int16_t)(rd_i16(s + 231) / 8);
+    const int16_t  y  = rd_i16(s + 241);
+    const int16_t  z  = (int16_t)(rd_i16(s + 227) / 8);
+    const uint8_t  level    = s[4];
+    const uint8_t  curHpPct = s[44];
+    const uint8_t  maxHpPct = s[45];
 
     m_spawnShell->upsertSpawn(id, QString::fromLatin1((const char*)data, int(nameLen)),
-                              x, y, z, s->level, s->curHpPct, s->maxHpPct);
+                              x, y, z, level, curHpPct, maxHpPct);
 }
 
-void EqlDispatch::legendsMobUpdate(const uint8_t* data, size_t len, uint8_t dir)
+void EqlDispatch::mobUpdate(const uint8_t* data, size_t len, uint8_t dir)
 {
-    if (dir != DIR_Server || len < sizeof(legendsMobUpdateStruct))
+    // OP_MobUpdate (0x061b) S>C, 14B. Offsets: spawnId u32 @0; position int16
+    // per-axis fixed-point — X unscaled (@10), Y*8 (@4), Z*64 (@6).
+    if (dir != DIR_Server || len != 14)   // fixed size (was SZC_Match)
         return;
 
-    const legendsMobUpdateStruct* m = (const legendsMobUpdateStruct*)data;
-
-    // per-axis fixed point: X unscaled, Y*8, Z*64 (everquest_legends.h).
-    m_spawnShell->moveSpawn((uint16_t)m->spawnId,
-                            m->x, (int16_t)(m->y8 / 8), (int16_t)(m->z64 / 64));
+    m_spawnShell->moveSpawn((uint16_t)rd_u32(data + 0),
+                            rd_i16(data + 10),
+                            (int16_t)(rd_i16(data + 4) / 8),
+                            (int16_t)(rd_i16(data + 6) / 64));
 }

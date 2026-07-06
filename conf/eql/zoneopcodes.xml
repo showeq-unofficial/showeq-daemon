@@ -47,7 +47,7 @@
     </opcode>
     <opcode id="0b03" name="OP_ClientUpdate" updated="07/05/26">
         <comment>EQ Legends: C>S self-position (42B). A 24B S>C variant also exists (other-player / server position broadcast?) — acknowledged below, not yet decoded. See OPCODES_LEGENDS.md</comment>
-        <payload dir="client" typename="legendsPlayerSelfPos" sizechecktype="match"/>
+        <payload dir="client" typename="uint8_t" sizechecktype="none"/>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="7475" name="OP_ZoneSpawns" updated="07/05/26">
@@ -61,7 +61,7 @@
     </opcode>
     <opcode id="061b" name="OP_MobUpdate" updated="07/05/26">
         <comment>EQ Legends per-mob position update (S>C). See OPCODES_LEGENDS.md</comment>
-        <payload dir="server" typename="legendsMobUpdateStruct" sizechecktype="match"/>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="94d4" name="OP_DeleteSpawn" updated="05/20/26">
         <comment>DeleteSpawnCode</comment>

@@ -130,8 +130,8 @@ comment = "EQ Legends: C>S self-position (42B). A 24B S>C variant also exists (o
 
   [[zone.payloads]]
   dir           = "client"
-  typename      = "legendsPlayerSelfPos"
-  sizechecktype = "match"
+  typename      = "uint8_t"
+  sizechecktype = "none"      # EqlDispatch::playerUpdateSelf enforces len==42
 
   # 24B S>C variant: accept without a size check so it doesn't spam
   # "doesn't match" warnings. No handler yet (TBD: likely other-player pos).
@@ -177,8 +177,8 @@ comment = "EQ Legends per-mob position update (S>C). See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "server"
-  typename      = "legendsMobUpdateStruct"
-  sizechecktype = "match"
+  typename      = "uint8_t"
+  sizechecktype = "none"      # EqlDispatch::mobUpdate enforces len==14
 
 [[zone]]
 id      = "94d4"
