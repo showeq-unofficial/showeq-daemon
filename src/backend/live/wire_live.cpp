@@ -13,6 +13,14 @@
  *
  * CMake compiles exactly one wiring TU per target: this one for live/test,
  * src/backend/eql/wire_eql.cpp for eql.
+ *
+ * NOTE: this file lives next to backend/live/everquest.h, so its
+ * `#include "everquest.h"` resolves same-directory to Live's copy even in the
+ * `test` build (where the core compiles against backend/test/everquest.h). That
+ * is safe ONLY because this TU is struct-LAYOUT-independent — it names struct
+ * types in payload strings / signal signatures but never takes sizeof() or reads
+ * a field. Keep it that way: do not add layout-dependent code here, or the test
+ * build would silently use Live's layout for it.
  */
 
 #include "daemonapp.h"

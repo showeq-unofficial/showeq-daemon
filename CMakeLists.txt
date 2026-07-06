@@ -36,13 +36,14 @@ pkg_check_modules(PCAP REQUIRED libpcap)
 pkg_check_modules(ZLIB REQUIRED zlib)
 
 # --- backend target selection ------------------------------------------------
-# Select the wire-format backend at configure time. Live and Test SHARE the
-# live backend (same everquest.h, same wiring TU, same handler slots); Test
-# differs ONLY in conf/test/opcodes.toml + its data namespace. EQL (EverQuest
-# Legends) is the one fully-distinct backend: own structs (everquest_legends.h),
-# own wiring (wire_eql.cpp), and a backend-owned EqlDispatch adapter so no
-# Legends slots leak onto the core managers. No #ifdef in core — divergence is
-# realized by which backend dir CMake compiles + puts on the include path.
+# A backend can differ from Live along two INDEPENDENT axes:
+#   - struct set (which everquest.h is compiled): only `test` forks its own;
+#     `live` and `eql` share Live's struct set. (eql owns no wire structs — it
+#     reads the Legends wire by offset in EqlDispatch, so it reuses Live's.)
+#   - wiring TU (which opcode->handler table): only `eql` differs (wire_eql.cpp
+#     + EqlDispatch); `live` and `test` share wire_live.cpp.
+# everquest.h lives per-backend at src/backend/<struct-set>/everquest.h and
+# resolves via ${SEQ_STRUCT_DIR} on the core include path — no #ifdef in core.
 #
 # Switching SEQ_TARGET needs a clean configure (build.sh --clean or a fresh -B
 # build dir) — build.sh only configures on first run.
@@ -53,14 +54,20 @@ if(NOT SEQ_TARGET MATCHES "^(live|test|eql)$")
 endif()
 string(TOUPPER "${SEQ_TARGET}" SEQ_TARGET_UPPER)
 
+# Axis 1 — struct set (everquest.h include dir): test forks its own; live+eql share.
+if(SEQ_TARGET STREQUAL "test")
+  set(SEQ_STRUCT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/backend/test")
+else()                                       # live | eql share Live's struct set
+  set(SEQ_STRUCT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/backend/live")
+endif()
+
+# Axis 2 — wiring TU: eql has its own (+ EqlDispatch); live+test share wire_live.cpp.
 if(SEQ_TARGET STREQUAL "eql")
-  set(SEQ_BACKEND_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/backend/eql")
   set(SEQ_BACKEND_SOURCES
-      ${SEQ_BACKEND_DIR}/wire_eql.cpp
-      ${SEQ_BACKEND_DIR}/eqldispatch.cpp)
-else()                                       # live | test share the live backend
-  set(SEQ_BACKEND_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/backend/live")
-  set(SEQ_BACKEND_SOURCES ${SEQ_BACKEND_DIR}/wire_live.cpp)
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/eql/wire_eql.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/eql/eqldispatch.cpp)
+else()                                       # live | test share the live wiring
+  set(SEQ_BACKEND_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/live/wire_live.cpp)
 endif()
 
 # Live is the base target: its opcode table lives FLAT at conf/ and its data
@@ -76,7 +83,7 @@ else()
   set(SEQ_OPCODE_SUBDIR "${SEQ_TARGET}")     # runtime: conf/<target>/
   set(_seq_conf_dir "${CMAKE_CURRENT_SOURCE_DIR}/conf/${SEQ_TARGET}")
 endif()
-message(STATUS "SEQ_TARGET=${SEQ_TARGET} (backend: ${SEQ_BACKEND_DIR}, data ns: ${SEQ_DATA_NAMESPACE}, opcodes: ${_seq_conf_dir})")
+message(STATUS "SEQ_TARGET=${SEQ_TARGET} (structs: ${SEQ_STRUCT_DIR}, data ns: ${SEQ_DATA_NAMESPACE}, opcodes: ${_seq_conf_dir})")
 
 # --- protobuf ----------------------------------------------------------------
 # The schema lives in the showeq-proto submodule under proto/.
@@ -229,7 +236,7 @@ add_dependencies(seq-daemon-core seq-opcode-xml)
 
 target_include_directories(seq-daemon-core PUBLIC
   src
-  ${SEQ_BACKEND_DIR}   # backend_prelude.h / s_backend_structs.h resolve per target
+  ${SEQ_STRUCT_DIR}    # per-backend everquest.h resolves here (src/ has none)
   ${PCAP_INCLUDE_DIRS}
 )
 
