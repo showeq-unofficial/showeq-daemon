@@ -72,12 +72,12 @@ bool DataLocationMgr::setupUserDirectory()
   // does the user data directory exist?
   if (!userDataDirInfo.exists())
   {
-    QDir userDataDir(m_userData);
-
-    // no, then attempt to create it.
-    if (!userDataDir.mkdir(m_userData))
+    // no, then attempt to create it. Use mkpath (not mkdir) so a nested
+    // namespace root like ~/.showeq/eql creates its ~/.showeq parent too —
+    // Live's flat ~/.showeq is unaffected (mkpath makes the single leaf).
+    if (!QDir().mkpath(m_userData))
     {
-      seqWarn("Failed to create '%s'\n", userDataDir.absolutePath().toLatin1().data());
+      seqWarn("Failed to create '%s'\n", QDir(m_userData).absolutePath().toLatin1().data());
       return false;
     }
   }

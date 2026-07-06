@@ -832,6 +832,22 @@ void ZoneMgr::zoneNew(const uint8_t* data, size_t len, uint8_t dir)
   delete zoneNew;
 }
 
+// Target-neutral primitive for the eql backend (EqlDispatch): the caller has
+// already parsed the wire payload into short/long names, so just adopt them
+// and drive the map via zoneChanged. Unlike zoneNew this does not touch the
+// exp multiplier / safe point / saved zone state.
+void ZoneMgr::setZoneByName(const QString& shortName, const QString& longName)
+{
+  m_shortZoneName = shortName;
+  m_longZoneName  = longName.isEmpty() ? shortName : longName;
+  m_zoning = false;
+
+  seqInfo("ZoneMgr: zone '%s' (%s)",
+          m_shortZoneName.toLatin1().data(), m_longZoneName.toLatin1().data());
+
+  emit zoneChanged(m_shortZoneName);
+}
+
 void ZoneMgr::zonePoints(const uint8_t* data, size_t len, uint8_t)
 {
   const zonePointsStruct* zp = (const zonePointsStruct*)data;

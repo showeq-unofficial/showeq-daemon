@@ -950,6 +950,59 @@ void SpawnShell::newSpawn(const spawnStruct& s)
    }
 }
 
+// Target-neutral primitives for the eql backend (EqlDispatch). The caller has
+// already decoded the wire struct (name + fixed-point position); these own the
+// m_spawns / filter-flag / signal work. The player's own spawn is owned by
+// Player (OP_ClientUpdate), so it is skipped here.
+void SpawnShell::upsertSpawn(uint16_t id, const QString& name,
+                             int16_t x, int16_t y, int16_t z,
+                             uint8_t level, uint8_t curHpPct, uint8_t maxHpPct)
+{
+  if (m_player && id == m_player->id())
+    return;
+
+  Item* item = m_spawns.value(id, nullptr);
+  if (item != NULL)
+  {
+    Spawn* spawn = (Spawn*)item;
+    spawn->setPos(x, y, z);
+    spawn->setLevel(level);
+    spawn->setHP(curHpPct);
+    spawn->setMaxHP(maxHpPct);
+    item->updateLastChanged();
+    emit changeItem(item, tSpawnChangedPosition);
+  }
+  else
+  {
+    Spawn* spawn = new Spawn(id, x, y, z, 0, 0, 0, 0, 0, 0);
+    spawn->setName(name.toLatin1().constData());
+    spawn->setLevel(level);
+    spawn->setHP(curHpPct);
+    spawn->setMaxHP(maxHpPct);
+    updateFilterFlags(spawn);
+    updateRuntimeFilterFlags(spawn);
+    m_spawns.insert(id, spawn);
+    emit addItem(spawn);
+    emit numSpawns(m_spawns.count());
+  }
+}
+
+void SpawnShell::moveSpawn(uint16_t id, int16_t x, int16_t y, int16_t z)
+{
+  if (m_player && id == m_player->id())
+    return;
+
+  // only move spawns we already know about (created via upsertSpawn)
+  Item* item = m_spawns.value(id, nullptr);
+  if (item == NULL)
+    return;
+
+  Spawn* spawn = (Spawn*)item;
+  spawn->setPos(x, y, z);
+  spawn->updateLastChanged();
+  emit changeItem(item, tSpawnChangedPosition);
+}
+
 void SpawnShell::playerUpdate2(const uint8_t* data, size_t len, uint8_t dir)
 {
   if (m_zoneMgr->isZoning())

@@ -1019,6 +1019,54 @@ struct pos
   }
 }
 
+// Target-neutral primitives for the eql backend (EqlDispatch). These own the
+// private-state writes + signal emissions that a backend-external QObject can't
+// perform. No Legends wire types appear here — the caller decodes those.
+
+void Player::setIdentity(uint16_t race, uint8_t classVal, uint8_t level)
+{
+  setNPC(SPAWN_SELF);
+  setRace(race);
+  setClassVal(classVal);
+  setLevel(level);
+
+  emit levelChanged(m_level);
+  updateLastChanged();
+  emit changeItem(this, tSpawnChangedALL);
+}
+
+void Player::applySelfPosition(int16_t px, int16_t py, int16_t pz,
+                               int16_t pdeltaX, int16_t pdeltaY, int16_t pdeltaZ,
+                               uint16_t heading, float speed)
+{
+  setPos(px, py, pz, showeq_params->walkpathrecord, showeq_params->walkpathlength);
+  setDeltas(pdeltaX, pdeltaY, pdeltaZ);
+  setHeading(heading, 0);   // deltaHeading not split from the packed word
+  m_validPos = true;
+  updateLast();
+
+  m_headingDegrees = 360 - ((heading * 360) >> 11);   // 11-bit heading (Legends)
+  emit headingChanged(m_headingDegrees);
+
+  emit posChanged(x(), y(), z(),
+		  deltaX(), deltaY(), deltaZ(), m_headingDegrees);
+
+  updateLastChanged();
+  emit changeItem(this, tSpawnChangedPosition);
+
+  emit newSpeed(speed);
+
+  static uint8_t count = 0;
+
+  // only save player position every 64 updates
+  if (showeq_params->savePlayerState)
+  {
+    count++;
+    if (count % 64)
+      savePlayerState();
+  }
+}
+
 void Player::consMessage(const uint8_t* data, size_t, uint8_t dir)
 {
   if (dir == DIR_Client)

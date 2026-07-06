@@ -65,6 +65,11 @@ class ZoneMgr : public QObject
   QString dzLongName() { return m_dzLongName; }
   uint32_t dzType() { return m_dzType; }
 
+  // Target-neutral primitive for the eql backend (EqlDispatch): set the active
+  // zone directly from decoded short/long names and emit zoneChanged. Unused on
+  // live/test (they drive zones through zoneNew/zoneChange).
+  void setZoneByName(const QString& shortName, const QString& longName);
+
  public slots:
   void saveZoneState(void);
   void restoreZoneState(void);

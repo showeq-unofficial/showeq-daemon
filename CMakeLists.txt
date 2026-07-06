@@ -35,6 +35,49 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(PCAP REQUIRED libpcap)
 pkg_check_modules(ZLIB REQUIRED zlib)
 
+# --- backend target selection ------------------------------------------------
+# Select the wire-format backend at configure time. Live and Test SHARE the
+# live backend (same everquest.h, same wiring TU, same handler slots); Test
+# differs ONLY in conf/test/opcodes.toml + its data namespace. EQL (EverQuest
+# Legends) is the one fully-distinct backend: own structs (everquest_legends.h),
+# own wiring (wire_eql.cpp), and a backend-owned EqlDispatch adapter so no
+# Legends slots leak onto the core managers. No #ifdef in core — divergence is
+# realized by which backend dir CMake compiles + puts on the include path.
+#
+# Switching SEQ_TARGET needs a clean configure (build.sh --clean or a fresh -B
+# build dir) — build.sh only configures on first run.
+set(SEQ_TARGET "live" CACHE STRING "Target server backend: live | test | eql")
+set_property(CACHE SEQ_TARGET PROPERTY STRINGS live test eql)
+if(NOT SEQ_TARGET MATCHES "^(live|test|eql)$")
+  message(FATAL_ERROR "SEQ_TARGET must be one of: live, test, eql (got '${SEQ_TARGET}').")
+endif()
+string(TOUPPER "${SEQ_TARGET}" SEQ_TARGET_UPPER)
+
+if(SEQ_TARGET STREQUAL "eql")
+  set(SEQ_BACKEND_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/backend/eql")
+  set(SEQ_BACKEND_SOURCES
+      ${SEQ_BACKEND_DIR}/wire_eql.cpp
+      ${SEQ_BACKEND_DIR}/eqldispatch.cpp)
+else()                                       # live | test share the live backend
+  set(SEQ_BACKEND_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/backend/live")
+  set(SEQ_BACKEND_SOURCES ${SEQ_BACKEND_DIR}/wire_live.cpp)
+endif()
+
+# Live is the base target: its opcode table lives FLAT at conf/ and its data
+# dir is FLAT at ~/.showeq, both kept backwards-compatible with legacy showeq
+# (which shares that conf/ tree + ~/.showeq). Test/EQL nest under a per-target
+# subdir so their opcode tables + item/spawn data never collide with Live's.
+if(SEQ_TARGET STREQUAL "live")
+  set(SEQ_DATA_NAMESPACE ".showeq")          # flat — shared with legacy showeq
+  set(SEQ_OPCODE_SUBDIR ".")                 # runtime: conf/ root (flat)
+  set(_seq_conf_dir "${CMAKE_CURRENT_SOURCE_DIR}/conf")
+else()
+  set(SEQ_DATA_NAMESPACE ".showeq/${SEQ_TARGET}")
+  set(SEQ_OPCODE_SUBDIR "${SEQ_TARGET}")     # runtime: conf/<target>/
+  set(_seq_conf_dir "${CMAKE_CURRENT_SOURCE_DIR}/conf/${SEQ_TARGET}")
+endif()
+message(STATUS "SEQ_TARGET=${SEQ_TARGET} (backend: ${SEQ_BACKEND_DIR}, data ns: ${SEQ_DATA_NAMESPACE}, opcodes: ${_seq_conf_dir})")
+
 # --- protobuf ----------------------------------------------------------------
 # The schema lives in the showeq-proto submodule under proto/.
 set(SEQ_PROTO_DIR "${CMAKE_SOURCE_DIR}/proto")
@@ -147,14 +190,20 @@ set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/zoneservermgr.cpp
 )
 
-# Regenerate conf/{zone,world}opcodes.xml from conf/opcodes.toml whenever the
-# TOML changes. opcodes.toml is the canonical source; the XML files are kept
-# in-tree for compatibility with the runtime QXmlStreamReader and any external
-# tooling (legacy showeq, IDE indexing) that already expects them.
+# Regenerate {zone,world}opcodes.xml from opcodes.toml whenever the TOML
+# changes. opcodes.toml is the canonical source; the XML files are kept in-tree
+# for compatibility with the runtime QXmlStreamReader and any external tooling
+# (legacy showeq, IDE indexing) that already expects them. The opcode table is
+# the ONE part of conf/ that varies per target: Live's lives FLAT at conf/ (base,
+# legacy-showeq compatible), Test/EQL under conf/<target>/. Everything else
+# (seqdef.xml, seqopcodes.dtd, maps/, spawnpoints/, filters/, daemon/) is shared
+# at the conf/ root, so --config-dir stays "conf" for every target; the runtime
+# picks the opcode dir via the SEQ_OPCODE_SUBDIR define ("." for live).
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
-set(_seq_opcodes_toml      "${CMAKE_CURRENT_SOURCE_DIR}/conf/opcodes.toml")
-set(_seq_zoneopcodes_xml   "${CMAKE_CURRENT_SOURCE_DIR}/conf/zoneopcodes.xml")
-set(_seq_worldopcodes_xml  "${CMAKE_CURRENT_SOURCE_DIR}/conf/worldopcodes.xml")
+file(MAKE_DIRECTORY "${_seq_conf_dir}")
+set(_seq_opcodes_toml      "${_seq_conf_dir}/opcodes.toml")
+set(_seq_zoneopcodes_xml   "${_seq_conf_dir}/zoneopcodes.xml")
+set(_seq_worldopcodes_xml  "${_seq_conf_dir}/worldopcodes.xml")
 set(_seq_toml_to_xml       "${CMAKE_CURRENT_SOURCE_DIR}/tools/toml_to_xml.py")
 add_custom_command(
   OUTPUT ${_seq_zoneopcodes_xml} ${_seq_worldopcodes_xml}
@@ -163,7 +212,7 @@ add_custom_command(
           ${_seq_zoneopcodes_xml}
           ${_seq_worldopcodes_xml}
   DEPENDS ${_seq_opcodes_toml} ${_seq_toml_to_xml}
-  COMMENT "Regenerating opcode XML from conf/opcodes.toml"
+  COMMENT "Regenerating ${SEQ_TARGET} opcode XML from conf/${SEQ_TARGET}/opcodes.toml"
   VERBATIM
 )
 add_custom_target(seq-opcode-xml ALL
@@ -178,6 +227,7 @@ add_dependencies(seq-daemon-core seq-opcode-xml)
 
 target_include_directories(seq-daemon-core PUBLIC
   src
+  ${SEQ_BACKEND_DIR}   # backend_prelude.h / s_backend_structs.h resolve per target
   ${PCAP_INCLUDE_DIRS}
 )
 
@@ -222,12 +272,23 @@ target_compile_definitions(seq-daemon-core PRIVATE
   PKGDATADIR="${CMAKE_INSTALL_PREFIX}/share/showeq-daemon/"
 )
 
+# Backend-target identity, PUBLIC so the executable + tests inherit them.
+# SEQ_TARGET_<X> lets the rare target-aware spot branch without hardcoding;
+# SEQ_DATA_NAMESPACE is the DataLocationMgr writable-root subdir (flat
+# ".showeq" for live, nested ".showeq/<target>" otherwise).
+target_compile_definitions(seq-daemon-core PUBLIC
+  SEQ_TARGET_${SEQ_TARGET_UPPER}=1
+  SEQ_DATA_NAMESPACE="${SEQ_DATA_NAMESPACE}"
+  SEQ_OPCODE_SUBDIR="${SEQ_OPCODE_SUBDIR}"
+)
+
 # --- daemon executable -------------------------------------------------------
 add_executable(showeq-daemon
   src/main.cpp
   src/daemonapp.cpp
   src/wsserver.cpp
   src/sessionadapter.cpp
+  ${SEQ_BACKEND_SOURCES}   # per-target wiring TU (+ EqlDispatch for eql)
 )
 
 target_link_libraries(showeq-daemon PRIVATE

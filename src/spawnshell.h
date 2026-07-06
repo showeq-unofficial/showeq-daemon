@@ -104,6 +104,15 @@ public:
    const ItemMap& spawns(void) const;
    const ItemMap& drops(void) const;
    const ItemMap& doors(void) const;
+
+   // Target-neutral primitives for the eql backend (EqlDispatch): create-or-
+   // update a spawn from already-decoded fields, and move an existing spawn.
+   // They own the m_spawns / filter-flag / signal work an external QObject
+   // can't reach. No Legends wire types here; unused on live/test.
+   void upsertSpawn(uint16_t id, const QString& name,
+                    int16_t x, int16_t y, int16_t z,
+                    uint8_t level, uint8_t curHpPct, uint8_t maxHpPct);
+   void moveSpawn(uint16_t id, int16_t x, int16_t y, int16_t z);
 signals:
    void addItem(const Item* item);
    void delItem(const Item* item);

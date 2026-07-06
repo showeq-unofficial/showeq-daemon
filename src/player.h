@@ -162,8 +162,17 @@ public:
 
 
    bool getStatValue(uint8_t stat,
-		     uint32_t& curValue, 
+		     uint32_t& curValue,
 		     uint32_t& maxValue);
+
+   // Target-neutral primitives driven by the eql backend's EqlDispatch (no
+   // Legends types here, so they compile on every target and go unused on
+   // live/test). setIdentity applies a decoded race/class/level; applySelfPos
+   // applies a decoded position+heading. See src/backend/eql/eqldispatch.cpp.
+   void setIdentity(uint16_t race, uint8_t classVal, uint8_t level);
+   void applySelfPosition(int16_t x, int16_t y, int16_t z,
+                          int16_t deltaX, int16_t deltaY, int16_t deltaZ,
+                          uint16_t heading, float speed);
 
  signals:
    void newPlayer(void);

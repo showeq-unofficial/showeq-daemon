@@ -36,6 +36,10 @@
 #include "packetinfo.h"
 #include "packetcommon.h"
 #include "everquest.h"
+// Per-target wire structs. Resolves to the selected backend dir's copy
+// (${SEQ_BACKEND_DIR} on the include path): empty for live/test, pulls in
+// everquest_legends.h for eql. No #ifdef in core.
+#include "backend_prelude.h"
 #include "diagnosticmessages.h"
 
 
@@ -56,6 +60,10 @@ EQPacketTypeDB::EQPacketTypeDB()
 
   // include the generated file
 #include "s_everquest.h"
+
+  // per-target size-registry extension (empty for live/test; the eql
+  // backend's copy adds the AddStruct(legends…) rows). AddStruct is in scope.
+#include "s_backend_structs.h"
 
   // undefine the convenience macro
 #undef AddStruct
