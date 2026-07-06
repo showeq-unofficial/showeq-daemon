@@ -18,10 +18,8 @@
 #include "spawnshell.h"
 #include "zonemgr.h"
 
-EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player,
-                         QObject* parent)
-    : QObject(parent)
-    , m_zoneMgr(zoneMgr)
+EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player)
+    : m_zoneMgr(zoneMgr)
     , m_spawnShell(spawnShell)
     , m_player(player)
 {

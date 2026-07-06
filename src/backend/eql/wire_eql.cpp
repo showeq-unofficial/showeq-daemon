@@ -10,9 +10,15 @@
  * Legends opcode id collides with a Live-named opcode present in conf/eql, and
  * the size checks keep mismatched payloads from dispatching. Install order is
  * golden-sensitive — do not reorder.
+ *
+ * Handlers register via EQPacketStream::on() as typed PacketHandlers (seqBind),
+ * not Qt string SLOTs. EqlDispatch is a plain object owned by a shared_ptr the
+ * wired closures capture — no QObject, no moc, no ODR pull into live/test.
  */
 
 #include "daemonapp.h"
+
+#include <memory>
 
 #include "combatrouter.h"
 #include "datetimemgr.h"
@@ -38,61 +44,60 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
                                 EQPacketStream* zoneC2S, EQPacketStream* zoneS2C,
                                 const ManagerSet& ms, bool wireGlobalSinks)
 {
-    // Wire one opcode→handler onto the stream(s) selected by (streamPair,
-    // dir). Mirrors the legacy EQPacket::connect2/wireBox fan-out, so the
-    // per-stream dispatcher install order is identical. The call sequence
-    // below is the exact concatenation of the old wireZoneMgr() then
-    // wireSpawnShell(), and is golden-sensitive (shared opcode+payload on
-    // one stream dispatches in install order) — do not reorder.
+    // Register one opcode→handler onto the stream(s) selected by (streamPair,
+    // dir). The call sequence below is the exact concatenation of the old
+    // wireZoneMgr() then wireSpawnShell(), and is golden-sensitive (shared
+    // opcode+payload on one stream dispatches in install order) — do not
+    // reorder. The handler is copied into each selected stream's dispatcher.
     auto wire = [&](const QString& op, EQStreamPairs sp, uint8_t dir,
                     const char* payload, EQSizeCheckType szt,
-                    const QObject* recv, const char* slot) {
+                    const PacketHandler& handler) {
         if (sp & SP_World) {
             if ((dir & DIR_Client) && worldC2S)
-                worldC2S->connect2(op, payload, szt, recv, slot);
+                worldC2S->on(op, payload, szt, handler);
             if ((dir & DIR_Server) && worldS2C)
-                worldS2C->connect2(op, payload, szt, recv, slot);
+                worldS2C->on(op, payload, szt, handler);
         }
         if (sp & SP_Zone) {
             if ((dir & DIR_Client) && zoneC2S)
-                zoneC2S->connect2(op, payload, szt, recv, slot);
+                zoneC2S->on(op, payload, szt, handler);
             if ((dir & DIR_Server) && zoneS2C)
-                zoneS2C->connect2(op, payload, szt, recv, slot);
+                zoneS2C->on(op, payload, szt, handler);
         }
     };
 
-    // Backend-owned adapter holding the Legends handler slots (never on the
-    // core managers — see eqldispatch.h). Parented to ms.player so its lifetime
-    // tracks this box's manager set (onBoxCreated reparents the set under a
-    // per-box root for eviction).
-    EqlDispatch* eql = new EqlDispatch(ms.zoneMgr, ms.spawnShell, ms.player, ms.player);
+    // Backend-owned adapter holding the Legends handlers (never on the core
+    // managers — see eqldispatch.h). Owned by a shared_ptr the wired closures
+    // capture, so it lives as long as this box's stream dispatchers reference
+    // it — no QObject parent needed.
+    auto eql = std::make_shared<EqlDispatch>(ms.zoneMgr, ms.spawnShell, ms.player);
 
     // --- ZoneMgr: zone transitions + player profile.
     wire("OP_ZoneEntry", SP_Zone, DIR_Client,
          "ClientZoneEntryStruct", SZC_Match,
-         ms.zoneMgr, SLOT(zoneEntryClient(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.zoneMgr, &ZoneMgr::zoneEntryClient));
     // EQ Legends OP_PlayerProfile (0x5207): header-only overlay of a ~38KB
     // struct, so SZC_None; EqlDispatch casts legendsCharProfileHdr.
     wire("OP_PlayerProfile", SP_Zone, DIR_Server,
          "legendsCharProfileHdr", SZC_None,
-         eql, SLOT(legendsProfile(const uint8_t*, size_t, uint8_t)));
+         seqBind(eql, &EqlDispatch::legendsProfile));
     wire("OP_ZoneChange", SP_Zone, DIR_Client | DIR_Server,
          "zoneChangeStruct", SZC_Match,
-         ms.zoneMgr, SLOT(zoneChange(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.zoneMgr, &ZoneMgr::zoneChange));
     // EQ Legends OP_NewZone (0x5ab6): raw bytes; EqlDispatch parses the
     // null-terminated short/long zone names.
     wire("OP_NewZone", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
-         eql, SLOT(legendsNewZone(const uint8_t*, size_t, uint8_t)));
+         seqBind(eql, &EqlDispatch::legendsNewZone));
     wire("OP_SendZonePoints", SP_Zone, DIR_Server,
          "zonePointsStruct", SZC_None,
-         ms.zoneMgr, SLOT(zonePoints(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.zoneMgr, &ZoneMgr::zonePoints));
     wire("OP_DzSwitchInfo", SP_Zone, DIR_Server,
          "dzSwitchInfo", SZC_None,
-         ms.zoneMgr, SLOT(dynamicZonePoints(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.zoneMgr, &ZoneMgr::dynamicZonePoints));
     wire("OP_DzInfo", SP_Zone, DIR_Server,
          "dzInfo", SZC_None,
-         ms.zoneMgr, SLOT(dynamicZoneInfo(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.zoneMgr, &ZoneMgr::dynamicZoneInfo));
 
     // Cross-manager: profile feeds Player too (after GroupMgr, which is
     // connected in buildManagerSet() — preserves slot fire order).
@@ -103,7 +108,7 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     // Wired DIR_Client only — the 24B S>C variant isn't decoded yet.
     wire("OP_ClientUpdate", SP_Zone, DIR_Client,
          "legendsPlayerSelfPos", SZC_Match,
-         eql, SLOT(playerUpdateSelf(const uint8_t*, size_t, uint8_t)));
+         seqBind(eql, &EqlDispatch::playerUpdateSelf));
 
     // OP_TimeOfDay / OP_ZoneServerInfo feed daemon-GLOBAL sinks. Only the
     // active box wires them — otherwise every box's (now unmuted) world/zone
@@ -116,163 +121,163 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     if (wireGlobalSinks) {
         wire("OP_TimeOfDay", SP_Zone, DIR_Server,
              "timeOfDayStruct", SZC_Match,
-             m_dateTimeMgr, SLOT(timeOfDay(const uint8_t*)));
+             seqBind(m_dateTimeMgr, &DateTimeMgr::timeOfDay));
         wire("OP_ZoneServerInfo", SP_World, DIR_Server,
              "zoneServerInfoStruct", SZC_Match,
-             m_zoneServerMgr, SLOT(zoneServerInfo(const uint8_t*)));
+             seqBind(m_zoneServerMgr, &ZoneServerMgr::zoneServerInfo));
     }
 
     // --- SpawnShell: spawn lifecycle + positions.
     wire("OP_GroundSpawn", SP_Zone, DIR_Server,
          "makeDropStruct", SZC_Modulus,
-         ms.spawnShell, SLOT(newGroundItem(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.spawnShell, &SpawnShell::newGroundItem));
     wire("OP_ClickObject", SP_Zone, DIR_Server,
          "remDropStruct", SZC_Match,
-         ms.spawnShell, SLOT(removeGroundItem(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.spawnShell, &SpawnShell::removeGroundItem));
     wire("OP_SpawnDoor", SP_Zone, DIR_Server,
          "doorStruct", SZC_Modulus,
-         ms.spawnShell, SLOT(newDoorSpawns(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.spawnShell, &SpawnShell::newDoorSpawns));
     wire("OP_ZoneEntry", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
-         ms.spawnShell, SLOT(zoneEntry(const uint8_t*, size_t)));
+         seqBind(ms.spawnShell, &SpawnShell::zoneEntry));
     // EQ Legends OP_ZoneSpawns (0x7475): one spawn per payload (name + block);
     // EqlDispatch parses the variable-length name and the fixed spawn struct.
     wire("OP_ZoneSpawns", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
-         eql, SLOT(legendsSpawn(const uint8_t*, size_t, uint8_t)));
+         seqBind(eql, &EqlDispatch::legendsSpawn));
     // EQ Legends OP_MobUpdate (0x061b): per-mob position update (14B).
     wire("OP_MobUpdate", SP_Zone, DIR_Server,
          "legendsMobUpdateStruct", SZC_Match,
-         eql, SLOT(legendsMobUpdate(const uint8_t*, size_t, uint8_t)));
+         seqBind(eql, &EqlDispatch::legendsMobUpdate));
     wire("OP_WearChange", SP_Zone, DIR_Server | DIR_Client,
          "SpawnUpdateStruct", SZC_Match,
-         ms.spawnShell, SLOT(updateSpawnInfo(const uint8_t*)));
+         seqBind(ms.spawnShell, &SpawnShell::updateSpawnInfo));
     // OP_SpawnAppearance2 type=0x2c = TLP mob-lock / FTE flag.
     wire("OP_SpawnAppearance2", SP_Zone, DIR_Server,
          "spawnAppearance2Struct", SZC_Match,
-         ms.spawnShell, SLOT(updateSpawnLock(const uint8_t*)));
+         seqBind(ms.spawnShell, &SpawnShell::updateSpawnLock));
     wire("OP_HPUpdate", SP_Zone, DIR_Server | DIR_Client,
          "hpNpcUpdateStruct", SZC_Match,
-         ms.spawnShell, SLOT(updateNpcHP(const uint8_t*)));
+         seqBind(ms.spawnShell, &SpawnShell::updateNpcHP));
     wire("OP_MobHealth", SP_Zone, DIR_Server,
          "mobHealthStruct", SZC_Match,
-         ms.spawnShell, SLOT(updateMobHealth(const uint8_t*)));
+         seqBind(ms.spawnShell, &SpawnShell::updateMobHealth));
 
     // Player vitals — same opcodes also feed Player (filtered by self).
     // SpawnShell's OP_HPUpdate/OP_WearChange wires above MUST precede
     // these (shared opcode+payload on the same stream dispatches in order).
     wire("OP_HPUpdate", SP_Zone, DIR_Server | DIR_Client,
          "hpNpcUpdateStruct", SZC_Match,
-         ms.player, SLOT(updateNpcHP(const uint8_t*)));
+         seqBind(ms.player, &Player::updateNpcHP));
     wire("OP_ManaChange", SP_Zone, DIR_Server,
          "manaDecrementStruct", SZC_Match,
-         ms.player, SLOT(manaChange(const uint8_t*)));
+         seqBind(ms.player, &Player::manaChange));
     wire("OP_Stamina", SP_Zone, DIR_Server,
          "staminaStruct", SZC_Match,
-         ms.player, SLOT(updateStamina(const uint8_t*)));
+         seqBind(ms.player, &Player::updateStamina));
     wire("OP_EndUpdate", SP_Zone, DIR_Server,
          "endUpdateStruct", SZC_Match,
-         ms.player, SLOT(updateEndurance(const uint8_t*)));
+         seqBind(ms.player, &Player::updateEndurance));
     wire("OP_ExpUpdate", SP_Zone, DIR_Server,
          "expUpdateStruct", SZC_Match,
-         ms.player, SLOT(updateExp(const uint8_t*)));
+         seqBind(ms.player, &Player::updateExp));
     wire("OP_LevelUpdate", SP_Zone, DIR_Server,
          "levelUpUpdateStruct", SZC_Match,
-         ms.player, SLOT(updateLevel(const uint8_t*)));
+         seqBind(ms.player, &Player::updateLevel));
     wire("OP_SkillUpdate", SP_Zone, DIR_Server,
          "skillIncStruct", SZC_Match,
-         ms.player, SLOT(increaseSkill(const uint8_t*)));
+         seqBind(ms.player, &Player::increaseSkill));
     wire("OP_WearChange", SP_Zone, DIR_Server | DIR_Client,
          "SpawnUpdateStruct", SZC_Match,
-         ms.player, SLOT(updateSpawnInfo(const uint8_t*)));
+         seqBind(ms.player, &Player::updateSpawnInfo));
     wire("OP_DeleteSpawn", SP_Zone, DIR_Server | DIR_Client,
          "deleteSpawnStruct", SZC_Match,
-         ms.spawnShell, SLOT(deleteSpawn(const uint8_t*)));
+         seqBind(ms.spawnShell, &SpawnShell::deleteSpawn));
     wire("OP_SpawnRename", SP_Zone, DIR_Server,
          "spawnRenameStruct", SZC_Match,
-         ms.spawnShell, SLOT(renameSpawn(const uint8_t*)));
+         seqBind(ms.spawnShell, &SpawnShell::renameSpawn));
     wire("OP_Illusion", SP_Zone, DIR_Server | DIR_Client,
          "spawnIllusionStruct", SZC_Match,
-         ms.spawnShell, SLOT(illusionSpawn(const uint8_t*)));
+         seqBind(ms.spawnShell, &SpawnShell::illusionSpawn));
     wire("OP_SpawnAppearance", SP_Zone, DIR_Server | DIR_Client,
          "spawnAppearanceStruct", SZC_Match,
-         ms.spawnShell, SLOT(updateSpawnAppearance(const uint8_t*)));
+         seqBind(ms.spawnShell, &SpawnShell::updateSpawnAppearance));
     wire("OP_Death", SP_Zone, DIR_Server,
          "newCorpseStruct", SZC_Match,
-         ms.spawnShell, SLOT(killSpawn(const uint8_t*)));
+         seqBind(ms.spawnShell, &SpawnShell::killSpawn));
     wire("OP_Shroud", SP_Zone, DIR_Server,
          "spawnShroudSelf", SZC_None,
-         ms.spawnShell, SLOT(shroudSpawn(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.spawnShell, &SpawnShell::shroudSpawn));
     wire("OP_RemoveSpawn", SP_Zone, DIR_Server | DIR_Client,
          "removeSpawnStruct", SZC_None,
-         ms.spawnShell, SLOT(removeSpawn(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.spawnShell, &SpawnShell::removeSpawn));
     wire("OP_Consider", SP_Zone, DIR_Server | DIR_Client,
          "considerStruct", SZC_Match,
-         ms.spawnShell, SLOT(consMessage(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.spawnShell, &SpawnShell::consMessage));
     wire("OP_TargetMouse", SP_Zone, DIR_Server | DIR_Client,
          "clientTargetStruct", SZC_Match,
-         ms.spawnShell, SLOT(clientTarget(const uint8_t*)));
+         seqBind(ms.spawnShell, &SpawnShell::clientTarget));
     wire("OP_NpcMoveUpdate", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
-         ms.spawnShell, SLOT(npcMoveUpdate(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.spawnShell, &SpawnShell::npcMoveUpdate));
     // (EQ Legends) The S>C OP_ClientUpdate spawn-position broadcast is a
     // different opcode/struct than Live's playerSpawnPosStruct; not yet mapped,
     // so no wire here (Live wired SpawnShell::playerUpdate at this spot).
     wire("OP_CorpseLocResponse", SP_Zone, DIR_Server,
          "corpseLocStruct", SZC_Match,
-         ms.spawnShell, SLOT(corpseLoc(const uint8_t*)));
+         seqBind(ms.spawnShell, &SpawnShell::corpseLoc));
 
     // --- MessageShell: chat / system / NPC text.
     wire("OP_CommonMessage", SP_Zone, DIR_Client | DIR_Server,
          "channelMessageStruct", SZC_None,
-         ms.messageShell, SLOT(channelMessage(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.messageShell, &MessageShell::channelMessage));
     wire("OP_FormattedMessage", SP_Zone, DIR_Server,
          "formattedMessageStruct", SZC_None,
-         ms.messageShell, SLOT(formattedMessage(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.messageShell, &MessageShell::formattedMessage));
     wire("OP_SimpleMessage", SP_Zone, DIR_Server,
          "simpleMessageStruct", SZC_Match,
-         ms.messageShell, SLOT(simpleMessage(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.messageShell, &MessageShell::simpleMessage));
     wire("OP_SpecialMesg", SP_Zone, DIR_Server,
          "specialMessageStruct", SZC_None,
-         ms.messageShell, SLOT(specialMessage(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.messageShell, &MessageShell::specialMessage));
     wire("OP_InspectAnswer", SP_Zone, DIR_Server,
          "inspectDataStruct", SZC_Match,
-         ms.messageShell, SLOT(inspectData(const uint8_t*)));
+         seqBind(ms.messageShell, &MessageShell::inspectData));
 
     // --- GroupMgr.
     wire("OP_GroupUpdate", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
-         ms.groupMgr, SLOT(groupUpdate(const uint8_t*, size_t)));
+         seqBind(ms.groupMgr, &GroupMgr::groupUpdate));
     wire("OP_GroupMemberList", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
-         ms.groupMgr, SLOT(groupMemberList(const uint8_t*, size_t)));
+         seqBind(ms.groupMgr, &GroupMgr::groupMemberList));
     wire("OP_GroupDisband", SP_Zone, DIR_Server,
          "groupDisbandStruct", SZC_None,
-         ms.groupMgr, SLOT(removeGroupMember(const uint8_t*)));
+         seqBind(ms.groupMgr, &GroupMgr::removeGroupMember));
     wire("OP_GroupDisband2", SP_Zone, DIR_Server,
          "groupDisbandStruct", SZC_None,
-         ms.groupMgr, SLOT(removeGroupMember(const uint8_t*)));
+         seqBind(ms.groupMgr, &GroupMgr::removeGroupMember));
 
     // --- SpellShell. (OP_SimpleMessage here is a SECOND receiver after
     // MessageShell above — order preserved.)
     wire("OP_CastSpell", SP_Zone, DIR_Server | DIR_Client,
          "startCastStruct", SZC_Match,
-         ms.spellShell, SLOT(selfStartSpellCast(const uint8_t*)));
+         seqBind(ms.spellShell, &SpellShell::selfStartSpellCast));
     wire("OP_Buff", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
-         ms.spellShell, SLOT(buff(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.spellShell, &SpellShell::buff));
     wire("OP_Action", SP_Zone, DIR_Server | DIR_Client,
          "actionStruct", SZC_Match,
-         ms.spellShell, SLOT(action(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.spellShell, &SpellShell::action));
     wire("OP_Action", SP_Zone, DIR_Server | DIR_Client,
          "actionAltStruct", SZC_Match,
-         ms.spellShell, SLOT(action(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.spellShell, &SpellShell::action));
     wire("OP_SimpleMessage", SP_Zone, DIR_Server,
          "simpleMessageStruct", SZC_Match,
-         ms.spellShell, SLOT(simpleMessage(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.spellShell, &SpellShell::simpleMessage));
 
     // --- CombatRouter.
     wire("OP_Action2", SP_Zone, DIR_Client | DIR_Server,
          "action2Struct", SZC_Match,
-         ms.combatRouter, SLOT(action2(const uint8_t*, size_t, uint8_t)));
+         seqBind(ms.combatRouter, &CombatRouter::action2));
 }
