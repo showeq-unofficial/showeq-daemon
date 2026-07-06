@@ -74,7 +74,8 @@ class ZoneMgr : public QObject
   void saveZoneState(void);
   void restoreZoneState(void);
 
- protected slots:
+  // Packet handlers — public so the wiring TU can take their address for
+  // EQPacketStream::on()/seqBind. Kept as slots for moc/signal compatibility.
   void zoneEntryClient(const uint8_t* zsentry, size_t, uint8_t);
   void zonePlayer(const uint8_t* zsentry, size_t len);
   void zoneChange(const uint8_t* zoneChange, size_t, uint8_t);
@@ -82,6 +83,8 @@ class ZoneMgr : public QObject
   void zonePoints(const uint8_t* zp, size_t, uint8_t);
   void dynamicZonePoints(const uint8_t *data, size_t len, uint8_t);
   void dynamicZoneInfo(const uint8_t *data, size_t len, uint8_t);
+
+ protected slots:
   int32_t fillProfileStruct(charProfileStruct *player, const uint8_t *data, size_t len, bool checkLen);
 
  signals:
