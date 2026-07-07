@@ -135,3 +135,22 @@ target_compile_options(namepromoter_test PRIVATE
 )
 
 add_test(NAME namepromoter_test COMMAND namepromoter_test)
+
+# FFI smoke test for the Rust decoder bridge (seq::rust::decode_*). seq-daemon-core
+# links seq-bridge-cxx PUBLIC, so it propagates the generated cxx header here.
+add_executable(rustdecode_test
+  rustdecode_test.cpp
+)
+
+target_link_libraries(rustdecode_test PRIVATE
+  seq-daemon-core
+  Qt${QT_VERSION_MAJOR}::Test
+)
+
+target_compile_options(rustdecode_test PRIVATE
+  -Wall
+  -Wno-unused-parameter
+  -Wno-deprecated-declarations
+)
+
+add_test(NAME rustdecode_test COMMAND rustdecode_test)
