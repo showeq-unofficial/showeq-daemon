@@ -70,11 +70,11 @@ jobs:
 
       - name: configure (Qt5)
         if: matrix.qt_major == 5
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_USE_QT5=ON -DSEQ_DECODER_RS_DIR=${{ github.workspace }}/showeq-decoder-rs
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_USE_QT5=ON -DSEQ_DECODER_RS_DIR=$GITHUB_WORKSPACE/showeq-decoder-rs
 
       - name: configure (Qt6)
         if: matrix.qt_major == 6
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_DECODER_RS_DIR=${{ github.workspace }}/showeq-decoder-rs
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_DECODER_RS_DIR=$GITHUB_WORKSPACE/showeq-decoder-rs
 
       - name: build
         run: cmake --build build -j
@@ -128,7 +128,7 @@ jobs:
             libpcap-dev libprotobuf-dev protobuf-compiler zlib1g-dev
 
       - name: configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_TARGET=${{ matrix.seq_target }} -DSEQ_DECODER_RS_DIR=${{ github.workspace }}/showeq-decoder-rs
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_TARGET=${{ matrix.seq_target }} -DSEQ_DECODER_RS_DIR=$GITHUB_WORKSPACE/showeq-decoder-rs
 
       - name: build
         run: cmake --build build -j

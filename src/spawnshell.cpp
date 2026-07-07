@@ -38,6 +38,8 @@
 #include "diagnosticmessages.h"
 #include "netstream.h"
 
+#include <cstring>   // std::memcpy / std::memset (transitive via Qt6 but not Qt5)
+
 #include <QFile>
 #include <QDataStream>
 #include <QTextStream>
