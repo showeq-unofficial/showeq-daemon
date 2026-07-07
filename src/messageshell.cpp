@@ -22,6 +22,7 @@
  */
 
 #include "messageshell.h"
+#include "seq-bridge-cxx/lib.h"
 #include "eqstr.h"
 #include "messages.h"
 #include "everquest.h"
@@ -88,54 +89,33 @@ MessageShell::MessageShell(Messages* messages, EQStr* eqStrings,
 
 void MessageShell::channelMessage(const uint8_t* data, size_t len, uint8_t dir)
 {
-// Added for 8/12/09 patch for serialized message packet ----------------------
-   QString qTmp;
-   NetStream netStream(data, len);
+  auto out = seq::rust::decode_channel_message(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) return;
 
-   channelMessageStruct *cmsg = new channelMessageStruct;
-   memset(cmsg, 0, sizeof(channelMessageStruct));
-
-   qTmp = netStream.readText(); // sender
-
-   if(qTmp.length())
-      strcpy(cmsg->sender, qTmp.toLatin1().data());
-
-   qTmp = netStream.readText(); // target
-
-   if(qTmp.length())
-      strcpy(cmsg->target, qTmp.toLatin1().data());
-
-   netStream.skipBytes(8); // Unknown
-
-   cmsg->language = netStream.readUInt32NC(); // language
-
-   cmsg->chanNum = netStream.readUInt32NC(); // channel
-
-   netStream.readUInt32(); // unknown
-   netStream.readUInt8(); // unknown
-
-   cmsg->skillInLanguage = netStream.readUInt32NC(); // skill
-
-   qTmp = netStream.readText(); // message
-   if(qTmp.length())
-      strcpy(cmsg->message, qTmp.toLatin1().data());
-
-//-----------------------------------------------------------------------------
+  const uint32_t chanNum = out.chan_num;
 
   // Tells and Group by us happen twice *shrug*. Ignore the client->server one.
   if (dir == DIR_Client &&
-      (cmsg->chanNum == MT_Tell || cmsg->chanNum == MT_Group || cmsg->chanNum == MT_Guild ||
-      cmsg->chanNum == MT_OOC || cmsg->chanNum == MT_Shout || cmsg->chanNum == MT_Auction ||
-      cmsg->chanNum == MT_System || cmsg->chanNum == MT_Raid))
+      (chanNum == MT_Tell || chanNum == MT_Group || chanNum == MT_Guild ||
+       chanNum == MT_OOC || chanNum == MT_Shout || chanNum == MT_Auction ||
+       chanNum == MT_System || chanNum == MT_Raid))
   {
     return;
   }
+
+  const QString sender =
+      QString::fromLatin1(out.sender.data(), out.sender.size());
+  const QString targetName =
+      QString::fromLatin1(out.target.data(), out.target.size());
+  const QString message =
+      QString::fromLatin1(out.message.data(), out.message.size());
 
   // Emit the structured chatMessage signal so the websocket layer can
   // forward it as seq.v1.ChatMessage. Limit to player-to-player channels;
   // MT_System and other server-side noise stay confined to the formatted
   // addMessage() path below.
-  switch (cmsg->chanNum) {
+  switch (chanNum) {
   case MT_Guild:
   case MT_Group:
   case MT_Shout:
@@ -144,67 +124,35 @@ void MessageShell::channelMessage(const uint8_t* data, size_t len, uint8_t dir)
   case MT_Tell:
   case MT_Say:
   case MT_Raid:
-    // OP_ChannelMessage has no wire ChatColor — pass 0 (CC_Default) so
+    // OP_CommonMessage has no wire ChatColor — pass 0 (CC_Default) so
     // the client falls back to the chanNum->colour mapping.
-    emit chatMessage(static_cast<uint32_t>(cmsg->chanNum),
-                     QString::fromLatin1(cmsg->sender),
-                     QString::fromLatin1(cmsg->target),
-                     stripEqItemLinks(QString::fromLatin1(cmsg->message)),
-                     0u);
+    emit chatMessage(chanNum, sender, targetName,
+                     stripEqItemLinks(message), 0u);
     break;
   default:
     break;
   }
 
   QString tempStr;
+  const bool hasTarget = (chanNum >= MT_Tell) && !targetName.isEmpty();
 
-  bool target = false;
-  if (cmsg->chanNum >= MT_Tell)
-    target = true;
-
-  if (cmsg->language)
+  if (out.language)
   {
-    if ((cmsg->target[0] != 0) && target)
-    {
-      tempStr = QString::asprintf( "'%s' -> '%s' - %s {%s}",
-		       cmsg->sender,
-		       cmsg->target,
-		       cmsg->message,
-		       language_name(cmsg->language).toLatin1().data()
-		       );
-    }
+    const QString lang = language_name(out.language);
+    if (hasTarget)
+      tempStr = QString("'%1' -> '%2' - %3 {%4}").arg(sender, targetName, message, lang);
     else
-    {
-      tempStr = QString::asprintf( "'%s' - %s {%s}",
-		       cmsg->sender,
-		       cmsg->message,
-		       language_name(cmsg->language).toLatin1().data()
-		       );
-    }
+      tempStr = QString("'%1' - %2 {%3}").arg(sender, message, lang);
   }
   else // Don't show common, its obvious
   {
-    if ((cmsg->target[0] != 0) && target)
-    {
-      tempStr = QString::asprintf( "'%s' -> '%s' - %s",
-		       cmsg->sender,
-		       cmsg->target,
-		       cmsg->message
-		       );
-    }
+    if (hasTarget)
+      tempStr = QString("'%1' -> '%2' - %3").arg(sender, targetName, message);
     else
-    {
-      tempStr = QString::asprintf( "'%s' - %s",
-		       cmsg->sender,
-		       cmsg->message
-		       );
-    }
+      tempStr = QString("'%1' - %2").arg(sender, message);
   }
 
-  m_messages->addMessage((MessageType)cmsg->chanNum, tempStr);
-
-  delete cmsg;
-  cmsg = 0;
+  m_messages->addMessage(static_cast<MessageType>(chanNum), tempStr);
 }
 
 static MessageType chatColor2MessageType(ChatColor chatColor)
@@ -276,33 +224,27 @@ void MessageShell::formattedMessage(const uint8_t* data, size_t len, uint8_t dir
   if (dir == DIR_Client)
     return;
 
-  const formattedMessageStruct* fmsg = (const formattedMessageStruct*)data;
-  QString tempStr;
+  auto out = seq::rust::decode_formatted_message(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) return;
 
-  size_t messagesLen = len - ((uint8_t*)&fmsg->messages[0] - (uint8_t*)fmsg);
-  const MessageType mt = chatColor2MessageType(fmsg->messageColor);
+  // Variable-length text follows the 13-byte header; pass through to
+  // EQStr::formatMessage which walks the {u32 len, bytes} subseq array.
+  constexpr size_t HEADER_LEN = offsetof(formattedMessageStruct, messages);
+  const char* messages = reinterpret_cast<const char*>(data) + HEADER_LEN;
+  const size_t messagesLen = len - HEADER_LEN;
 
-  // If eqstr has no template for this format id, fall back to dbstr_us.txt —
-  // modern EQ keeps a lot of /time-style status text + faction names there
-  // that legacy eqstr never had (so those lines would otherwise read
-  // "Unknown: <id>"). Only unique id2=0 dbstr entries are used; multi-meaning
-  // ids fall through. See DbStrings. (Ported from archive/test-client.)
-  QString text;
-  if (m_dbStrings && m_dbStrings->isLoaded() &&
-      m_eqStrings->find(fmsg->messageFormat).isEmpty())
-    text = m_dbStrings->uniqueText(fmsg->messageFormat);
-  if (text.isEmpty())
-    text = m_eqStrings->formatMessage(fmsg->messageFormat,
-                                      fmsg->messages,
-                                      messagesLen);
-  text = stripEqItemLinks(text);
+  const MessageType mt = chatColor2MessageType(
+      static_cast<ChatColor>(out.message_color));
+  const QString text = stripEqItemLinks(
+      m_eqStrings->formatMessage(out.message_format, messages, messagesLen));
   m_messages->addMessage(mt, text);
   // Forward to the websocket as a system-flavored chatMessage so the web
   // chat panel sees NPC speech, system warnings, exp ticks, etc. Pass
   // the raw ChatColor through so the client can colour the line with
   // full fidelity instead of falling back to the lossy MT collapse.
   emit chatMessage(static_cast<uint32_t>(mt), QString(), QString(), text,
-                   static_cast<uint32_t>(fmsg->messageColor));
+                   out.message_color);
 }
 
 void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)
@@ -311,59 +253,38 @@ void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)
   if (dir == DIR_Client)
     return;
 
-  const simpleMessageStruct* smsg = (const simpleMessageStruct*)data;
-  QString tempStr;
+  auto out = seq::rust::decode_simple_message(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) return;
 
-  const MessageType mt = chatColor2MessageType(smsg->messageColor);
-
-  // TODO(live-verify): spell-flavored OP_SimpleMessage fires can carry a
-  // spells_us_str.txt column selector in messageFormat and the spell id in a
-  // param field, resolving to per-spell cast/effect/wear-off text via
-  // m_spellMessages (already loaded). On Test those selectors were 2553
-  // (CastedMe) / 2601 (CastedOther) / 2686 (CasterOther) / 2702 (SpellGone),
-  // with the spell id in simpleMessageStruct's second word. Both the selector
-  // values AND the struct-field offset were derived from Test captures — DO
-  // NOT enable on Live until re-verified against a current Live capture (Live's
-  // simpleMessageStruct layout / format ids may differ). Full logic:
-  // archive/test-client commit b403896. When confirmed, dispatch here:
-  //   switch (smsg->messageFormat) {
-  //     case 2553: text = m_spellMessages->text(spellId, SpellMessages::CastedMe); break;
-  //     ...  (falls through to the eqstr lookup below for non-spell fires)
-  //   }
-  const QString text = stripEqItemLinks(m_eqStrings->message(smsg->messageFormat));
+  const MessageType mt = chatColor2MessageType(
+      static_cast<ChatColor>(out.message_color));
+  const QString text = stripEqItemLinks(m_eqStrings->message(out.message_format));
   m_messages->addMessage(mt, text);
   emit chatMessage(static_cast<uint32_t>(mt), QString(), QString(), text,
-                   static_cast<uint32_t>(smsg->messageColor));
+                   out.message_color);
 }
 
-void MessageShell::specialMessage(const uint8_t* data, size_t, uint8_t dir)
+void MessageShell::specialMessage(const uint8_t* data, size_t len, uint8_t dir)
 {
   // avoid client chatter and do nothing if not viewing channel messages
   if (dir == DIR_Client)
     return;
 
-  const specialMessageStruct* smsg = (const specialMessageStruct*)data;
+  auto out = seq::rust::decode_special_message(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) return;
 
   const Item* target = NULL;
+  if (out.target)
+    target = m_spawnShell->findID(tSpawn, out.target);
 
-  if (smsg->target)
-    target = m_spawnShell->findID(tSpawn, smsg->target);
-
-  // calculate the message position
-  // const char* message = smsg->source + strlen(smsg->source) + 1
-  //  + sizeof(smsg->unknown0xxx);
-  // NOTE: gcc 8 (and maybe others) over-optimizes the above strlen call on the
-  // variable-sized source array (possibly because it isn't the last member
-  // of the struct), and as a result, strlen always returns 0 unless compiler
-  // optimizations are disabled.  So we work around this by creating a QString
-  // and using its size
-  const char* message = smsg->source + QString(smsg->source).length() + 1
-      + sizeof(smsg->unknown0xxx);
-
-  const MessageType mt = chatColor2MessageType(smsg->messageColor);
-  const QString sender = QString::fromLatin1(smsg->source);
+  const MessageType mt = chatColor2MessageType(
+      static_cast<ChatColor>(out.message_color));
+  const QString sender = QString::fromLatin1(out.source.data(), out.source.size());
   const QString targetName = target ? target->name() : QString();
-  const QString text = stripEqItemLinks(QString::fromLatin1(message));
+  const QString text = stripEqItemLinks(
+      QString::fromLatin1(out.message.data(), out.message.size()));
 
   if (target) {
     m_messages->addMessage(mt,
@@ -375,7 +296,7 @@ void MessageShell::specialMessage(const uint8_t* data, size_t, uint8_t dir)
   // Web chat panel keeps the structured fields (sender + target + text)
   // and renders however it likes; no string concatenation on the wire.
   emit chatMessage(static_cast<uint32_t>(mt), sender, targetName, text,
-                   static_cast<uint32_t>(smsg->messageColor));
+                   out.message_color);
 }
 
 void MessageShell::guildMOTD(const uint8_t* data, size_t, uint8_t dir)

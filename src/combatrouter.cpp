@@ -1,4 +1,5 @@
 #include "combatrouter.h"
+#include "seq-bridge-cxx/lib.h"
 
 #include "everquest.h"
 #include "spawn.h"
@@ -34,21 +35,23 @@ static QString lookupSpawnName(SpawnShell* shell, uint16_t id)
 void CombatRouter::action2(const uint8_t* data, size_t len, uint8_t /*dir*/)
 {
     if (!data || len < sizeof(action2Struct)) return;
-    const action2Struct* a = reinterpret_cast<const action2Struct*>(data);
+    auto out = seq::rust::decode_action2(
+        rust::Slice<const uint8_t>{data, sizeof(action2Struct)});
+    if (!out.ok) return;
 
-    QString sourceName = lookupSpawnName(m_spawnShell, a->source);
-    QString targetName = lookupSpawnName(m_spawnShell, a->target);
+    QString sourceName = lookupSpawnName(m_spawnShell, out.source);
+    QString targetName = lookupSpawnName(m_spawnShell, out.target);
 
     QString spellName;
-    if (a->spell > 0 && m_spells) {
-        if (const Spell* sp = m_spells->spell(static_cast<uint32_t>(a->spell))) {
+    if (out.spell > 0 && m_spells) {
+        if (const Spell* sp = m_spells->spell(static_cast<uint16_t>(out.spell))) {
             spellName = sp->name();
         }
     }
 
-    emit combatEvent(a->source, sourceName,
-                     a->target, targetName,
-                     static_cast<uint32_t>(a->type),
-                     a->damage,
-                     static_cast<uint32_t>(a->spell), spellName);
+    emit combatEvent(out.source, sourceName,
+                     out.target, targetName,
+                     static_cast<uint32_t>(out.kind),
+                     out.damage,
+                     static_cast<uint32_t>(out.spell), spellName);
 }

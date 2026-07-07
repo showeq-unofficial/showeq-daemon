@@ -21,6 +21,7 @@
  */
 
 #include "group.h"
+#include "seq-bridge-cxx/lib.h"
 #include "player.h"
 #include "spawn.h"
 #include "spawnshell.h"
@@ -209,10 +210,14 @@ void GroupMgr::groupMemberList(const uint8_t* data, size_t size)
 
 void GroupMgr::removeGroupMember(const uint8_t* data)
 {
-   const groupDisbandStruct* gmem = (const groupDisbandStruct*)data;
+   auto out = seq::rust::decode_group_disband(
+       rust::Slice<const uint8_t>{data, sizeof(groupDisbandStruct)});
+   if (!out.ok) return;
+   const QString memberName =
+       QString::fromLatin1(out.membername.data(), out.membername.size());
 
    // If we're disbanding, reset counters and clear member slots
-   if(!strcmp(gmem->membername, m_player->name().toLatin1().data()))
+   if(memberName == m_player->name())
    {
       m_memberCount = 0;
       m_membersInZoneCount = 0;
@@ -230,7 +235,7 @@ void GroupMgr::removeGroupMember(const uint8_t* data)
       for(int i = 0; i < MAX_GROUP_PEERS; i++)
       {
          // is this the member?
-         if(m_members[i]->m_name == gmem->membername)
+         if(m_members[i]->m_name == memberName)
          {
             // yes, announce its removal
             emit removed(m_members[i]->m_name, m_members[i]->m_spawn);

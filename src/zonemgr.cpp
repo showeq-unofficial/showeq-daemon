@@ -27,6 +27,7 @@
  */
 
 #include "zonemgr.h"
+#include "seq-bridge-cxx/lib.h"
 #include "packet.h"
 #include "main.h"
 #include "everquest.h"
@@ -202,402 +203,168 @@ void ZoneMgr::zoneEntryClient(const uint8_t* data, size_t len, uint8_t dir)
 
 int32_t ZoneMgr::fillProfileStruct(charProfileStruct *player, const uint8_t *data, size_t len, bool checkLen)
 {
-  /*
-  This reads data from the variable-length charPlayerProfile struct
-  */
-  NetStream netStream(data, len);
-  int32_t retVal;
-  QString name;
-
-  player->checksum = netStream.readUInt32NC();
-
-  // Unknown  
-  netStream.skipBytes(16);
-  
-  player->profile.gender = netStream.readUInt8();
-  // Note: readUInt32() is big-endian (network order); readUInt32NC() is
-  // little-endian (EQ wire format). race + class_ used the wrong reader,
-  // so class=2 (cleric) read as 0x02000000 then truncated to uint8_t=0
-  // in setClassVal. m_class would be re-set later from spawnStruct via
-  // Spawn::update, but calcMaxMana(...,m_class=0,...) inside loadProfile
-  // had already returned 0 → m_maxMana stuck at 0 → mana bar showed "—".
-  player->profile.race = netStream.readUInt32NC();
-  player->profile.class_ = netStream.readUInt32NC();
-  player->profile.level = netStream.readUInt8();
-  player->profile.level1 = netStream.readUInt8();
-
-  // Really, everything after the level is not critical for operation.  If 
-  // needed, skip the rest to get up and running quickly after patch day.
-
-  // Bind points (5 ints)
-  int bindCount = netStream.readUInt32NC();
-  for (int i = 0; i < bindCount; i++) {
-    memcpy(&player->profile.binds[i], netStream.pos(), sizeof(player->profile.binds[i]));
-    netStream.skipBytes(sizeof(player->profile.binds[i]));
+  auto out = seq::rust::decode_player_profile(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) {
+    seqDebug("decode_player_profile: parse failed (len=%zu)", len);
+    return 0;
   }
 
-  player->profile.deity = netStream.readUInt32NC();
-  player->profile.intoxication = netStream.readUInt32NC();
-
-  // Spell slot refresh (10 ints)
-  int spellRefreshCount = netStream.readUInt32NC();
-  for (int i = 0; i < spellRefreshCount; i++) {
-    player->profile.spellSlotRefresh[i] = netStream.readUInt32NC();
-  }
-
-  // Equipment (22 ints)
-  int equipCount = netStream.readUInt32NC();
-  for (int i = 0; i < equipCount; i++) {
-    memcpy(&player->profile.equipment[i], netStream.pos(), sizeof(player->profile.equipment[i]));
-    netStream.skipBytes(sizeof(player->profile.equipment[i]));
-  }
-   
-  // Something (9 ints)
-  int sCount = netStream.readUInt32NC();
-  for (int i = 0; i < sCount; i++) {	
-    netStream.skipBytes(20);
-  }
-
-  // Something (9 ints)
-  int sCount1 = netStream.readUInt32NC();
-  for (int i = 0; i < sCount1; i++) {
-    netStream.skipBytes(4);
-  }
-
-  // Something (9 ints)
-  int sCount2 = netStream.readUInt32NC();
-  for (int i = 0; i < sCount2; i++) {
-    netStream.skipBytes(4);
-  }
-
-  // Looks like face, haircolor, beardcolor, eyes, etc. Skipping over it.
-  netStream.skipBytes(51);
-
-  player->profile.points = netStream.readUInt32NC();
-  player->profile.MANA = netStream.readUInt32NC();
-  player->profile.curHp = netStream.readUInt32NC();
-  player->profile.STR = netStream.readUInt32NC();
-  player->profile.STA = netStream.readUInt32NC();
-  player->profile.CHA = netStream.readUInt32NC();
-  player->profile.DEX = netStream.readUInt32NC();
-  player->profile.INT = netStream.readUInt32NC();
-  player->profile.AGI = netStream.readUInt32NC();
-  player->profile.WIS = netStream.readUInt32NC();
-
-  // Unknown
-  netStream.skipBytes(28);
-
-  // AAs (300 ints)
-  int aaCount = netStream.readUInt32NC();
-  for (int i = 0; i < aaCount; i++) {
-    player->profile.aa_array[i].AA = netStream.readUInt32NC();
-    player->profile.aa_array[i].value = netStream.readUInt32NC();
-    player->profile.aa_array[i].unknown008 = netStream.readUInt32NC();
-  }
-
-  // Number of SKills (100 ints)
-  int skills = netStream.readUInt32NC();
-  for (int i = 0; i < skills; i++) {
-    netStream.skipBytes(4);
-  }
-
-  // Something (25 ints)
-  int sCount3 = netStream.readUInt32NC();
-  for (int i = 0; i < sCount3; i++) {
-    netStream.skipBytes(4);
-  }
-
-  // Disciplines (300 ints)
-  int disciplineCount = netStream.readUInt32NC();
-  for (int i = 0; i < disciplineCount; i++) {
-    player->profile.disciplines[i] = netStream.readUInt32NC();
-  }
-
-  // Something (25 ints)
-  int sCount4 = netStream.readUInt32NC();
-  for (int i = 0; i < sCount4; i++) {
-    netStream.skipBytes(4);
-  }
-
-  // Unknown
-  netStream.skipBytes (4);
-
-  // Recast Timers (25 ints)
-  int recastTypes = netStream.readUInt32NC();
-  for (int i = 0; i < recastTypes; i++) {
-    player->profile.recastTimers[i] = netStream.readUInt32NC();
-  }
-
-  // Something (100 ints)
-  int sCount5 = netStream.readUInt32NC();
-  for (int i = 0; i < sCount5; i++) {
-    netStream.skipBytes(4);
-  }
-
-  // Spellbook (960 ints)
-  int spellBookSlots = netStream.readUInt32NC();
-  for (int i = 0; i < spellBookSlots; i++) {
-    player->profile.sSpellBook[i] = netStream.readInt32();
-  }
-
-  // Mem Spell Slots (18 ints)
-  int spellMemSlots = netStream.readUInt32NC();
-  for (int i = 0; i < spellMemSlots; i++) {
-    player->profile.sMemSpells[i] = netStream.readInt32();
-  }
-
-  // Spell Slot Refresh Timers (15 ints)
-  int spellSlotRefreshTimer = netStream.readUInt32NC();
-  for (int i = 0; i < spellSlotRefreshTimer; i++) {
-    player->profile.spellSlotRefresh[i] = netStream.readInt32();
-  }
-
-  // Unknown
-  netStream.skipBytes(1);
-
-  // Buff Count (42 ints)
-  int buffCount = netStream.readUInt32NC();
-  for (int i = 0; i < buffCount; i++) {
-    memcpy(&player->profile.buffs[i], netStream.pos(), sizeof(player->profile.buffs[i]));
-    netStream.skipBytes(sizeof(player->profile.buffs[i]));
-  }
-
-  player->profile.platinum = netStream.readUInt32NC();
-  player->profile.gold = netStream.readUInt32NC();
-  player->profile.silver = netStream.readUInt32NC();
-  player->profile.copper = netStream.readUInt32NC();
-
-  player->profile.platinum_cursor = netStream.readUInt32NC();
-  player->profile.gold_cursor = netStream.readUInt32NC();
-  player->profile.silver_cursor = netStream.readUInt32NC();
-  player->profile.copper_cursor = netStream.readUInt32NC();
-
-  // Unknown
-  netStream.skipBytes(20);
-
-  player->profile.aa_spent = netStream.readUInt32NC();
-
-  // Unknown
-  netStream.skipBytes(4);
-
-  player->profile.aa_assigned = netStream.readUInt32NC();
-
-  // Unknown
-  netStream.skipBytes(20);
-
-  player->profile.aa_unspent = netStream.readUInt32NC();
-
-  // Unknown
-  netStream.skipBytes(2);
-
-  //Bandolier (20 ints)
-  int bandolierCount = netStream.readUInt32NC();
-  for (int i = 0; i < bandolierCount; i++) {
-    name = netStream.readText();
-    if(name.length()) {
-      strncpy(player->profile.bandoliers[i].bandolierName, name.toLatin1().data(), 32);
-    }
-
-    // Mainhand
-    name = netStream.readText();
-    if(name.length()) {
-      strncpy(player->profile.bandoliers[i].mainHand.itemName, name.toLatin1().data(), 64);
-    }
-    player->profile.bandoliers[i].mainHand.itemId = netStream.readUInt32NC();
-    player->profile.bandoliers[i].mainHand.icon = netStream.readUInt32NC();
-
-    // Offhand
-    name = netStream.readText();
-    if(name.length()) {
-      strncpy(player->profile.bandoliers[i].offHand.itemName, name.toLatin1().data(), 64);
-    }
-    player->profile.bandoliers[i].offHand.itemId = netStream.readUInt32NC();
-    player->profile.bandoliers[i].offHand.icon = netStream.readUInt32NC();
-
-    // Range
-    name = netStream.readText();
-    if(name.length()) {
-      strncpy(player->profile.bandoliers[i].range.itemName, name.toLatin1().data(), 64);
-    }
-    player->profile.bandoliers[i].range.itemId = netStream.readUInt32NC();
-    player->profile.bandoliers[i].range.icon = netStream.readUInt32NC();
-
-    // Ammo
-    name = netStream.readText();
-    if(name.length()) {
-      strncpy(player->profile.bandoliers[i].ammo.itemName, name.toLatin1().data(), 64);
-    }
-    player->profile.bandoliers[i].ammo.itemId = netStream.readUInt32NC();
-    player->profile.bandoliers[i].ammo.icon = netStream.readUInt32NC();
-  }
-
-  // Unknown
-  netStream.skipBytes(80);
-
-  player->profile.endurance = netStream.readUInt32NC();
-
-  // Wire layout (live, 2026-05-02): the legacy 70-byte unknown gap
-  // straddles the AA exp counter. expAA is a u32 LE on a 0..100000
-  // scale (display % = value / 1000), confirmed against four
-  // OP_PlayerProfile dumps from tests/replay/aa_progress.vpk:
-  // 22846 / 22846 / 22846 / 40318 matching in-game 22.846% → 40.318%.
-  netStream.skipBytes(58);
-  player->expAA = netStream.readUInt32NC();
-  netStream.skipBytes(8);
-
-  // Name
-  int firstName = netStream.readUInt32NC();
-  memcpy(player->name, netStream.pos(), 64);
-  netStream.skipBytes(firstName);
-
-  // Lastname
-  int lastName = netStream.readUInt32NC();
-  memcpy(player->lastName, netStream.pos(), 32);
-  netStream.skipBytes(lastName);
-
-  player->birthdayTime = netStream.readUInt32NC();
-  player->accountCreateDate = netStream.readUInt32NC();
-  player->lastSaveTime = netStream.readUInt32NC();
-  player->timePlayedMin = netStream.readUInt32NC();
-
-  // Unknown
-  netStream.skipBytes(4);
-
-  player->expansions = netStream.readUInt32NC();
-
-  // Unknown
-  netStream.skipBytes(4);
-
-  // MAX_KNOWN_LANGS (32 ints)
-  int langCount = netStream.readUInt32NC();
-  for (int i = 0; i < langCount; i++) {
-    player->languages[i] = netStream.readUInt8();
-  }
-
-  player->zoneId = netStream.readUInt16NC();
-  player->zoneInstance = netStream.readUInt16NC();
-
-  memcpy(&player->y, netStream.pos(), sizeof(player->y));
-  netStream.skipBytes(sizeof(player->y));
-
-  memcpy(&player->x, netStream.pos(), sizeof(player->x));
-  netStream.skipBytes(sizeof(player->x));
-
-  memcpy(&player->z, netStream.pos(), sizeof(player->z));
-  netStream.skipBytes(sizeof(player->z));
-
-  memcpy(&player->heading, netStream.pos(), sizeof(player->heading));
-  netStream.skipBytes(sizeof(player->heading));
-
-  player->standState = netStream.readUInt16();
-  player->anon = netStream.readUInt16();
-  player->guildID = netStream.readUInt32NC();
-  player->guildServerID = netStream.readUInt32NC();
-
-  // Unknown
-  netStream.skipBytes(2);
-
-  player->platinum_inventory = netStream.readUInt32NC();
-  player->gold_inventory = netStream.readUInt32NC();
-  player->silver_inventory = netStream.readUInt32NC();
-  player->copper_inventory = netStream.readUInt32NC();
-  player->platinum_bank = netStream.readUInt32NC();
-  player->gold_bank = netStream.readUInt32NC();
-  player->silver_bank = netStream.readUInt32NC();
-  player->copper_bank = netStream.readUInt32NC();
-  player->platinum_shared = netStream.readUInt32NC();
-
-  // Something (134 ints)
-  int sCount6 = netStream.readUInt32NC();
-  for (int i = 0; i < sCount6; i++) {
-    netStream.skipBytes(8);
-  }
-
-  // Unknown
-  netStream.skipBytes(8);
-
-  player->careerTribute = netStream.readUInt32NC();
-
-  // Unknown
-  netStream.skipBytes(4);
-
-  player->currentTribute = netStream.readUInt32NC();
-
-  // Unknown
-  netStream.skipBytes(6);
-
-  // Tributes (5 ints)
-  int tributeCount = netStream.readUInt32NC();
-  for (int i = 0; i < tributeCount; i++) {
-    memcpy(&player->tributes[i], netStream.pos(), sizeof(player->tributes[i]));
-    netStream.skipBytes(sizeof(player->tributes[i]));
-  }
-
-  // Something (10 ints)
-  int sCount7 = netStream.readUInt32NC();
-  for (int i = 0; i < sCount7; i++) {
-    netStream.skipBytes(8);
-  }
-
-  // Unknown
-  netStream.skipBytes(137);
-
-  player->currentRadCrystals = netStream.readUInt32NC();
-  player->careerRadCrystals = netStream.readUInt32NC();
-  player->currentEbonCrystals = netStream.readUInt32NC();
-  player->careerEbonCrystals = netStream.readUInt32NC();
-
-  // Unknown
-  netStream.skipBytes(91);
-
-  player->autosplit = netStream.readUInt8();
-
-  // Unknown
-  netStream.skipBytes(57);
-
-
-  player->ldon_guk_points = netStream.readUInt32NC();
-  player->ldon_mir_points = netStream.readUInt32NC();
-  player->ldon_mmc_points = netStream.readUInt32NC();
-  player->ldon_ruj_points = netStream.readUInt32NC();
-  player->ldon_tak_points = netStream.readUInt32NC();
-  player->ldon_avail_points = netStream.readUInt32NC();
-
-  // Below are the structs still not found in the new playerpacket
-
-/*
-  int innateSkillCount = netStream.readUInt32NC();
-  for (int i = 0; i < innateSkillCount; i++) {
-    player->profile.innateSkills[i] = netStream.readUInt32NC();
-  }
-
-  player->profile.toxicity = netStream.readUInt32NC();
-  player->profile.thirst = netStream.readUInt32NC();
-  player->profile.hunger = netStream.readUInt32NC();
-
-  player->pvp = netStream.readUInt8();
-  player->gm = netStream.readUInt8();
-  player->guildstatus = netStream.readInt8();
-  player->exp = netStream.readUInt32NC();
-
-   // Unknown (41)
-  int doubleIntCount = netStream.readUInt32NC();
-  for (int i = 0; i < doubleIntCount; i++) {
-    int something = netStream.readUInt32NC();
-    int somethingElse = netStream.readUInt32NC();
-  }
-
-  // Unknown (64)
-  int byteCount = netStream.readUInt32NC();
-  for (int i = 0; i < byteCount; i++) {
-    char something = netStream.readUInt8();
-  }
-*/
-
-  retVal = netStream.pos() - netStream.data();
-  if (checkLen && (int32_t)len != retVal)
+  player->checksum = out.checksum;
+
+  // profile.*
+  player->profile.gender = out.gender;
+  player->profile.race = out.race;
+  player->profile.class_ = out.class_;
+  player->profile.level = out.level;
+  player->profile.level1 = out.level1;
+
+  // binds[0]: only the first slot is consumed downstream (Player::loadProfile
+  // logs it). Remaining slots stay zeroed.
+  player->profile.binds[0].zoneId = out.bind0_zone_id;
+  player->profile.binds[0].x = out.bind0_x;
+  player->profile.binds[0].y = out.bind0_y;
+  player->profile.binds[0].z = out.bind0_z;
+  player->profile.binds[0].heading = out.bind0_heading;
+
+  player->profile.deity = out.deity;
+  player->profile.intoxication = out.intoxication;
+  player->profile.points = out.points;
+  player->profile.MANA = out.mana;
+  player->profile.curHp = out.cur_hp;
+  player->profile.STR = out.str_;
+  player->profile.STA = out.sta;
+  player->profile.CHA = out.cha;
+  player->profile.DEX = out.dex;
+  player->profile.INT = out.int_;
+  player->profile.AGI = out.agi;
+  player->profile.WIS = out.wis;
+
+  // AAs — daemon iterates the dense array reading .AA and .value.
   {
-    seqDebug("SpawnShell::fillProfileStruct - expected length: %d, read: %d for player '%s'", len, retVal, player->name);
+    const auto* ids = out.aa_ids.data();
+    const auto* vals = out.aa_values.data();
+    const std::size_t n = std::min<std::size_t>(out.aa_ids.size(), MAX_AA);
+    for (std::size_t i = 0; i < n; ++i) {
+      player->profile.aa_array[i].AA = ids[i];
+      player->profile.aa_array[i].value = vals[i];
+    }
+  }
+
+  // Disciplines, recast timers, mem spells, refresh timers — copied
+  // best-effort into their fixed-size slots.
+  {
+    const std::size_t n = std::min<std::size_t>(out.disciplines.size(),
+        sizeof(player->profile.disciplines) / sizeof(uint32_t));
+    std::memcpy(player->profile.disciplines, out.disciplines.data(),
+                n * sizeof(uint32_t));
+  }
+  {
+    const std::size_t n = std::min<std::size_t>(out.recast_timers.size(),
+        sizeof(player->profile.recastTimers) / sizeof(uint32_t));
+    std::memcpy(player->profile.recastTimers, out.recast_timers.data(),
+                n * sizeof(uint32_t));
+  }
+  {
+    const std::size_t n = std::min<std::size_t>(out.spell_book.size(),
+        sizeof(player->profile.sSpellBook) / sizeof(int32_t));
+    std::memcpy(player->profile.sSpellBook, out.spell_book.data(),
+                n * sizeof(int32_t));
+  }
+  {
+    const std::size_t n = std::min<std::size_t>(out.mem_spells.size(),
+        sizeof(player->profile.sMemSpells) / sizeof(int32_t));
+    std::memcpy(player->profile.sMemSpells, out.mem_spells.data(),
+                n * sizeof(int32_t));
+  }
+  {
+    const std::size_t n = std::min<std::size_t>(out.spell_slot_refresh.size(),
+        sizeof(player->profile.spellSlotRefresh) / sizeof(uint32_t));
+    std::memcpy(player->profile.spellSlotRefresh,
+                out.spell_slot_refresh.data(), n * sizeof(uint32_t));
+  }
+
+  // Buffs — only spellid + duration are consumed (Player::loadProfile,
+  // MessageShell::player, SpellShell::buffLoad). Rest of the spellBuff
+  // slot stays zeroed.
+  {
+    const std::size_t n = std::min<std::size_t>(out.buff_spell_ids.size(),
+        sizeof(player->profile.buffs) / sizeof(spellBuff));
+    for (std::size_t i = 0; i < n; ++i) {
+      player->profile.buffs[i].spellid  = out.buff_spell_ids[i];
+      player->profile.buffs[i].duration = out.buff_durations[i];
+    }
+  }
+
+  player->profile.platinum = out.platinum;
+  player->profile.gold = out.gold;
+  player->profile.silver = out.silver;
+  player->profile.copper = out.copper;
+  player->profile.platinum_cursor = out.platinum_cursor;
+  player->profile.gold_cursor = out.gold_cursor;
+  player->profile.silver_cursor = out.silver_cursor;
+  player->profile.copper_cursor = out.copper_cursor;
+  player->profile.aa_spent = out.aa_spent;
+  player->profile.aa_assigned = out.aa_assigned;
+  player->profile.aa_unspent = out.aa_unspent;
+  player->profile.endurance = out.endurance;
+
+  // charProfileStruct top-level
+  player->expAA = out.exp_aa;
+  std::memcpy(player->name, out.name.data(),
+              std::min(out.name.size(), sizeof(player->name) - 1));
+  std::memcpy(player->lastName, out.last_name.data(),
+              std::min(out.last_name.size(), sizeof(player->lastName) - 1));
+  player->birthdayTime = out.birthday_time;
+  player->accountCreateDate = out.account_create_date;
+  player->lastSaveTime = out.last_save_time;
+  player->timePlayedMin = out.time_played_min;
+  player->expansions = out.expansions;
+
+  {
+    const std::size_t n = std::min<std::size_t>(out.languages.size(),
+        sizeof(player->languages));
+    std::memcpy(player->languages, out.languages.data(), n);
+  }
+
+  player->zoneId = out.zone_id;
+  player->zoneInstance = out.zone_instance;
+  player->x = out.x;
+  player->y = out.y;
+  player->z = out.z;
+  player->heading = out.heading;
+  player->standState = out.stand_state;
+  player->anon = out.anon;
+  player->guildID = (int32_t)out.guild_id;
+  player->guildServerID = out.guild_server_id;
+  player->platinum_inventory = out.platinum_inventory;
+  player->gold_inventory = out.gold_inventory;
+  player->silver_inventory = out.silver_inventory;
+  player->copper_inventory = out.copper_inventory;
+  player->platinum_bank = out.platinum_bank;
+  player->gold_bank = out.gold_bank;
+  player->silver_bank = out.silver_bank;
+  player->copper_bank = out.copper_bank;
+  player->platinum_shared = out.platinum_shared;
+  player->careerTribute = out.career_tribute;
+  player->currentTribute = out.current_tribute;
+  player->currentRadCrystals = out.current_rad_crystals;
+  player->careerRadCrystals = out.career_rad_crystals;
+  player->currentEbonCrystals = out.current_ebon_crystals;
+  player->careerEbonCrystals = out.career_ebon_crystals;
+  player->autosplit = out.autosplit;
+  player->ldon_guk_points = out.ldon_guk_points;
+  player->ldon_mir_points = out.ldon_mir_points;
+  player->ldon_mmc_points = out.ldon_mmc_points;
+  player->ldon_ruj_points = out.ldon_ruj_points;
+  player->ldon_tak_points = out.ldon_tak_points;
+  player->ldon_avail_points = out.ldon_avail_points;
+
+  const int32_t retVal = static_cast<int32_t>(out.bytes_consumed);
+  if (checkLen && static_cast<int32_t>(len) != retVal)
+  {
+    seqDebug("ZoneMgr::fillProfileStruct - expected length: %zu, read: %d for player '%s'",
+             len, retVal, player->name);
   }
 
   return retVal;
@@ -727,7 +494,16 @@ void ZoneMgr::zonePlayer(const uint8_t* data, size_t len)
 
 void ZoneMgr::zoneChange(const uint8_t* data, size_t len, uint8_t dir)
 {
-  const zoneChangeStruct* zoneChange = (const zoneChangeStruct*)data;
+  auto out = seq::rust::decode_zone_change(
+      rust::Slice<const uint8_t>{data, sizeof(zoneChangeStruct)});
+  if (!out.ok) return;
+  zoneChangeStruct tmp{};
+  std::memcpy(tmp.name, out.name.data(),
+              std::min(out.name.size(), sizeof(tmp.name) - 1));
+  tmp.zoneId       = out.zone_id;
+  tmp.zoneInstance = out.zone_instance;
+  const zoneChangeStruct* zoneChange = &tmp;
+
   m_shortZoneName = zoneNameFromID(zoneChange->zoneId);
   m_longZoneName = zoneLongNameFromID(zoneChange->zoneId);
   m_zone_exp_multiplier = defaultZoneExperienceMultiplier;
@@ -743,52 +519,24 @@ void ZoneMgr::zoneChange(const uint8_t* data, size_t len, uint8_t dir)
 
 void ZoneMgr::zoneNew(const uint8_t* data, size_t len, uint8_t dir)
 {
-  newZoneStruct *zoneNew = new newZoneStruct;
-  memset (zoneNew, 0, sizeof (newZoneStruct));
-  NetStream netStream (data, len);
+  auto out = seq::rust::decode_new_zone(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) return;
 
-  QString shortName = netStream.readText ();
-  if (shortName.length ())
-    strcpy (zoneNew->shortName, shortName.toLatin1().data());
+  m_safePoint.setPoint(lrintf(out.safe_x), lrintf(out.safe_y),
+                       lrintf(out.safe_z));
+  m_zone_exp_multiplier = out.zone_exp_multiplier;
 
-  QString longName = netStream.readText ();
-  if (longName.length ())
-    strcpy (zoneNew->longName, longName.toLatin1().data());
-
-  netStream.skipBytes (2);
-
-  QString zonefile = netStream.readText ();
-  if (zonefile.length ())
-    strcpy (zoneNew->zonefile, zonefile.toLatin1().data());
-
-  netStream.skipBytes (90);
-
-  union { uint32_t n; float f; } x;
-  x.n = netStream.readUInt32NC();
-  zoneNew->zone_exp_multiplier = x.f;
-
-  netStream.skipBytes (28);
-
-  x.n = netStream.readUInt32NC();
-  zoneNew->safe_y = x.f;
-  x.n = netStream.readUInt32NC();
-  zoneNew->safe_x = x.f;
-  x.n = netStream.readUInt32NC();
-  zoneNew->safe_z = x.f;
-
-  m_safePoint.setPoint(lrintf(zoneNew->safe_x), lrintf(zoneNew->safe_y),
-		       lrintf(zoneNew->safe_z));
-  m_zone_exp_multiplier = zoneNew->zone_exp_multiplier;
-
-  // ZBNOTE: Apparently these come in with the localized names, which means we 
-  //         may not wish to use them for zone short names.  
-  //         An example of this is: shortZoneName 'ecommons' in German comes 
+  // ZBNOTE: Apparently these come in with the localized names, which means we
+  //         may not wish to use them for zone short names.
+  //         An example of this is: shortZoneName 'ecommons' in German comes
   //         in as 'OGemeinl'.  OK, now that we have figured out the zone id
   //         issue, we'll only use this short zone name if there isn't one or
   //         it is an unknown zone.
   if (m_shortZoneName.isEmpty() || m_shortZoneName.startsWith("unk"))
   {
-    m_shortZoneName = zoneNew->shortName;
+    m_shortZoneName =
+        QString::fromLatin1(out.short_name.data(), out.short_name.size());
 
     // LDoN likes to append a _262 to the zonename. Get rid of it.
     QRegularExpression rx("_\\d+$");
@@ -810,26 +558,22 @@ void ZoneMgr::zoneNew(const uint8_t* data, size_t len, uint8_t dir)
     m_shortZoneName.replace(rw, "");
   }
 
-  m_longZoneName = zoneNew->longName;
+  m_longZoneName =
+      QString::fromLatin1(out.long_name.data(), out.long_name.size());
   m_zoning = false;
 
 #if 1 // ZBTEMP
+  const std::string longNameStd(out.long_name);
   seqDebug("Welcome to lovely downtown '%s' with an experience multiplier of %f",
-	 zoneNew->longName, zoneNew->zone_exp_multiplier);
-  seqDebug("Safe Point (%f, %f, %f)", 
-	 zoneNew->safe_x, zoneNew->safe_y, zoneNew->safe_z);
+           longNameStd.c_str(), out.zone_exp_multiplier);
+  seqDebug("Safe Point (%f, %f, %f)",
+           out.safe_x, out.safe_y, out.safe_z);
 #endif // ZBTEMP
-  
-//   seqDebug("zoneNew: m_short(%s) m_long(%s)",
-//      (const char*)m_shortZoneName,
-//      (const char*)m_longZoneName);
-  
+
   emit zoneEnd(m_shortZoneName, m_longZoneName);
 
   if (showeq_params->saveZoneState)
     saveZoneState();
-
-  delete zoneNew;
 }
 
 // Target-neutral primitive for the eql backend (EqlDispatch): the caller has
@@ -850,32 +594,46 @@ void ZoneMgr::setZoneByName(const QString& shortName, const QString& longName)
 
 void ZoneMgr::zonePoints(const uint8_t* data, size_t len, uint8_t)
 {
-  const zonePointsStruct* zp = (const zonePointsStruct*)data;
-  // note the zone point count
-  m_zonePointCount = zp->count;
+  // Wire format: u32 count, then count × zonePointStruct (24b each),
+  // then a 24-byte trailing block we ignore.
+  if (len < 4) return;
+  uint32_t count;
+  std::memcpy(&count, data, sizeof(count));
+  constexpr size_t ZP_LEN = sizeof(zonePointStruct);
+  if (len < 4 + static_cast<size_t>(count) * ZP_LEN) return;
 
-  // delete the previous zone point set
+  m_zonePointCount = count;
+
   if (m_zonePoints)
     delete [] m_zonePoints;
-  
-  // allocate storage for zone points
   m_zonePoints = new zonePointStruct[m_zonePointCount];
 
-  // copy the zone point information
-  memcpy((void*)m_zonePoints, zp->zonePoints, 
-	 sizeof(zonePointStruct) * m_zonePointCount);
+  for (uint32_t i = 0; i < count; i++) {
+    const uint8_t* p = data + 4 + i * ZP_LEN;
+    auto out = seq::rust::decode_zone_point(
+        rust::Slice<const uint8_t>{p, ZP_LEN});
+    if (!out.ok) continue;
+    m_zonePoints[i].zoneTrigger  = out.zone_trigger;
+    m_zonePoints[i].y            = out.y;
+    m_zonePoints[i].x            = out.x;
+    m_zonePoints[i].z            = out.z;
+    m_zonePoints[i].heading      = out.heading;
+    m_zonePoints[i].zoneId       = out.zone_id;
+    m_zonePoints[i].zoneInstance = out.zone_instance;
+  }
 }
 
 void ZoneMgr::dynamicZonePoints(const uint8_t *data, size_t len, uint8_t)
 {
-   const dzSwitchInfo *dz = (const dzSwitchInfo*)data;
-
    if(len == sizeof(dzSwitchInfo))
    {
-      m_dzPoint.setPoint(lrintf(dz->x), lrintf(dz->y), lrintf(dz->z));
-      m_dzID = dz->zoneID;
+      auto out = seq::rust::decode_dz_switch_info(
+          rust::Slice<const uint8_t>{data, len});
+      if (!out.ok) return;
+      m_dzPoint.setPoint(lrintf(out.x), lrintf(out.y), lrintf(out.z));
+      m_dzID = out.zone_id;
       m_dzLongName = zoneLongNameFromID(m_dzID);
-      if(dz->type != 1 && dz->type > 2 && dz->type <= 5)
+      if(out.kind != 1 && out.kind > 2 && out.kind <= 5)
          m_dzType = 0; // green
       else
          m_dzType = 1; // pink
@@ -891,9 +649,12 @@ void ZoneMgr::dynamicZonePoints(const uint8_t *data, size_t len, uint8_t)
 
 void ZoneMgr::dynamicZoneInfo(const uint8_t* data, size_t len, uint8_t)
 {
-   const dzInfo *dz = (const dzInfo*)data;
+   if (len != sizeof(dzInfo)) return;
+   auto out = seq::rust::decode_dz_info(
+       rust::Slice<const uint8_t>{data, len});
+   if (!out.ok) return;
 
-   if(!dz->newDZ)
+   if(!out.new_dz)
    {
       m_dzPoint.setPoint(0, 0, 0);
       m_dzID = 0;
