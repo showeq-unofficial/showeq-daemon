@@ -85,6 +85,37 @@ else()
 endif()
 message(STATUS "SEQ_TARGET=${SEQ_TARGET} (structs: ${SEQ_STRUCT_DIR}, data ns: ${SEQ_DATA_NAMESPACE}, opcodes: ${_seq_conf_dir})")
 
+# --- Rust decoder bridge -----------------------------------------------------
+# showeq-decoder-rs is a sibling repo. seq-bridge is a cxx staticlib exposing
+# the per-opcode Rust decoders (seq::rust::decode_*) to C++. Rust is the only
+# decoder — no C++ fallback, no SEQ_USE_RUST toggle. Corrosion builds seq-bridge
+# with exactly one backend feature, matched 1:1 to SEQ_TARGET (live|test|eql).
+include(FetchContent)
+FetchContent_Declare(
+  Corrosion
+  GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
+  GIT_TAG v0.6
+)
+FetchContent_MakeAvailable(Corrosion)
+
+set(SEQ_DECODER_RS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../showeq-decoder-rs")
+if(NOT EXISTS "${SEQ_DECODER_RS_DIR}/Cargo.toml")
+  message(FATAL_ERROR
+    "showeq-decoder-rs sibling repo not found at ${SEQ_DECODER_RS_DIR}.\n"
+    "Clone github.com/showeq-unofficial/showeq-decoder-rs as a sibling of showeq-daemon.")
+endif()
+
+corrosion_import_crate(
+  MANIFEST_PATH "${SEQ_DECODER_RS_DIR}/Cargo.toml"
+  CRATES seq-bridge
+  NO_DEFAULT_FEATURES
+  FEATURES "backend-${SEQ_TARGET}"
+)
+corrosion_add_cxxbridge(seq-bridge-cxx
+  CRATE seq_bridge
+  FILES lib.rs
+)
+
 # --- protobuf ----------------------------------------------------------------
 # The schema lives in the showeq-proto submodule under proto/.
 set(SEQ_PROTO_DIR "${CMAKE_SOURCE_DIR}/proto")
@@ -242,6 +273,7 @@ target_include_directories(seq-daemon-core PUBLIC
 
 target_link_libraries(seq-daemon-core PUBLIC
   seq-proto
+  seq-bridge-cxx          # Rust decoders (cxx); propagates the generated header
   Qt${QT_VERSION_MAJOR}::Core
   Qt${QT_VERSION_MAJOR}::Network
   Qt${QT_VERSION_MAJOR}::Xml
