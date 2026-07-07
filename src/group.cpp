@@ -112,63 +112,25 @@ void GroupMgr::groupUpdate(const uint8_t* /*data*/, size_t /*size*/)
 
 void GroupMgr::groupMemberList(const uint8_t* data, size_t size)
 {
-   // OP_GroupMemberList (0x312a) wire layout (cracked 2026-05-28 from
-   // groupbuff-repro.vpk + group-2variants.vpk):
-   //
-   //   u32 group_id
-   //   u32 member_count          // 1..6
-   //   <slot 0 — leader, extended record: 48b solo, ~56b w/ assist,
-   //    ~58b with full leader-class field; null-padded name fields and
-   //    an i32 level-or-class value follow>
-   //   For i in 1..member_count-1:
-   //     u32 slot_idx = i
-   //     char name[]; null-terminated, padded to 8 or 16 bytes
-   //     i32 level
-   //     u8[~36] padding
-   //
-   // The slot-0 (leader) record has variable per-capture width because
-   // both name field and an embedded assist-name field are individually
-   // null-padded — the exact padding depends on string length. Rather
-   // than reverse-engineer every field, we scan forward for printable
-   // ASCII strings: each non-empty run between nulls is a member name,
-   // capped at member_count and de-duplicated (the leader name appears
-   // twice in the slot-0 record, and the player's own name shouldn't be
-   // re-added as a peer). This handles every observed packet shape
-   // without needing per-size special cases.
-   if (size < 8) return;
-   const uint32_t memberCount =
-       uint32_t(data[4]) | (uint32_t(data[5]) << 8) |
-       (uint32_t(data[6]) << 16) | (uint32_t(data[7]) << 24);
-   if (memberCount == 0 || memberCount > MAX_GROUP_MEMBERS) return;
+   // OP_GroupMemberList (0x312a) — the modern roster broadcast. The Rust decoder
+   // (seq-decode/group_member_list.rs) scans the variable-width record for
+   // member-name runs; the *diff* against m_members (so subscribers see one
+   // added/removed on a mid-zone join/leave, not a remove-all -> re-add churn)
+   // stays here — it needs the Player + SpawnShell.
+   auto out = seq::rust::decode_group_member_list(
+       rust::Slice<const uint8_t>{data, size});
+   if (!out.ok)
+      return;
+   if (out.member_count == 0 || out.member_count > MAX_GROUP_MEMBERS)
+      return;
 
-   // Walk the payload first into a peer set; do not touch m_members yet
-   // — we want a *diff* so subscribers see only the actual change (one
-   // `added` on a mid-zone join, one `removed` on a mid-zone leave),
-   // not a "remove all → re-add all" churn that would briefly empty the
-   // panel on every roster mutation.
    const QString self = m_player ? m_player->name() : QString();
    QSet<QString> incoming;
-   incoming.reserve(int(memberCount));
-   // EQ names are capitalized and ≥3 characters; this guards against
-   // stray printable bytes (e.g. 0x3c = '<' from a small u32 level field
-   // adjacent to the name area) being mis-scanned as 1-char names.
-   auto isNameStart = [](uint8_t b) { return b >= 'A' && b <= 'Z'; };
-   auto isNameByte  = [](uint8_t b) { return (b >= 'A' && b <= 'Z') ||
-                                             (b >= 'a' && b <= 'z') ||
-                                             (b >= '0' && b <= '9') ||
-                                              b == '_'; };
-
-   size_t pos = 8;
-   while (pos < size) {
-      while (pos < size && !isNameStart(data[pos])) ++pos;
-      if (pos >= size) break;
-      const size_t start = pos;
-      while (pos < size && isNameByte(data[pos])) ++pos;
-      if (pos - start < 3) continue;  // too short to be an EQ name
-      const QString name = QString::fromLatin1(
-          reinterpret_cast<const char*>(data + start),
-          int(pos - start));
-      if (pos < size) ++pos;  // consume terminator
+   incoming.reserve(int(out.member_count));
+   const QString joined =
+       QString::fromLatin1(out.names.data(), int(out.names.size()));
+   const QStringList scanned = joined.split('\n', Qt::SkipEmptyParts);
+   for (const QString& name : scanned) {
       if (name == self) continue;  // peer set excludes self
       incoming.insert(name);
    }
@@ -185,8 +147,8 @@ void GroupMgr::groupMemberList(const uint8_t* data, size_t size)
       }
    }
 
-   // Add members not yet tracked. Existing entries keep their slot index
-   // so subscribers that key on slot don't re-order on every mutation.
+   // Add members not yet tracked. Existing entries keep their slot index so
+   // subscribers that key on slot don't re-order on every mutation.
    QSet<QString> existing;
    for (int i = 0; i < MAX_GROUP_PEERS; ++i) {
       if (!m_members[i]->m_name.isEmpty())

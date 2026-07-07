@@ -313,87 +313,45 @@ void SpellShell::buffLoad(const spellBuff* c)
 
 void SpellShell::buff(const uint8_t* data, size_t size, uint8_t dir)
 {
-  // Server-side broadcasts only — the client never sends OP_Buff with
-  // useful state, and DIR_Client fires are echo/noise.
+  // Server-side broadcasts only — DIR_Client fires are echo/noise.
   if (dir == DIR_Client)
     return;
 
-  // Post-2026-05-22 OP_Buff (opcode 0x18b4) is variable-size; the legacy
-  // 168-byte buffStruct is dead. Wire forms cracked from captures
-  // (buffquery-fresh2.vpk, 9 fires):
-  //
-  //   Header (all forms): u32 spawnID, u32 spellID
-  //   13b "fade": u16 0x0001, u8 0, u8 slot, u8 0
-  //   30b "slot occupied, no metadata" (OP_BuffQuery initial sync):
-  //     {u8 0, u8 slot, u8 0, u8 1, u8[3] 0, u32 0xffffffff,
-  //      u8[9] 0, u16 0x0001}
-  //   34/55/76b "live update": {u8 1, u8 block_count, u8[5] 0} followed
-  //     by N blocks of {u32 dur_ticks, u32 init_ticks, u32 pad,
-  //     char caster_name[]\0} separated by a 4-byte inter-block sep
-  //     and a trailing u16 0x0001 terminator. Block 1's duration is
-  //     the buff's remaining time; subsequent blocks are sub-effect
-  //     stacks the panel doesn't surface.
-  //
-  // BuffsPanel only renders the local player's buffs, so any other
-  // spawnID (groupmate or random nearby player) is broadcast noise.
-  // Filter early instead of letting m_spellList grow into a zone-wide
-  // buff dump.
-  if (size < 8) return;
-
-  const uint32_t spawnId =
-      uint32_t(data[0]) | (uint32_t(data[1]) << 8) |
-      (uint32_t(data[2]) << 16) | (uint32_t(data[3]) << 24);
-  const uint32_t spellId =
-      uint32_t(data[4]) | (uint32_t(data[5]) << 8) |
-      (uint32_t(data[6]) << 16) | (uint32_t(data[7]) << 24);
-
-  if (m_player->id() != 0 && spawnId != m_player->id())
+  // OP_Buff (0x18b4) is variable-size (post-2026-05-22; the legacy buffStruct
+  // is dead). The Rust decoder (seq-decode/buff.rs) extracts the wire fields by
+  // form; the spell-DB duration for the initial-sync form + SpellItem
+  // management stay here (they need the Player + Spells DB).
+  auto out = seq::rust::decode_buff(rust::Slice<const uint8_t>{data, size});
+  if (!out.ok)   // too short, or an unrecognized size form
     return;
 
-  // 0xffffffff is a legacy no-op marker that occasionally appears as a
-  // spellID in 13b forms — drop silently.
-  if (spellId == 0xffffffff || spellId == 0)
+  if (m_player->id() != 0 && out.spawn_id != m_player->id())
+    return;   // groupmate / nearby-player broadcast noise
+
+  // 0xffffffff is a legacy no-op marker; 0 is not a real spell.
+  if (out.spell_id == 0xffffffff || out.spell_id == 0)
     return;
 
-  const Spell* spell = m_spells->spell(spellId);
-  SpellItem* item = findSpell(spellId, spawnId, QString());
+  const Spell* spell = m_spells->spell(out.spell_id);
+  SpellItem* item = findSpell(out.spell_id, out.spawn_id, QString());
 
-  // 13-byte fade: clear the buff if we're tracking it.
-  if (size == 13) {
-    if (item) deleteSpell(item);
-    return;
-  }
-
-  // 30-byte initial-sync form has no on-wire duration — fall back to the
-  // spell DB's level-scaled value (matches action() and the legacy buff
-  // load path). If the DB doesn't know the spell we can't synthesize a
-  // sensible duration; skip rather than emit a 0-second flicker.
+  // form: 0=fade (13b), 1=initial-sync (30b), 2=live-update (34+b).
   int duration = 0;
   uint8_t slot = 0xff;
-  if (size == 30) {
-    slot = data[9];
+  if (out.form == 0) {
+    if (item) deleteSpell(item);
+    return;
+  } else if (out.form == 1) {
+    // Initial sync carries no on-wire duration — fall back to the spell DB's
+    // level-scaled value. Skip rather than emit a 0-second flicker.
+    slot = out.slot;
     if (spell) duration = spell->calcDuration(m_player->level()) * 6;
     if (duration <= 0) return;
-  } else if (size >= 34) {
-    // Block 1 starts at offset 15 (after the 15-byte header). Block 1's
-    // duration tick count is the player's remaining time.
-    if (size < 15 + 4) return;
-    const uint32_t durTicks =
-        uint32_t(data[15]) | (uint32_t(data[16]) << 8) |
-        (uint32_t(data[17]) << 16) | (uint32_t(data[18]) << 24);
-    duration = int(durTicks) * 6;
-    if (duration <= 0) return;
   } else {
-    // Unrecognized size — defer to a future capture rather than guessing.
-#ifdef DIAG_SPELLSHELL
-    seqDebug("OP_Buff: unrecognized size %zu for spell %d", size, spellId);
-#endif
-    return;
+    // Live update: block-1 tick count is the player's remaining time.
+    duration = int(out.dur_ticks) * 6;
+    if (duration <= 0) return;
   }
-
-#ifdef DIAG_SPELLSHELL
-  seqDebug("OP_Buff %zub - spell=%d spawn=%d dur=%ds", size, spellId, spawnId, duration);
-#endif
 
   if (item) {
     item->setDuration(duration);
@@ -401,8 +359,8 @@ void SpellShell::buff(const uint8_t* data, size_t size, uint8_t dir)
     emit changeSpell(item);
   } else {
     item = new SpellItem();
-    item->update(spellId, spell, duration,
-                 0, QString(), spawnId, QString());
+    item->update(out.spell_id, spell, duration,
+                 0, QString(), out.spawn_id, QString());
     if (slot != 0xff) item->setBuffSlot(slot);
     m_spellList.append(item);
     if (!m_timer->isActive())

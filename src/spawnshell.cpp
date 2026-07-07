@@ -611,227 +611,6 @@ struct pos
   }
 }
 
-int32_t SpawnShell::fillSpawnStruct(spawnStruct *spawn, const uint8_t *data, size_t len, bool checkLen)
-{
-   /*
-   This reads data from the variable-length spawn struct
-   */
-
-	// uncomment for debug info
-//#define FILLSPAWNSTRUCT_DIAG
-
-   NetStream netStream(data, len);
-   int32_t retVal;
-   uint32_t race, nTmp;
-   uint8_t i;
-
-   QString name = netStream.readText();
-
-   if(name.length())
-      strcpy(spawn->name, name.toLatin1().data());
-
-#ifdef FILLSPAWNSTRUCT_DIAG
-   seqDebug("SpawnShell::fillSpawnStruct ---- %s", name.latin1());
-#endif
-
-   spawn->spawnId = netStream.readUInt32NC();
-
-   spawn->level = netStream.readUInt8();
-   // skip the next 16 bytes
-   netStream.skipBytes(16);
-
-   spawn->NPC = netStream.readUInt8();
-   spawn->miscData = netStream.readUInt32NC();
-
-   spawn->otherData = netStream.readUInt8();
-
-   // skip unknown3, unknown4
-   netStream.skipBytes(8);
-
-   /* & 1 is no longer chest/untargetable.  It is now bazaar /buyer flag as of 01/16/13.
-    * Not sure where chest/untargetable flag went, maybe combined with aura now.  Disabled to prevent crashes zoning into bazaar and seems
-    * to have no negative impact so far.
-   if(spawn->otherData & 1)
-   {
-      // it's a chest or untargetable
-
-      do
-         i = netStream.readUInt8();
-      while(i);
-
-      do
-         i = netStream.readUInt8();
-      while(i);
-
-      do
-         i = netStream.readUInt8();
-      while(i);
-
-      // skip next 3 longs
-      netStream.skipBytes(12);
-
-      // next it loops through 9 longs, but we can just skip them
-      netStream.skipBytes(36);
-
-      // skip 1 byte
-      netStream.skipBytes(1);
-
-      // skip the last long
-      netStream.skipBytes(4);
-   }
-   */
-
-   if(spawn->aura)	    // aura stuff
-   {
-       netStream.readText();	// skip 3 variable len strings
-       netStream.readText();
-       netStream.readText();
-       netStream.skipBytes(50);	// and 50 static bytes
-   }
-
-   spawn->charProperties = netStream.readUInt8();
-#ifdef FILLSPAWNSTRUCT_DIAG
-		   seqDebug("charProperties = %X", spawn->charProperties);
-#endif
-
-   i = spawn->charProperties;
-   //Handle body type of 0.  Started seeing this in Field of Scale after 01/16/13 patch.
-   if(i == 0)
-   {
-      spawn->bodytype = 0;
-   }
-   else
-   {
-      do
-      {
-           nTmp =  netStream.readUInt32NC();
-
-           if(i == spawn->charProperties)
-           {
-                   spawn->bodytype = nTmp;
-#ifdef FILLSPAWNSTRUCT_DIAG
-                   seqDebug("bodytype = %d", spawn->bodytype);
-#endif
-           }
-      }
-      while(--i);
-   }
-
-   spawn->curHp = netStream.readUInt8();
-#ifdef FILLSPAWNSTRUCT_DIAG
-   seqDebug("curHP=%d", spawn->curHp);
-#endif
-
-   // skip facestyle, walk/run speeds, unknown5
-   netStream.skipBytes(35);
-
-   spawn->race = netStream.readUInt32NC();
-   spawn->holding = netStream.readUInt8();
-   spawn->deity = netStream.readUInt32NC();
-   spawn->guildID = netStream.readUInt32NC();
-   spawn->guildServerID = netStream.readUInt32NC();
-   /* spawn->guildstatus = netStream.readUInt32NC();	disappeared 11/14/2018 */
-   spawn->guildstatus = 0;
-   spawn->class_ = netStream.readUInt32NC();
-
-#ifdef FILLSPAWNSTRUCT_DIAG
-   seqDebug("race=%08X holding=%02X deity=%08X guildID=%08X guildstatus=%08X class_=%02X ",
-		   spawn->race, spawn->holding, spawn->deity, spawn->guildID, spawn->guildstatus, spawn->class_);
-#endif
-
-   netStream.skipBytes(1);
-
-   spawn->state = netStream.readUInt8();
-   spawn->light = netStream.readUInt8();
-
-   netStream.skipBytes(1);
-
-   name = netStream.readText();
-
-   if(name.length() > 0 && static_cast<size_t>(name.length()) < sizeof(spawn->lastName))
-   {
-      strcpy(spawn->lastName, name.toLatin1().data());
-   }
-
-   netStream.skipBytes(2);
-
-   spawn->petOwnerId = netStream.readUInt32NC();
-
-   // 12 bytes added to NPC only in 06/19/2013.
-   if (spawn->NPC == 1)
-   {
-       netStream.skipBytes(49);
-   }
-   else
-   {
-       netStream.skipBytes(37);
-   }
-   race = spawn->race;
-
-   // this is how the client checks if equipment should be read.
-   if(spawn->NPC == 0 || race <= 12 || race == 128 || race == 130 || race == 330 || race == 522)
-   {
-      // skip color
-      netStream.skipBytes(36);
-      for(i = 0; i < 9; i++)
-      {
-         spawn->equipment[i].itemId = netStream.readUInt32NC();
-         spawn->equipment[i].equip3 = netStream.readUInt32NC();
-         spawn->equipment[i].equip2 = netStream.readUInt32NC();
-         spawn->equipment[i].equip1 = netStream.readUInt32NC();
-         spawn->equipment[i].equip0 = netStream.readUInt32NC();
-      }
-   } else {
-      netStream.skipBytes(20);
-      spawn->equipment[7].itemId = netStream.readUInt32NC();
-      spawn->equipment[7].equip3 = netStream.readUInt32NC();
-      spawn->equipment[7].equip2 = netStream.readUInt32NC();
-      spawn->equipment[7].equip1 = netStream.readUInt32NC();
-      spawn->equipment[7].equip0 = netStream.readUInt32NC();
-      // secondary
-      spawn->equipment[8].itemId = netStream.readUInt32NC();
-      spawn->equipment[8].equip3 = netStream.readUInt32NC();
-      spawn->equipment[8].equip2 = netStream.readUInt32NC();
-      spawn->equipment[8].equip1 = netStream.readUInt32NC();
-      spawn->equipment[8].equip0 = netStream.readUInt32NC();
-   }
-
-   for (size_t i = 0; i < (sizeof(spawn->posData)/sizeof(spawn->posData[0])); ++i) {
-       spawn->posData[i] = netStream.readUInt32NC();
-   }
-
-   if(spawn->hasTitle)
-   {
-      name = netStream.readText();
-      strcpy(spawn->title, name.toLatin1().data());
-   }
-
-   if(spawn->hasSuffix)
-   {
-      name = netStream.readText();
-      strcpy(spawn->suffix, name.toLatin1().data());
-   }
-
-   // unknowns
-   netStream.skipBytes(8);
-
-   spawn->isMercenary = netStream.readUInt8();
-
-   // unknowns
-   netStream.skipBytes(66);
-
-   // now we're at the end
-
-   retVal = netStream.pos() - netStream.data();
-
-   if(checkLen && (int32_t)len != retVal)
-   {
-      seqDebug("SpawnShell::fillSpawnStruct - expected length: %d, read: %d for spawn '%s'", len, retVal, spawn->name);
-   }
-
-   return retVal;
-}
-
 static void applySpawn(spawnStruct* spawn,
                           const seq::rust::Spawn& out)
 {
@@ -1408,19 +1187,25 @@ void SpawnShell::illusionSpawn(const uint8_t* data)
 
 void SpawnShell::shroudSpawn(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // Self or other person shrouding. newSpawn handled updates too.
-
+    // Self or other person shrouding. The embedded spawnStruct decodes through
+    // the Rust decoder (decode_spawn) like a normal zone-entry spawn; only the
+    // 6-byte header framing + the trailing self-profile stay here.
     NetStream netStream(data,len);
 
     uint32_t spawnID=netStream.readUInt32NC();
     uint16_t spawnStructSize=netStream.readUInt16NC();
     spawnStructSize-=6;
 
+    auto out = seq::rust::decode_spawn(
+        rust::Slice<const uint8_t>{netStream.pos(), spawnStructSize});
+    if (!out.ok) return;
+
     if(spawnID!=m_player->id())
     {
         // Shrouding other player
         spawnShroudOther *shroud = new spawnShroudOther;
-        fillSpawnStruct(&shroud->spawn,netStream.pos(),spawnStructSize,true);
+        memset(&shroud->spawn, 0, sizeof(shroud->spawn));
+        applySpawn(&shroud->spawn, out);
         seqInfo("Shrouding %s (id=%d)", shroud->spawn.name, shroud->spawn.spawnId);
         newSpawn(shroud->spawn);
     }
@@ -1429,7 +1214,8 @@ void SpawnShell::shroudSpawn(const uint8_t* data, size_t len, uint8_t dir)
         // Shrouding yourself.
         spawnShroudSelf *shroud = new spawnShroudSelf;
 
-        fillSpawnStruct(&shroud->spawn,netStream.pos(),spawnStructSize,true);
+        memset(&shroud->spawn, 0, sizeof(shroud->spawn));
+        applySpawn(&shroud->spawn, out);
         netStream.skipBytes(spawnStructSize);
         memcpy(&shroud->profile,netStream.pos(),sizeof(playerProfileStruct));
         seqInfo("Shrouding %s (id=%d)", shroud->spawn.name, shroud->spawn.spawnId);
