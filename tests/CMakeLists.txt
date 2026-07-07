@@ -4,7 +4,7 @@
 # Tier-2 (replay against .vpk goldens) is documented in tests/README.md
 # and is gated on capturing fixture files from a live session.
 
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+find_package(Qt6 REQUIRED COMPONENTS Test)
 
 add_executable(protoencoder_test
   protoencoder_test.cpp
@@ -12,7 +12,7 @@ add_executable(protoencoder_test
 
 target_link_libraries(protoencoder_test PRIVATE
   seq-daemon-core
-  Qt${QT_VERSION_MAJOR}::Test
+  Qt6::Test
 )
 
 target_compile_options(protoencoder_test PRIVATE
@@ -29,7 +29,7 @@ add_executable(seqcolor_test
 
 target_link_libraries(seqcolor_test PRIVATE
   seq-daemon-core
-  Qt${QT_VERSION_MAJOR}::Test
+  Qt6::Test
 )
 
 target_compile_options(seqcolor_test PRIVATE
@@ -44,7 +44,7 @@ add_executable(packetinfo_test
 
 target_link_libraries(packetinfo_test PRIVATE
   seq-daemon-core
-  Qt${QT_VERSION_MAJOR}::Test
+  Qt6::Test
 )
 
 target_compile_options(packetinfo_test PRIVATE
@@ -61,7 +61,7 @@ add_executable(itempacket_test
 
 target_link_libraries(itempacket_test PRIVATE
   seq-daemon-core
-  Qt${QT_VERSION_MAJOR}::Test
+  Qt6::Test
 )
 
 target_compile_options(itempacket_test PRIVATE
@@ -76,7 +76,7 @@ add_executable(itemcache_test
 
 target_link_libraries(itemcache_test PRIVATE
   seq-daemon-core
-  Qt${QT_VERSION_MAJOR}::Test
+  Qt6::Test
 )
 
 target_compile_options(itemcache_test PRIVATE
@@ -91,7 +91,7 @@ add_executable(mappackages_test
 
 target_link_libraries(mappackages_test PRIVATE
   seq-daemon-core
-  Qt${QT_VERSION_MAJOR}::Test
+  Qt6::Test
 )
 
 target_compile_options(mappackages_test PRIVATE
@@ -108,7 +108,7 @@ add_executable(boxregistry_test
 
 target_link_libraries(boxregistry_test PRIVATE
   seq-daemon-core
-  Qt${QT_VERSION_MAJOR}::Test
+  Qt6::Test
 )
 
 target_compile_options(boxregistry_test PRIVATE
@@ -125,7 +125,7 @@ add_executable(namepromoter_test
 
 target_link_libraries(namepromoter_test PRIVATE
   seq-daemon-core
-  Qt${QT_VERSION_MAJOR}::Test
+  Qt6::Test
 )
 
 target_compile_options(namepromoter_test PRIVATE
@@ -144,7 +144,7 @@ add_executable(rustdecode_test
 
 target_link_libraries(rustdecode_test PRIVATE
   seq-daemon-core
-  Qt${QT_VERSION_MAJOR}::Test
+  Qt6::Test
 )
 
 target_compile_options(rustdecode_test PRIVATE

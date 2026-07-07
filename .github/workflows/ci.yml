@@ -13,11 +13,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu, fedora]
-        qt_major: [5, 6]
         include:
           - os: fedora
             container: fedora:latest
-    name: build-${{ matrix.os }}-qt${{ matrix.qt_major }}
+    name: build-${{ matrix.os }}
     steps:
       - name: prepare container (Fedora)
         if: matrix.os == 'fedora'
@@ -33,18 +32,8 @@ jobs:
           repository: showeq-unofficial/showeq-decoder-rs
           path: showeq-decoder-rs
 
-      - name: install build deps (Ubuntu Qt5)
-        if: matrix.os == 'ubuntu' && matrix.qt_major == 5
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake pkg-config \
-            qtbase5-dev qtbase5-dev-tools \
-            libqt5websockets5-dev \
-            libpcap-dev libprotobuf-dev protobuf-compiler zlib1g-dev
-
-      - name: install build deps (Ubuntu Qt6)
-        if: matrix.os == 'ubuntu' && matrix.qt_major == 6
+      - name: install build deps (Ubuntu)
+        if: matrix.os == 'ubuntu'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -52,28 +41,15 @@ jobs:
             qt6-base-dev qt6-websockets-dev qt6-5compat-dev \
             libpcap-dev libprotobuf-dev protobuf-compiler zlib1g-dev
 
-      - name: install build deps (Fedora Qt5)
-        if: matrix.os == 'fedora' && matrix.qt_major == 5
-        run: |
-          dnf install -y --setopt=install_weak_deps=False \
-            gcc gcc-c++ make cmake pkgconf-pkg-config cargo \
-            qt5-qtbase-devel qt5-qtwebsockets-devel \
-            libpcap-devel protobuf-devel protobuf-compiler zlib-devel
-
-      - name: install build deps (Fedora Qt6)
-        if: matrix.os == 'fedora' && matrix.qt_major == 6
+      - name: install build deps (Fedora)
+        if: matrix.os == 'fedora'
         run: |
           dnf install -y --setopt=install_weak_deps=False \
             gcc gcc-c++ make cmake pkgconf-pkg-config cargo \
             qt6-qtbase-devel qt6-qtwebsockets-devel \
             libpcap-devel protobuf-devel protobuf-compiler zlib-devel
 
-      - name: configure (Qt5)
-        if: matrix.qt_major == 5
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_USE_QT5=ON -DSEQ_DECODER_RS_DIR=$GITHUB_WORKSPACE/showeq-decoder-rs
-
-      - name: configure (Qt6)
-        if: matrix.qt_major == 6
+      - name: configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_DECODER_RS_DIR=$GITHUB_WORKSPACE/showeq-decoder-rs
 
       - name: build

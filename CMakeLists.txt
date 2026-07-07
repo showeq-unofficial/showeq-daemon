@@ -19,16 +19,7 @@ endif()
 # the SeqColor POD (src/seqcolor.{h,cpp}). The daemon only instantiates
 # QCoreApplication, never QGuiApplication or QApplication, so it
 # still runs without a display.
-#
-# Default to Qt6; pass -DSEQ_USE_QT5=ON to build against Qt5.
-option(SEQ_USE_QT5 "Build against Qt5 instead of Qt6" OFF)
-if(SEQ_USE_QT5)
-    find_package(Qt5 5.15 REQUIRED COMPONENTS Core Network Xml WebSockets)
-    set(QT_VERSION_MAJOR 5)
-else()
-    find_package(Qt6 REQUIRED COMPONENTS Core Network Xml WebSockets)
-    set(QT_VERSION_MAJOR 6)
-endif()
+find_package(Qt6 REQUIRED COMPONENTS Core Network Xml WebSockets)
 find_package(Protobuf REQUIRED)
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -278,9 +269,9 @@ target_include_directories(seq-daemon-core PUBLIC
 target_link_libraries(seq-daemon-core PUBLIC
   seq-proto
   seq-bridge-cxx          # Rust decoders (cxx); propagates the generated header
-  Qt${QT_VERSION_MAJOR}::Core
-  Qt${QT_VERSION_MAJOR}::Network
-  Qt${QT_VERSION_MAJOR}::Xml
+  Qt6::Core
+  Qt6::Network
+  Qt6::Xml
   ${PCAP_LIBRARIES}
   ${ZLIB_LIBRARIES}
   Threads::Threads
@@ -293,9 +284,6 @@ target_compile_options(seq-daemon-core PRIVATE
   # legacy code still triggers them; the rest of -Wall is clean and gated.
   -Wno-unused-parameter
   -Wno-deprecated-declarations
-  # Qt5's QString headers trip GCC's stringop-overread bug detector; keep
-  # the warning visible without breaking the Qt5 CI matrix.
-  -Wno-error=stringop-overread
 )
 
 # Fedora's GCC 13+ flags Qt6's qmetatype.h SFINAE traits hitting our
@@ -338,7 +326,7 @@ add_executable(showeq-daemon
 
 target_link_libraries(showeq-daemon PRIVATE
   seq-daemon-core
-  Qt${QT_VERSION_MAJOR}::WebSockets
+  Qt6::WebSockets
 )
 
 target_compile_options(showeq-daemon PRIVATE
