@@ -98,11 +98,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Corrosion)
 
-set(SEQ_DECODER_RS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../showeq-decoder-rs")
+# Defaults to the sibling checkout; override with -DSEQ_DECODER_RS_DIR=<path>
+# (CI checks the crate out inside the workspace, not as a true sibling).
+set(SEQ_DECODER_RS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../showeq-decoder-rs"
+    CACHE PATH "Path to the showeq-decoder-rs checkout")
 if(NOT EXISTS "${SEQ_DECODER_RS_DIR}/Cargo.toml")
   message(FATAL_ERROR
-    "showeq-decoder-rs sibling repo not found at ${SEQ_DECODER_RS_DIR}.\n"
-    "Clone github.com/showeq-unofficial/showeq-decoder-rs as a sibling of showeq-daemon.")
+    "showeq-decoder-rs not found at ${SEQ_DECODER_RS_DIR}.\n"
+    "Clone github.com/showeq-unofficial/showeq-decoder-rs as a sibling of "
+    "showeq-daemon, or pass -DSEQ_DECODER_RS_DIR=<path>.")
 endif()
 
 corrosion_import_crate(

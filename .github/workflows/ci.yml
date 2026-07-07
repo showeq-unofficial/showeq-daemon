@@ -27,6 +27,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: checkout showeq-decoder-rs (Corrosion hard-dep)
+        uses: actions/checkout@v5
+        with:
+          repository: showeq-unofficial/showeq-decoder-rs
+          path: showeq-decoder-rs
+
       - name: install build deps (Ubuntu Qt5)
         if: matrix.os == 'ubuntu' && matrix.qt_major == 5
         run: |
@@ -50,7 +56,7 @@ jobs:
         if: matrix.os == 'fedora' && matrix.qt_major == 5
         run: |
           dnf install -y --setopt=install_weak_deps=False \
-            gcc gcc-c++ make cmake pkgconf-pkg-config \
+            gcc gcc-c++ make cmake pkgconf-pkg-config cargo \
             qt5-qtbase-devel qt5-qtwebsockets-devel \
             libpcap-devel protobuf-devel protobuf-compiler zlib-devel
 
@@ -58,17 +64,17 @@ jobs:
         if: matrix.os == 'fedora' && matrix.qt_major == 6
         run: |
           dnf install -y --setopt=install_weak_deps=False \
-            gcc gcc-c++ make cmake pkgconf-pkg-config \
+            gcc gcc-c++ make cmake pkgconf-pkg-config cargo \
             qt6-qtbase-devel qt6-qtwebsockets-devel \
             libpcap-devel protobuf-devel protobuf-compiler zlib-devel
 
       - name: configure (Qt5)
         if: matrix.qt_major == 5
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_USE_QT5=ON
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_USE_QT5=ON -DSEQ_DECODER_RS_DIR=${{ github.workspace }}/showeq-decoder-rs
 
       - name: configure (Qt6)
         if: matrix.qt_major == 6
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_DECODER_RS_DIR=${{ github.workspace }}/showeq-decoder-rs
 
       - name: build
         run: cmake --build build -j
@@ -107,6 +113,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: checkout showeq-decoder-rs (Corrosion hard-dep)
+        uses: actions/checkout@v5
+        with:
+          repository: showeq-unofficial/showeq-decoder-rs
+          path: showeq-decoder-rs
+
       - name: install build deps
         run: |
           sudo apt-get update
@@ -116,7 +128,7 @@ jobs:
             libpcap-dev libprotobuf-dev protobuf-compiler zlib1g-dev
 
       - name: configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_TARGET=${{ matrix.seq_target }}
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSEQ_TARGET=${{ matrix.seq_target }} -DSEQ_DECODER_RS_DIR=${{ github.workspace }}/showeq-decoder-rs
 
       - name: build
         run: cmake --build build -j
