@@ -1,35 +1,34 @@
 /*
  * eqldispatch.cpp — EverQuest Legends packet dispatch adapter.
  *
- * The Legends decode bodies were ported from the legends-client branch. eql owns
- * no wire-struct types: the Legends wire is read here by offset + per-axis scale
- * (via the rd_* helpers below) and the state mutation / signal emission is
- * delegated to the core managers' target-NEUTRAL primitives. So the frontend
- * (SpawnShell / Player / ZoneMgr) keeps only Live's struct set; nothing named
- * `legends*` exists anywhere. Field offsets/scales are /loc-confirmed — see
- * OPCODES_LEGENDS.md for the per-field evidence. Layout shuffles per patch;
- * re-derive from captures, don't memorize.
+ * eql owns no wire-struct types: the Legends wire is decoded in Rust
+ * (showeq-decoder-rs, `backend-eql` feature → `seq-eqstructs-eql`) via the same
+ * uniform `seq::rust::decode_*` surface Live uses. This adapter reads the decoded
+ * fields and drives the core managers' target-NEUTRAL primitives (setIdentity /
+ * applySelfPosition / setZoneByName / upsertSpawn / moveSpawn), so the frontend
+ * (SpawnShell / Player / ZoneMgr) keeps only Live's struct set and nothing named
+ * `legends*` exists in core. The per-field offsets/scales live in the Rust
+ * parsers (`seq-decode`/legends.rs); see OPCODES_LEGENDS.md for the evidence.
+ * Layout shuffles per patch — re-derive the Rust parser from captures.
  */
 #include "eqldispatch.h"
 
 #include <cmath>
-#include <cstring>
 
 #include <QString>
+
+#include "seq-bridge-cxx/lib.h"
 
 #include "packetcommon.h"   // DIR_Client / DIR_Server
 #include "player.h"
 #include "spawnshell.h"
 #include "zonemgr.h"
 
-// Little-endian scalar reads at a byte offset. memcpy (not a cast) because the
-// Legends offsets are unaligned (e.g. 231, 241) and #pragma-pack casts there are
-// UB; the compiler lowers these to a single load.
 namespace {
-inline uint16_t rd_u16(const uint8_t* p) { uint16_t v; std::memcpy(&v, p, 2); return v; }
-inline uint32_t rd_u32(const uint8_t* p) { uint32_t v; std::memcpy(&v, p, 4); return v; }
-inline int16_t  rd_i16(const uint8_t* p) { int16_t  v; std::memcpy(&v, p, 2); return v; }
-inline float    rd_f32(const uint8_t* p) { float    v; std::memcpy(&v, p, 4); return v; }
+inline QString latin1(const rust::String& s)
+{
+    return QString::fromLatin1(s.data(), int(s.size()));
+}
 }
 
 EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player)
@@ -41,116 +40,74 @@ EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* playe
 
 void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_PlayerProfile (0x5207) S>C: ~38KB profile; only the identity header is
-    // decoded. Classic EQ ids: race u32 @21 (6=Dark Elf), class u32 @25
-    // (5=Shadowknight), level u8 @33.
-    if (dir != DIR_Server || len < 34)
+    // OP_PlayerProfile S>C: identity header only (race/class/level).
+    if (dir != DIR_Server)
         return;
-
-    const uint16_t race  = (uint16_t)rd_u32(data + 21);
-    const uint8_t  class1 = (uint8_t)rd_u32(data + 25);
-    const uint8_t  level = data[33];
-    m_player->setIdentity(race, class1, level);
+    auto out = seq::rust::decode_player_profile(
+        rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
+        return;
+    m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
 }
 
 void EqlDispatch::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_ClientUpdate (0x0b03) C>S, 42B: position + deltas as IEEE floats (unlike
-    // Live's bit-packed struct). Offsets /loc-confirmed: spawnId u16 @2;
-    // x f32 @22 (E/W), z f32 @34 (height), y f32 @38 (N/S); deltaX f32 @30,
-    // deltaY f32 @10, deltaZ f32 @14; heading = 11-bit field (0=North) in the
-    // u32 @26: (packed>>10)&0x7FF.
-    if (len != 42)   // fixed size (was SZC_Match); wire is now uint8_t/SZC_None
+    // OP_ClientUpdate C>S, 42B: IEEE-float position + deltas (parser validates len).
+    auto out = seq::rust::decode_player_self_pos(
+        rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
         return;
-
-    const uint16_t spawnId = rd_u16(data + 2);
 
     // Wired DIR_Client only, but keep the self-spawn guard from the branch.
     if (dir == DIR_Client && m_player->id() == 0)
-        m_player->setPlayerID(spawnId);
-    if (spawnId != m_player->id())
+        m_player->setPlayerID(out.spawn_id);
+    if (out.spawn_id != m_player->id())
         return;   // controlling another spawn (Eye of Zomm / boat) — not mapped
-
-    const float x  = rd_f32(data + 22);
-    const float z  = rd_f32(data + 34);
-    const float y  = rd_f32(data + 38);
-    const float dX = rd_f32(data + 30);
-    const float dY = rd_f32(data + 10);
-    const float dZ = rd_f32(data + 14);
-    const uint16_t heading = (uint16_t)((rd_u32(data + 26) >> 10) & 0x7FF);
 
     // newSpeed uses the float deltas before the int16 cast so sub-unit velocity
     // survives.
-    const float speed = std::hypot(std::hypot(dX * 80.0f, dY * 80.0f),
-                                   dZ * 80.0f) / 119.46664f;
+    const float speed = std::hypot(std::hypot(out.delta_x * 80.0f,
+                                              out.delta_y * 80.0f),
+                                   out.delta_z * 80.0f) / 119.46664f;
 
-    m_player->applySelfPosition(int16_t(x), int16_t(y), int16_t(z),
-                                int16_t(dX), int16_t(dY), int16_t(dZ),
-                                heading, speed);
+    m_player->applySelfPosition(int16_t(out.x), int16_t(out.y), int16_t(out.z),
+                                int16_t(out.delta_x), int16_t(out.delta_y),
+                                int16_t(out.delta_z),
+                                out.heading, speed);
 }
 
 void EqlDispatch::newZone(const uint8_t* data, size_t len, uint8_t dir)
 {
-    if (dir != DIR_Server || len < 2)
+    // OP_NewZone S>C: null-terminated short name, then long name.
+    if (dir != DIR_Server)
         return;
-
-    // payload: null-terminated short name, then long name, then zonefile.
-    auto readStr = [&](size_t start) -> QString {
-        if (start >= len) return QString();
-        size_t e = start;
-        while (e < len && data[e] != 0) e++;
-        return QString::fromLatin1((const char*)data + start, int(e - start));
-    };
-
-    const QString shortName = readStr(0);
-    if (shortName.isEmpty())
+    auto out = seq::rust::decode_new_zone(rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
         return;
-    const QString longName = readStr(shortName.length() + 1);
-
-    m_zoneMgr->setZoneByName(shortName, longName);
+    m_zoneMgr->setZoneByName(latin1(out.short_name), latin1(out.long_name));
 }
 
 void EqlDispatch::spawn(const uint8_t* data, size_t len, uint8_t dir)
 {
+    // OP_ZoneSpawns S>C: null-terminated name + fixed 326-byte NPC block.
     if (dir != DIR_Server)
         return;
-
-    // null-terminated name at the front, then a fixed 326-byte NPC block.
-    size_t nameLen = 0;
-    while (nameLen < len && data[nameLen] != 0)
-        nameLen++;
-    if (nameLen == 0 || nameLen >= len)          // empty name or no terminator
+    auto out = seq::rust::decode_spawn(rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
         return;
-
-    const uint8_t* s = data + nameLen + 1;
-    const size_t blockLen = len - nameLen - 1;
-    if (blockLen != 326)                          // scaffold: NPC form only
-        return;
-
-    // Block offsets /loc-confirmed: spawnId u32 @0, level u8 @4, curHpPct u8 @44,
-    // maxHpPct u8 @45; position int16 mixed-scale — X/Z at 1/8 unit (x8 @231,
-    // z8 @227), Y unscaled (y @241).
-    const uint16_t id = (uint16_t)rd_u32(s + 0);
-    const int16_t  x  = (int16_t)(rd_i16(s + 231) / 8);
-    const int16_t  y  = rd_i16(s + 241);
-    const int16_t  z  = (int16_t)(rd_i16(s + 227) / 8);
-    const uint8_t  level    = s[4];
-    const uint8_t  curHpPct = s[44];
-    const uint8_t  maxHpPct = s[45];
-
-    m_spawnShell->upsertSpawn(id, QString::fromLatin1((const char*)data, int(nameLen)),
-                              x, y, z, level, curHpPct, maxHpPct);
+    m_spawnShell->upsertSpawn((uint16_t)out.spawn_id, latin1(out.name),
+                              out.x, out.y, out.z,
+                              out.level, out.cur_hp, out.max_hp);
 }
 
 void EqlDispatch::mobUpdate(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_MobUpdate (0x061b) S>C, 14B. Offsets: spawnId u32 @0; position int16
-    // per-axis fixed-point — X unscaled (@10), Y*8 (@4), Z*64 (@6).
-    if (dir != DIR_Server || len != 14)   // fixed size (was SZC_Match)
+    // OP_MobUpdate S>C, 14B (parser validates len).
+    if (dir != DIR_Server)
         return;
-
-    m_spawnShell->moveSpawn((uint16_t)rd_u32(data + 0),
-                            rd_i16(data + 10),
-                            (int16_t)(rd_i16(data + 4) / 8),
-                            (int16_t)(rd_i16(data + 6) / 64));
+    auto out = seq::rust::decode_mob_update(rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
+        return;
+    m_spawnShell->moveSpawn(out.spawn_id,
+                            int16_t(out.x), int16_t(out.y), int16_t(out.z));
 }
