@@ -28,6 +28,7 @@
  */
 
 #include "spawnshell.h"
+#include "seq-bridge-cxx/lib.h"
 #include "filtermgr.h"
 #include "zonemgr.h"
 #include "player.h"
@@ -441,42 +442,20 @@ void SpawnShell::newGroundItem(const uint8_t* data, size_t len, uint8_t dir)
    if (!data)
       return;
 
-   makeDropStruct ds;
+   auto out = seq::rust::decode_ground_spawn(
+       rust::Slice<const uint8_t>{data, len});
+   if (!out.ok) return;
+   makeDropStruct ds{};
    QString name;
-   memset(&ds, 0, sizeof(makeDropStruct));
-   {
-     NetStream netStream(data, len);
-     union { uint32_t n; float f; } x;
-
-     ds.dropId = netStream.readUInt32NC();
-
-     name = netStream.readText();
-     if(name.length())
-     {
-        strcpy(ds.idFile, name.toLatin1().data());
-        name.resize(0);
-     }
-
-     netStream.readUInt32NC(); // zone id
-     netStream.readUInt32NC(); // zone instance
-     netStream.readUInt32NC(); // unknown
-
-     x.n = netStream.readUInt32NC();
-     ds.heading = x.f;
-
-     netStream.readUInt32NC(); // unknown
-     netStream.readUInt32NC(); // unknown
-     netStream.readUInt32NC(); // unknown
-
-     x.n = netStream.readUInt32NC();
-     ds.y = x.f;
-
-     x.n = netStream.readUInt32NC();
-     ds.x = x.f;
-
-     x.n = netStream.readUInt32NC();
-     ds.z = x.f;
-   }
+   ds.dropId  = out.drop_id;
+   ds.heading = out.heading;
+   ds.y = out.y;
+   ds.x = out.x;
+   ds.z = out.z;
+   // ds is brace-zero-init'd above, so the byte after the copy is the
+   // NUL terminator for the legacy char[30] idFile buffer.
+   std::memcpy(ds.idFile, out.id_file.data(),
+               std::min(out.id_file.size(), sizeof(ds.idFile) - 1));
 
 #ifdef SPAWNSHELL_DIAG
    seqDebug("SpawnShell::newGroundItem(makeDropStruct *)");
@@ -512,18 +491,37 @@ void SpawnShell::removeGroundItem(const uint8_t* data, size_t, uint8_t dir)
   if (dir != DIR_Server)
     return;
 
-  const remDropStruct *d = (const remDropStruct *)data;
-  if (d) {
-    deleteItem(tDrop, d->dropId);
-  }
+  auto out = seq::rust::decode_click_object(
+      rust::Slice<const uint8_t>{data, sizeof(remDropStruct)});
+  if (!out.ok) return;
+  deleteItem(tDrop, out.drop_id);
 }
 
 void SpawnShell::newDoorSpawns(const uint8_t* data, size_t len, uint8_t dir)
 {
   const int nDoors = len / sizeof(doorStruct);
-  const doorStruct* doors = (const doorStruct*)data;
-  for (int i = 0; i < nDoors; i++)
-    newDoorSpawn(doors[i], sizeof(doorStruct), dir);
+  doorStruct tmp;
+  for (int i = 0; i < nDoors; i++) {
+    const uint8_t* p = data + i * sizeof(doorStruct);
+    auto out = seq::rust::decode_door(
+        rust::Slice<const uint8_t>{p, sizeof(doorStruct)});
+    if (!out.ok) continue;
+    std::memset(&tmp, 0, sizeof(tmp));
+    std::memcpy(tmp.name, out.name.data(),
+                std::min(out.name.size(), sizeof(tmp.name) - 1));
+    tmp.y = out.y;
+    tmp.x = out.x;
+    tmp.z = out.z;
+    tmp.heading = out.heading;
+    tmp.incline = out.incline;
+    tmp.size = out.size;
+    tmp.doorId = out.door_id;
+    tmp.opentype = out.opentype;
+    tmp.spawnstate = out.spawnstate;
+    tmp.invertstate = out.invertstate;
+    tmp.zonePoint = out.zone_point;
+    newDoorSpawn(tmp, sizeof(doorStruct), dir);
+  }
 }
 
 void SpawnShell::newDoorSpawn(const doorStruct& d, size_t len, uint8_t dir)
@@ -834,15 +832,69 @@ int32_t SpawnShell::fillSpawnStruct(spawnStruct *spawn, const uint8_t *data, siz
    return retVal;
 }
 
+static void applySpawn(spawnStruct* spawn,
+                          const seq::rust::Spawn& out)
+{
+    auto copyStr = [](char* dst, size_t cap, const rust::String& src) {
+        const size_t n = std::min(src.size(), cap - 1);
+        std::memcpy(dst, src.data(), n);
+        dst[n] = '\0';
+    };
+    copyStr(spawn->name,     sizeof(spawn->name),     out.name);
+    copyStr(spawn->lastName, sizeof(spawn->lastName), out.last_name);
+    copyStr(spawn->title,    sizeof(spawn->title),    out.title);
+    copyStr(spawn->suffix,   sizeof(spawn->suffix),   out.suffix);
+
+    spawn->spawnId        = out.spawn_id;
+    spawn->miscData       = out.misc_data;
+    spawn->bodytype       = out.body_type;
+    spawn->race           = out.race;
+    spawn->deity          = out.deity;
+    spawn->guildID        = out.guild_id;
+    spawn->guildServerID  = out.guild_server_id;
+    spawn->guildstatus    = 0;  // disappeared 2018-11-14
+    spawn->class_         = out.class_;
+    spawn->petOwnerId     = out.pet_owner_id;
+    spawn->level          = out.level;
+    spawn->NPC            = out.npc;
+    spawn->otherData      = out.other_data;
+    spawn->charProperties = out.char_properties;
+    spawn->curHp          = out.cur_hp;
+    spawn->holding        = out.holding;
+    spawn->state          = out.state;
+    spawn->light          = out.light;
+    spawn->isMercenary    = out.is_mercenary;
+
+    // equip_data arrives in wire order [itemId, equip3, equip2, equip1, equip0]
+    // per slot. Assign by field name — EquipStruct's memory order differs
+    // (itemId is at offset 12, not 0), so a raw memcpy would mismap.
+    static_assert(sizeof(spawn->equipment) == 45 * sizeof(uint32_t),
+                  "EquipStruct array size drift");
+    for (int i = 0; i < 9; ++i)
+    {
+        const uint32_t* e = &out.equip_data[i * 5];
+        spawn->equipment[i].itemId = e[0];
+        spawn->equipment[i].equip3 = e[1];
+        spawn->equipment[i].equip2 = e[2];
+        spawn->equipment[i].equip1 = e[3];
+        spawn->equipment[i].equip0 = e[4];
+    }
+    // posData is a raw bitfield union — a byte copy is correct.
+    static_assert(sizeof(spawn->posData) == 5 * sizeof(uint32_t),
+                  "posData layout drift");
+    std::memcpy(&spawn->posData[0], out.pos_data.data(),
+                sizeof(spawn->posData));
+}
+
 void SpawnShell::zoneEntry(const uint8_t* data, size_t len)
 {
   // Zone Entry. Sent when players are added to the zone.
 
+  auto out = seq::rust::decode_spawn(rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) return;
   spawnStruct *spawn = new spawnStruct;
-
   memset(spawn,0,sizeof(spawnStruct));
-
-  fillSpawnStruct(spawn,data,len,true);
+  applySpawn(spawn, out);
 
  #ifdef SPAWNSHELL_DIAG
   seqDebug("SpawnShell::zoneEntry(spawnStruct *(name='%s'))", spawn->name);
@@ -1012,34 +1064,26 @@ void SpawnShell::playerUpdate2(const uint8_t* data, size_t len, uint8_t dir)
   //but sometimes it contains an update for a different spawn, such as
   //an Eye of Zomm cast by the player, a rowboat being controlled by the
   //player, etc.  So in that case, we'll handle it.
-  const playerSelfPosStruct *pupdate = (const playerSelfPosStruct *)data;
+  if (len != sizeof(playerSelfPosStruct)) return;
+  auto out = seq::rust::decode_player_self_pos(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) return;
 
-  int16_t py = int16_t(pupdate->y);
-  int16_t px = int16_t(pupdate->x);
-  int16_t pz = int16_t(pupdate->z);
-  int16_t pdeltaX = int16_t(pupdate->deltaX);
-  int16_t pdeltaY = int16_t(pupdate->deltaY);
-  int16_t pdeltaZ = int16_t(pupdate->deltaZ);
+  int16_t py = int16_t(out.y);
+  int16_t px = int16_t(out.x);
+  int16_t pz = int16_t(out.z);
+  int16_t pdeltaX = int16_t(out.delta_x);
+  int16_t pdeltaY = int16_t(out.delta_y);
+  int16_t pdeltaZ = int16_t(out.delta_z);
 
-
-  updateSpawn(pupdate->spawnId, px, py, pz, pdeltaX, pdeltaY, pdeltaZ,
-          pupdate->heading, pupdate->deltaHeading, pupdate->animation);
+  updateSpawn(out.spawn_id, px, py, pz, pdeltaX, pdeltaY, pdeltaZ,
+          out.heading, out.delta_heading, out.animation);
 }
 
 void SpawnShell::playerUpdate(const uint8_t* data, size_t len, uint8_t dir)
 {
   // if zoning, then don't do anything
   if (m_zoneMgr->isZoning())
-    return;
-
-  // Player::playerUpdateSelf handles the self-spawn via playerSelfPosStruct
-  // (float x/y/z). Both handlers are wired for DIR_Server, so without this
-  // guard the player's position gets emitted twice per packet — once from
-  // playerUpdateSelf and once here — using different struct layouts that
-  // produce slightly different coordinates. The smoother sees two distinct
-  // positions 0ms apart, collapsing lerp duration and causing stop-and-go.
-  const playerSpawnPosStruct* p = (const playerSpawnPosStruct*)data;
-  if (p->spawnId == m_player->id())
     return;
 
 #if 0
@@ -1060,17 +1104,27 @@ void SpawnShell::playerUpdate(const uint8_t* data, size_t len, uint8_t dir)
   printf("\n");
 #endif
 
-  const playerSpawnPosStruct *pupdate = (const playerSpawnPosStruct *)data;
+  if (len != sizeof(playerSpawnPosStruct)) return;
+  auto out = seq::rust::decode_player_spawn_pos(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok) return;
+
+  // Player::playerUpdateSelf handles the self-spawn (playerSelfPosStruct,
+  // float x/y/z). Both handlers fire for DIR_Server, so without this guard
+  // the player's position is emitted twice per packet with slightly different
+  // coords — the smoother sees two positions 0ms apart. Guard it here.
+  if (out.spawn_id == m_player->id())
+    return;
 
   if (dir != DIR_Client)
   {
-    int16_t y = pupdate->y >> 3;
-    int16_t x = pupdate->x >> 3;
-    int16_t z = pupdate->z >> 3;
+    int16_t y = out.y >> 3;
+    int16_t x = out.x >> 3;
+    int16_t z = out.z >> 3;
 
-    int16_t dy = pupdate->deltaY >> 2;
-    int16_t dx = pupdate->deltaX >> 2;
-    int16_t dz = pupdate->deltaZ >> 2;
+    int16_t dy = out.delta_y >> 2;
+    int16_t dx = out.delta_x >> 2;
+    int16_t dz = out.delta_z >> 2;
     
 #if 0
     // Debug positioning without having to recompile everything...
@@ -1110,45 +1164,13 @@ void SpawnShell::playerUpdate(const uint8_t* data, size_t len, uint8_t dir)
                 p->padding00, p->padding01, p->padding02, p->padding03 );
 #endif
 
-    updateSpawn(pupdate->spawnId, x, y, z, dx, dy, dz,
-		pupdate->heading, pupdate->deltaHeading,pupdate->animation);
+    updateSpawn(out.spawn_id, x, y, z, dx, dy, dz,
+		out.heading, out.delta_heading, out.animation);
   }
 }
 
 void SpawnShell::npcMoveUpdate(const uint8_t* data, size_t len, uint8_t dir)
 {
-/*
- * Wire format:
- * 2 bytes - spawnId
- * 6 bit - fieldSpecifier bitmask
- * 19 bit - y
- * 19 bit - x
- * 19 bit - z
- * 12 bit - heading
- * [Variable fields]
- *
- * Depending on bits set in fields:
- * 1 = 12 bit pitch
- * 2 = 10 bit delta heading  
- * 4 = 10 bit velocity
- * 8 = 13 bit delta y
- * 16= 13 bit delta x
- * 32 = 13 bit delta z
- *
- * Fields are in that order. For example, if the fieldSpecifier is
- * 1, then there is just 12 bits of pitch. If the fieldSpecifier is
- * 7, then there will be 10 bits of delta heading, 10 bits of animation,
- * and 13 bits of delta y. Other non-specified values are 0.
- *
- * Oh and the byte order needs to be converted too. How nice.
- */
-#define MASK_PITCH 0x01
-#define MASK_DELTA_HEADING 0x02
-#define MASK_ANIMATION 0x04
-#define MASK_DELTA_Y 0x08
-#define MASK_DELTA_X 0x10
-#define MASK_DELTA_Z 0x20
-
     // Variable length movement packet. Sanity check.
 	if ((len < 13) || (len > 24))
     {
@@ -1163,66 +1185,15 @@ void SpawnShell::npcMoveUpdate(const uint8_t* data, size_t len, uint8_t dir)
         return;
     }
 
-    // Pull data from the header.
-    BitStream stream(data, len);
-    
-    // spawnId.
-    uint16_t spawnId = stream.readUInt(16);
-
-    // BSH 13 Apr 2011 -- garbage added in packet
-    stream.readUInt(16);
-
-
-    // 6 bit field specifier.
-    uint8_t fieldSpecifier = stream.readUInt(6);
-
-    // 19 bit coords. 12 bit heading. All signed.
-    int16_t y = stream.readInt(19) >> 3;
-    int16_t x = stream.readInt(19) >> 3;
-    int16_t z = stream.readInt(19) >> 3;
-    int16_t heading = stream.readInt(12);
-
-    // Variable fields are 0 unless specified.
-    int16_t deltaX = 0;
-    int16_t deltaY = 0;
-    int16_t deltaZ = 0;
-    int8_t deltaHeading = 0;
-    int16_t velocity = 0;
-
-    if (fieldSpecifier & MASK_PITCH)
-    {
-        // Pull off pitch. Seq doesn't pay attention to this.
-        stream.readInt(12);
-    }
-    if (fieldSpecifier & MASK_DELTA_HEADING)
-    {
-        // Pull off deltaHeading. It is 10 bits in length. Signed.
-        deltaHeading = stream.readInt(10) >> 2;
-    }
-    if (fieldSpecifier & MASK_ANIMATION)
-    {
-        // Pull off velocity. It is 10 bits in length.
-        velocity = stream.readInt(10) >> 2;
-    }
-    if (fieldSpecifier & MASK_DELTA_Y)
-    {
-        // Pull off deltaY. It is 13 bits in length. Signed.
-        deltaY = stream.readInt(13) >> 2;
-    }
-    if (fieldSpecifier & MASK_DELTA_X)
-    {
-        // Pull off deltaX. It is 13 bits in length. Signed,
-        deltaX = stream.readInt(13) >> 2;
-    }
-    if (fieldSpecifier & MASK_DELTA_Z)
-    {
-        // Pull off deltaZ. It is 13 bits in length. Signed.
-        deltaZ = stream.readInt(13) >> 2;
-    }
-
-    // And send the update.
-	updateSpawn(spawnId, x, y, z, 
-        deltaX, deltaY, deltaZ, heading, deltaHeading, velocity);
+    auto out = seq::rust::decode_npc_move_update(
+        rust::Slice<const uint8_t>{data, len});
+    if (!out.ok) return;
+    updateSpawn(out.spawn_id,
+                out.x, out.y, out.z,
+                out.delta_x, out.delta_y, out.delta_z,
+                static_cast<int8_t>(out.heading),
+                out.delta_heading,
+                static_cast<uint8_t>(out.animation));
 }
 
 void SpawnShell::updateSpawn(uint16_t id, 
@@ -1305,27 +1276,34 @@ void SpawnShell::updateSpawns(const uint8_t* data)
   if (m_zoneMgr->isZoning())
     return;
 
-  const spawnPositionUpdate* updates = (const spawnPositionUpdate*)data;
-  updateSpawn(updates->spawnId,
-	      updates->x >> 3, updates->y >> 3, updates->z >> 3,
-	      0,0,0,updates->heading,0,0);
+  auto out = seq::rust::decode_mob_update(
+      rust::Slice<const uint8_t>{data, sizeof(spawnPositionUpdate)});
+  if (!out.ok) return;
+  updateSpawn(out.spawn_id,
+              static_cast<int16_t>(out.x),
+              static_cast<int16_t>(out.y),
+              static_cast<int16_t>(out.z),
+              0, 0, 0,
+              static_cast<int8_t>(out.heading), 0, 0);
 }
 
 void SpawnShell::updateSpawnInfo(const uint8_t* data)
 {
-   const SpawnUpdateStruct* su = (const SpawnUpdateStruct*)data;
+   auto out = seq::rust::decode_wear_change(
+       rust::Slice<const uint8_t>{data, sizeof(SpawnUpdateStruct)});
+   if (!out.ok) return;
 #ifdef SPAWNSHELL_DIAG
    seqDebug("SpawnShell::updateSpawnInfo(id=%d, sub=%d, hp=%d, maxHp=%d)",
-	  su->spawnId, su->subcommand, su->arg1, su->arg2);
+	  out.spawn_id, out.subcommand, out.arg1, out.arg2);
 #endif
 
-   Item* item = m_spawns.value(su->spawnId, nullptr);
+   Item* item = m_spawns.value(out.spawn_id, nullptr);
    if (item != NULL)
    {
      Spawn* spawn = (Spawn*)item;
-     switch(su->subcommand) {
+     switch(out.subcommand) {
      case 17: // current hp update
-       spawn->setHP(su->arg1);
+       spawn->setHP(out.arg1);
        item->updateLastChanged();
        emit changeItem(item, tSpawnChangedHP);
        break;
@@ -1359,17 +1337,21 @@ void SpawnShell::updateSpawnLock(const uint8_t* data)
 
 void SpawnShell::renameSpawn(const uint8_t* data)
 {
-    const spawnRenameStruct* rename = (const spawnRenameStruct*)data;
+    auto out = seq::rust::decode_spawn_rename(
+        rust::Slice<const uint8_t>{data, sizeof(spawnRenameStruct)});
+    if (!out.ok) return;
+    const std::string oldName(out.old_name);
+    const std::string newName(out.new_name);
 #ifdef SPAWNSHELL_DIAG
     seqDebug("SpawnShell::renameSpawn(oldname=%s, newname=%s)",
-             rename->old_name, rename->new_name);
+             oldName.c_str(), newName.c_str());
 #endif
-    
-    Spawn* renameMe = findSpawnByName(rename->old_name);
+
+    Spawn* renameMe = findSpawnByName(oldName.c_str());
 
     if (renameMe != NULL)
     {
-        renameMe->setName(rename->new_name);
+        renameMe->setName(newName.c_str());
 
         uint32_t changeType = tSpawnChangedName;
 
@@ -1383,33 +1365,36 @@ void SpawnShell::renameSpawn(const uint8_t* data)
     }
     else
     {
-        seqWarn("SpawnShell: tried to rename %s to %s, but the original mob didn't exist in the spawn list", rename->old_name, rename->new_name);
+        seqWarn("SpawnShell: tried to rename %s to %s, but the original mob didn't exist in the spawn list",
+                oldName.c_str(), newName.c_str());
     }
 }
 
 void SpawnShell::illusionSpawn(const uint8_t* data)
 {
-    const spawnIllusionStruct* illusion = (const spawnIllusionStruct*)data;
+    auto out = seq::rust::decode_illusion(
+        rust::Slice<const uint8_t>{data, sizeof(spawnIllusionStruct)});
+    if (!out.ok) return;
 #ifdef SPAWNSHELL_DIAG
     seqDebug("SpawnShell::illusionSpawn(id=%d, name=%s, new race=%d)",
-             illusion->spawnId, illusion->name, illusion->race);
+             out.spawn_id, std::string(out.name).c_str(), out.race);
 #endif
 
-    Item* item = m_spawns.value(illusion->spawnId, nullptr);
+    Item* item = m_spawns.value(out.spawn_id, nullptr);
 
     if (item != NULL)
     {
         Spawn* spawn = (Spawn*) item;
 
         // Update what we can
-        spawn->setGender(illusion->gender);
-        spawn->setRace(illusion->race);
+        spawn->setGender(out.gender);
+        spawn->setRace(out.race);
 
         spawn->updateLastChanged();
         emit changeItem(spawn, tSpawnChangedALL);
 #ifdef SPAWNSHELL_DIAG
         seqDebug("SpawnShell: Illusioned %s (id=%d) into race %d",
-                 illusion->name, illusion->spawnId, illusion->race);
+                 std::string(out.name).c_str(), out.spawn_id, out.race);
 #endif
     }
     else
@@ -1461,22 +1446,24 @@ void SpawnShell::shroudSpawn(const uint8_t* data, size_t len, uint8_t dir)
 
 void SpawnShell::updateSpawnAppearance(const uint8_t* data)
 {
-    const spawnAppearanceStruct* app = (const spawnAppearanceStruct*)data;
+    auto out = seq::rust::decode_spawn_appearance(
+        rust::Slice<const uint8_t>{data, sizeof(spawnAppearanceStruct)});
+    if (!out.ok) return;
 #ifdef SPAWNSHELL_DIAG
     seqDebug("SpawnShell::updateSpawnAppearance(id=%d, sub=%d, parm=%08x)",
-             app->spawnId, app->type, app->parameter);
+             out.spawn_id, out.kind, out.parameter);
 #endif
 
-   Item* item = m_spawns.value(app->spawnId, nullptr);
+   Item* item = m_spawns.value(out.spawn_id, nullptr);
 
    if (item != NULL)
    {
        Spawn* spawn = (Spawn*)item;
 
-       switch(app->type) 
+       switch(out.kind)
        {
            case 1: // level update
-               spawn->setLevel(app->parameter);
+               spawn->setLevel(out.parameter);
                spawn->updateLastChanged();
                emit changeItem(spawn, tSpawnChangedLevel);
                break;
@@ -1508,17 +1495,19 @@ void SpawnShell::updateSpawnAppearance(const uint8_t* data)
 
 void SpawnShell::updateNpcHP(const uint8_t* data)
 {
-  const hpNpcUpdateStruct* hpupdate = (const hpNpcUpdateStruct*)data;
+  auto out = seq::rust::decode_hp_update(
+      rust::Slice<const uint8_t>{data, sizeof(hpNpcUpdateStruct)});
+  if (!out.ok) return;
 #ifdef SPAWNSHELL_DIAG
    seqDebug("SpawnShell::updateNpcHP(id=%d, maxhp=%d hp=%d)",
-	  hpupdate->spawnId, hpupdate->maxHP, hpupdate->curHP);
+	  out.spawn_id, out.max_hp, out.cur_hp);
 #endif
-   Item* item = m_spawns.value(hpupdate->spawnId, nullptr);
+   Item* item = m_spawns.value(out.spawn_id, nullptr);
    if (item != NULL)
    {
      Spawn* spawn = (Spawn*)item;
-     spawn->setHP(hpupdate->curHP);
-     spawn->setMaxHP(hpupdate->maxHP);
+     spawn->setHP(out.cur_hp);
+     spawn->setMaxHP(out.max_hp);
      item->updateLastChanged();
      emit changeItem(item, tSpawnChangedHP);
    }
@@ -1526,9 +1515,11 @@ void SpawnShell::updateNpcHP(const uint8_t* data)
 
 void SpawnShell::updateMobHealth(const uint8_t* data)
 {
-  const mobHealthStruct* mobhp = (const mobHealthStruct*)data;
+  auto out = seq::rust::decode_mob_health(
+      rust::Slice<const uint8_t>{data, sizeof(mobHealthStruct)});
+  if (!out.ok) return;
 
-  Item* item = m_spawns.value(mobhp->spawnId, nullptr);
+  Item* item = m_spawns.value(out.spawn_id, nullptr);
   if (item == NULL)
     return;
   Spawn* spawn = (Spawn*)item;
@@ -1538,11 +1529,11 @@ void SpawnShell::updateMobHealth(const uint8_t* data)
   // the change timestamp so the snapshot tail still flows.
   if (spawn->maxHP() > 0)
   {
-    spawn->setHP((spawn->maxHP() * mobhp->hpPercent) / 100);
+    spawn->setHP((spawn->maxHP() * out.hp_percent) / 100);
   }
 #ifdef SPAWNSHELL_DIAG
   seqDebug("SpawnShell::updateMobHealth(id=%d, pct=%d, maxHP=%d -> curHP=%d)",
-           mobhp->spawnId, mobhp->hpPercent, spawn->maxHP(), spawn->HP());
+           out.spawn_id, out.hp_percent, spawn->maxHP(), spawn->HP());
 #endif
   item->updateLastChanged();
   emit changeItem(item, tSpawnChangedHP);
@@ -1569,23 +1560,25 @@ void SpawnShell::spawnWearingUpdate(const uint8_t* data)
 
 void SpawnShell::consMessage(const uint8_t* data, size_t, uint8_t dir)
 {
-  const considerStruct* con = (const considerStruct*)data;
+  auto out = seq::rust::decode_consider(
+      rust::Slice<const uint8_t>{data, sizeof(considerStruct)});
+  if (!out.ok) return;
 
   Item* item;
   Spawn* spawn;
 
   if (dir == DIR_Client)
   {
-    if (con->playerid != con->targetid) 
+    if (out.player_id != out.target_id)
     {
-      item = m_spawns.value(con->targetid, nullptr);
+      item = m_spawns.value(out.target_id, nullptr);
       if (item != NULL)
       {
 	spawn = (Spawn*)item;
 
 	// note that this spawn has been considered
 	spawn->setConsidered(true);
-	
+
 	emit spawnConsidered(item);
       }
     }
@@ -1593,10 +1586,10 @@ void SpawnShell::consMessage(const uint8_t* data, size_t, uint8_t dir)
   }
 
   // is it you that you've conned?
-  if (con->playerid != con->targetid) 
+  if (out.player_id != out.target_id)
   {
     // find the spawn if it exists
-    item = m_spawns.value(con->targetid, nullptr);
+    item = m_spawns.value(out.target_id, nullptr);
 
     // has the spawn been seen before?
     if (item != NULL)
@@ -1614,57 +1607,60 @@ void SpawnShell::consMessage(const uint8_t* data, size_t, uint8_t dir)
 
 void SpawnShell::clientTarget(const uint8_t* data)
 {
-  const clientTargetStruct* cts = (const clientTargetStruct*)data;
-  emit targetSpawn(cts->newTarget);
+  auto out = seq::rust::decode_client_target(
+      rust::Slice<const uint8_t>{data, sizeof(clientTargetStruct)});
+  if (!out.ok) return;
+  emit targetSpawn(out.new_target);
 }
 
 void SpawnShell::removeSpawn(const uint8_t* data, size_t len, uint8_t dir)
 {
   if(dir==DIR_Client)
     return;
-  const removeSpawnStruct* rmSpawn = (const removeSpawnStruct*)data;
+  if(len != sizeof(removeSpawnStruct))
+  {
+    if ((len+1) != sizeof(removeSpawnStruct))
+      seqWarn("OP_RemoveSpawn (dataLen: %d) doesn't match: sizeof(removeSpawnStruct): %d",
+              len, sizeof(removeSpawnStruct));
+    return;
+  }
+  auto out = seq::rust::decode_remove_spawn(
+      rust::Slice<const uint8_t>{data, sizeof(removeSpawnStruct)});
+  if (!out.ok) return;
 #ifdef SPAWNSHELL_DIAG
-  seqDebug("SpawnShell::removeSpawn(id=%d)", rmSpawn->spawnId);
+  seqDebug("SpawnShell::removeSpawn(id=%d)", out.spawn_id);
 #endif
 
   Item *item;
 
-  if(len==sizeof(removeSpawnStruct))
-  {
-// BSH
-	deleteItem(tSpawn, rmSpawn->spawnId);
-// BSH
+  deleteItem(tSpawn, out.spawn_id);
 
-    if(!rmSpawn->removeSpawn)
+  if(!out.remove_spawn)
+  {
+    // Remove a spawn from outside the update radius
+    if(showeq_params->useUpdateRadius)
     {
-      // Remove a spawn from outside the update radius
-      if(showeq_params->useUpdateRadius)
+      // Remove it
+      deleteItem(tSpawn, out.spawn_id);
+    }
+    else
+    {
+      // Set flag to change its icon
+      if((item=m_spawns.value(out.spawn_id, nullptr)))
       {
-        // Remove it
-        deleteItem(tSpawn, rmSpawn->spawnId);
-      }
-      else
-      {
-        // Set flag to change its icon
-        if((item=m_spawns.value(rmSpawn->spawnId, nullptr)))
-        {
-          Spawn *s=(Spawn*)item;
-          s->setNotUpdated(true);
-        }
+        Spawn *s=(Spawn*)item;
+        s->setNotUpdated(true);
       }
     }
-  }
-  else if((len+1)!=sizeof(removeSpawnStruct))
-  {
-    seqWarn("OP_RemoveSpawn (dataLen: %d) doesn't match: sizeof(removeSpawnStruct): %d",
-            len,sizeof(removeSpawnStruct));
   }
 }
 
 void SpawnShell::deleteSpawn(const uint8_t* data)
 {
-  const deleteSpawnStruct* delspawn = (const deleteSpawnStruct*)data;
-  uint32_t spawnId = delspawn->spawnId;
+  auto out = seq::rust::decode_delete_spawn(
+      rust::Slice<const uint8_t>{data, sizeof(deleteSpawnStruct)});
+  if (!out.ok) return;
+  uint32_t spawnId = out.spawn_id;
 
 #ifdef SPAWNSHELL_DIAG
   seqDebug("SpawnShell::deleteSpawn(id=%d)", spawnId);
@@ -1684,16 +1680,18 @@ void SpawnShell::deleteSpawn(const uint8_t* data)
 
 void SpawnShell::killSpawn(const uint8_t* data)
 {
-  const newCorpseStruct* deadspawn = (const newCorpseStruct*)data;
+  auto out = seq::rust::decode_death(
+      rust::Slice<const uint8_t>{data, sizeof(newCorpseStruct)});
+  if (!out.ok) return;
 #ifdef SPAWNSHELL_DIAG
-   seqDebug("SpawnShell::killSpawn(id=%d, kid=%d)", 
-	  deadspawn->spawnId, deadspawn->killerId);
+   seqDebug("SpawnShell::killSpawn(id=%d, kid=%d)",
+	  out.spawn_id, out.killer_id);
 #endif
    Item* item;
 
-   if (deadspawn->spawnId != m_player->id())
+   if (out.spawn_id != m_player->id())
    {
-       item = m_spawns.value(deadspawn->spawnId, nullptr);
+       item = m_spawns.value(out.spawn_id, nullptr);
    }
    else
    {
@@ -1703,12 +1701,12 @@ void SpawnShell::killSpawn(const uint8_t* data)
    if (item != NULL)
    {
      Spawn* spawn = (Spawn*)item;
-     
+
      // ZBTEMP: This is temporary until we can find a better way
      // set the last kill info on the player (do this before changing name)
-     
+
      // only call setLastKill if *you* killed the spawn
-     if(deadspawn->killerId == m_player->id())
+     if(out.killer_id == m_player->id())
      {
          m_player->setLastKill(spawn->name(), spawn->level());
      }
@@ -1720,8 +1718,8 @@ void SpawnShell::killSpawn(const uint8_t* data)
      spawn->setName(spawn->realName() + Spawn_Corpse_Designator);
 
      Item* killer;
-     killer = m_spawns.value(deadspawn->killerId, nullptr);
-     emit killSpawn(item, killer, deadspawn->killerId);
+     killer = m_spawns.value(out.killer_id, nullptr);
+     emit killSpawn(item, killer, out.killer_id);
    }
 }
 
@@ -1759,24 +1757,26 @@ void SpawnShell::respawnFromHover(const uint8_t* data, size_t len, uint8_t dir)
 
 void SpawnShell::corpseLoc(const uint8_t* data)
 {
-  const corpseLocStruct* corpseLoc = (const corpseLocStruct*)data;
-  Item* item = m_spawns.value(corpseLoc->spawnId, nullptr);
+  auto out = seq::rust::decode_corpse_loc(
+      rust::Slice<const uint8_t>{data, sizeof(corpseLocStruct)});
+  if (!out.ok) return;
+  Item* item = m_spawns.value(out.spawn_id, nullptr);
   if (item != NULL)
   {
     Spawn* spawn = (Spawn*)item;
 
-    // set the corpses location, and make sure it's not moving... 
+    // set the corpses location, and make sure it's not moving...
     if ((spawn->NPC() == SPAWN_PLAYER) || (spawn->NPC() == SPAWN_PC_CORPSE))
     {
-        spawn->setPos(int16_t(corpseLoc->y), int16_t(corpseLoc->x), 
-                      int16_t(corpseLoc->z),
+        spawn->setPos(int16_t(out.y), int16_t(out.x),
+                      int16_t(out.z),
                       showeq_params->walkpathrecord,
                       showeq_params->walkpathlength);
     }
-    else 
+    else
     {
-        spawn->setPos(int16_t(corpseLoc->x), int16_t(corpseLoc->y), 
-                      int16_t(corpseLoc->z),
+        spawn->setPos(int16_t(out.x), int16_t(out.y),
+                      int16_t(out.z),
                       showeq_params->walkpathrecord,
                       showeq_params->walkpathlength);
     }
