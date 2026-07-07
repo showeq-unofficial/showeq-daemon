@@ -59,6 +59,17 @@ WsServer::WsServer(QObject* parent)
 
 WsServer::~WsServer()
 {
+    // m_server is declared before the socket-bookkeeping hashes, so in reverse
+    // member-destruction order it outlives them: destroying it deletes its child
+    // QWebSockets, each emitting disconnected -> onSocketDisconnected, which
+    // indexes m_pending / m_socketToSession (already destroyed) — a use-after-
+    // free that SIGSEGVs on shutdown whenever a ws client is still connected.
+    // Sever every live socket's signals to this first so teardown is silent.
+    const auto pendingSocks = m_pending.keys();
+    for (QWebSocket* sock : pendingSocks) sock->disconnect(this);
+    const auto boundSocks = m_socketToSession.keys();
+    for (QWebSocket* sock : boundSocks) sock->disconnect(this);
+
     for (auto& s : m_sessions) {
         delete s.liveSink;
         if (s.pruneTimer) s.pruneTimer->deleteLater();
