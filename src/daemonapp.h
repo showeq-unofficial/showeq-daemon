@@ -2,7 +2,9 @@
 
 #include <QHash>
 #include <QHostAddress>
+#include <QList>
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <memory>
