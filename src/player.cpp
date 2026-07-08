@@ -1046,6 +1046,11 @@ struct pos
 void Player::setIdentity(uint16_t race, uint8_t classVal, uint8_t level)
 {
   setNPC(SPAWN_SELF);
+  // A real identity just arrived — stop returning default race/class/level.
+  // reset() (fired on zone-change) sets useDefaults=true; without clearing it
+  // here the accessors keep returning m_defaultRace/Class/Level (symptom: the
+  // player shows default race1/class1/level1 despite a decoded profile).
+  setUseDefaults(false);
   setRace(race);
   setClassVal(classVal);
   setLevel(level);

@@ -47,12 +47,15 @@ void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
         rust::Slice<const uint8_t>{data, len});
     if (!out.ok)
         return;
-    m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
-    // The profile also carries the CURRENT zone (classic id @36211); resolve it
-    // via zones.h. This is the authoritative current-zone source — 0x4bc8 is the
-    // BIND zone, not current, so it no longer drives the map.
+    // Resolve the CURRENT zone FIRST (classic id @36211; 0x4bc8 is the BIND
+    // zone, not current). A zone change fires ZoneMgr::zoneChanged ->
+    // Player::zoneChanged() -> reset(), which wipes the player's identity — so
+    // the zone MUST be applied before setIdentity or the identity is lost
+    // (symptom: player shows default race1/class1/level1). Matches Live, which
+    // establishes identity after the zone reset.
     if (out.zone_id != 0)
         m_zoneMgr->setZoneById(out.zone_id);
+    m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
 }
 
 void EqlDispatch::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)

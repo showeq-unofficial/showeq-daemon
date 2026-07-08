@@ -1582,6 +1582,15 @@ void SpawnShell::corpseLoc(const uint8_t* data)
 
 void SpawnShell::playerChangedID(uint16_t oldPlayerID, uint16_t newPlayerID)
 {
+  // If the new player id already exists as a spawn, it's the player's OWN
+  // spawn — added as a mob before the id was known (EQL establishes the player
+  // id from self-pos, after ZoneSpawns, so the player's ZoneSpawns entry lands
+  // as a mob). Adopt its name onto the player; the deleteItem(tSpawn, ...)
+  // below then drops the duplicate mob.
+  Item* ownSpawn = m_spawns.value(newPlayerID, nullptr);
+  if (ownSpawn && !ownSpawn->name().isEmpty())
+    m_player->setName(ownSpawn->name());
+
   // remove the player from the list (if it had a 0 id)
   deleteItem(tPlayer, 0);
 
