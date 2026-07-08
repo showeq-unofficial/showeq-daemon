@@ -176,6 +176,12 @@ int main(int argc, char** argv)
         "client observed on the wire) to stderr every 5s. Pairs "
         "with --no-listen for client-less inspection. See "
         "docs/MULTIBOX_PLAN.md.");
+    QCommandLineOption dumpAllSessionsOpt(QStringList{"dump-all-sessions"},
+        "Recon: feed EVERY box/session's decoded packets to --dump-payload / "
+        "--opcode-stats / --list-events, not just the first world session "
+        "seen. Needed for multi-zone captures where the opcode you want is in "
+        "a later session (e.g. a high-Y zone reached after zoning). "
+        "Recon-only; no effect on proto output or goldens.");
     QCommandLineOption waitForClientOpt(QStringList{"wait-for-client"},
         "With --replay: pause playback until the first WebSocket "
         "client subscribes, and don't quit at EOF. Use to drive the "
@@ -201,6 +207,7 @@ int main(int argc, char** argv)
     parser.addOption(dumpPayloadOpt);
     parser.addOption(listEventsOpt);
     parser.addOption(listBoxesOpt);
+    parser.addOption(dumpAllSessionsOpt);
     parser.addOption(waitForClientOpt);
     parser.addOption(boxIdleTtlOpt);
     parser.process(app);
@@ -232,6 +239,7 @@ int main(int argc, char** argv)
     cfg.dumpPayload  = parser.values(dumpPayloadOpt);
     cfg.listEvents   = parser.value(listEventsOpt);
     cfg.listBoxes    = parser.isSet(listBoxesOpt);
+    cfg.dumpAllSessions = parser.isSet(dumpAllSessionsOpt);
     cfg.waitForClient = parser.isSet(waitForClientOpt);
     if (parser.isSet(boxIdleTtlOpt)) {
         bool ok = false;

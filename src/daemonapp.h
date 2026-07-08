@@ -111,6 +111,13 @@ public:
         // of the multibox feature (docs/MULTIBOX_PLAN.md). Pairs with
         // --no-listen for client-less recon.
         bool         listBoxes = false;
+        // If true, forward EVERY box's decoded packets to the recon signals
+        // (--dump-payload / --opcode-stats / --list-events), not just the
+        // primary box's. Multibox/multi-zone captures otherwise only surface
+        // the first world session seen, so a later zone's opcodes are missed
+        // (the documented primary-box recon limitation). Recon-only: does not
+        // affect proto output or goldens.
+        bool         dumpAllSessions = false;
         // --replay --wait-for-client: pause the .vpk playback until
         // the first WebSocket client attaches a SessionAdapter (so
         // early envelopes aren't dropped), and don't quit at EOF so

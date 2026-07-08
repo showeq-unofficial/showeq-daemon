@@ -682,6 +682,26 @@ void DaemonApp::onBoxCreated(Box* box)
         wireBoxPipeline(box->world_c2s, box->world_s2c,
                         box->zone_c2s, box->zone_s2c, ms,
                         /*wireGlobalSinks=*/false);
+
+        // Recon (--dump-all-sessions): relay this box's decoded packets onto
+        // the global recon signals so --dump-payload / --opcode-stats /
+        // --list-events observe EVERY session, not just the primary box (the
+        // documented primary-box limitation that hides later-zone opcodes).
+        // Signal-to-signal relay: box stream decodedPacket -> EQPacket
+        // decoded{Zone,World}Packet -> the recon taps already connected in
+        // start(). Recon-only; the manager pipeline is wired separately above.
+        if (m_cfg.dumpAllSessions) {
+            for (EQPacketStream* s : {box->zone_s2c, box->zone_c2s})
+                connect(s, SIGNAL(decodedPacket(const uint8_t*, size_t, uint8_t,
+                                                uint16_t, const EQPacketOPCode*)),
+                        m_packet, SIGNAL(decodedZonePacket(const uint8_t*, size_t,
+                                                uint8_t, uint16_t, const EQPacketOPCode*)));
+            for (EQPacketStream* s : {box->world_s2c, box->world_c2s})
+                connect(s, SIGNAL(decodedPacket(const uint8_t*, size_t, uint8_t,
+                                                uint16_t, const EQPacketOPCode*)),
+                        m_packet, SIGNAL(decodedWorldPacket(const uint8_t*, size_t,
+                                                uint8_t, uint16_t, const EQPacketOPCode*)));
+        }
     }
 
     // Promote + merge the box by its CHARACTER name on every OP_PlayerProfile
