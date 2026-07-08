@@ -97,9 +97,12 @@ Notes / gotchas:
 - The channel's leading `u32` is often the **entity id**, not a string-id — watch for
   coincidental eqstr collisions (the player id `13167` matches eqstr `13167 "Current
   mouse speed…"`, a false positive). The real string-id offset varies per message type.
-- **`net opcode 0000` framing drops eat `0x2735` messages** (they fire heavily during
-  combat) — only 2 Sense Headings (both West) survived this capture out of a "bunch".
-  So the earlier "is net-0000 eating real data?" question = **yes, it drops messages**.
+- **`net opcode 0000` is NOT dropped EQ data** (corrected 2026-07-08): hexdumping the
+  packets showed **mDNS / service-discovery noise** (`EQBOX1.local`, `_dosvc._tcp.local`,
+  Bonjour) — LAN multicast on port 5353 that the open capture filter let through and the
+  deframer misparsed. Fixed by excluding `port 5353` + `net 224.0.0.0/4` from the open
+  filter (daemon `1d3dceb`). `0x2735` messages are **not** being dropped; the missing
+  Sense Headings were client-side text (Sense Heading output is client-rendered).
 - This channel is the foundation for wiring EQL formatted / combat / system message
   **text** into the daemon+web (via eqstr/dbstr) — not yet done.
 
