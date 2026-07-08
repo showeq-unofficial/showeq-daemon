@@ -40,7 +40,7 @@ C`Orm `2324.94,-990.11,-4.92` + Vol `2337.45,-802.35,-5.86`.
 |--------|-----------|-----------|--------|
 | OP_TargetMouse   | 0x1bfe | **0x2867** | ✅ confirmed 19/19 (value-match; 0=untarget). Layout unchanged (`{u32 spawn_id}`) |
 | OP_Consider      | *(new)* | **0x4212** | ✅ NEW. 24B `{u32 self=27090, u32 target, u32 faction, u32 =7}`; C>S req has faction=0, S>C reply fills faction (**2=warmly, 4=amiably**; level comes from spawn). Companions: `0x5b5e` target-HP reveal `{u32 target, u32 cur_hp,…}`, `0x0e54` `{0,target}` |
-| OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ id (42B C>S self + 28B S>C variant). **LAYOUT CHANGED**: pos now `X=f32@10, Y=f32@18, Z=f32@30` (was 22/34/38); heading+deltas TBD |
+| OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ 42B C>S self (+ 28B S>C variant). **FULLY DECODED** (2026-07-08): spawnId u16@2; pos x@10/y@18/z@30 (f32); velocity deltaX f32@6 / deltaY f32@26; **heading u16@14, 11-bit (0–2047, North≈0)** — Sense-Heading-confirmed. deltaZ candidate @22 |
 | OP_ZoneSpawns    | 0x7475 | **0x4606** | ✅ id (var 343–352B NPC / 486B rich). level@block+4 OK. **POS CHANGED**: 330B NPC block `X=i16@239/8, Y=@243/8, Z=@235/8`; 486B block `@395/@399/@391`. hp/body offsets TBD |
 | OP_MobUpdate     | 0x061b | **0x67e0** | ✅ id (14B, ids 416/416 match spawns). pos offsets TBD |
 | OP_ItemPacket    | 0x74b0 | **0x6805** | ✅ id (bulk items; names + `Benefit:`/`Trophy:`) |
@@ -103,11 +103,14 @@ Notes / gotchas:
 - This channel is the foundation for wiring EQL formatted / combat / system message
   **text** into the daemon+web (via eqstr/dbstr) — not yet done.
 
-**For ClientUpdate heading/deltas** (last decode TODO): Sense Heading directions are now
-wire-decodable, so a clean **out-of-combat** capture facing each of the 8 compass points
-(Sense Heading at each) lets me auto-correlate direction → the ClientUpdate heading field
-with no manual log. Note `/loc` does NOT report heading (position only) — Sense Heading is
-the facing ground truth.
+**ClientUpdate heading/deltas — DONE (2026-07-08).** heading = `u16@14`, 11-bit
+(0–2047 = full circle, North≈0), velocity deltaX `f32@6` / deltaY `f32@26`. Confirmed by
+a Sense Heading capture (`captures/eqlegends-heading-20260708.pcap`, Dagnor's Cauldron):
+turning through N/NE/E/SE/S/SW/W/NW, `u16@14` stepped 2043/1814/1542/1246/1036/782/492/203
+(~256 = 45° apart, value falls as compass rises). Note: the Sense Heading *text* is
+**client-side** (not on the wire — 0 in the capture), so the in-game log is the direction
+ground truth; the packet field is what carries facing. deltas re-derived from running
+segments (correlation of f32@6/@26 with Δx/Δy). **This was the last EQL decode TODO.**
 
 ## Confirmed (PRE-PATCH — ids dead as of 2026-07-07, kept for method/evidence)
 
