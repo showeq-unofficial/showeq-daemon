@@ -317,6 +317,29 @@ remapped every app opcode). No behavior change; the toml + opcode-stats now hone
 what's unmapped (206 ffff / 13 confirmed) instead of masking gaps behind stale ids. The
 handlers stay wired by name — supplying a real id is all that's ever needed.
 
+### 2026-07-08 — OP_BuffWindow = `0x18e0`; level/exp/skill absent from the capture
+
+A Legends zone-in + combat capture (no player chat present) was searched for the
+XP/level/skill opcodes.
+
+- **OP_BuffWindow = `0x18e0`** (S>C, 12B, n=10) — byte-identical to Live `buffWindowSlotStruct`:
+  `slot u32@0` = 0..9, `spellid u32@4` = 0xffffffff (empty), `pad u32@8` = 0. Fires 10× at
+  zone-in (one per short-buff slot). Remapped in `conf/eql/opcodes.toml` for table honesty,
+  but **id-only** — no OP_BuffWindow handler is wired on eql, so it resolves in opcode-stats
+  without surfacing anything (like OP_Animation).
+
+- **OP_LevelUpdate / OP_ExpUpdate / OP_SkillUpdate — not present in this capture.**
+  Value-based search found **no level-up event** (no `levelUpUpdateStruct`-shaped 24B opcode
+  with a field rising to the current level, and no `{level=N, levelOld=N-1}` anywhere) and
+  **no skill-up** (no `{skillId<75, rising value}` opcode) — the capture window does not span
+  those events. Ruled-out exp false positives: `0x6007` (variable 130–346B list packet — a
+  fixed offset lands on different fields per size, faking a sawtooth) and `0x4f7a` (a fixed
+  200-element indexed stream `{0, counter 0..199, …}`, not per-kill exp; fires exactly 200×
+  per capture regardless of activity). **To crack these:** a capture must **span a level-up
+  event** — OP_LevelUpdate is then 1 fire per level gain (value = new level), skill-ups
+  accompany it, and the pre-wired `Player::updateLevel`/`updateExp`/`increaseSkill` handlers
+  light up on the id remaps.
+
 ## Confirmed (PRE-PATCH — ids dead as of 2026-07-07, kept for method/evidence)
 
 ### 2026-07-05 — OP_ClientUpdate = `0x0b03`
