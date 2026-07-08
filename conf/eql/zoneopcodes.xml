@@ -112,9 +112,9 @@
         <comment>ConsiderCode</comment>
         <payload dir="both" typename="considerStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="1994" name="OP_TargetMouse" updated="05/20/26">
-        <comment>Targeting a person - old ClientTargetCode</comment>
-        <payload dir="both" typename="clientTargetStruct" sizechecktype="match"/>
+    <opcode id="1bfe" name="OP_TargetMouse" updated="07/07/26">
+        <comment>EQ Legends C>S target select: {u32 spawn_id}, 4B; spawn_id=0 = clear target (untarget). Confirmed 2026-07-07 across fight + Nektulos locclip captures — every payload resolves to a 0x7475 spawn id or 0, zero misses. See OPCODES_LEGENDS.md</comment>
+        <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_SpawnRename" updated="07/19/23">
         <comment>Spawns getting renamed after initial NewSpawn</comment>

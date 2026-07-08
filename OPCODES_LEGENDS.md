@@ -201,7 +201,51 @@ and the inventory bulk (`0x5207`), never a clean "profile" struct — find the
 profile by its **id-cluster header** (race/class/level as u32 at unaligned
 offsets), not by grepping the name.
 
+### 2026-07-07 — OP_TargetMouse = `0x1bfe` (Target / UnTarget)
+
+Captures: `captures/eqlegends-fight-20260705-180923.pcap` (18 fires) +
+`captures/eqlegends-locclip-20260705-153823.pcap` (11 fires, Nektulos — different
+spawn set). Method: `--dump-payload 0x1bfe` + **value-match** against the `0x7475`
+spawn-id set (no timing needed — pure payload cross-check, so robust to the
+`--replay-pcap` capture-time gap).
+
+- **OP_TargetMouse = `0x1bfe`** (C>S, 4 bytes). Player target selection.
+  Payload = `{u32 spawn_id}`; **spawn_id = 0 = clear target (untarget)** — Target
+  and UnTarget are the *same* opcode.
+
+Confirmed: **18/18** fight payloads + **11/11** locclip payloads resolve to either
+0 (untarget) or a live `0x7475` spawn id, zero misses. Fight sample hit 6 distinct
+named mobs (`a_fire_beetle10`, `a_skeleton05`, `a_decaying_skeleton01`,
+`a_moss_snake03`, …); locclip (different zone) hit `Kirak_Vil00` + `a_spiderling02`.
+No competing spawn-id-carrying C>S opcode exists (the other small C>S opcodes are a
+toggle / constants — see candidates), so the ID is unambiguous.
+
+Named in `conf/eql/opcodes.toml` (name only; **no handler yet** — surfacing the
+selected target in the web client would need a target primitive + proto field).
+
 ## Candidates (unconfirmed)
 
 - `0x71fc` (C>S, variable 18…2483 B, n=553) — char-create / inventory upload?
 - `0x0dba` (S>C, ~1.1 KB) — large periodic (another item packet? — compare vs 0x74b0)
+- **`0x0d9c` + `0x2d07`** (both S>C, 8 B, n≈63/54) — per-mob `{u32 spawn_id, u32 flag}`
+  state broadcasts; every id is a live `0x7475` spawn. flag is **not HP** (constant 4,
+  occasionally 32/64, doesn't drain during a fight) — looks like an aggro/stance
+  state (a given mob flips 4↔32 over time). Two near-identical opcodes carrying the
+  same shape — possibly enter-state vs leave-state.
+- **`0x6704`** (C>S, 4 B, n=14) — value toggles `2/0/2/0`: auto-attack on/off (carries
+  no spawn id, so not a target).
+- **`0x26db`** (C>S+S>C, 21–24 B, n=34) — item opcode: `{u32 item_id, u32, u32 namelen,
+  ASCII name+'*'}` (`"Short Sword"` id 9998, `"Bandages"` id 21779). Inventory/item, not combat.
+- **`0x42fe`** (C>S, 8 B, n=19) — constant `{225, 13}` every fire; periodic client
+  keepalive/heartbeat, not a targeted request.
+- **`0x2824`** (S>C, ~18 B, **n=2952**) + **`0x7f8a`** (S>C, variable, n=767) — the two
+  highest-volume unknowns in a fight; combat/animation per-tick stream? unhunted.
+
+**Con (`/consider`) — NOT present in the fight captures (2026-07-07).** Ruled out by
+exhaustion: the only C>S opcode carrying a *varying* target spawn id is `0x1bfe`
+(target); there is no second targeted C>S request, and no S>C reply carrying
+faction/level/HP for a con color. The player targeted + fought but never `/con`'d.
+**To crack Con, capture a dedicated `/consider` session** — con several *named* mobs
+of *known, varied* level/faction, ideally without attacking so the reply isn't buried
+in combat spam. Expect the reply to carry `{target spawn_id, level, cur_hp%, faction}`;
+cross-check level vs the mob's `0x7475` block +4 and HP% vs block +44/45.

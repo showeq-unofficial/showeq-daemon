@@ -318,15 +318,15 @@ comment = "ConsiderCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "1994"
+id      = "1bfe"
 name    = "OP_TargetMouse"
-updated = "2026-05-20"
-comment = "Targeting a person - old ClientTargetCode"
+updated = "2026-07-07"
+comment = "EQ Legends C>S target select: {u32 spawn_id}, 4B; spawn_id=0 = clear target (untarget). Confirmed 2026-07-07 across fight + Nektulos locclip captures — every payload resolves to a 0x7475 spawn id or 0, zero misses. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
-  dir           = "both"
-  typename      = "clientTargetStruct"
-  sizechecktype = "match"
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
 
 [[zone]]
 id      = "ffff"
