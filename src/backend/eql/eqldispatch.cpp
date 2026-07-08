@@ -29,6 +29,17 @@ inline QString latin1(const rust::String& s)
 {
     return QString::fromLatin1(s.data(), int(s.size()));
 }
+
+// Bring `value` within half a wrap-period of `reference` by adding/removing
+// whole periods — undoes a modular (16-bit) coordinate wrap using positional
+// continuity. See EqlDispatch::mobUpdate.
+inline int unwrapToward(int value, int reference, int period)
+{
+    const int half = period / 2;
+    while (value - reference > half) value -= period;
+    while (reference - value > half) value += period;
+    return value;
+}
 }
 
 EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player)
@@ -117,6 +128,21 @@ void EqlDispatch::mobUpdate(const uint8_t* data, size_t len, uint8_t dir)
     auto out = seq::rust::decode_mob_update(rust::Slice<const uint8_t>{data, len});
     if (!out.ok)
         return;
+
+    // OP_MobUpdate encodes Y as signed 16-bit fixed-point (raw/8), so any
+    // coordinate past ±4095 wraps by 65536/8 = 8192 game units — a far-north
+    // mob snaps ~8192 units south. OP_NpcMoveUpdate carries the same position
+    // at 19-bit precision (no wrap) and fires for every roaming mob, so once
+    // it has anchored the spawn's real position we phase-unwrap each MobUpdate
+    // Y toward that known value to undo the wrap (Z: raw/64 → 1024 period, same
+    // treatment). X is unscaled i16 here and effectively never wraps in-zone.
+    int uy = int(out.y);
+    int uz = int(out.z);
+    int16_t cx, cy, cz;
+    if (m_spawnShell->spawnPos(out.spawn_id, cx, cy, cz)) {
+        uy = unwrapToward(uy, cy, 8192);
+        uz = unwrapToward(uz, cz, 1024);
+    }
     m_spawnShell->moveSpawn(out.spawn_id,
-                            int16_t(out.x), int16_t(out.y), int16_t(out.z));
+                            int16_t(out.x), int16_t(uy), int16_t(uz));
 }

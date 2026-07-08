@@ -84,6 +84,24 @@ the `SpawnShell::npcMoveUpdate` wire in `wire_eql.cpp` and the Rust decoder were
 place. Carries velocity + heading, so the web gets smooth motion, not just denser jumps.
 Replay-verified: 734 events decode, no length warnings.
 
+**OP_MobUpdate Y is a 16-bit WRAP — fixed by phase-unwrap** (2026-07-08): once
+OP_NpcMoveUpdate was live, high-Y mobs flickered — correct while moving (NpcMove, 19-bit)
+then snapping ~8192 units **south** on each OP_MobUpdate. Cause: OP_MobUpdate encodes Y as
+signed `i16` fixed-point (raw/8), so any coordinate past ±4095 wraps by 65536/8 = **8192
+game units** (Z likewise: raw/64 → 1024). Confirmed on Qeynos Hills (zone spans ry≈-611..
++5200, wider than the ±4095 an i16/8 field holds): a mob NpcMove-true at y=4724 reads
+i16 ≈ −3400 every MobUpdate, and −3400 **+8192** = ~4790. The OP_ZoneSpawns position wraps
+identically (23/32 high-Y spawns match tail±8192); **neither carries a wider field** (float
+/int32 scan = 0 hits). Since NpcMoveUpdate is unambiguous 19-bit and fires for every roaming
+mob, the fix phase-unwraps each MobUpdate coordinate toward the spawn's last known position
+(`EqlDispatch::mobUpdate` + new neutral `SpawnShell::spawnPos`; wrap period Y=8192, Z=1024).
+Replay-verified against the capture: every wrapped MobUpdate resolves back to its NpcMove
+anchor, in BOTH directions (a genuinely-south mob whose MobUpdate wraps north is pulled back
+south too). Residual: a high-Y mob shows wrapped until its FIRST NpcMove anchors it (roaming
+mobs self-correct in <1s; a truly-never-moving high-Y NPC would stay wrapped — none observed,
+the fixed named NPCs are all low-Y). Recon aid added: `--dump-all-sessions` (forward every
+box to the recon dumpers, beating the primary-box limitation that hid the high-Y zone).
+
 **PlayerProfile `0x62f0` VERIFIED** (2026-07-07): the identity header survived the patch —
 race u32@21 (=6 DarkElf), class1 u32@25 (=5 SHD), level u8@33 (=12), confirmed against a known
 L12 SHD/DRU/MNK char. `class@25` is the **primary of 3** (3-class design: SHD/DRU/MNK = 5/6/7);

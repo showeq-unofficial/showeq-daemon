@@ -113,6 +113,10 @@ public:
                     int16_t x, int16_t y, int16_t z,
                     uint8_t level, uint8_t curHpPct, uint8_t maxHpPct);
    void moveSpawn(uint16_t id, int16_t x, int16_t y, int16_t z);
+   // Current decoded position of a known spawn (false if unknown). Lets the
+   // eql backend phase-unwrap 16-bit-wrapped OP_MobUpdate coordinates toward
+   // positional continuity — see EqlDispatch::mobUpdate.
+   bool spawnPos(uint16_t id, int16_t& x, int16_t& y, int16_t& z) const;
 signals:
    void addItem(const Item* item);
    void delItem(const Item* item);

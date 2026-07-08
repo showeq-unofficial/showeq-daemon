@@ -836,6 +836,17 @@ void SpawnShell::moveSpawn(uint16_t id, int16_t x, int16_t y, int16_t z)
   emit changeItem(item, tSpawnChangedPosition);
 }
 
+bool SpawnShell::spawnPos(uint16_t id, int16_t& x, int16_t& y, int16_t& z) const
+{
+  const Item* item = m_spawns.value(id, nullptr);
+  if (item == NULL)
+    return false;
+  x = item->x();
+  y = item->y();
+  z = item->z();
+  return true;
+}
+
 void SpawnShell::playerUpdate2(const uint8_t* data, size_t len, uint8_t dir)
 {
   if (m_zoneMgr->isZoning())
