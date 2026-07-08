@@ -29,9 +29,8 @@ Server topology (Daybreak netblock `69.174.201.x`): login `:15900`, world
 EQL patched 2026-07-07. **Every app opcode ID moved** (stream layer unchanged), and
 at least ClientUpdate + ZoneSpawns **struct layouts also changed**. All `0x...` ids in
 the pre-patch "Confirmed" sections below are DEAD — kept for method/evidence only.
-Re-mapped from `tests/replay/eqlegends-login-zone-20260707.vpk` (zone = **Nektulos
-Forest**; server/world name is "rivervale"; `.vpk`
-so `--list-events` has real capture-time) with in-game ground truth: player `/loc`
+Re-mapped from a **Nektulos Forest** login+zone capture (server/world name is
+"rivervale"; a `.vpk`, so `--list-events` has real capture-time) with in-game ground truth: player `/loc`
 `2246.50,-954.77,-4.97`; con targets Dragoon_J`len(25225,L50,amiably),
 Sergeant_C`Orm(11626,L50,amiably), Vol_T`Vke(12220,**L60,warmly**); NPC locs
 C`Orm `2324.94,-990.11,-4.92` + Vol `2337.45,-802.35,-5.86`.
@@ -212,7 +211,7 @@ spawn state).
 
 **ClientUpdate heading/deltas — DONE (2026-07-08).** heading = `u16@14`, 11-bit
 (0–2047 = full circle, North≈0), velocity deltaX `f32@26` / deltaY `f32@6`. Confirmed by
-a Sense Heading capture (`captures/eqlegends-heading-20260708.pcap`, Dagnor's Cauldron):
+a Sense Heading capture (Dagnor's Cauldron):
 turning through N/NE/E/SE/S/SW/W/NW, `u16@14` stepped 2043/1814/1542/1246/1036/782/492/203
 (~256 = 45° apart, value falls as compass rises). Note: the Sense Heading *text* is
 **client-side** (not on the wire — 0 in the capture), so the in-game log is the direction
@@ -221,8 +220,8 @@ segments (correlation of f32@6/@26 with Δx/Δy). **This was the last EQL decode
 
 ### 2026-07-08 — combat opcodes from existing captures: Action2 / Action / Animation
 
-Mined the two rich post-patch captures already on disk (`eqlegends-upperguk-20260707.vpk`
-combat/dungeon + `eqlegends-fulllogin-20260708.vpk`) with `--dump-payload` over the top
+Mined the two rich post-patch captures already on disk (an Upper Guk combat/dungeon
+capture + a full-login capture) with `--dump-payload` over the top
 unmapped S>C opcodes, then decoded each against Live structs (the "try Live's wire first"
 rule — all three are byte-identical). Method: built the live entity-id universe from the
 0x67e0 MobUpdate stream (spawnId u16@0) and cross-checked candidate id fields against it.
@@ -273,7 +272,7 @@ OP_TargetMouse did. That is what happened here.
 **Status: WIRED + replay-verified 2026-07-08.** Remapped `OP_Action2 0x1734`,
 `OP_Action 0x73de`, `OP_DeleteSpawn 0x59a1`, `OP_Animation 0x1293` in `conf/eql/opcodes.toml`,
 rebuilt eql. All four now resolve as `known` with correct sizes (**zero `SZC_Match` drops**),
-and a recorded golden over `eqlegends-upperguk-20260707.vpk` emits **481 `CombatEvent`**
+and a recorded golden over the Upper Guk combat capture emits **481 `CombatEvent`**
 envelopes (real source/target/damage; melee `spell_id=0xffffffff`) and **11 `SpawnRemoved`**
 (covering all 9 confirmed DeleteSpawn ids). `SpawnKilled=0` because **OP_Death's EQL id is
 still unmapped** — mobs despawn but without a corpse/death event; that + a continuous %-HP
@@ -344,7 +343,7 @@ XP/level/skill opcodes.
 
 ### 2026-07-05 — OP_ClientUpdate = `0x0b03`
 
-Capture: `captures/eqlegends-charcreate-login-20260702-112219.pcap`.
+Capture: a char-create + login capture.
 Method: `--dump-payload 0x0b03:…` (1160 fires) + differential decode.
 
 - **OP_ClientUpdate = `0x0b03`** (C>S, 42 bytes, n=1160). Client self-position
@@ -352,7 +351,7 @@ Method: `--dump-payload 0x0b03:…` (1160 fires) + differential decode.
   that size+direction.
 
 **Confirmed 42-byte layout (LE)** — axes pinned by a `/loc` ground-truth clip
-(`captures/eqlegends-locclip-20260705-153823.pcap`): three `/loc` readings
+(a `/loc`-clip capture): three `/loc` readings
 time-correlated (capture-time `--list-events`) to the float fields; spot 1
 matched to within 0.5s exactly (X=−858.5→f@22, Z=41.4→f@34, Y=994.3→f@38).
 
@@ -519,8 +518,8 @@ offsets), not by grepping the name.
 
 ### 2026-07-07 — OP_TargetMouse = `0x1bfe` (Target / UnTarget)
 
-Captures: `captures/eqlegends-fight-20260705-180923.pcap` (18 fires) +
-`captures/eqlegends-locclip-20260705-153823.pcap` (11 fires, Nektulos — different
+Captures: a combat capture (18 fires) +
+a Nektulos `/loc`-clip capture (11 fires — different
 spawn set). Method: `--dump-payload 0x1bfe` + **value-match** against the `0x7475`
 spawn-id set (no timing needed — pure payload cross-check, so robust to the
 `--replay-pcap` capture-time gap).
