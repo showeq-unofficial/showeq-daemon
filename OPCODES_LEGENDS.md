@@ -59,6 +59,11 @@ per-backend decoders.
 | OP_ChatServer    | —      | **0x4de7** | world 67B, chat connect `host,9877,rivervale.<char>,token` |
 | OP_PlayerProfile | 0x5207 | **0x62f0** | ✅ id (~40KB, embeds char name + inventory). name-stub = `0x46df` (656B). race/class/level offsets TBD |
 | OP_NewZone       | 0x5ab6 | **numeric id (opcode TBD)** | swept all 177 opcodes: **no zone-name text on the wire** — post-patch the zone is a numeric id (old EQL reused classic ids, `nektulos=25`). `0x1e94` (world 1932B) carries the *server* name "rivervale", NOT the zone. Find the S>C op carrying zoneid 25 at zone-in (or profile's current-zone field); map id→shortname client-side |
+| OP_Action2       | 0x32a9 | **0x1734** | ✅ **WIRED 2026-07-08**. Combat/damage stream (S>C, 48B, n=481/968). **Byte-identical to Live `action2Struct`**: target u16@0, source u16@2, damage i32@8, spell i32@20 (**-1=melee** for 422/481), type u8@40; @24–39 = knockback floats. Sole 48B S>C op. Lit up the already-wired `CombatRouter::action2` → replay emits **481 CombatEvent envelopes** (real src/tgt/dmg, e.g. 13167→13154 dmg107) |
+| OP_Action        | 0x049e | **0x73de** | ✅ **WIRED 2026-07-08**. Spell/special action (S>C). **Live paired send**: 64B `actionStruct` (n=97/117) + 88B `actionAltStruct` (n=22/43); target/source @0/@2, spell u16@4 (real ids 502/445/821…). Sole 64B/88B op → `SpellShell::action` (both payloads), 119 fires |
+| OP_DeleteSpawn   | 0x94d4 | **0x59a1** | ✅ **WIRED 2026-07-08**. Spawn removal/death (S>C, 4B `{u32 spawnId}` = `deleteSpawnStruct`, n=9). Time-correlated: **8/9 ids stop receiving MobUpdate at/after the event** (mobs killed in combat). → `SpawnShell::deleteSpawn`; replay emits SpawnRemoved for all 9. ⚠ `0x67a8` is the 4B look-alike but = combat **engage/disengage** (ids keep moving after; id=0 clears) — NOT despawn |
+| OP_Animation     | 0x6dba | **0x1293** | ✅ **2026-07-08** (id-only, no handler). Animation broadcast (S>C, 4B, n=354/718). **Live `animationStruct`**: spawnId u16@0, action u8@2 (1–46), speed u8@3 (**=10 across all 354**). Remapped so it resolves in opcode-stats; animation isn't surfaced, so no handler wired |
+| *(target HP reveal)* | — | **0x5b5e** | ⚑ 2026-07-08 candidate (unwired). On-target HP reveal (S>C, 13B primary, n=12/22): `{u32 spawn_id, u32 cur_hp, u32 =0x07000001, u8 0}`; cur_hp is **absolute** (=0 for a just-dead spawn). Consider-companion (cf. 0x0e54 `{0,target}`). NOT a continuous %-HP bar stream |
 
 **RE-WIRED 2026-07-07** (decoder-rs + daemon): all ids updated in `conf/eql/opcodes.toml`;
 the `seq-backend-eql` parsers re-derived — ClientUpdate pos `x=gameX@18 / y=gameY@10 / z@30`
@@ -186,6 +191,68 @@ turning through N/NE/E/SE/S/SW/W/NW, `u16@14` stepped 2043/1814/1542/1246/1036/7
 **client-side** (not on the wire — 0 in the capture), so the in-game log is the direction
 ground truth; the packet field is what carries facing. deltas re-derived from running
 segments (correlation of f32@6/@26 with Δx/Δy). **This was the last EQL decode TODO.**
+
+### 2026-07-08 — combat opcodes from existing captures: Action2 / Action / Animation
+
+Mined the two rich post-patch captures already on disk (`eqlegends-upperguk-20260707.vpk`
+combat/dungeon + `eqlegends-fulllogin-20260708.vpk`) with `--dump-payload` over the top
+unmapped S>C opcodes, then decoded each against Live structs (the "try Live's wire first"
+rule — all three are byte-identical). Method: built the live entity-id universe from the
+0x67e0 MobUpdate stream (spawnId u16@0) and cross-checked candidate id fields against it.
+
+- **OP_Action2 = `0x1734`** (S>C, 48B fixed, n=481 upperguk / 968 fulllogin). The
+  **melee combat / damage-resolution stream**. Byte-identical to Live `action2Struct`:
+  `target u16@0` (315/481 ∈ live ids), `source u16@2` (274/481), `damage i32@8`
+  (0–107, small melee values; 0 = miss), `spell i32@20` = **-1 (0xffffffff) for 422/481
+  melee swings**, real spell-id for the rest, `type u8@40` (combat-type enum). The @24–39
+  "unknown" block holds the modern knockback floats (force/heading/pushUp: e.g. f32 0.025,
+  146.5). Sole 48B S>C opcode — the only other 48B fires are two singleton-count noise ops.
+- **OP_Action = `0x73de`** (S>C). The classic Live **paired action send**: 64B
+  `actionStruct` (n=97/117) immediately followed for some by 88B `actionAltStruct`
+  (n=22/43). `target/source u16@0/@2`, `spell u16@4` = real spell-ids (502/445/821/267…).
+  Sole 64B/88B opcode. This is the spell/special-action channel (vs Action2's melee).
+- **OP_Animation = `0x1293`** (S>C, 4B, n=354/718). Byte-identical to Live `animationStruct`:
+  `spawnId u16@0` (70% ∈ live ids; rest = doors/objects/self), `action u8@2` (values 1–46),
+  `speed u8@3` = **10 in all 354 packets** (constant animation speed — the Live signature).
+
+**Side finding — `0x5b5e` = on-target HP reveal** (S>C, 13B primary, n=12/22):
+`{u32 spawn_id, u32 cur_hp, u32 =0x07000001, u8 0}`. cur_hp is **absolute** (=0 for a
+just-killed spawn), id 100% ∈ live set. Fires when a spawn is targeted/considered
+(companion to `0x0e54 {0,target}`). This is the *on-select* HP reveal, **not** a
+continuous %-HP health-bar broadcast — that stream (Live OP_HPUpdate/OP_MobHealth
+equivalent) is still unlocated; the health bar may instead be driven client-side off
+Action2 `damage@8`. Ruled out for it: `0x4f7a` (12B, n≈200 in EVERY capture regardless of
+activity → fixed-rate heartbeat, no id field at any offset).
+
+**Also confirmed the same day — OP_DeleteSpawn = `0x59a1`** (S>C, 4B `{u32 spawnId}` =
+`deleteSpawnStruct`, n=9). Found among the 4B-`{id}` S>C candidates and confirmed by
+**time-correlation** against the OP_MobUpdate stream: for 8 of 9 fires the spawn stops
+receiving any position update at/after the DeleteSpawn event (the 9th never moved) — i.e.
+these are mobs dying over the combat session. The look-alike `0x67a8` (also 4B `{id}`,
+n=11) is **NOT** despawn: its ids keep moving afterward and it emits `id=0` clears → it's a
+combat **engage/disengage** state broadcast; left unmapped.
+
+**KEY REALIZATION — the EQL hunt is mostly ID-supply, not handler-writing.** `wire_eql.cpp`
+already wires the full Live handler set **by name** (`OP_Action2`→`CombatRouter::action2`,
+`OP_Action`→`SpellShell::action`, `OP_DeleteSpawn`→`SpawnShell::deleteSpawn`, `OP_HPUpdate`,
+`OP_Death`, messages, groups, spells…), each with `SZC_Match` against the Live struct size.
+They never fired only because `conf/eql/opcodes.toml` still held **stale Live ids that never
+appear on the EQL wire** (the "we didn't reset to ffff" problem — verified harmless: 0/67
+stale ids collide with a live EQL opcode, so no misdecodes, just dead handlers). For any
+EQL opcode whose payload is byte-identical to its Live struct, **supplying the correct id in
+the toml is the entire fix** — the wired handler + Rust decoder light up exactly like
+OP_TargetMouse did. That is what happened here.
+
+**Status: WIRED + replay-verified 2026-07-08.** Remapped `OP_Action2 0x1734`,
+`OP_Action 0x73de`, `OP_DeleteSpawn 0x59a1`, `OP_Animation 0x1293` in `conf/eql/opcodes.toml`,
+rebuilt eql. All four now resolve as `known` with correct sizes (**zero `SZC_Match` drops**),
+and a recorded golden over `eqlegends-upperguk-20260707.vpk` emits **481 `CombatEvent`**
+envelopes (real source/target/damage; melee `spell_id=0xffffffff`) and **11 `SpawnRemoved`**
+(covering all 9 confirmed DeleteSpawn ids). `SpawnKilled=0` because **OP_Death's EQL id is
+still unmapped** — mobs despawn but without a corpse/death event; that + a continuous %-HP
+health-bar stream are the next combat gaps. damage/`type` sub-field *semantics* (some
+negative `damage@8` = misses/absorbs?, large `type` values) want a controlled kill capture
+(Mode C) to fully pin, but the identification and combat-log wiring are solid.
 
 ## Confirmed (PRE-PATCH — ids dead as of 2026-07-07, kept for method/evidence)
 

@@ -181,10 +181,10 @@ comment = "EQ Legends per-mob position update (S>C, 14B). Byte-identical to Live
   sizechecktype = "none"      # EqlDispatch::mobUpdate enforces len==14
 
 [[zone]]
-id      = "94d4"
+id      = "59a1"
 name    = "OP_DeleteSpawn"
-updated = "2026-05-20"
-comment = "DeleteSpawnCode"
+updated = "2026-07-08"
+comment = "EQ Legends spawn removal / death (S>C, 4B {u32 spawnId}, deleteSpawnStruct). CONFIRMED 2026-07-08 by time-correlation: 8/9 ids stop receiving OP_MobUpdate position updates at/after this event (mobs killed over a combat session). Lights up the already-wired SpawnShell::deleteSpawn. NOTE: 0x67a8 is the LOOK-ALIKE 4B {id} op but is combat engage/disengage (ids keep moving after; id=0 clears) — NOT despawn. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "both"
@@ -280,10 +280,10 @@ comment = "Items dropped on the ground"
   sizechecktype = "match"
 
 [[zone]]
-id      = "049e"
+id      = "73de"
 name    = "OP_Action"
-updated = "2026-05-20"
-comment = "Spells cast etc"
+updated = "2026-07-08"
+comment = "EQ Legends spell/special action (S>C). Live paired send: 64B actionStruct (n=97/117) + 88B actionAltStruct (n=22/43); target/source u16@0/@2, spell u16@4 (real ids 502/445/821). Sole 64B/88B op. Lights up the already-wired SpellShell::action (both payloads). See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "both"
@@ -296,10 +296,10 @@ comment = "Spells cast etc"
   sizechecktype = "match"
 
 [[zone]]
-id      = "32a9"
+id      = "1734"
 name    = "OP_Action2"
-updated = "2026-05-25"
-comment = "Combat actions i.e. bash, kick etc"
+updated = "2026-07-08"
+comment = "EQ Legends melee combat / damage-resolution stream (S>C, 48B fixed, n=481/968). Byte-identical to Live action2Struct: target u16@0, source u16@2, damage i32@8, spell i32@20 (-1=melee), type u8@40; @24-39 = knockback floats. Sole 48B S>C op; cross-val upperguk+fulllogin. Lights up the already-wired CombatRouter::action2. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "both"
@@ -1207,10 +1207,10 @@ comment = "List of available titles - 1520 bytes"
   sizechecktype = "none"
 
 [[zone]]
-id      = "6dba"
+id      = "1293"
 name    = "OP_Animation"
-updated = "2026-05-25"
-comment = "Combat animation, emote animations etc - 4 bytes"
+updated = "2026-07-08"
+comment = "EQ Legends spawn animation broadcast (S>C, 4B, n=354/718). Byte-identical to Live animationStruct: spawnId u16@0, action u8@2 (1-46), speed u8@3 (=10 across all 354). No handler wired (animation not surfaced) — id remapped so it resolves cleanly in opcode-stats. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "both"
