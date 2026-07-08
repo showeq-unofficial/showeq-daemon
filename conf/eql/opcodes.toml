@@ -41,10 +41,10 @@ comment = "TimeOfDayCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "5ab6"
+id      = "4bc8"
 name    = "OP_NewZone"
-updated = "2026-07-05"
-comment = "EQ Legends new-zone: null-term shortName/longName/zonefile. Drives the map. See OPCODES_LEGENDS.md"
+updated = "2026-07-07"
+comment = "EQ Legends new-zone (post-2026-07-07 re-map): 14B S>C, NUMERIC zoneId=u32@6 (=25 nektulos; no name text on the wire). Fires once at zone-in. Daemon resolves id->name via zones.h (ZoneMgr::setZoneById) so the map loads. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "server"

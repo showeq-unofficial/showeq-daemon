@@ -65,9 +65,15 @@ L12 SHD/DRU/MNK char. `class@25` is the **primary of 3** (3-class design: SHD/DR
 2nd/3rd class ids sit in a separate block ~@12094 — not surfaced (neutral `setIdentity` carries
 one class). Parser unchanged.
 
+**NewZone WIRED** (2026-07-07): `0x4bc8`, 14B S>C, fires once at zone-in, numeric
+`zoneId = u32@6` (=25 nektulos; `u16@12` copies it). Resolved via the daemon's existing
+`zones.h` table → new `ZoneMgr::setZoneById` → `setZoneByName` → **map loads** (verified:
+zone resolves to 'nektulos', map + spawnpoints + filter all load). The zone id is carried
+in the shared `NewZone.zone_id` field (Live leaves it 0). Offset `@6` vs `@12` not yet
+distinguished — re-check on a capture from a 2nd zone.
+
 **Still TODO:** ClientUpdate heading+deltas (left 0 — no facing arrow / speed-between-updates;
-need a turn/jump capture); **NewZone** = numeric zone-id opcode (map stays `unknown` until the
-id opcode is found + an id→shortname table added).
+need a `/loc`-while-turning capture). That's the last open piece.
 
 ## Confirmed (PRE-PATCH — ids dead as of 2026-07-07, kept for method/evidence)
 

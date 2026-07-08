@@ -70,6 +70,10 @@ class ZoneMgr : public QObject
   // live/test (they drive zones through zoneNew/zoneChange).
   void setZoneByName(const QString& shortName, const QString& longName);
 
+  // Same, for numeric-zone backends: eql's OP_NewZone sends a classic zone id
+  // (no name text). Resolves id -> short/long via zones.h, then setZoneByName.
+  void setZoneById(uint16_t zoneId);
+
  public slots:
   void saveZoneState(void);
   void restoreZoneState(void);

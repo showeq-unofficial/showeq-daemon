@@ -592,6 +592,12 @@ void ZoneMgr::setZoneByName(const QString& shortName, const QString& longName)
   emit zoneChanged(m_shortZoneName);
 }
 
+void ZoneMgr::setZoneById(uint16_t zoneId)
+{
+  // zones.h is the classic-EQ id->name table; eql reuses those ids.
+  setZoneByName(zoneNameFromID(zoneId), zoneLongNameFromID(zoneId));
+}
+
 void ZoneMgr::zonePoints(const uint8_t* data, size_t len, uint8_t)
 {
   // Wire format: u32 count, then count × zonePointStruct (24b each),

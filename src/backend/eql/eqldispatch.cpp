@@ -78,13 +78,14 @@ void EqlDispatch::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
 
 void EqlDispatch::newZone(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_NewZone S>C: null-terminated short name, then long name.
+    // OP_NewZone S>C (post-2026-07-07): a numeric classic zone id, no name text.
     if (dir != DIR_Server)
         return;
     auto out = seq::rust::decode_new_zone(rust::Slice<const uint8_t>{data, len});
     if (!out.ok)
         return;
-    m_zoneMgr->setZoneByName(latin1(out.short_name), latin1(out.long_name));
+    // Resolve the zone id -> short/long name via zones.h.
+    m_zoneMgr->setZoneById((uint16_t)out.zone_id);
 }
 
 void EqlDispatch::spawn(const uint8_t* data, size_t len, uint8_t dir)
