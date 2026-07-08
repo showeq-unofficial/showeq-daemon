@@ -71,8 +71,8 @@
         <comment>Remove spawn from zone</comment>
         <payload dir="both" typename="removeSpawnStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_Death" updated="05/20/26">
-        <comment>old NewCorpseCode</comment>
+    <opcode id="66cb" name="OP_Death" updated="07/08/26">
+        <comment>EQ Legends death/corpse (S>C, 40B = newCorpseStruct, n=8). CONFIRMED 2026-07-08: decodes field-for-field — victim u32@0 (all 8 ∈ the OP_DeleteSpawn 0x59a1 set), killer u32@4 (=player 13167 every kill), corpse type i32@12, killing-blow spellId u32@16 (-1=melee), damage u32@24 (9-80). Lights up the already-wired SpawnShell::killSpawn → SpawnKilled. Fires just before the matching OP_DeleteSpawn. See OPCODES_LEGENDS.md</comment>
         <payload dir="server" typename="newCorpseStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_WearChange" updated="05/27/26">

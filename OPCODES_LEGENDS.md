@@ -62,6 +62,7 @@ per-backend decoders.
 | OP_Action2       | 0x32a9 | **0x1734** | ✅ **WIRED 2026-07-08**. Combat/damage stream (S>C, 48B, n=481/968). **Byte-identical to Live `action2Struct`**: target u16@0, source u16@2, damage i32@8, spell i32@20 (**-1=melee** for 422/481), type u8@40; @24–39 = knockback floats. Sole 48B S>C op. Lit up the already-wired `CombatRouter::action2` → replay emits **481 CombatEvent envelopes** (real src/tgt/dmg, e.g. 13167→13154 dmg107) |
 | OP_Action        | 0x049e | **0x73de** | ✅ **WIRED 2026-07-08**. Spell/special action (S>C). **Live paired send**: 64B `actionStruct` (n=97/117) + 88B `actionAltStruct` (n=22/43); target/source @0/@2, spell u16@4 (real ids 502/445/821…). Sole 64B/88B op → `SpellShell::action` (both payloads), 119 fires |
 | OP_DeleteSpawn   | 0x94d4 | **0x59a1** | ✅ **WIRED 2026-07-08**. Spawn removal/death (S>C, 4B `{u32 spawnId}` = `deleteSpawnStruct`, n=9). Time-correlated: **8/9 ids stop receiving MobUpdate at/after the event** (mobs killed in combat). → `SpawnShell::deleteSpawn`; replay emits SpawnRemoved for all 9. ⚠ `0x67a8` is the 4B look-alike but = combat **engage/disengage** (ids keep moving after; id=0 clears) — NOT despawn |
+| OP_Death         | 0x1eb2 | **0x66cb** | ✅ **WIRED 2026-07-08**. Death/corpse (S>C, 40B = `newCorpseStruct`, n=8). Decodes field-for-field: victim u32@0 (**all 8 ∈ the DeleteSpawn set**), killer u32@4 (=player 13167 every kill), corpse type@12, killing-blow spell u32@16 (-1=melee), damage u32@24 (9–80). → already-wired `SpawnShell::killSpawn`; replay emits **8 `SpawnKilled`** (0→8). Fires just before the matching DeleteSpawn |
 | OP_Animation     | 0x6dba | **0x1293** | ✅ **2026-07-08** (id-only, no handler). Animation broadcast (S>C, 4B, n=354/718). **Live `animationStruct`**: spawnId u16@0, action u8@2 (1–46), speed u8@3 (**=10 across all 354**). Remapped so it resolves in opcode-stats; animation isn't surfaced, so no handler wired |
 | *(target HP reveal)* | — | **0x5b5e** | ⚑ 2026-07-08 candidate (unwired). On-target HP reveal (S>C, 13B primary, n=12/22): `{u32 spawn_id, u32 cur_hp, u32 =0x07000001, u8 0}`; cur_hp is **absolute** (=0 for a just-dead spawn). Consider-companion (cf. 0x0e54 `{0,target}`). NOT a continuous %-HP bar stream |
 
@@ -253,6 +254,42 @@ still unmapped** — mobs despawn but without a corpse/death event; that + a con
 health-bar stream are the next combat gaps. damage/`type` sub-field *semantics* (some
 negative `damage@8` = misses/absorbs?, large `type` values) want a controlled kill capture
 (Mode C) to fully pin, but the identification and combat-log wiring are solid.
+
+### 2026-07-08 — OP_Death = `0x66cb`; HP% has no dedicated opcode; ffff cleanup
+
+**OP_Death = `0x66cb`** (S>C, 40B, n=8) — byte-identical to Live `newCorpseStruct`.
+Found as the 40B S>C op with n=8 (= the 8 combat kills), confirmed by decoding:
+`victim u32@0` (all 8 ∈ the OP_DeleteSpawn `0x59a1` set), `killer u32@4` (=player 13167
+every kill, solo grind), `corpse type i32@12`, killing-blow `spellId u32@16` (-1=melee),
+`damage u32@24` (9–80, sane killing blows). Remapped in `conf/eql/opcodes.toml` → the
+already-wired `SpawnShell::killSpawn`; replay now emits **8 `SpawnKilled`** envelopes
+(was 0) with exactly those 8 victim ids. OP_Death fires just before its matching
+OP_DeleteSpawn (death → corpse → remove).
+
+**HP% (continuous per-mob health) — NO dedicated opcode found (well-supported negative).**
+Exhaustively searched for a per-spawn field that drains toward 0 at each victim's death
+time: tested 13 candidate opcodes (`0x52bc`/`0x5591`/`0x5b5e`/`0x42b5`/`0x6007`/`0x1bdc`/
+`0x22e1`/`0x1f55`/`0x6801`/`0x3ada`/`0x6982`/`0x50a7`/`0x18e0`) **plus every internal field of
+OP_Action2** — none carries a monotonic HP drain (the apparent Action2 @38–44 "drains" are
+the knockback-float bytes read as int32, pure noise). Conclusion: **EQL derives mob health
+client-side** from ZoneSpawns initial HP (`0x4606` hp@44/45 = 100%) + the OP_Action2
+`damage@8` stream, with the **on-target absolute-HP reveal `0x5b5e`** refreshing the selected
+target. A dedicated continuous-%-HP broadcast (Live OP_MobHealth/OP_HPUpdate) either doesn't
+exist here or needs a **targeted capture to isolate** — the current capture is a fast
+multi-mob grind that buries any faint HP signal. To settle it: con/target ONE mob and whittle
+it down slowly (few hits, pauses) while logging, then re-run the drain test.
+
+**Bonus lead — `0x5591` ≈ OP_BeginCast** (S>C, 19B, n=62). Not HP (was an HP suspect): its
+fields read as `{spellId@0` (values 502/445/821/91… = the same spell-ids seen in Action2/
+Death), `casterId u16@4` (41/62 ∈ live spawns), `castTime@6` (0/1500/2000/2500 ms)`} — a
+spell-cast bar broadcast. Needs a dedicated spell capture to pin the exact layout before
+wiring to `SpellShell` (the handler + `beginCastStruct` are already wired, awaiting the id).
+
+**Table hygiene (2026-07-08):** reset the 63 stale Live opcode ids in `conf/eql/opcodes.toml`
+to `ffff` (they never appear on the post-patch EQL wire — 0/63 fire in any capture; EQL
+remapped every app opcode). No behavior change; the toml + opcode-stats now honestly show
+what's unmapped (206 ffff / 13 confirmed) instead of masking gaps behind stale ids. The
+handlers stay wired by name — supplying a real id is all that's ever needed.
 
 ## Confirmed (PRE-PATCH — ids dead as of 2026-07-07, kept for method/evidence)
 
