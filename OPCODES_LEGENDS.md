@@ -204,7 +204,7 @@ like "SEQTEST"** (the text goes to the live server; keep it innocuous and un-bot
 you jot down locally to grep for; and trigger known combat/system lines ("You have slain …",
 "… hits YOU for N", "You gain experience!", a resisted spell). Then `--dump-payload` every
 opcode and **string-grep for those literal phrases** to pin the real chat opcode(s) + format
-precisely (player chat carries LITERAL text, unlike 0x2735's string-ids). The solo-grind captures on disk contain no typed
+precisely (player chat carries LITERAL text, unlike 0x2735's string-ids). The on-disk captures contain no typed
 chat, so the chat opcodes (OP_CommonMessage / OP_SpecialMesg / OP_FormattedMessage — all
 handlers pre-wired, awaiting ids) can't be found in them. 0x2735 itself stays unwired until
 its entity-event subtypes are separately decoded (they may overlap with already-decoded
@@ -286,7 +286,7 @@ negative `damage@8` = misses/absorbs?, large `type` values) want a controlled ki
 **OP_Death = `0x66cb`** (S>C, 40B, n=8) — byte-identical to Live `newCorpseStruct`.
 Found as the 40B S>C op with n=8 (= the 8 combat kills), confirmed by decoding:
 `victim u32@0` (all 8 ∈ the OP_DeleteSpawn `0x59a1` set), `killer u32@4` (=player 13167
-every kill, solo grind), `corpse type i32@12`, killing-blow `spellId u32@16` (-1=melee),
+every kill), `corpse type i32@12`, killing-blow `spellId u32@16` (-1=melee),
 `damage u32@24` (9–80, sane killing blows). Remapped in `conf/eql/opcodes.toml` → the
 already-wired `SpawnShell::killSpawn`; replay now emits **8 `SpawnKilled`** envelopes
 (was 0) with exactly those 8 victim ids. OP_Death fires just before its matching
@@ -302,7 +302,7 @@ client-side** from ZoneSpawns initial HP (`0x4606` hp@44/45 = 100%) + the OP_Act
 `damage@8` stream, with the **on-target absolute-HP reveal `0x5b5e`** refreshing the selected
 target. A dedicated continuous-%-HP broadcast (Live OP_MobHealth/OP_HPUpdate) either doesn't
 exist here or needs a **targeted capture to isolate** — the current capture is a fast
-multi-mob grind that buries any faint HP signal. To settle it: con/target ONE mob and whittle
+high-kill-rate multi-mob capture that buries any faint HP signal. To settle it: con/target ONE mob and whittle
 it down slowly (few hits, pauses) while logging, then re-run the drain test.
 
 **Bonus lead — `0x5591` ≈ OP_BeginCast** (S>C, 19B, n=62). Not HP (was an HP suspect): its
