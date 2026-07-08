@@ -209,7 +209,11 @@ void PacketCaptureThread::startOffline(const char* filename, int playbackSpeed)
     // used for live auto-detect, BEFORE the read loop starts (same handle-race
     // reasoning as start()/setFilter()).
     struct bpf_program bpp;
-    static const char udpFilter[] = "udp[0:2] > 1024 and udp[2:2] > 1024";
+    // Exclude mDNS (port 5353) + multicast: EQ is always unicast client<->server,
+    // but LAN service-discovery (Bonjour/mDNS "_dosvc._tcp.local" etc.) is high-port
+    // UDP that otherwise passes and gets misparsed as EQ (net-opcode 0000 spam).
+    static const char udpFilter[] =
+        "udp[0:2] > 1024 and udp[2:2] > 1024 and not port 5353 and not net 224.0.0.0/4";
     if (pcap_compile(m_pcache_pcap, &bpp, udpFilter, 1, 0) == 0)
     {
         if (pcap_setfilter(m_pcache_pcap, &bpp) == -1)
@@ -459,8 +463,9 @@ void PacketCaptureThread::setFilter (const char *device,
 
     if (!client_port && !zone_port)
     {
-        //no client/zone port detected, so leave it open
-        pfb += sprintf(pfb, "udp[0:2] > 1024 and udp[2:2] > 1024");
+        //no client/zone port detected, so leave it open (but drop mDNS/multicast
+        // LAN noise — EQ is unicast; see the offline filter above for why).
+        pfb += sprintf(pfb, "udp[0:2] > 1024 and udp[2:2] > 1024 and not port 5353 and not net 224.0.0.0/4");
     }
     else
     {
