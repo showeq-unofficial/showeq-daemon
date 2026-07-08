@@ -106,12 +106,19 @@ Notes / gotchas:
 - The channel's leading `u32` is often the **entity id**, not a string-id — watch for
   coincidental eqstr collisions (the player id `13167` matches eqstr `13167 "Current
   mouse speed…"`, a false positive). The real string-id offset varies per message type.
-- **`net opcode 0000` is NOT dropped EQ data** (corrected 2026-07-08): hexdumping the
-  packets showed **mDNS / service-discovery noise** (`EQBOX1.local`, `_dosvc._tcp.local`,
-  Bonjour) — LAN multicast on port 5353 that the open capture filter let through and the
-  deframer misparsed. Fixed by excluding `port 5353` + `net 224.0.0.0/4` from the open
-  filter (daemon `1d3dceb`). `0x2735` messages are **not** being dropped; the missing
-  Sense Headings were client-side text (Sense Heading output is client-rendered).
+- **`net opcode 0000` — TWO sources, neither is dropped EQ data** (2026-07-08):
+  1. In a **raw pcap taken with a broad `host` filter**: mDNS / service-discovery
+     (`EQBOX1.local`, `_dosvc._tcp.local`, Bonjour) — LAN multicast on port 5353. Fixed
+     by excluding `port 5353` + `net 224.0.0.0/4` from the open capture filter (`1d3dceb`).
+  2. On the **live/port-restricted stream** (real EQL traffic): 84-byte **opaque
+     structured-but-not-EQ** packets — 4 zero bytes + a 16-byte high-entropy id +
+     constants (`2e2025`, `00000050`=80, `00000034`=52) + an encrypted blob, 3 distinct
+     prefixes. An EQL sub-protocol / encrypted channel sharing the zone 5-tuple, **not
+     decodable game state**. Demoted 0x0000 to debug (`c12bf31`).
+  Separately, the **`calcCRC16 called for length > 1048576`** spam (~every 10s) was a
+  **1-byte packet** (netOp `0x00ff`) underflowing `rawPacketLength()-2` (unsigned) into a
+  ~4.29GB length — guarded in `calculateCRC` (`c12bf31`). `0x2735` messages are **not**
+  dropped by any of this; the missing Sense Headings were client-side text.
 - This channel is the foundation for wiring EQL formatted / combat / system message
   **text** into the daemon+web (via eqstr/dbstr) — not yet done.
 
