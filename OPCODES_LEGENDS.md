@@ -147,6 +147,48 @@ so it may shift with big inventory changes — re-derive if the zone resolves wr
 **Still TODO:** ClientUpdate heading+deltas (left 0 — no facing arrow / speed-between-updates;
 need a `/loc`-while-turning capture). That's the last open piece.
 
+### 2026-07-08 — OP_PlayerProfile `0x62f0` internals: multiclass level table (CONFIRMED) + class-data / loadout / storage leads
+
+Capture: `tests/replay/eql/eqlegends-fulllogin-20260708.vpk`. Method: `--dump-payload 0x62f0`
+(one 41271-byte profile), structural analysis against player-supplied ground truth — a 3-class
+SHD/DRU/MNK char where every *un-played* class is parked at a level-**10** floor and the active
+classes level independently. `level u8@33` reads **20** here (the "=12" in the note above was an
+earlier/stale capture; the char leveled).
+
+- **Per-class level table — CONFIRMED.** The profile **ends** with a length-prefixed table:
+  `u32 count (=16)` then **16× u8**, `byte[i]` = level of class `i+1` (WAR..BER), then a `0x00`
+  pad. Here classes 5/6/7 (SHD/DRU/MNK) = **20**, every other class = **10** (the un-played
+  floor) — matches ground truth exactly. Tail bytes:
+  ```
+  ff*28  10 00 00 00  0a 0a 0a 0a 14 14 14 0a 0a 0a 0a 0a 0a 0a 0a 0a  00
+         └ count=16 ┘  └ WAR CLR PAL RNG [SHD DRU MNK=20] BRD..BER=10 ┘  pad
+  ```
+  Locate robustly (absolute offset shifts with profile size): it's the last section —
+  `count = u32 @ (len-21)`, `levels = bytes[len-17 : len-1]`; it sits immediately after a run
+  of `0xff`. Anchor from EOF / the `0xff` run, not a fixed offset.
+
+- **3 parallel class-data records — STRONG lead.** 3× 20-byte records at `~@40966` (stride 20,
+  marker `u32 0x37530004`, constant `0x00020001 0x00110000` header + 2 varying fields) — one per
+  active class, i.e. the "3 parallel class-data blocks" the 3-class design predicts (spell
+  affinity / per-class state). Not yet decoded field-by-field.
+
+- **Loadout / race+class records — PLAUSIBLE lead.** `{u32 race=6, u32 class=5, …small ids…,
+  0xffffffff empty slots}` at `~@41058` and `~@41162` (the `{6,5}` = DarkElf/SHD pair recurs
+  there, besides the `@21` header). Shape = {race, primary class, gear-id slot array} → the
+  loadout / "be any race+primary class" feature. Count/stride not yet pinned.
+
+- **Magical storage / bank — CANDIDATE.** Item-id slot arrays with `0xffffffff` empties scattered
+  through the blob (e.g. a 10-empty-slot run `@35981`; plausible item ids 341/242/252/91/5012/340).
+  Char-bound storage vs bag/bank is indistinguishable from a single snapshot — needs a paired diff.
+
+**Next capture (Mode C paired diff) to confirm storage + loadouts:** record ONE `.vpk` that
+brackets a single change with two profile fires (OP_PlayerProfile fires per zone-in), then
+`--dump-payload 0x62f0` → `pp.1.bin` (before) / `pp.2.bin` (after) and diff the two:
+- storage: zone in, deposit/withdraw ONE known item id in magical storage, re-zone.
+- loadout: zone in, swap/edit a loadout, re-zone.
+The single u32 item-id that appears/vanishes localizes the storage array; the changed
+`{race,class,gear}` block localizes loadouts.
+
 ### 2026-07-08 — `0x2735` = formatted-message channel (S>C); Sense Heading decoded
 
 `0x2735` is the high-volume S>C **message channel** (1026 fires in the Nektulos
