@@ -63,10 +63,13 @@ static const char* const EQStreamStr[] = {"client-world", "world-client", "clien
 const int16_t arqSeqWrapCutoff = 1024;
 
 // Arbitrary cutoff for maximum packet sizes. Don't let little changes
-// in session request struct cause huge mallocs! EQ currently never sends
-// a packet larger than 512 bytes so this should be pretty safe. This is
-// applied before packets are recombined.
-const uint32_t maxPacketSize = 25600;
+// in session request struct cause huge mallocs! Applied before packets
+// are recombined. Classic EQ never sent packets larger than ~512 bytes,
+// but EQ Legends does — the PlayerProfile alone is ~40 KB and item bulk
+// is larger — so the old 25600 clamp truncated large Legends packets.
+// Bumped to 1 MiB: fits any realistic packet, still a sane DoS guard
+// against a corrupt session-request length field.
+const uint32_t maxPacketSize = 1048576;
 
 //----------------------------------------------------------------------
 // EQPacketStream class methods

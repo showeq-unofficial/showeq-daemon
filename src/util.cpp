@@ -982,10 +982,13 @@ uint32_t calcCRC32(const uint8_t* p,
 // Seeded CRC16 needed by the packet layer.
 uint16_t calcCRC16(uint8_t* p, uint32_t length, uint32_t seed)
 {
-// sanity check
-if(length > 25600)
+// sanity check — bound matches packetstream.cpp's maxPacketSize. Raised from
+// 25600 to 1 MiB for EQ Legends, whose packets (e.g. the ~40 KB PlayerProfile)
+// exceed classic EQ's sizes; the old bound faked the CRC (0xDEAD) on large
+// packets, failing their checksum.
+if(length > 1048576)
 {
-	seqWarn("calcCRC16 called for length > 25600");
+	seqWarn("calcCRC16 called for length > 1048576");
 	return 0xDEAD;
 }
 
