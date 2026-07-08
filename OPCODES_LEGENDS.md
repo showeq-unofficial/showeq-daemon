@@ -184,6 +184,30 @@ Notes / gotchas:
 - This channel is the foundation for wiring EQL formatted / combat / system message
   **text** into the daemon+web (via eqstr/dbstr) — not yet done.
 
+**2026-07-08 — 0x2735 is NOT cleanly wireable as a chat channel (needs a dedicated
+capture).** Attempted to wire it; deep-decoded 571 (upperguk) + 1026 (login-zone) payloads.
+Finding: **the channel is predominantly a per-ENTITY event stream, not text.** Of the 571
+combat-capture messages, **388 have a spawn/entity id at `u32@0`** and only ~4 are genuine
+system text (2× eqstr 12116 "You groan and feel a bit weaker", 2× 12433 "West"/Sense
+Heading). The apparent "173 text" is a **false positive**: the player id `13167` collides
+with eqstr 13167 "Current mouse speed multiplier is %1." (169×). Root cause — **the entity-id
+and string-id number spaces overlap** (the "OTHER" `u32@0` values 11633/11715/… are
+simultaneously live spawn ids AND `dbstr_us.txt` entries; 950/1088 resolve in dbstr), so the
+leading u32 cannot be classified entity-vs-string from the packet alone. The subtype byte
+`@4` (0x02/0x04/0x0f/0x23/…) does NOT separate them either (genuine text sits in @4=0x04
+*mixed with* entity + other). **Wiring it blind would spam the web chat with garbage** (the
+169× "mouse speed" line). CONCLUSION: to wire EQL chat/system/combat text safely, capture a
+**dedicated session with KNOWN content** — type distinctive phrases per channel (`/say
+SEQTEST_SAY_1`, `/ooc SEQTEST_OOC_2`, `/tell <box> SEQTEST_TELL_3`, `/shout`, `/auction`)
+and trigger known combat/system lines ("You have slain …", "… hits YOU for N", "You gain
+experience!", a resisted spell) — then `--dump-payload` every opcode and **string-grep for
+the literal phrases** to pin the real chat opcode(s) + format precisely (player chat carries
+LITERAL text, unlike 0x2735's string-ids). The solo-grind captures on disk contain no typed
+chat, so the chat opcodes (OP_CommonMessage / OP_SpecialMesg / OP_FormattedMessage — all
+handlers pre-wired, awaiting ids) can't be found in them. 0x2735 itself stays unwired until
+its entity-event subtypes are separately decoded (they may overlap with already-decoded
+spawn state).
+
 **ClientUpdate heading/deltas — DONE (2026-07-08).** heading = `u16@14`, 11-bit
 (0–2047 = full circle, North≈0), velocity deltaX `f32@26` / deltaY `f32@6`. Confirmed by
 a Sense Heading capture (`captures/eqlegends-heading-20260708.pcap`, Dagnor's Cauldron):
