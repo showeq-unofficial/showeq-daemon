@@ -4,3 +4,4 @@
 *.pbstream
 *.check.pbstream
 *.opcodestats.txt
+*.events.txt
