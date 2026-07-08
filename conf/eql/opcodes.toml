@@ -159,10 +159,10 @@ comment = "EQ Legends spawn info (S>C): null-term name + fixed block. See OPCODE
   sizechecktype = "none"
 
 [[zone]]
-id      = "917c"
+id      = "7352"
 name    = "OP_NpcMoveUpdate"
-updated = "2026-05-20"
-comment = "Position updates"
+updated = "2026-07-08"
+comment = "EQ Legends per-NPC movement stream (S>C, variable 15-21B). Byte-identical bit format to Live OP_NpcMoveUpdate (16b BE spawnId + 16b pad + 6b fieldmask + 19/19/19 y/x/z sign-magnitude >>3 + 12b heading + optional deltas); decoded by the shared decode_npc_move_update. Confirmed 2026-07-08: all 51 ids + positions match the 0x67e0 OP_MobUpdate stream. Prior 917c was a dead mapping (never seen on the wire). See OPCODES_LEGENDS.md."
 
   [[zone.payloads]]
   dir           = "server"

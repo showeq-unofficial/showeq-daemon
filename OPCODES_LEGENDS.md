@@ -51,7 +51,8 @@ per-backend decoders.
 | OP_Consider      | *(new)* | **0x4212** | ✅ NEW. 24B `{u32 self=27090, u32 target, u32 faction, u32 =7}`; C>S req has faction=0, S>C reply fills faction (**2=warmly, 4=amiably**; level comes from spawn). Companions: `0x5b5e` target-HP reveal `{u32 target, u32 cur_hp,…}`, `0x0e54` `{0,target}` |
 | OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ 42B C>S self (+ 28B S>C variant). **FULLY DECODED** (2026-07-08): spawnId u16@2; wire has gameY@10 / gameX@18 / z@30 (f32) → bound **x=gameX@18, y=gameY@10**; velocity deltaX@26 / deltaY@6 (f32); **heading u16@14, 11-bit (0–2047, North≈0)** — Sense-Heading-confirmed. deltaZ candidate @22. (X/Y-swap fixed `60b2a79`) |
 | OP_ZoneSpawns    | 0x7475 | **0x4606** | ✅ id (var 343–352B NPC / 486B rich). level@block+4 OK. **POS from block END**: z@(len-95)/8, **x=gameX@(len-87)/8, y=gameY@(len-91)/8** (330B: z@235,x@243,y@239; 486B: z@391,x@399,y@395). hp/body offsets TBD |
-| OP_MobUpdate     | 0x061b | **0x67e0** | ✅ id (14B, ids 416/416 match spawns). pos **x=gameX@10 (unscaled), y=gameY@4/8, z@6/64** |
+| OP_MobUpdate     | 0x061b | **0x67e0** | ✅ id (14B, ids 416/416 match spawns). pos **x=gameX@10 (unscaled), y=gameY@4/8, z@6/64**. This is the sparse full-position sync; continuous movement is OP_NpcMoveUpdate |
+| OP_NpcMoveUpdate | 917c (dead) | **0x7352** | ✅ **2026-07-08**. The continuous per-NPC movement stream (var 15–21B, top S>C opcode: 734 fires/51 ids vs MobUpdate's 591). **Byte-identical bit format to Live** OP_NpcMoveUpdate → decoded by the shared `decode_npc_move_update`; only the opcode-id mapping was wrong (917c never appears on the wire). Carries pos **+ velocity + heading**. Confirmed: all 51 ids (16b BE spawnId) + decoded x/y/z match the 0x67e0 stream. Fixes "mobs freeze while moving, jump on stop" |
 | OP_ItemPacket    | 0x74b0 | **0x6805** | ✅ id (bulk items; names + `Benefit:`/`Trophy:`) |
 | OP_ZoneServerInfo| —      | **0x35d4** | ✅ world 130B, zone-server host `…everquestlegends.com` |
 | OP_ChatServer    | —      | **0x4de7** | world 67B, chat connect `host,9877,rivervale.<char>,token` |
@@ -67,6 +68,21 @@ new `parse_legends_consider` (24B) → shared `Consider` → the neutral
 `spawnConsidered`→`Considered`→web. Verified on the capture: opcodes resolve by name,
 positions `/loc`-correct, con fires for all 3 con'd mobs (Considered ids 12220/11626/25225),
 target 38 envelopes; **live 9/9 unregressed**.
+
+**OP_NpcMoveUpdate = `0x7352`** (2026-07-08): the continuous NPC movement stream — the
+missing packet behind "mobs freeze while moving and only jump when they stop". It's the
+single highest-frequency S>C zone opcode (734 fires / 51 ids in the Upper Guk capture, vs
+OP_MobUpdate's 591), variable 15–21B. **Byte-identical bit layout to Live's OP_NpcMoveUpdate**
+(MSB-first BitStream: 16b BE spawnId + 16b pad + 6b fieldmask + 19/19/19 y/x/z sign-magnitude
+`>>3` + 12b heading + optional pitch/deltaHeading/animation/deltaX/deltaY/deltaZ per mask).
+Method: dumped `0x7352`, saw per-id repeats with a 16-bit BE id that byte-swaps to a known
+`0x67e0` id; ran the *existing* `decode_npc_move_update` over every payload — **all 51 ids +
+decoded x/y/z land inside their 0x67e0 position ranges**, and the packet lengths match the
+field-mask bit math exactly (fs=0x1c→18B, 0x02→15B, 0x3d→21B). Fix was a **one-line opcode-id
+correction** in `conf/eql/opcodes.toml` (`917c`→`7352`; the old id never appeared on the wire);
+the `SpawnShell::npcMoveUpdate` wire in `wire_eql.cpp` and the Rust decoder were already in
+place. Carries velocity + heading, so the web gets smooth motion, not just denser jumps.
+Replay-verified: 734 events decode, no length warnings.
 
 **PlayerProfile `0x62f0` VERIFIED** (2026-07-07): the identity header survived the patch —
 race u32@21 (=6 DarkElf), class1 u32@25 (=5 SHD), level u8@33 (=12), confirmed against a known
