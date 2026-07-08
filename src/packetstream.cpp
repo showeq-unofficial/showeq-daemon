@@ -1233,8 +1233,18 @@ void EQPacketStream::processPacket(EQProtocolPacket& packet, bool isSubpacket)
     break;
     default :
     {
-      seqWarn("EQPacket: Unhandled net opcode %04x, stream %s, size %d",
-        packet.getNetOpCode(), EQStreamStr[m_streamid], packet.payloadLength());
+      // net-opcode 0x0000 is not a real SOE control opcode. On EQL it's an
+      // opaque sub-protocol / encrypted channel that shares the zone 5-tuple
+      // (84-byte structured-but-not-EQ payloads: 4 zero bytes + a 16-byte
+      // high-entropy id + constants + an encrypted blob). Not decodable game
+      // state, so keep it at debug rather than spamming warnings. Genuinely
+      // unhandled net opcodes still warn.
+      if (packet.getNetOpCode() == 0x0000)
+        seqDebug("EQPacket: opaque net opcode 0000, stream %s, size %d",
+          EQStreamStr[m_streamid], packet.payloadLength());
+      else
+        seqWarn("EQPacket: Unhandled net opcode %04x, stream %s, size %d",
+          packet.getNetOpCode(), EQStreamStr[m_streamid], packet.payloadLength());
     }
   }
 }
@@ -1280,6 +1290,13 @@ void EQPacketStream::close(uint32_t sessionId, EQStreamID streamId,
 // Calculate the CRC on the given packet using this stream's key
 uint16_t EQPacketStream::calculateCRC(EQProtocolPacket& packet)
 {
+  // A packet too short to hold the trailing 2-byte CRC can't be validated —
+  // and rawPacketLength() is unsigned, so rawPacketLength()-2 on a 0/1-byte
+  // packet underflows into a multi-GB length (the "calcCRC16 called for
+  // length > 1048576" spam, seen with 1-byte netOp=0x00ff zone-client
+  // packets). Fail the CRC cleanly instead.
+  if (packet.rawPacketLength() < 2)
+    return 0;
   // CRC is at the end of the raw payload, 2 bytes.
   return ::calcCRC16(packet.rawPacket(), packet.rawPacketLength()-2,
     m_sessionKey);
