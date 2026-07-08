@@ -44,7 +44,7 @@ comment = "TimeOfDayCode"
 id      = "4bc8"
 name    = "OP_NewZone"
 updated = "2026-07-07"
-comment = "EQ Legends new-zone (post-2026-07-07 re-map): 14B S>C, NUMERIC zoneId=u32@6 (=25 nektulos; no name text on the wire). Fires once at zone-in. Daemon resolves id->name via zones.h (ZoneMgr::setZoneById) so the map loads. See OPCODES_LEGENDS.md"
+comment = "EQ Legends zone-in marker (0x4bc8, 14B S>C, once at zone-in). Carries the BIND zone id (u32@6), NOT the current zone — identical across zones (nektulos-vs-upperguk). UNWIRED. The CURRENT zone is read from OP_PlayerProfile (u16@36211) -> ZoneMgr::setZoneById. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "server"

@@ -48,6 +48,11 @@ void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
     if (!out.ok)
         return;
     m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
+    // The profile also carries the CURRENT zone (classic id @36211); resolve it
+    // via zones.h. This is the authoritative current-zone source — 0x4bc8 is the
+    // BIND zone, not current, so it no longer drives the map.
+    if (out.zone_id != 0)
+        m_zoneMgr->setZoneById(out.zone_id);
 }
 
 void EqlDispatch::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)

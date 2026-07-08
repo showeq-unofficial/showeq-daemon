@@ -65,12 +65,18 @@ L12 SHD/DRU/MNK char. `class@25` is the **primary of 3** (3-class design: SHD/DR
 2nd/3rd class ids sit in a separate block ~@12094 — not surfaced (neutral `setIdentity` carries
 one class). Parser unchanged.
 
-**NewZone WIRED** (2026-07-07): `0x4bc8`, 14B S>C, fires once at zone-in, numeric
-`zoneId = u32@6` (=25 nektulos; `u16@12` copies it). Resolved via the daemon's existing
-`zones.h` table → new `ZoneMgr::setZoneById` → `setZoneByName` → **map loads** (verified:
-zone resolves to 'nektulos', map + spawnpoints + filter all load). The zone id is carried
-in the shared `NewZone.zone_id` field (Live leaves it 0). Offset `@6` vs `@12` not yet
-distinguished — re-check on a capture from a 2nd zone.
+**Current zone = OP_PlayerProfile `0x62f0` `u16@36211`** (corrected 2026-07-08). Found by
+cross-diffing a Nektulos vs an Upper Guk capture — the **only** field that flips
+`25→65` (nektulos→guktop). It's the `{zoneId, x, y, z}` current-location record in the
+profile. Wired in `EqlDispatch::profile` → `ZoneMgr::setZoneById` (resolves via `zones.h`)
+→ map loads.
+
+⚠ **Correction:** the first attempt wired `0x4bc8@6` and was WRONG — that's the **BIND**
+zone (where the char binds, = nektulos), *identical across zones*, so it showed 'nektulos'
+while the player was in Upper Guk. `0x4bc8` is now **UNWIRED** (kept identified as the
+zone-in/bind marker). Lesson: a single-zone capture can't tell bind from current — needs
+≥2 zones. Caveat on the fix: `@36211` is a deep offset in a ~40KB variable-length profile,
+so it may shift with big inventory changes — re-derive if the zone resolves wrong.
 
 **Still TODO:** ClientUpdate heading+deltas (left 0 — no facing arrow / speed-between-updates;
 need a `/loc`-while-turning capture). That's the last open piece.
