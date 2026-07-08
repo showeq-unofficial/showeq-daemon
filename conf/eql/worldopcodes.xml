@@ -20,8 +20,8 @@
     <opcode id="b8cc" name="OP_ApproveWorld" updated="05/25/26">
         <comment>Live candidate: small S>C in handshake band; not isolated yet.</comment>
     </opcode>
-    <opcode id="9bdc" name="OP_EnterWorld" updated="05/25/26">
-        <comment>Client tells world server to enter world with selected char. Live: 72b C>S, char name (zero-padded) at offset 0 + 64b zeros + 0xffffffff trailer. 4/4 confirmations across char-create + login flows. Server reuses 0x0839 with shorter S>C variants (1b ack, 7b name echo) — XML maps the opcode to OP_EnterWorld for log naming.</comment>
+    <opcode id="26bf" name="OP_EnterWorld" updated="07/08/26">
+        <comment>Client tells world server to enter world with selected char. EQ Legends: 72b C>S, BYTE-IDENTICAL to Live's layout — char name (zero-padded) at offset 0 + 64b zeros + 0xffffffff trailer; server reuses the opcode for a 1b S>C ack. Confirmed 2/2 login captures (fulllogin-20260708, login-zone-20260707) via dump-payload; name matches the known char. Mapping this id makes NamePromoter fire on eql (it matches by opcode name + 72b len), naming the box at the WORLD handshake — earlier than the own-spawn adoption fallback. Prior id 9bdc was a stale pre-2026-07-07-patch guess (never on the wire).</comment>
     </opcode>
     <opcode id="6bcf" name="OP_ExpansionInfo" updated="05/25/26">
         <comment>Which expansions user has. Live: 64b fixed S>C in the post-LogServer / pre-ApproveWorld handshake band (5/5 confirmations).</comment>

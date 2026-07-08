@@ -391,12 +391,23 @@ bool DaemonApp::start()
             const int ord = onlySessionOrdinal();
             if (ord != 1)
                 m_packet->disconnectReconTaps();
-            if (ord > 0)
+            if (ord > 0) {
                 qInfo("recon: --only-session tracking session #%d", ord);
-            else
+            } else {
                 qInfo("recon: --only-session tracking character '%s' "
                       "(relays once the name resolves)",
                       qUtf8Printable(m_cfg.onlySession));
+                // Sweep on every registry change so a box named by ANY path
+                // (NamePromoter at OP_EnterWorld — the earliest — or the
+                // profile / own-spawn promotions) starts relaying as soon as
+                // its display_name matches. Idempotent per box.
+                connect(&m_packet->boxRegistry(), &BoxRegistry::changed,
+                        this, [this]() {
+                    m_packet->boxRegistry().forEach([this](Box& b) {
+                        onlySessionNameCheck(&b, b.display_name);
+                    });
+                });
+            }
         }
 
         if (m_cfg.listBoxes) {
