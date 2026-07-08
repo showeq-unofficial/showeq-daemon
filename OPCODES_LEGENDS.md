@@ -110,11 +110,15 @@ Notes / gotchas:
   1. In a **raw pcap taken with a broad `host` filter**: mDNS / service-discovery
      (`EQBOX1.local`, `_dosvc._tcp.local`, Bonjour) — LAN multicast on port 5353. Fixed
      by excluding `port 5353` + `net 224.0.0.0/4` from the open capture filter (`1d3dceb`).
-  2. On the **live/port-restricted stream** (real EQL traffic): 84-byte **opaque
-     structured-but-not-EQ** packets — 4 zero bytes + a 16-byte high-entropy id +
-     constants (`2e2025`, `00000050`=80, `00000034`=52) + an encrypted blob, 3 distinct
-     prefixes. An EQL sub-protocol / encrypted channel sharing the zone 5-tuple, **not
-     decodable game state**. Demoted 0x0000 to debug (`c12bf31`).
+  2. On the **live/port-restricted stream** (real EQL traffic): an **ENCRYPTED C→S
+     channel** multiplexed on the game socket (fires during combat/in-zone activity, not
+     zone-in — 0 in the login-zone vpk, 78 in Upper Guk; live Unrest showed 82–482B
+     bursts). Rigorously verified opaque (dumped 40): no plaintext EQ structure at any
+     offset (no spawn-ids / names / eqstr), payloads high-entropy and 40/40 unique
+     (~5.33 bits/byte on 48B ≈ random), plaintext framing header + a per-packet 16-byte
+     field = an **AEAD nonce** signature. Not decodable without the client key, and NOT
+     the server game-state we decode (that's the S→C SOE channels, intact). Dropped
+     silently with a one-time announce (`44f5a76`).
   Separately, the **`calcCRC16 called for length > 1048576`** spam (~every 10s) was a
   **1-byte packet** (netOp `0x00ff`) underflowing `rawPacketLength()-2` (unsigned) into a
   ~4.29GB length — guarded in `calculateCRC` (`c12bf31`). `0x2735` messages are **not**
