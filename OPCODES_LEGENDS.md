@@ -59,10 +59,15 @@ new `parse_legends_consider` (24B) → shared `Consider` → the neutral
 positions `/loc`-correct, con fires for all 3 con'd mobs (Considered ids 12220/11626/25225),
 target 38 envelopes; **live 9/9 unregressed**.
 
+**PlayerProfile `0x62f0` VERIFIED** (2026-07-07): the identity header survived the patch —
+race u32@21 (=6 DarkElf), class1 u32@25 (=5 SHD), level u8@33 (=12), confirmed against a known
+L12 SHD/DRU/MNK char. `class@25` is the **primary of 3** (3-class design: SHD/DRU/MNK = 5/6/7);
+2nd/3rd class ids sit in a separate block ~@12094 — not surfaced (neutral `setIdentity` carries
+one class). Parser unchanged.
+
 **Still TODO:** ClientUpdate heading+deltas (left 0 — no facing arrow / speed-between-updates;
-need a turn/jump capture); PlayerProfile `0x62f0` race/class/level offsets (kept pre-patch
-offsets, **UNVERIFIED** — needs a capture with known race/class/level); **NewZone** = numeric
-zone-id opcode (map stays `unknown` until the id opcode is found + an id→shortname table added).
+need a turn/jump capture); **NewZone** = numeric zone-id opcode (map stays `unknown` until the
+id opcode is found + an id→shortname table added).
 
 ## Confirmed (PRE-PATCH — ids dead as of 2026-07-07, kept for method/evidence)
 
