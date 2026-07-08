@@ -36,13 +36,22 @@ so `--list-events` has real capture-time) with in-game ground truth: player `/lo
 Sergeant_C`Orm(11626,L50,amiably), Vol_T`Vke(12220,**L60,warmly**); NPC locs
 C`Orm `2324.94,-990.11,-4.92` + Vol `2337.45,-802.35,-5.86`.
 
+⚠ **Coordinate gotcha (read before touching positions):** EQ `/loc` prints **(Y, X, Z)**,
+not (X, Y, Z). The position offsets in this doc label wire fields by GAME axis
+(`gameX`/`gameY`); the `seq-backend-eql` parsers bind `x=gameX, y=gameY` to match the
+daemon's neutral Spawn convention (which negates X/Y for screen — `protoencoder`). The
+first re-derivation matched decoded values to `/loc` *in order* → bound x/y **backwards**;
+everything was self-consistent (cross-checks passed) but X/Y-transposed vs the map. Fixed
+`60b2a79`. Live is unaffected — the swap lives in the eql backend, which is the point of
+per-backend decoders.
+
 | Opcode | pre-patch | **new id** | status |
 |--------|-----------|-----------|--------|
 | OP_TargetMouse   | 0x1bfe | **0x2867** | ✅ confirmed 19/19 (value-match; 0=untarget). Layout unchanged (`{u32 spawn_id}`) |
 | OP_Consider      | *(new)* | **0x4212** | ✅ NEW. 24B `{u32 self=27090, u32 target, u32 faction, u32 =7}`; C>S req has faction=0, S>C reply fills faction (**2=warmly, 4=amiably**; level comes from spawn). Companions: `0x5b5e` target-HP reveal `{u32 target, u32 cur_hp,…}`, `0x0e54` `{0,target}` |
-| OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ 42B C>S self (+ 28B S>C variant). **FULLY DECODED** (2026-07-08): spawnId u16@2; pos x@10/y@18/z@30 (f32); velocity deltaX f32@6 / deltaY f32@26; **heading u16@14, 11-bit (0–2047, North≈0)** — Sense-Heading-confirmed. deltaZ candidate @22 |
-| OP_ZoneSpawns    | 0x7475 | **0x4606** | ✅ id (var 343–352B NPC / 486B rich). level@block+4 OK. **POS CHANGED**: 330B NPC block `X=i16@239/8, Y=@243/8, Z=@235/8`; 486B block `@395/@399/@391`. hp/body offsets TBD |
-| OP_MobUpdate     | 0x061b | **0x67e0** | ✅ id (14B, ids 416/416 match spawns). pos offsets TBD |
+| OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ 42B C>S self (+ 28B S>C variant). **FULLY DECODED** (2026-07-08): spawnId u16@2; wire has gameY@10 / gameX@18 / z@30 (f32) → bound **x=gameX@18, y=gameY@10**; velocity deltaX@26 / deltaY@6 (f32); **heading u16@14, 11-bit (0–2047, North≈0)** — Sense-Heading-confirmed. deltaZ candidate @22. (X/Y-swap fixed `60b2a79`) |
+| OP_ZoneSpawns    | 0x7475 | **0x4606** | ✅ id (var 343–352B NPC / 486B rich). level@block+4 OK. **POS from block END**: z@(len-95)/8, **x=gameX@(len-87)/8, y=gameY@(len-91)/8** (330B: z@235,x@243,y@239; 486B: z@391,x@399,y@395). hp/body offsets TBD |
+| OP_MobUpdate     | 0x061b | **0x67e0** | ✅ id (14B, ids 416/416 match spawns). pos **x=gameX@10 (unscaled), y=gameY@4/8, z@6/64** |
 | OP_ItemPacket    | 0x74b0 | **0x6805** | ✅ id (bulk items; names + `Benefit:`/`Trophy:`) |
 | OP_ZoneServerInfo| —      | **0x35d4** | ✅ world 130B, zone-server host `…everquestlegends.com` |
 | OP_ChatServer    | —      | **0x4de7** | world 67B, chat connect `host,9877,rivervale.<char>,token` |
@@ -50,9 +59,9 @@ C`Orm `2324.94,-990.11,-4.92` + Vol `2337.45,-802.35,-5.86`.
 | OP_NewZone       | 0x5ab6 | **numeric id (opcode TBD)** | swept all 177 opcodes: **no zone-name text on the wire** — post-patch the zone is a numeric id (old EQL reused classic ids, `nektulos=25`). `0x1e94` (world 1932B) carries the *server* name "rivervale", NOT the zone. Find the S>C op carrying zoneid 25 at zone-in (or profile's current-zone field); map id→shortname client-side |
 
 **RE-WIRED 2026-07-07** (decoder-rs + daemon): all ids updated in `conf/eql/opcodes.toml`;
-the `seq-backend-eql` parsers re-derived — ClientUpdate pos `x@10/y@18/z@30` (f32);
-ZoneSpawns pos anchored to the block END (`z@(len-95)/8, x@(len-91)/8, y@(len-87)/8`,
-handles both 330B/486B blocks), id@0/level@4/hp@44,45; MobUpdate `x@4/8, y@10, z@6/64`;
+the `seq-backend-eql` parsers re-derived — ClientUpdate pos `x=gameX@18 / y=gameY@10 / z@30`
+(f32); ZoneSpawns pos from the block END (`z@(len-95)/8, x=gameX@(len-87)/8, y=gameY@(len-91)/8`,
+both 330B/486B blocks), id@0/level@4/hp@44,45; MobUpdate `x=gameX@10, y=gameY@4/8, z@6/64`;
 new `parse_legends_consider` (24B) → shared `Consider` → the neutral
 `SpawnShell::consMessage` (passed the real payload len, not `sizeof(considerStruct)`) →
 `spawnConsidered`→`Considered`→web. Verified on the capture: opcodes resolve by name,
@@ -107,7 +116,7 @@ Notes / gotchas:
   **text** into the daemon+web (via eqstr/dbstr) — not yet done.
 
 **ClientUpdate heading/deltas — DONE (2026-07-08).** heading = `u16@14`, 11-bit
-(0–2047 = full circle, North≈0), velocity deltaX `f32@6` / deltaY `f32@26`. Confirmed by
+(0–2047 = full circle, North≈0), velocity deltaX `f32@26` / deltaY `f32@6`. Confirmed by
 a Sense Heading capture (`captures/eqlegends-heading-20260708.pcap`, Dagnor's Cauldron):
 turning through N/NE/E/SE/S/SW/W/NW, `u16@14` stepped 2043/1814/1542/1246/1036/782/492/203
 (~256 = 45° apart, value falls as compass rises). Note: the Sense Heading *text* is
