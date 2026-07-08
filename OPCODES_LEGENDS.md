@@ -220,8 +220,13 @@ named mobs (`a_fire_beetle10`, `a_skeleton05`, `a_decaying_skeleton01`,
 No competing spawn-id-carrying C>S opcode exists (the other small C>S opcodes are a
 toggle / constants — see candidates), so the ID is unambiguous.
 
-Named in `conf/eql/opcodes.toml` (name only; **no handler yet** — surfacing the
-selected target in the web client would need a target primitive + proto field).
+**WIRED** (`wire_eql.cpp`): the Legends payload is byte-identical to Live's
+`clientTargetStruct`, so `0x1bfe` wires straight to the existing neutral
+`SpawnShell::clientTarget` — **no Legends-specific code, no new decoder, proto, or
+web**. The whole chain was already backend-neutral: `clientTarget` → `emit
+targetSpawn` → `SessionAdapter::onTargetSpawn` → `Targeted` envelope → web
+(`App.tsx`, `spawn_id=0` = untarget). Verified via golden replay: 36 `Targeted`
+envelopes, real ids = the 6 confirmed named-mob targets + untargets.
 
 ## Candidates (unconfirmed)
 

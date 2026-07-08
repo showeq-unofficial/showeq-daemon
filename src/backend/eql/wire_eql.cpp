@@ -149,6 +149,15 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_MobUpdate", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(eql, &EqlDispatch::mobUpdate));
+    // EQ Legends OP_TargetMouse (0x1bfe): C>S target select. The Legends payload
+    // is byte-identical to Live's clientTargetStruct ({u32 spawn_id}, 0 = clear),
+    // so it needs NO Legends glue — wire straight to the neutral core handler,
+    // exactly as wire_live.cpp does. clientTarget emits targetSpawn -> Targeted
+    // envelope -> web (untarget = spawn_id 0). Confirmed 2026-07-07; see
+    // OPCODES_LEGENDS.md.
+    wire("OP_TargetMouse", SP_Zone, DIR_Client,
+         "clientTargetStruct", SZC_Match,
+         seqBind(ms.spawnShell, &SpawnShell::clientTarget));
     wire("OP_WearChange", SP_Zone, DIR_Server | DIR_Client,
          "SpawnUpdateStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::updateSpawnInfo));

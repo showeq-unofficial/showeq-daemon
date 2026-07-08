@@ -321,12 +321,12 @@ comment = "ConsiderCode"
 id      = "1bfe"
 name    = "OP_TargetMouse"
 updated = "2026-07-07"
-comment = "EQ Legends C>S target select: {u32 spawn_id}, 4B; spawn_id=0 = clear target (untarget). Confirmed 2026-07-07 across fight + Nektulos locclip captures — every payload resolves to a 0x7475 spawn id or 0, zero misses. See OPCODES_LEGENDS.md"
+comment = "EQ Legends C>S target select. Payload is byte-identical to Live's clientTargetStruct ({u32 spawn_id}, 0 = clear/untarget), so it wires straight to the neutral SpawnShell::clientTarget — no Legends-specific decode. Confirmed 2026-07-07 across fight + Nektulos locclip captures (every payload resolves to a 0x7475 spawn id or 0). See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "client"
-  typename      = "uint8_t"
-  sizechecktype = "none"
+  typename      = "clientTargetStruct"
+  sizechecktype = "match"
 
 [[zone]]
 id      = "ffff"
