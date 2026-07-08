@@ -1239,9 +1239,20 @@ void EQPacketStream::processPacket(EQProtocolPacket& packet, bool isSubpacket)
       // high-entropy id + constants + an encrypted blob). Not decodable game
       // state, so keep it at debug rather than spamming warnings. Genuinely
       // unhandled net opcodes still warn.
-      if (packet.getNetOpCode() == 0x0000)
-        seqDebug("EQPacket: opaque net opcode 0000, stream %s, size %d",
-          EQStreamStr[m_streamid], packet.payloadLength());
+      if (packet.getNetOpCode() == 0x0000) {
+        // EQL multiplexes an ENCRYPTED channel on the game socket (C>S, fires
+        // during combat/activity). Verified not decodable: no plaintext EQ
+        // structure (no spawn-ids / names / eqstr), high-entropy unique
+        // payloads, and a per-packet 16-byte field consistent with an AEAD
+        // nonce. Not the server game-state we decode (that's the S>C SOE
+        // channels). Drop silently; announce once so it's discoverable.
+        static bool announced = false;
+        if (!announced) {
+          announced = true;
+          seqInfo("EQPacket: ignoring EQL encrypted net-0000 channel on %s "
+            "(opaque C>S, not decodable)", EQStreamStr[m_streamid]);
+        }
+      }
       else
         seqWarn("EQPacket: Unhandled net opcode %04x, stream %s, size %d",
           packet.getNetOpCode(), EQStreamStr[m_streamid], packet.payloadLength());
