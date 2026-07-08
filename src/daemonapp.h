@@ -118,6 +118,13 @@ public:
         // (the documented primary-box recon limitation). Recon-only: does not
         // affect proto output or goldens.
         bool         dumpAllSessions = false;
+        // If non-empty, restrict the recon signals to ONE box/session.
+        // Selector: a character name (case-insensitive, matched when the
+        // name resolves — OP_PlayerProfile on live, the player's own
+        // ZoneSpawns entry on eql), a 1-based session index in discovery
+        // order, or "first" (= index 1). Overrides --dump-all-sessions.
+        // Recon-only: does not affect proto output or goldens.
+        QString      onlySession;
         // --replay --wait-for-client: pause the .vpk playback until
         // the first WebSocket client attaches a SessionAdapter (so
         // early envelopes aren't dropped), and don't quit at EOF so
@@ -220,6 +227,18 @@ private:
     // reverse of onBoxCreated). No-op for the primary box.
     void onBoxAboutToBeRemoved(Box* box);
 
+    // --only-session helpers -------------------------------------------------
+    // Parsed index form of Config::onlySession: N for "N"/"first"(=1),
+    // 0 when the selector is a character name.
+    int onlySessionOrdinal() const;
+    // Connect a box's four streams onto the global recon signals
+    // (idempotent per box). Used by --dump-all-sessions (every non-primary
+    // box) and --only-session (the one matching box; resolves the primary
+    // box's streams to EQPacket's globals).
+    void relayReconTaps(Box* box);
+    // Name-selector check: relay `box` if `name` matches Config::onlySession.
+    void onlySessionNameCheck(Box* box, const QString& name);
+
     Config                          m_cfg;
 
     std::unique_ptr<DataLocationMgr> m_dataLocationMgr;
@@ -259,6 +278,11 @@ private:
     // the whole set with one deleteLater (order-safe subtree teardown). The
     // primary box reuses m_activeManagers and has no entry here.
     QHash<const Box*, QObject*>     m_boxManagerRoots;
+    // --only-session bookkeeping: sessions seen (1-based discovery order,
+    // counted in onBoxCreated) and boxes already relayed onto the recon
+    // signals (guards double-connects when a name resolves repeatedly).
+    int                             m_boxOrdinal = 0;
+    QSet<const Box*>                m_reconRelayed;
     std::unique_ptr<MapData>        m_mapData;
     // Active map package id ("default" = flat maps root). Restored from
     // XMLPreferences in start(), overridden by Config::mapPackage.

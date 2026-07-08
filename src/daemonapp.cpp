@@ -381,6 +381,24 @@ bool DaemonApp::start()
             m_eventLogger = new EventLogger(m_packet, m_cfg.listEvents, this);
         }
 
+        // --only-session: recon follows exactly one box. Index 1 / "first"
+        // is the primary box — already the default recon source, so leave
+        // its taps alone. Any other selector detaches the primary taps here;
+        // onBoxCreated relays the matching session when it's identified.
+        if (!m_cfg.onlySession.isEmpty()) {
+            if (m_cfg.dumpAllSessions)
+                qWarning("--only-session overrides --dump-all-sessions");
+            const int ord = onlySessionOrdinal();
+            if (ord != 1)
+                m_packet->disconnectReconTaps();
+            if (ord > 0)
+                qInfo("recon: --only-session tracking session #%d", ord);
+            else
+                qInfo("recon: --only-session tracking character '%s' "
+                      "(relays once the name resolves)",
+                      qUtf8Printable(m_cfg.onlySession));
+        }
+
         if (m_cfg.listBoxes) {
             // Stage 1 of multibox-sessions: stderr-dump the registry
             // every 5s so the user can verify two-client captures
@@ -652,6 +670,7 @@ ManagerSet DaemonApp::buildManagerSet()
 void DaemonApp::onBoxCreated(Box* box)
 {
     if (!box) return;
+    const int ordinal = ++m_boxOrdinal;   // 1-based discovery order
     if (box->is_primary) {
         // The primary box's four streams ARE the global streams, already
         // wired to the active ManagerSet in start(). Just record the
@@ -687,21 +706,19 @@ void DaemonApp::onBoxCreated(Box* box)
         // the global recon signals so --dump-payload / --opcode-stats /
         // --list-events observe EVERY session, not just the primary box (the
         // documented primary-box limitation that hides later-zone opcodes).
-        // Signal-to-signal relay: box stream decodedPacket -> EQPacket
-        // decoded{Zone,World}Packet -> the recon taps already connected in
-        // start(). Recon-only; the manager pipeline is wired separately above.
-        if (m_cfg.dumpAllSessions) {
-            for (EQPacketStream* s : {box->zone_s2c, box->zone_c2s})
-                connect(s, SIGNAL(decodedPacket(const uint8_t*, size_t, uint8_t,
-                                                uint16_t, const EQPacketOPCode*)),
-                        m_packet, SIGNAL(decodedZonePacket(const uint8_t*, size_t,
-                                                uint8_t, uint16_t, const EQPacketOPCode*)));
-            for (EQPacketStream* s : {box->world_s2c, box->world_c2s})
-                connect(s, SIGNAL(decodedPacket(const uint8_t*, size_t, uint8_t,
-                                                uint16_t, const EQPacketOPCode*)),
-                        m_packet, SIGNAL(decodedWorldPacket(const uint8_t*, size_t,
-                                                uint8_t, uint16_t, const EQPacketOPCode*)));
-        }
+        // Recon-only; the manager pipeline is wired separately above.
+        // Suppressed under --only-session, which relays exactly one box below.
+        if (m_cfg.dumpAllSessions && m_cfg.onlySession.isEmpty())
+            relayReconTaps(box);
+    }
+
+    // --only-session, index selector: relay the Nth session in discovery
+    // order (index 1 = the primary box, whose default taps were left intact
+    // in start(), so relaying it again isn't needed).
+    if (!m_cfg.onlySession.isEmpty()) {
+        const int ord = onlySessionOrdinal();
+        if (ord > 1 && ord == ordinal)
+            relayReconTaps(box);
     }
 
     // Promote + merge the box by its CHARACTER name on every OP_PlayerProfile
@@ -719,6 +736,23 @@ void DaemonApp::onBoxCreated(Box* box)
                 QString::fromLatin1(p->name,
                                     int(qstrnlen(p->name, sizeof(p->name))));
             m_packet->boxRegistry().promoteByName(box, name);
+            onlySessionNameCheck(box, name);
+        });
+    }
+
+    // Name the box from the player's own-spawn adoption (SpawnShell::
+    // playerChangedID). This is the only name source on eql — its profile
+    // carries no name and OP_EnterWorld/NamePromoter is Live-shaped, so eql
+    // boxes otherwise stay "Unknown" in the picker. Promotion is deferred to
+    // this fallback only when nothing authoritative named the box first
+    // (display_name still empty), since a reused spawn id could in theory
+    // adopt a wrong name on live. Also feeds the --only-session name match.
+    if (SpawnShell* ss = m_boxManagers[box].spawnShell) {
+        connect(ss, &SpawnShell::playerNameResolved, this,
+                [this, box](const QString& name) {
+            if (box->display_name.isEmpty())
+                m_packet->boxRegistry().promoteByName(box, name);
+            onlySessionNameCheck(box, name);
         });
     }
 
@@ -751,6 +785,54 @@ void DaemonApp::onBoxAboutToBeRemoved(Box* box)
     m_boxManagers.remove(box);
     if (QObject* root = m_boxManagerRoots.take(box))
         root->deleteLater();
+}
+
+int DaemonApp::onlySessionOrdinal() const
+{
+    if (m_cfg.onlySession.compare(QLatin1String("first"),
+                                  Qt::CaseInsensitive) == 0)
+        return 1;
+    bool ok = false;
+    const int n = m_cfg.onlySession.toInt(&ok);
+    return (ok && n > 0) ? n : 0;   // 0 = name selector
+}
+
+void DaemonApp::relayReconTaps(Box* box)
+{
+    if (!box || m_reconRelayed.contains(box)) return;
+    m_reconRelayed.insert(box);
+
+    // The primary box aliases EQPacket's global streams (its Box::* stream
+    // fields stay null); every other box owns its streams.
+    EQPacketStream* zone[2]  = { box->zone_s2c,  box->zone_c2s };
+    EQPacketStream* world[2] = { box->world_s2c, box->world_c2s };
+    if (box->is_primary) {
+        zone[0]  = m_packet->zoneServerStream();
+        zone[1]  = m_packet->zoneClientStream();
+        world[0] = m_packet->worldServerStream();
+        world[1] = m_packet->worldClientStream();
+    }
+    for (EQPacketStream* s : zone)
+        connect(s, SIGNAL(decodedPacket(const uint8_t*, size_t, uint8_t,
+                                        uint16_t, const EQPacketOPCode*)),
+                m_packet, SIGNAL(decodedZonePacket(const uint8_t*, size_t,
+                                        uint8_t, uint16_t, const EQPacketOPCode*)));
+    for (EQPacketStream* s : world)
+        connect(s, SIGNAL(decodedPacket(const uint8_t*, size_t, uint8_t,
+                                        uint16_t, const EQPacketOPCode*)),
+                m_packet, SIGNAL(decodedWorldPacket(const uint8_t*, size_t,
+                                        uint8_t, uint16_t, const EQPacketOPCode*)));
+    qInfo("recon: relaying session %s%s%s",
+          qUtf8Printable(box->box_id),
+          box->display_name.isEmpty() ? "" : " / ",
+          qUtf8Printable(box->display_name));
+}
+
+void DaemonApp::onlySessionNameCheck(Box* box, const QString& name)
+{
+    if (m_cfg.onlySession.isEmpty() || onlySessionOrdinal() != 0) return;
+    if (QString::compare(name, m_cfg.onlySession, Qt::CaseInsensitive) == 0)
+        relayReconTaps(box);
 }
 
 const ManagerSet* DaemonApp::managersForBox(const QString& boxId) const

@@ -114,6 +114,12 @@ public:
                     uint8_t level, uint8_t curHpPct, uint8_t maxHpPct);
    void moveSpawn(uint16_t id, int16_t x, int16_t y, int16_t z);
 signals:
+   // Fired when the player's own ZoneSpawns entry reveals the character name
+   // during the playerChangedID reconcile (eql: the player id arrives late via
+   // self-pos, so the name is only knowable from the own-spawn adoption; live
+   // learns names earlier via OP_EnterWorld / the profile). DaemonApp uses it
+   // to name the box in BoxRegistry when nothing else has.
+   void playerNameResolved(const QString& name);
    void addItem(const Item* item);
    void delItem(const Item* item);
    void changeItem(const Item* item, uint32_t changeType);

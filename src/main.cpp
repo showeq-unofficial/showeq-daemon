@@ -182,6 +182,15 @@ int main(int argc, char** argv)
         "seen. Needed for multi-zone captures where the opcode you want is in "
         "a later session (e.g. a high-Y zone reached after zoning). "
         "Recon-only; no effect on proto output or goldens.");
+    QCommandLineOption onlySessionOpt(QStringList{"only-session"},
+        "Recon: restrict --dump-payload / --opcode-stats / --list-events to "
+        "ONE box/session. SELECTOR is a character name (case-insensitive, "
+        "matched once the name resolves; each new zone session of that "
+        "character is followed automatically), a 1-based session index in "
+        "discovery order, or 'first' (= index 1, the primary box). Overrides "
+        "--dump-all-sessions. Recon-only; no effect on proto output or "
+        "goldens.",
+        "SELECTOR");
     QCommandLineOption waitForClientOpt(QStringList{"wait-for-client"},
         "With --replay: pause playback until the first WebSocket "
         "client subscribes, and don't quit at EOF. Use to drive the "
@@ -208,6 +217,7 @@ int main(int argc, char** argv)
     parser.addOption(listEventsOpt);
     parser.addOption(listBoxesOpt);
     parser.addOption(dumpAllSessionsOpt);
+    parser.addOption(onlySessionOpt);
     parser.addOption(waitForClientOpt);
     parser.addOption(boxIdleTtlOpt);
     parser.process(app);
@@ -240,6 +250,7 @@ int main(int argc, char** argv)
     cfg.listEvents   = parser.value(listEventsOpt);
     cfg.listBoxes    = parser.isSet(listBoxesOpt);
     cfg.dumpAllSessions = parser.isSet(dumpAllSessionsOpt);
+    cfg.onlySession   = parser.value(onlySessionOpt);
     cfg.waitForClient = parser.isSet(waitForClientOpt);
     if (parser.isSet(boxIdleTtlOpt)) {
         bool ok = false;

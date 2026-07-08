@@ -624,6 +624,33 @@ void EQPacket::processPlaybackPackets (void)
 
 /////////////////////////////////////////////////////////
 // Connect the given stream's signals to the proper slots
+void EQPacket::disconnectReconTaps()
+{
+  // Undo the decodedPacket -> decoded{Zone,World}Packet signal relays that
+  // connectStream() installed for the four global streams (both arities).
+  // rawPacket relays stay — pcap/raw logging is not session-filtered.
+  for (EQPacketStream* s : {m_client2ZoneStream, m_zone2ClientStream}) {
+    disconnect(s,
+      SIGNAL(decodedPacket(const uint8_t*, size_t, uint8_t, uint16_t, const EQPacketOPCode*)),
+      this,
+      SIGNAL(decodedZonePacket(const uint8_t*, size_t, uint8_t, uint16_t, const EQPacketOPCode*)));
+    disconnect(s,
+      SIGNAL(decodedPacket(const uint8_t*, size_t, uint8_t, uint16_t, const EQPacketOPCode*, bool)),
+      this,
+      SIGNAL(decodedZonePacket(const uint8_t*, size_t, uint8_t, uint16_t, const EQPacketOPCode*, bool)));
+  }
+  for (EQPacketStream* s : {m_client2WorldStream, m_world2ClientStream}) {
+    disconnect(s,
+      SIGNAL(decodedPacket(const uint8_t*, size_t, uint8_t, uint16_t, const EQPacketOPCode*)),
+      this,
+      SIGNAL(decodedWorldPacket(const uint8_t*, size_t, uint8_t, uint16_t, const EQPacketOPCode*)));
+    disconnect(s,
+      SIGNAL(decodedPacket(const uint8_t*, size_t, uint8_t, uint16_t, const EQPacketOPCode*, bool)),
+      this,
+      SIGNAL(decodedWorldPacket(const uint8_t*, size_t, uint8_t, uint16_t, const EQPacketOPCode*, bool)));
+  }
+}
+
 void EQPacket::connectStream(EQPacketStream* stream)
 {
   // Packet logging

@@ -249,6 +249,12 @@ class EQPacket : public QObject
    EQPacketStream* zoneServerStream()  const { return m_zone2ClientStream; }
 
    void connectStream(EQPacketStream* stream);
+   // --only-session: detach the four global (primary-box) streams from the
+   // recon broadcast signals (decodedZonePacket / decodedWorldPacket) so the
+   // recon taps (--dump-payload / --opcode-stats / --list-events) stop seeing
+   // the primary box by default; DaemonApp re-relays the selected session
+   // instead. The typed manager dispatch is per-stream and unaffected.
+   void disconnectReconTaps();
    void dispatchPacket   (int size, unsigned char *buffer);
    void dispatchPacket(EQUDPIPPacketFormat& packet);
  protected slots:

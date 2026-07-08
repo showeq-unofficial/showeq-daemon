@@ -1588,8 +1588,10 @@ void SpawnShell::playerChangedID(uint16_t oldPlayerID, uint16_t newPlayerID)
   // as a mob). Adopt its name onto the player; the deleteItem(tSpawn, ...)
   // below then drops the duplicate mob.
   Item* ownSpawn = m_spawns.value(newPlayerID, nullptr);
-  if (ownSpawn && !ownSpawn->name().isEmpty())
+  if (ownSpawn && !ownSpawn->name().isEmpty()) {
     m_player->setName(ownSpawn->name());
+    emit playerNameResolved(ownSpawn->name());
+  }
 
   // remove the player from the list (if it had a 0 id)
   deleteItem(tPlayer, 0);
