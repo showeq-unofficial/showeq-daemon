@@ -143,8 +143,8 @@ comment = "EQ Legends: C>S self-position (42B). A 24B S>C variant also exists (o
 [[zone]]
 id      = "4606"
 name    = "OP_ZoneSpawns"
-updated = "2026-07-05"
-comment = "EQ Legends spawn info (S>C): null-term name + fixed block. See OPCODES_LEGENDS.md"
+updated = "2026-07-08"
+comment = "EQ Legends spawn info (S>C): null-term name + variable block; position = three u32 words at the block tail (Z/Y/X @ len-95/-91/-87), each a signed 19-bit fixed-point (x8) coord in the word's low bits — same packing as Live spawnStruct position words. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "server"
@@ -172,8 +172,8 @@ comment = "EQ Legends per-NPC movement stream (S>C, variable 15-21B). Byte-ident
 [[zone]]
 id      = "67e0"
 name    = "OP_MobUpdate"
-updated = "2026-07-05"
-comment = "EQ Legends per-mob position update (S>C). See OPCODES_LEGENDS.md"
+updated = "2026-07-08"
+comment = "EQ Legends per-mob position update (S>C, 14B). Byte-identical to Live spawnPositionUpdate (packed y:19/z:19/u3:7/x:19/heading:12 fixed-point x8, spawnId u16@0 + 2 zero bytes); decoded by the shared decode_mob_update. The earlier i16-offset read (Y@4/8, Z@6/64, X@10) was a truncated window of these bitfields — the source of the 8192-unit north<->south Y wrap. See OPCODES_LEGENDS.md."
 
   [[zone.payloads]]
   dir           = "server"

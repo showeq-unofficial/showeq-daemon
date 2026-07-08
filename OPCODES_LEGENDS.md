@@ -50,8 +50,8 @@ per-backend decoders.
 | OP_TargetMouse   | 0x1bfe | **0x2867** | ✅ confirmed 19/19 (value-match; 0=untarget). Layout unchanged (`{u32 spawn_id}`) |
 | OP_Consider      | *(new)* | **0x4212** | ✅ NEW. 24B `{u32 self=27090, u32 target, u32 faction, u32 =7}`; C>S req has faction=0, S>C reply fills faction (**2=warmly, 4=amiably**; level comes from spawn). Companions: `0x5b5e` target-HP reveal `{u32 target, u32 cur_hp,…}`, `0x0e54` `{0,target}` |
 | OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ 42B C>S self (+ 28B S>C variant). **FULLY DECODED** (2026-07-08): spawnId u16@2; wire has gameY@10 / gameX@18 / z@30 (f32) → bound **x=gameX@18, y=gameY@10**; velocity deltaX@26 / deltaY@6 (f32); **heading u16@14, 11-bit (0–2047, North≈0)** — Sense-Heading-confirmed. deltaZ candidate @22. (X/Y-swap fixed `60b2a79`) |
-| OP_ZoneSpawns    | 0x7475 | **0x4606** | ✅ id (var 343–352B NPC / 486B rich). level@block+4 OK. **POS from block END**: z@(len-95)/8, **x=gameX@(len-87)/8, y=gameY@(len-91)/8** (330B: z@235,x@243,y@239; 486B: z@391,x@399,y@395). hp/body offsets TBD |
-| OP_MobUpdate     | 0x061b | **0x67e0** | ✅ id (14B, ids 416/416 match spawns). pos **x=gameX@10 (unscaled), y=gameY@4/8, z@6/64**. This is the sparse full-position sync; continuous movement is OP_NpcMoveUpdate |
+| OP_ZoneSpawns    | 0x7475 | **0x4606** | ✅ id (var 343–352B NPC / 486B rich). level@block+4 OK. **POS from block END**: three u32 words z@(len-95), **y=gameY@(len-91), x=gameX@(len-87)**, each a **signed 19-bit fixed-point (×8) coord in the word's low bits** (Live spawnStruct-style packing; upper 13 bits = other subfields). The earlier `/8 i16` read was the same field truncated — wrapped past ±4095. hp/body offsets TBD |
+| OP_MobUpdate     | 0x061b | **0x67e0** | ✅ id (14B, ids 416/416 match spawns). **Byte-identical to Live `spawnPositionUpdate`** (2026-07-08): spawnId u16@0 + 2 zero bytes, then packed `y:19 z:19 u3:7 x:19` (fixed-point ×8, u64@4) + `heading:12`@12 — decoded by the shared `decode_mob_update`, full range, no wrap. The old i16-offset read (y@4/8, z@6/64, x@10 "unscaled") was a truncated window of these bitfields. Sparse full-position sync; continuous movement is OP_NpcMoveUpdate |
 | OP_NpcMoveUpdate | 917c (dead) | **0x7352** | ✅ **2026-07-08**. The continuous per-NPC movement stream (var 15–21B, top S>C opcode: 734 fires/51 ids vs MobUpdate's 591). **Byte-identical bit format to Live** OP_NpcMoveUpdate → decoded by the shared `decode_npc_move_update`; only the opcode-id mapping was wrong (917c never appears on the wire). Carries pos **+ velocity + heading**. Confirmed: all 51 ids (16b BE spawnId) + decoded x/y/z match the 0x67e0 stream. Fixes "mobs freeze while moving, jump on stop" |
 | OP_ItemPacket    | 0x74b0 | **0x6805** | ✅ id (bulk items; names + `Benefit:`/`Trophy:`) |
 | OP_ZoneServerInfo| —      | **0x35d4** | ✅ world 130B, zone-server host `…everquestlegends.com` |
@@ -83,6 +83,23 @@ correction** in `conf/eql/opcodes.toml` (`917c`→`7352`; the old id never appea
 the `SpawnShell::npcMoveUpdate` wire in `wire_eql.cpp` and the Rust decoder were already in
 place. Carries velocity + heading, so the web gets smooth motion, not just denser jumps.
 Replay-verified: 734 events decode, no length warnings.
+
+**SUPERSEDED 2026-07-08 (same day): the "16-bit wrap" was a mis-read of Live's bit-packed
+`spawnPositionUpdate` — the phase-unwrap below is REMOVED.** The 14B payload is byte-identical
+to Live's struct: `spawnId u16@0` + 2 zero bytes + packed `y:19 z:19 u3:7 x:19` (fixed-point ×8,
+u64@4) + `heading:12`@12. The i16@4/8 read returns the LOW 16 of y:19 → gameY **mod 8192**
+(the observed wrap); i16@6/64 returns z bits 3–12 → gameZ **mod 1024** (the old Z unwrap
+period); i16@10 lands exactly on x bits 3–18 → gameX unscaled, full i16 range (why X "never
+wrapped"). Every observed quirk was an artifact of the truncated reads. Proof over 1665
+MobUpdates across 3 captures (upperguk / unrest / nektulos): y's bits 16–18 and z's top 6 bits
+are **perfect sign-fill** (0 violations — impossible for independent fields), all 8 sub-unit
+fraction values occur on every axis, bytes 2–3 ≡ 0, u3 ≡ 0, heading decodes as clean 12-bit.
+The prior "no wider field (float/int32 scan = 0 hits)" conclusion missed it because a 19-bit
+field straddles byte boundaries — neither scan could see it. OP_ZoneSpawns positions are the
+same packing (19-bit LSB of u32 words at len-95/-91/-87). Fix: eql routes `decode_mob_update`
+to the shared Live parser and `parse_legends_zone_spawn` decodes 19-bit words; the
+`SpawnShell::spawnPos`/zone-bounds unwrap machinery is deleted. Bonus: MobUpdate now yields
+**heading** too. Historical record follows:
 
 **OP_MobUpdate Y is a 16-bit WRAP — fixed by phase-unwrap** (2026-07-08): once
 OP_NpcMoveUpdate was live, high-Y mobs flickered — correct while moving (NpcMove, 19-bit)
