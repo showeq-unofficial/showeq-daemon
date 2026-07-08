@@ -2,13 +2,13 @@
  * eqldispatch.cpp — EverQuest Legends packet dispatch adapter.
  *
  * eql owns no wire-struct types: the Legends wire is decoded in Rust
- * (showeq-decoder-rs, `backend-eql` feature → `seq-eqstructs-eql`) via the same
+ * (showeq-decoder-rs, `backend-eql` feature → `seq-backend-eql`) via the same
  * uniform `seq::rust::decode_*` surface Live uses. This adapter reads the decoded
  * fields and drives the core managers' target-NEUTRAL primitives (setIdentity /
  * applySelfPosition / setZoneByName / upsertSpawn / moveSpawn), so the frontend
  * (SpawnShell / Player / ZoneMgr) keeps only Live's struct set and nothing named
  * `legends*` exists in core. The per-field offsets/scales live in the Rust
- * parsers (`seq-decode`/legends.rs); see OPCODES_LEGENDS.md for the evidence.
+ * parsers (the `seq-backend-eql` crate); see OPCODES_LEGENDS.md for the evidence.
  * Layout shuffles per patch — re-derive the Rust parser from captures.
  */
 #include "eqldispatch.h"
