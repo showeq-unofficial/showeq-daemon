@@ -81,6 +81,34 @@ so it may shift with big inventory changes — re-derive if the zone resolves wr
 **Still TODO:** ClientUpdate heading+deltas (left 0 — no facing arrow / speed-between-updates;
 need a `/loc`-while-turning capture). That's the last open piece.
 
+### 2026-07-08 — `0x2735` = formatted-message channel (S>C); Sense Heading decoded
+
+`0x2735` is the high-volume S>C **message channel** (1026 fires in the Nektulos
+capture, 571 in Upper Guk; variable 5–53 B). It's multiplexed — each message type has
+its own small struct keyed by an eqstr/dbstr string-id; render via
+`~/.showeq/eql/eqstr_us.txt` (id → template) + `dbstr_us.txt`.
+
+**Sense Heading** message = **6 B** `{u32 direction_string_id, u16 unk}`. The direction
+id is an eqstr id `12427–12434` = **N / NE / E / SE / S / SW / W / NW** (clockwise), which
+the client renders into `12435 "You think you are heading %1."`. Confirmed: two 6-B
+payloads `91 30 00 00 …` = `12433` "West".
+
+Notes / gotchas:
+- The channel's leading `u32` is often the **entity id**, not a string-id — watch for
+  coincidental eqstr collisions (the player id `13167` matches eqstr `13167 "Current
+  mouse speed…"`, a false positive). The real string-id offset varies per message type.
+- **`net opcode 0000` framing drops eat `0x2735` messages** (they fire heavily during
+  combat) — only 2 Sense Headings (both West) survived this capture out of a "bunch".
+  So the earlier "is net-0000 eating real data?" question = **yes, it drops messages**.
+- This channel is the foundation for wiring EQL formatted / combat / system message
+  **text** into the daemon+web (via eqstr/dbstr) — not yet done.
+
+**For ClientUpdate heading/deltas** (last decode TODO): Sense Heading directions are now
+wire-decodable, so a clean **out-of-combat** capture facing each of the 8 compass points
+(Sense Heading at each) lets me auto-correlate direction → the ClientUpdate heading field
+with no manual log. Note `/loc` does NOT report heading (position only) — Sense Heading is
+the facing ground truth.
+
 ## Confirmed (PRE-PATCH — ids dead as of 2026-07-07, kept for method/evidence)
 
 ### 2026-07-05 — OP_ClientUpdate = `0x0b03`
