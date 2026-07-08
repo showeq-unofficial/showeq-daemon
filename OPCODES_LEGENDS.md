@@ -197,12 +197,14 @@ leading u32 cannot be classified entity-vs-string from the packet alone. The sub
 `@4` (0x02/0x04/0x0f/0x23/…) does NOT separate them either (genuine text sits in @4=0x04
 *mixed with* entity + other). **Wiring it blind would spam the web chat with garbage** (the
 169× "mouse speed" line). CONCLUSION: to wire EQL chat/system/combat text safely, capture a
-**dedicated session with KNOWN content** — type distinctive phrases per channel (`/say
-SEQTEST_SAY_1`, `/ooc SEQTEST_OOC_2`, `/tell <box> SEQTEST_TELL_3`, `/shout`, `/auction`)
-and trigger known combat/system lines ("You have slain …", "… hits YOU for N", "You gain
-experience!", a resisted spell) — then `--dump-payload` every opcode and **string-grep for
-the literal phrases** to pin the real chat opcode(s) + format precisely (player chat carries
-LITERAL text, unlike 0x2735's string-ids). The solo-grind captures on disk contain no typed
+**dedicated session with KNOWN content**. For each channel type a **distinctive but
+ordinary-looking** phrase — pick natural words you'll remember, **NOT an obvious test marker
+like "SEQTEST"** (the text goes to the live server; keep it innocuous and un-botlike) — e.g.
+`/say`, `/ooc`, `/tell <box>`, `/shout`, `/auction` each with a different memorable phrase
+you jot down locally to grep for; and trigger known combat/system lines ("You have slain …",
+"… hits YOU for N", "You gain experience!", a resisted spell). Then `--dump-payload` every
+opcode and **string-grep for those literal phrases** to pin the real chat opcode(s) + format
+precisely (player chat carries LITERAL text, unlike 0x2735's string-ids). The solo-grind captures on disk contain no typed
 chat, so the chat opcodes (OP_CommonMessage / OP_SpecialMesg / OP_FormattedMessage — all
 handlers pre-wired, awaiting ids) can't be found in them. 0x2735 itself stays unwired until
 its entity-event subtypes are separately decoded (they may overlap with already-decoded
