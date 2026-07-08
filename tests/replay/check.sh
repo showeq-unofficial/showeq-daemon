@@ -15,19 +15,35 @@ set -euo pipefail
 
 REPLAY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DAEMON_DIR="$(cd "${REPLAY_DIR}/../.." && pwd)"
-DAEMON="${DAEMON_DIR}/build/showeq-daemon"
+# The daemon is compiled for exactly one backend (-DSEQ_TARGET). Goldens
+# only match the backend that produced them, so fixtures live in per-target
+# subdirs (live/ eql/ test/) and we validate just the current build's set.
+# SEQ_BUILD_DIR lets a dev point at a sibling build dir (build-test/ etc.).
+BUILD_DIR="${SEQ_BUILD_DIR:-${DAEMON_DIR}/build}"
+DAEMON="${BUILD_DIR}/showeq-daemon"
 CONF_DIR="${DAEMON_DIR}/conf"
 FILTER="${1:-}"
 
 if [[ ! -x "${DAEMON}" ]]; then
-    echo "error: daemon not built — run 'cmake --build build -j' in ${DAEMON_DIR}" >&2
+    echo "error: daemon not built — run 'cmake --build ${BUILD_DIR##*/} -j' in ${DAEMON_DIR}" >&2
     exit 2
 fi
 
+# Detect the compiled backend from the build's CMakeCache (same parse as
+# build.sh; unset == the default 'live'). Override with SEQ_CHECK_TARGET.
+detect_target() {
+    local cache="${BUILD_DIR}/CMakeCache.txt" t=""
+    [[ -f "${cache}" ]] && t="$(sed -n 's/^SEQ_TARGET:[^=]*=//p' "${cache}")"
+    echo "${t:-live}"
+}
+TARGET="${SEQ_CHECK_TARGET:-$(detect_target)}"
+GOLDEN_DIR="${REPLAY_DIR}/${TARGET}"
+echo "tier-2 target=${TARGET} (from ${BUILD_DIR##*/}/CMakeCache.txt); fixtures in ${GOLDEN_DIR#${REPLAY_DIR}/}/"
+
 shopt -s nullglob
-vpks=("${REPLAY_DIR}"/*.vpk)
+vpks=("${GOLDEN_DIR}"/*.vpk)
 if [[ ${#vpks[@]} -eq 0 ]]; then
-    echo "no .vpk fixtures in ${REPLAY_DIR} — see README.md to capture one" >&2
+    echo "no .vpk fixtures in ${GOLDEN_DIR} — nothing to check for target '${TARGET}' (see README.md)" >&2
     exit 0
 fi
 
@@ -59,7 +75,7 @@ for vpk in "${vpks[@]}"; do
         continue
     fi
 
-    golden="${REPLAY_DIR}/${name}.pbstream"
+    golden="${GOLDEN_DIR}/${name}.pbstream"
     if [[ ! -f "${golden}" ]]; then
         echo "SKIP ${name} (no .pbstream — capture a golden via --record-golden first)"
         skip=$((skip+1))
@@ -87,7 +103,7 @@ for vpk in "${vpks[@]}"; do
     else
         # Save divergence artifacts so the user can inspect them after
         # the script's tmpdir would otherwise be wiped.
-        keep="${REPLAY_DIR}/${name}.check.pbstream"
+        keep="${GOLDEN_DIR}/${name}.check.pbstream"
         cp "${check}" "${keep}"
         bytes="$(cmp "${golden}" "${check}" 2>&1 || true)"
         echo "FAIL ${name}: ${bytes}"

@@ -24,6 +24,24 @@ REPLAY_DIR = DAEMON_DIR / "tests" / "replay"
 DEVICE = "sniff0"
 
 
+def detect_target() -> str:
+    """The backend the daemon in build/ was compiled for (-DSEQ_TARGET).
+
+    Parsed from build/CMakeCache.txt, same as tests/replay/check.sh and
+    build.sh; an unset value means the default 'live'. Captures are routed
+    into tests/replay/<target>/ so an eql capture never lands next to the
+    Live goldens (and check.sh finds it under the matching target).
+    """
+    cache = BUILD_DIR / "CMakeCache.txt"
+    if cache.is_file():
+        for line in cache.read_text().splitlines():
+            if line.startswith("SEQ_TARGET:"):
+                _, _, val = line.partition("=")
+                if val.strip():
+                    return val.strip()
+    return "live"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("name", help="capture name (e.g. aa_progress, inventory-worn)")
@@ -44,9 +62,14 @@ def main() -> int:
         print(f"run: (cd {DAEMON_DIR} && cmake --build build -j)", file=sys.stderr)
         return 2
 
-    vpk = REPLAY_DIR / f"{args.name}.vpk"
-    stats = REPLAY_DIR / f"{args.name}.opcodestats.txt"
-    events = REPLAY_DIR / f"{args.name}.events.txt"
+    target = detect_target()
+    target_dir = REPLAY_DIR / target
+    target_dir.mkdir(parents=True, exist_ok=True)
+    print(f"=> target={target} (from build/CMakeCache.txt) — writing to "
+          f"{target_dir.relative_to(DAEMON_DIR)}/")
+    vpk = target_dir / f"{args.name}.vpk"
+    stats = target_dir / f"{args.name}.opcodestats.txt"
+    events = target_dir / f"{args.name}.events.txt"
 
     if vpk.exists() and not args.force:
         resp = input(f"{vpk.relative_to(DAEMON_DIR)} exists — overwrite? [y/N] ")
