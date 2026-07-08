@@ -3,7 +3,7 @@
 # from this file by tools/toml_to_xml.py (run via CMake on build).
 
 [[zone]]
-id      = "5207"
+id      = "62f0"
 name    = "OP_PlayerProfile"
 updated = "2026-07-05"
 comment = "EQ Legends char profile (~38KB): hdr race@21/class@25/level@33; bind@39; name deep. See OPCODES_LEGENDS.md"
@@ -123,7 +123,7 @@ comment = "GuildMOTD"
   sizechecktype = "none"
 
 [[zone]]
-id      = "0b03"
+id      = "7171"
 name    = "OP_ClientUpdate"
 updated = "2026-07-05"
 comment = "EQ Legends: C>S self-position (42B). A 24B S>C variant also exists (other-player / server position broadcast?) — acknowledged below, not yet decoded. See OPCODES_LEGENDS.md"
@@ -141,7 +141,7 @@ comment = "EQ Legends: C>S self-position (42B). A 24B S>C variant also exists (o
   sizechecktype = "none"
 
 [[zone]]
-id      = "7475"
+id      = "4606"
 name    = "OP_ZoneSpawns"
 updated = "2026-07-05"
 comment = "EQ Legends spawn info (S>C): null-term name + fixed block. See OPCODES_LEGENDS.md"
@@ -170,7 +170,7 @@ comment = "Position updates"
   sizechecktype = "none"
 
 [[zone]]
-id      = "061b"
+id      = "67e0"
 name    = "OP_MobUpdate"
 updated = "2026-07-05"
 comment = "EQ Legends per-mob position update (S>C). See OPCODES_LEGENDS.md"
@@ -307,18 +307,18 @@ comment = "Combat actions i.e. bash, kick etc"
   sizechecktype = "match"
 
 [[zone]]
-id      = "a1e7"
+id      = "4212"
 name    = "OP_Consider"
-updated = "2026-05-20"
-comment = "ConsiderCode"
+updated = "2026-07-07"
+comment = "EQ Legends /consider (post-2026-07-07 re-map). 24B {u32 self, u32 target, u32 faction, u32 =7}: C>S request has faction=0, S>C reply fills faction (2=warmly, 4=amiably; level comes from the spawn, not here). Decoded by seq-backend-eql parse_legends_consider into the shared Consider, then the neutral SpawnShell::consMessage. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "both"
-  typename      = "considerStruct"
-  sizechecktype = "match"
+  typename      = "uint8_t"
+  sizechecktype = "none"
 
 [[zone]]
-id      = "1bfe"
+id      = "2867"
 name    = "OP_TargetMouse"
 updated = "2026-07-07"
 comment = "EQ Legends C>S target select. Payload is byte-identical to Live's clientTargetStruct ({u32 spawn_id}, 0 = clear/untarget), so it wires straight to the neutral SpawnShell::clientTarget — no Legends-specific decode. Confirmed 2026-07-07 across fight + Nektulos locclip captures (every payload resolves to a 0x7475 spawn id or 0). See OPCODES_LEGENDS.md"
@@ -834,7 +834,7 @@ comment = "old CorpseLocCode:"
   sizechecktype = "match"
 
 [[zone]]
-id      = "74b0"
+id      = "6805"
 name    = "OP_ItemPacket"
 updated = "2026-07-05"
 comment = "EQ Legends bulk item transfer (S>C, ~1.1KB-19KB, sent on zone-in). u32@4 = item count N, then N item records ~1122-1130b each (16-char serial + name×2 + Trophy/Benefit descriptor + stats; item-id candidate = first u32). IDENTIFIED, NOT DECODED — the record layout (3-class fields etc.) is future work, and the Legends format differs from Live's itemPacketStruct, so this is intentionally NOT wired to the itemCache sink. See OPCODES_LEGENDS.md."
@@ -2241,7 +2241,7 @@ updated = "2026-05-25"
 comment = "Secondary chat / account / commerce service catalog. Live: 1464b S>C in handshake band (3/3 confirmations); ~18 plaintext Daybreak service URLs."
 
 [[world]]
-id      = "f21f"
+id      = "35d4"
 name    = "OP_ZoneServerInfo"
 updated = "2026-05-25"
 comment = "Zone server connection info. Live: 130b S>C, fires on world->zone handoff (zone server hostname + port). 2/2 confirmations."

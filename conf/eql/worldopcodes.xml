@@ -47,7 +47,7 @@
     <opcode id="f22b" name="OP_SetChatServer2" updated="05/25/26">
         <comment>Secondary chat / account / commerce service catalog. Live: 1464b S>C in handshake band (3/3 confirmations); ~18 plaintext Daybreak service URLs.</comment>
     </opcode>
-    <opcode id="f21f" name="OP_ZoneServerInfo" updated="05/25/26">
+    <opcode id="35d4" name="OP_ZoneServerInfo" updated="05/25/26">
         <comment>Zone server connection info. Live: 130b S>C, fires on world->zone handoff (zone server hostname + port). 2/2 confirmations.</comment>
         <payload dir="server" typename="zoneServerInfoStruct" sizechecktype="match"/>
     </opcode>

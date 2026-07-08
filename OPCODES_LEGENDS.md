@@ -24,7 +24,47 @@ Server topology (Daybreak netblock `69.174.201.x`): login `:15900`, world
   class-data blocks — don't assume the single-`class_` layout of Live
   `charProfileStruct`. Watch for triplicated class/level fields.
 
-## Confirmed
+## ⚠ PATCHED 2026-07-07 — full opcode re-map (IDs shuffled + some layouts changed)
+
+EQL patched 2026-07-07. **Every app opcode ID moved** (stream layer unchanged), and
+at least ClientUpdate + ZoneSpawns **struct layouts also changed**. All `0x...` ids in
+the pre-patch "Confirmed" sections below are DEAD — kept for method/evidence only.
+Re-mapped from `tests/replay/eqlegends-login-zone-20260707.vpk` (zone = **Nektulos
+Forest**; server/world name is "rivervale"; `.vpk`
+so `--list-events` has real capture-time) with in-game ground truth: player `/loc`
+`2246.50,-954.77,-4.97`; con targets Dragoon_J`len(25225,L50,amiably),
+Sergeant_C`Orm(11626,L50,amiably), Vol_T`Vke(12220,**L60,warmly**); NPC locs
+C`Orm `2324.94,-990.11,-4.92` + Vol `2337.45,-802.35,-5.86`.
+
+| Opcode | pre-patch | **new id** | status |
+|--------|-----------|-----------|--------|
+| OP_TargetMouse   | 0x1bfe | **0x2867** | ✅ confirmed 19/19 (value-match; 0=untarget). Layout unchanged (`{u32 spawn_id}`) |
+| OP_Consider      | *(new)* | **0x4212** | ✅ NEW. 24B `{u32 self=27090, u32 target, u32 faction, u32 =7}`; C>S req has faction=0, S>C reply fills faction (**2=warmly, 4=amiably**; level comes from spawn). Companions: `0x5b5e` target-HP reveal `{u32 target, u32 cur_hp,…}`, `0x0e54` `{0,target}` |
+| OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ id (42B C>S self + 28B S>C variant). **LAYOUT CHANGED**: pos now `X=f32@10, Y=f32@18, Z=f32@30` (was 22/34/38); heading+deltas TBD |
+| OP_ZoneSpawns    | 0x7475 | **0x4606** | ✅ id (var 343–352B NPC / 486B rich). level@block+4 OK. **POS CHANGED**: 330B NPC block `X=i16@239/8, Y=@243/8, Z=@235/8`; 486B block `@395/@399/@391`. hp/body offsets TBD |
+| OP_MobUpdate     | 0x061b | **0x67e0** | ✅ id (14B, ids 416/416 match spawns). pos offsets TBD |
+| OP_ItemPacket    | 0x74b0 | **0x6805** | ✅ id (bulk items; names + `Benefit:`/`Trophy:`) |
+| OP_ZoneServerInfo| —      | **0x35d4** | ✅ world 130B, zone-server host `…everquestlegends.com` |
+| OP_ChatServer    | —      | **0x4de7** | world 67B, chat connect `host,9877,rivervale.<char>,token` |
+| OP_PlayerProfile | 0x5207 | **0x62f0** | ✅ id (~40KB, embeds char name + inventory). name-stub = `0x46df` (656B). race/class/level offsets TBD |
+| OP_NewZone       | 0x5ab6 | **numeric id (opcode TBD)** | swept all 177 opcodes: **no zone-name text on the wire** — post-patch the zone is a numeric id (old EQL reused classic ids, `nektulos=25`). `0x1e94` (world 1932B) carries the *server* name "rivervale", NOT the zone. Find the S>C op carrying zoneid 25 at zone-in (or profile's current-zone field); map id→shortname client-side |
+
+**RE-WIRED 2026-07-07** (decoder-rs + daemon): all ids updated in `conf/eql/opcodes.toml`;
+the `seq-backend-eql` parsers re-derived — ClientUpdate pos `x@10/y@18/z@30` (f32);
+ZoneSpawns pos anchored to the block END (`z@(len-95)/8, x@(len-91)/8, y@(len-87)/8`,
+handles both 330B/486B blocks), id@0/level@4/hp@44,45; MobUpdate `x@4/8, y@10, z@6/64`;
+new `parse_legends_consider` (24B) → shared `Consider` → the neutral
+`SpawnShell::consMessage` (passed the real payload len, not `sizeof(considerStruct)`) →
+`spawnConsidered`→`Considered`→web. Verified on the capture: opcodes resolve by name,
+positions `/loc`-correct, con fires for all 3 con'd mobs (Considered ids 12220/11626/25225),
+target 38 envelopes; **live 9/9 unregressed**.
+
+**Still TODO:** ClientUpdate heading+deltas (left 0 — no facing arrow / speed-between-updates;
+need a turn/jump capture); PlayerProfile `0x62f0` race/class/level offsets (kept pre-patch
+offsets, **UNVERIFIED** — needs a capture with known race/class/level); **NewZone** = numeric
+zone-id opcode (map stays `unknown` until the id opcode is found + an id→shortname table added).
+
+## Confirmed (PRE-PATCH — ids dead as of 2026-07-07, kept for method/evidence)
 
 ### 2026-07-05 — OP_ClientUpdate = `0x0b03`
 

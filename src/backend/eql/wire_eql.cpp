@@ -158,6 +158,14 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_TargetMouse", SP_Zone, DIR_Client,
          "clientTargetStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::clientTarget));
+    // EQ Legends OP_Consider (0x4212): 24B {self, target, faction}. Decoded by
+    // seq-backend-eql's parse_legends_consider into the shared Consider, then the
+    // SAME neutral SpawnShell::consMessage Live uses — emits spawnConsidered ->
+    // Considered envelope -> web (select-on-consider). uint8_t/SZC_None: the 24B
+    // Legends payload isn't Live's 32B considerStruct, so the parser length-checks.
+    wire("OP_Consider", SP_Zone, DIR_Server | DIR_Client,
+         "uint8_t", SZC_None,
+         seqBind(ms.spawnShell, &SpawnShell::consMessage));
     wire("OP_WearChange", SP_Zone, DIR_Server | DIR_Client,
          "SpawnUpdateStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::updateSpawnInfo));

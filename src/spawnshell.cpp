@@ -1346,10 +1346,13 @@ void SpawnShell::spawnWearingUpdate(const uint8_t* data)
   }
 }
 
-void SpawnShell::consMessage(const uint8_t* data, size_t, uint8_t dir)
+void SpawnShell::consMessage(const uint8_t* data, size_t len, uint8_t dir)
 {
+  // Pass the ACTUAL payload length, not sizeof(considerStruct): the EQL
+  // backend's OP_Consider is 24B and its decode_consider validates that exact
+  // size. Live's SZC_Match already guarantees len == sizeof(considerStruct).
   auto out = seq::rust::decode_consider(
-      rust::Slice<const uint8_t>{data, sizeof(considerStruct)});
+      rust::Slice<const uint8_t>{data, len});
   if (!out.ok) return;
 
   Item* item;
