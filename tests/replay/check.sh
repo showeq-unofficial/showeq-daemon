@@ -40,6 +40,21 @@ TARGET="${SEQ_CHECK_TARGET:-$(detect_target)}"
 GOLDEN_DIR="${REPLAY_DIR}/${TARGET}"
 echo "tier-2 target=${TARGET} (from ${BUILD_DIR##*/}/CMakeCache.txt); fixtures in ${GOLDEN_DIR#${REPLAY_DIR}/}/"
 
+# Pin the map package so the goldens' embedded map geometry is deterministic.
+# The daemon otherwise resolves the active [Maps] Package pref against the
+# dev-local (gitignored) conf/maps tree, which can point the same package name
+# at different folders (e.g. brewall vs "Good's Maps") depending on ambient
+# state — silently changing the map geometry baked into zone_changed/snapshot
+# envelopes and flapping the byte-cmp. eql goldens are recorded against the
+# classic "brewall" set, so pin it here; live/test keep their ambient default
+# (unchanged). When (re)recording an eql golden, pass the SAME
+# `--map-package brewall`. Override with SEQ_MAP_PACKAGE.
+map_default=""
+[[ "${TARGET}" == "eql" ]] && map_default="brewall"
+MAP_PACKAGE="${SEQ_MAP_PACKAGE:-${map_default}}"
+MAP_ARGS=()
+[[ -n "${MAP_PACKAGE}" ]] && MAP_ARGS=(--map-package "${MAP_PACKAGE}")
+
 shopt -s nullglob
 vpks=("${GOLDEN_DIR}"/*.vpk)
 if [[ ${#vpks[@]} -eq 0 ]]; then
@@ -90,6 +105,7 @@ for vpk in "${vpks[@]}"; do
             --replay "${vpk}" \
             --config-dir "${CONF_DIR}" \
             --record-golden "${check}" \
+            ${MAP_ARGS[@]+"${MAP_ARGS[@]}"} \
             --listen "127.0.0.1:${PORT}" >"${log}" 2>&1; then
         echo "FAIL ${name} (daemon exited non-zero — see ${log})"
         fail=$((fail+1))
