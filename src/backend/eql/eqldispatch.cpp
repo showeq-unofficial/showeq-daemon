@@ -107,15 +107,21 @@ void EqlDispatch::newZone(const uint8_t* data, size_t len, uint8_t dir)
 
 void EqlDispatch::spawn(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_ZoneSpawns S>C: null-terminated name + fixed 326-byte NPC block.
+    // OP_ZoneSpawns S>C: null-terminated name + variable NPC block, decoded by
+    // the full front walk in parse_zone_spawn (name, lastName, race/class/deity/
+    // guild, real npc flag, decoded position, HP). title/suffix are decoded but
+    // have no daemon/proto home yet; heading is re-established by OP_MobUpdate /
+    // OP_NpcMoveUpdate on first movement.
     if (dir != DIR_Server)
         return;
     auto out = seq::rust::decode_spawn(rust::Slice<const uint8_t>{data, len});
     if (!out.ok)
         return;
-    m_spawnShell->upsertSpawn((uint16_t)out.spawn_id, latin1(out.name),
+    m_spawnShell->upsertSpawn((uint16_t)out.spawn_id, latin1(out.name), latin1(out.last_name),
                               out.x, out.y, out.z,
-                              out.level, out.cur_hp, out.max_hp);
+                              out.level, out.cur_hp, out.max_hp,
+                              (uint16_t)out.race, (uint8_t)out.class_, (uint16_t)out.deity,
+                              (uint16_t)out.guild_id, out.npc);
 }
 
 void EqlDispatch::mobUpdate(const uint8_t* data, size_t len, uint8_t dir)

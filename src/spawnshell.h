@@ -109,9 +109,11 @@ public:
    // update a spawn from already-decoded fields, and move an existing spawn.
    // They own the m_spawns / filter-flag / signal work an external QObject
    // can't reach. No Legends wire types here; unused on live/test.
-   void upsertSpawn(uint16_t id, const QString& name,
+   void upsertSpawn(uint16_t id, const QString& name, const QString& lastName,
                     int16_t x, int16_t y, int16_t z,
-                    uint8_t level, uint8_t curHpPct, uint8_t maxHpPct);
+                    uint8_t level, uint8_t curHpPct, uint8_t maxHpPct,
+                    uint16_t race, uint8_t classVal, uint16_t deity,
+                    uint16_t guildID, uint8_t npc);
    void moveSpawn(uint16_t id, int16_t x, int16_t y, int16_t z);
 signals:
    // Fired when the player's own ZoneSpawns entry reveals the character name

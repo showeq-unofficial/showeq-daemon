@@ -789,31 +789,45 @@ void SpawnShell::newSpawn(const spawnStruct& s)
 // already decoded the wire struct (name + fixed-point position); these own the
 // m_spawns / filter-flag / signal work. The player's own spawn is owned by
 // Player (OP_ClientUpdate), so it is skipped here.
-void SpawnShell::upsertSpawn(uint16_t id, const QString& name,
+void SpawnShell::upsertSpawn(uint16_t id, const QString& name, const QString& lastName,
                              int16_t x, int16_t y, int16_t z,
-                             uint8_t level, uint8_t curHpPct, uint8_t maxHpPct)
+                             uint8_t level, uint8_t curHpPct, uint8_t maxHpPct,
+                             uint16_t race, uint8_t classVal, uint16_t deity,
+                             uint16_t guildID, uint8_t npc)
 {
   if (m_player && id == m_player->id())
     return;
+
+  // Identity fields the spawn packet carries. SPAWN_PLAYER/SPAWN_NPC map 1:1 to
+  // the wire's npc flag (0/1) — this replaces the old all-NPC default so PCs
+  // filter/con correctly.
+  auto applyIdentity = [&](Spawn* spawn) {
+    if (!lastName.isEmpty())
+      spawn->setLastName(lastName.toLatin1().constData());
+    spawn->setLevel(level);
+    spawn->setHP(curHpPct);
+    spawn->setMaxHP(maxHpPct);
+    spawn->setRace(race);
+    spawn->setClassVal(classVal);
+    spawn->setDeity(deity);
+    spawn->setGuildID(guildID);
+    spawn->setNPC(npc);
+  };
 
   Item* item = m_spawns.value(id, nullptr);
   if (item != NULL)
   {
     Spawn* spawn = (Spawn*)item;
     spawn->setPos(x, y, z);
-    spawn->setLevel(level);
-    spawn->setHP(curHpPct);
-    spawn->setMaxHP(maxHpPct);
+    applyIdentity(spawn);
     item->updateLastChanged();
-    emit changeItem(item, tSpawnChangedPosition);
+    emit changeItem(item, tSpawnChangedALL);
   }
   else
   {
     Spawn* spawn = new Spawn(id, x, y, z, 0, 0, 0, 0, 0, 0);
     spawn->setName(name.toLatin1().constData());
-    spawn->setLevel(level);
-    spawn->setHP(curHpPct);
-    spawn->setMaxHP(maxHpPct);
+    applyIdentity(spawn);
     updateFilterFlags(spawn);
     updateRuntimeFilterFlags(spawn);
     m_spawns.insert(id, spawn);
