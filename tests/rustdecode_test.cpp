@@ -48,6 +48,24 @@ void RustDecodeTest::clientTarget()
 
 void RustDecodeTest::consider()
 {
+    // decode_consider is backend-specific: live/test parse the 32B
+    // considerStruct; eql's parse_legends_consider parses a 24B Legends payload
+    // {u32 self, u32 target, u32 faction, u32 =7, pad, pad} where level is not on
+    // the wire (the client reads it from the spawn), so it decodes to 0.
+#if defined(SEQ_TARGET_EQL)
+    uint8_t buf[24] = {0};
+    putU32(buf, 0, 100u);  // player_id (self)
+    putU32(buf, 4, 200u);  // target_id
+    putI32(buf, 8, 4);     // faction (amiably)
+    putU32(buf, 12, 7u);   // constant tail word
+    auto out = seq::rust::decode_consider(
+        rust::Slice<const uint8_t>{buf, sizeof(buf)});
+    QVERIFY(out.ok);
+    QCOMPARE(out.player_id, uint32_t(100u));
+    QCOMPARE(out.target_id, uint32_t(200u));
+    QCOMPARE(out.faction, int32_t(4));
+    QCOMPARE(out.level, int32_t(0));
+#else
     // Mirrors seq-decode's consider.rs `parses_fields` vector.
     uint8_t buf[32] = {0};
     putU32(buf, 0, 100u);  // player_id
@@ -61,6 +79,7 @@ void RustDecodeTest::consider()
     QCOMPARE(out.target_id, uint32_t(200u));
     QCOMPARE(out.faction, int32_t(-1));
     QCOMPARE(out.level, int32_t(50));
+#endif
 }
 
 void RustDecodeTest::rejectsBadLength()
