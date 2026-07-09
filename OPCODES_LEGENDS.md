@@ -57,7 +57,7 @@ per-backend decoders.
 | OP_EnterWorld    | 0x0839 | **0x26bf** | ✅ **2026-07-08**. World C>S 72B, **byte-identical to Live**: char name zero-padded @0 + 64B zeros + `0xffffffff` trailer; server reuses the opcode for a 1B S>C ack. Confirmed 2/2 login captures via dump-payload (name = known char). Mapping it lights up NamePromoter on eql (matches by opcode name + 72B len) → boxes are named at the **world handshake**, before zone-in; `--only-session <charname>` relays from that point. Prior 9bdc was a dead pre-patch guess |
 | OP_ChatServer    | —      | **0x4de7** | world 67B, chat connect `host,9877,rivervale.<char>,token` |
 | OP_PlayerProfile | 0x5207 | **0x62f0** | ✅ id (~40KB, embeds char name + inventory). name-stub = `0x46df` (656B). race/class/level offsets TBD |
-| OP_NewZone       | 0x5ab6 | **numeric id (opcode TBD)** | swept all 177 opcodes: **no zone-name text on the wire** — post-patch the zone is a numeric id (old EQL reused classic ids, `nektulos=25`). `0x1e94` (world 1932B) carries the *server* name "rivervale", NOT the zone. Find the S>C op carrying zoneid 25 at zone-in (or profile's current-zone field); map id→shortname client-side |
+| OP_NewZone       | 0x5ab6 | **0x1dbf** | ✅ **WIRED 2026-07-08**. Current zone as packed null-terminated `short_name` + `long_name` **text** (S>C, ~340B, once per zone-in) — the earlier "no zone-name text on the wire" sweep missed it. 3-way confirmed: guktop/"The City of Guk", nektulos/"Nektulos Forest", unrest/"The Estate of Unrest" (each a different length). Fires AFTER the profile + spawn bulk → `EqlDispatch::newZone`→`ZoneMgr::setZoneByName` via the new **`zoneResolved`** signal (map/filter/web, no spawn-clear/reset). Replaced the profile-@36211 hack; the old 0x4bc8 was the BIND zone (now `OP_ZoneBindMarker`) |
 | OP_Action2       | 0x32a9 | **0x1734** | ✅ **WIRED 2026-07-08**. Combat/damage stream (S>C, 48B, n=481/968). **Byte-identical to Live `action2Struct`**: target u16@0, source u16@2, damage i32@8, spell i32@20 (**-1=melee** for 422/481), type u8@40; @24–39 = knockback floats. Sole 48B S>C op. Lit up the already-wired `CombatRouter::action2` → replay emits **481 CombatEvent envelopes** (real src/tgt/dmg, e.g. 13167→13154 dmg107) |
 | OP_Action        | 0x049e | **0x73de** | ✅ **WIRED 2026-07-08**. Spell/special action (S>C). **Live paired send**: 64B `actionStruct` (n=97/117) + 88B `actionAltStruct` (n=22/43); target/source @0/@2, spell u16@4 (real ids 502/445/821…). Sole 64B/88B op → `SpellShell::action` (both payloads), 119 fires |
 | OP_DeleteSpawn   | 0x94d4 | **0x59a1** | ✅ **WIRED 2026-07-08**. Spawn removal/death (S>C, 4B `{u32 spawnId}` = `deleteSpawnStruct`, n=9). Time-correlated: **8/9 ids stop receiving MobUpdate at/after the event** (mobs killed in combat). → `SpawnShell::deleteSpawn`; replay emits SpawnRemoved for all 9. ⚠ `0x67a8` is the 4B look-alike but = combat **engage/disengage** (ids keep moving after; id=0 clears) — NOT despawn |
@@ -676,3 +676,50 @@ faction/level/HP for a con color. The player targeted + fought but never `/con`'
 of *known, varied* level/faction, ideally without attacking so the reply isn't buried
 in combat spam. Expect the reply to carry `{target spawn_id, level, cur_hp%, faction}`;
 cross-check level vs the mob's `0x7475` block +4 and HP% vs block +44/45.
+
+### 2026-07-08 — OP_NewZone = `0x1dbf` (WIRED); the profile-@36211 zone hack + 0x4bc8 bind marker are gone
+
+Captures: `login-zone` (nektulos), `upperguk` (guktop), `fulllogin` (unrest).
+Method: **size-agnostic value-match** — dumped every low-fire S>C opcode from two
+different-zone captures and searched for a field carrying the *current* zone
+(guktop=65) vs bind (nektulos=25), then an ASCII zone-name search across the dumps.
+
+- **OP_NewZone = `0x1dbf`** (S>C, ~340B, once per zone-in). Payload is **packed
+  null-terminated text**, not fixed-width arrays — the offsets shift per zone:
+  ```
+  short_name\0  long_name\0  <3 pad>  zonefile\0  <5 bytes>  u32 classic_id  f32 1.0(exp) …
+  ```
+  guktop / "The City of Guk" (339B), nektulos / "Nektulos Forest" (343B), unrest /
+  "The Estate of Unrest" (344B) — each the correct current zone, each a different
+  size. The daemon uses `short_name`+`long_name` directly (no id table).
+  `parse_legends_new_zone` reads the two C-strings; `EqlDispatch::newZone` →
+  `ZoneMgr::setZoneByName`.
+
+**Wiring (the important part).** On eql the zone name arrives **AFTER** the profile
+(0x62f0) AND the bulk `OP_ZoneSpawns` list (121 spawns in fulllogin fire before
+NewZone, only 9 after). Each zone-in is a **fresh Box** (own ManagerSet), so no
+clear/reset is needed. But `zoneChanged` (which the old profile hack emitted) drives
+`SpawnShell::clear` + `Player::reset` — firing it at NewZone time would **wipe the
+already-loaded spawns + identity**. Fix: a new eql-only **`ZoneMgr::zoneResolved`**
+signal drives only map load / filter overlay / web `ZoneChanged` envelope — never the
+clear/reset slots. `setZoneByName` now emits `zoneResolved`, not `zoneChanged`.
+Verified on the guktop golden: zone=guktop, **259 spawn_added survive**, player
+race=6/class=5/level=16 survives, 1 `zone_changed` envelope. Live goldens 17/17 green.
+
+- **`0x4bc8` renamed `OP_ZoneBindMarker`** (was mis-labeled OP_NewZone). 14B S>C, once
+  at zone-in, byte-identical across zones: `{…, u32@6 = bind zone (=25 nektulos), u16@10
+  = 10, u16@12 = 25}`. Carries only the BIND zone — no current-zone field. Unwired.
+
+**The profile `u16@36211` current-zone read is REMOVED** from `parse_legends_profile`
+(it was a fragile deep offset in a ~40KB variable-length payload). Profile is now
+identity-only on eql.
+
+**Lesson (carry forward):** don't gate an opcode hunt on matching packet *size* —
+the current-zone opcode is a different length in every zone. Search by value /
+content across captures, not by fixed offset or fixed size.
+
+**Recon side-notes:** the `login`/`fulllogin` captures have current==bind==25
+(char logged out in its bind zone), so they can't distinguish current-vs-bind on their
+own — the **guktop capture is the discriminator** (current=65, bind=25). The
+`--dump-payload` flag is repeatable; dumping ~100 candidate opcodes across two zones +
+a Python offset scan is the fast path.

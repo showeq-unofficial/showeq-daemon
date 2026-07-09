@@ -16,8 +16,12 @@
         <comment>TimeOfDayCode</comment>
         <payload dir="server" typename="timeOfDayStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="4bc8" name="OP_NewZone" updated="07/07/26">
-        <comment>EQ Legends zone-in marker (0x4bc8, 14B S>C, once at zone-in). Carries the BIND zone id (u32@6), NOT the current zone — identical across zones (nektulos-vs-upperguk). UNWIRED. The CURRENT zone is read from OP_PlayerProfile (u16@36211) -> ZoneMgr::setZoneById. See OPCODES_LEGENDS.md</comment>
+    <opcode id="1dbf" name="OP_NewZone" updated="07/08/26">
+        <comment>EQ Legends current zone (S>C, ~340B, once per zone-in). Packed null-terminated short_name + long_name (+ zonefile repeat + binary tail). Confirmed 3-way: guktop/'The City of Guk', nektulos/'Nektulos Forest', unrest/'The Estate of Unrest' — each the correct current zone, each a different length. Decoded by EqlDispatch::newZone -> ZoneMgr::setZoneByName. See OPCODES_LEGENDS.md</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+    </opcode>
+    <opcode id="4bc8" name="OP_ZoneBindMarker" updated="07/08/26">
+        <comment>EQ Legends bind-point marker (14B S>C, once at zone-in). Carries the BIND zone id (u32@6), identical across zones (nektulos-vs-upperguk both read 25) — NOT the current zone. Was mis-labeled OP_NewZone until 2026-07-08. Unwired. See OPCODES_LEGENDS.md</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_SpawnDoor" updated="05/20/26">
