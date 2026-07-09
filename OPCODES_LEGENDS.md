@@ -203,6 +203,11 @@ no C++ eql structs, neutral names, no reshaping, Rust is the reference.
 
 **Method note (from this pass):** the daemon has a large catalog of neutral structs (`s_everquest.h` size index); many eql "unknown" opcodes are just Live opcodes remapped, so the play is to match eql `(size, dir, behavior)` against an existing neutral struct + reuse the Live opcode name (as with `spawnAppearance2Struct`), NOT to invent structs or deep-crack bytes. `dispatchFor` also has a **last-payload fallback** (a `wire()` typename that doesn't exactly match a toml payload binds to the opcode's LAST payload rather than erroring) — so always exact-match the toml payload; a mis-typed wire silently mis-binds instead of failing loudly.
 
+**Catalog-sweep finds (match eql unknown `(size,dir)` → unmapped Live opcode, confirm by value):**
+- `0x07c9` = **OP_ManaChange** (20B S>C) — **LANDED**. Byte-identical `manaDecrementStruct`; value-match: curMana 282–930, endurance ~800, spellId 445/821 cross-ref OP_Action. id `ffff`→`07c9` lit up the dormant `Player::manaChange` — 35 events (this one *adds* real mana updates to the output, unlike the earlier output-neutral size-swaps).
+- `0x3c0a` (15B S>C ×30) — size matches `beginCastStruct` (OP_BeginCast) but the fields **don't align** (spellId 344 constant; the spawn-id-looking value sits at a shifted offset, caster u16 reads `0xe207`). NOT a clean name-swap — deferred; the eql cast struct diverges from Live's.
+- Ambiguous by size (need dir+behavior to pin): `0x3ada` 24B → {MoneyOnCorpse / LevelUpdate / RequestZoneChange}; `0x793a` 16B → {ExpUpdate / MemorizeSpell / CorpseLocResponse}; plus 8B/12B "fits-many" opcodes.
+
 **Pending (need the Rust size-table mechanism — NOT pure name-swaps):** `OP_Consider` (24B; the C++
 `considerStruct` is **32B**, not a match) and `OP_Animation` (4B; **no `animationStruct` exists** in
 the daemon header). And the 28B S>C ClientUpdate once its layout is cracked.

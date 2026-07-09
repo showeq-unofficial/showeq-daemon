@@ -245,8 +245,8 @@
         <comment>Server replying with deny information after /deny</comment>
         <payload dir="server" typename="consentResponseStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_ManaChange" updated="05/26/26">
-        <comment>Resource update after spell/ability use (S>C, 20b): {i32 curMana, i32 curEndurance, i32 spellOrAbilityId, u8[8]}. Fires once per cast or combat ability; spellId@8 cross-refs OP_CastSpell. field4 = current endurance, NOT max mana (legacy label wrong) — confirmed 2026-05-26 by cross-ref against OP_EndUpdate cur. Re-confirmed post-2026-05-22 patch.</comment>
+    <opcode id="07c9" name="OP_ManaChange" updated="07/08/26">
+        <comment>Resource update after spell/ability use (S>C, 20b): {i32 curMana, i32 curEndurance, i32 spellOrAbilityId, u8[8]}. Fires once per cast or combat ability; spellId@8 cross-refs OP_CastSpell. field4 = current endurance, NOT max mana (legacy label wrong) — confirmed 2026-05-26 by cross-ref against OP_EndUpdate cur. EQ Legends id=0x07c9 confirmed 2026-07-08 by value-match (curMana 282-930, endurance ~800, spellId 445/821 cross-ref OP_Action) — byte-identical to manaDecrementStruct; lights up the already-wired Player::manaChange. See OPCODES_LEGENDS.md.</comment>
         <payload dir="server" typename="manaDecrementStruct" sizechecktype="match"/>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
