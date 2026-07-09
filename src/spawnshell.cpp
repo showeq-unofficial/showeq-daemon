@@ -39,6 +39,8 @@
 #include "netstream.h"
 
 #include <cstring>   // std::memcpy / std::memset (transitive via Qt6 but not Qt5)
+#include <algorithm> // std::sort — deterministic refilter emission order
+#include <vector>
 
 #include <QFile>
 #include <QDataStream>
@@ -1621,51 +1623,33 @@ void SpawnShell::refilterSpawns()
 
 void SpawnShell::refilterSpawns(spawnItemType type)
 {
-   ItemMap& theMap = getMap(type);
-   ItemIterator it(theMap);
-
-   if (type == tSpawn)
+   // Collect the items whose filter flags actually changed, then emit
+   // changeItem in a deterministic (id, name) order. getMap(type) is a QHash —
+   // emitting during its iteration notifies in per-process-randomized order,
+   // which makes the downstream envelope stream (and tier-2 goldens)
+   // non-deterministic. Clients key by id and don't depend on order.
+   // (updateFilterFlags takes Item*; a Spawn is-an Item, so no per-type cast.)
+   ItemIterator it(getMap(type));
+   std::vector<Item*> changed;
+   while (it.hasNext())
    {
-     Spawn* spawn;
-     // iterate over all the items in the map
-     while (it.hasNext())
+     it.next();
+     Item* item = it.value();
+     if (!item)
+       continue;
+     if (updateFilterFlags(item))
      {
-       it.next();
-
-       // get the item
-       spawn = (Spawn*)it.value();
-       if (!spawn)
-           break;
-
-       // update the flags, if they changed, send a notification
-       if (updateFilterFlags(spawn))
-       {
-    	 spawn->updateLastChanged();
-    	 emit changeItem(spawn, tSpawnChangedFilter);
-       }
+       item->updateLastChanged();
+       changed.push_back(item);
      }
    }
-   else
-   {
-     Item* item;
-     // iterate over all the items in the map
-     while (it.hasNext())
-     {
-       it.next();
-
-       // get the item
-       item = it.value();
-       if (!item)
-           break;
-
-       // update the flags, if they changed, send a notification
-       if (updateFilterFlags(item))
-       {
-		 item->updateLastChanged();
-		 emit changeItem(item, tSpawnChangedFilter);
-       }
-     }
-   }
+   std::sort(changed.begin(), changed.end(),
+             [](const Item* a, const Item* b) {
+               if (a->id() != b->id()) return a->id() < b->id();
+               return a->name() < b->name();
+             });
+   for (Item* item : changed)
+     emit changeItem(item, tSpawnChangedFilter);
 }
 
 void SpawnShell::refilterSpawnsRuntime()
@@ -1677,50 +1661,30 @@ void SpawnShell::refilterSpawnsRuntime()
 
 void SpawnShell::refilterSpawnsRuntime(spawnItemType type)
 {
+   // Same deterministic-order rationale as refilterSpawns(): collect the
+   // runtime-filter-flag changes, then emit changeItem sorted by (id, name)
+   // instead of QHash-iteration order.
    ItemIterator it(getMap(type));
-
-   if (type == tSpawn)
+   std::vector<Item*> changed;
+   while (it.hasNext())
    {
-     Spawn* spawn;
-     // iterate over all the items in the map
-     while (it.hasNext())
+     it.next();
+     Item* item = it.value();
+     if (!item)
+       continue;
+     if (updateRuntimeFilterFlags(item))
      {
-       it.next();
-
-       // get the item
-       spawn = (Spawn*)it.value();
-       if (!spawn)
-           break;
-
-       // update the flags, if they changed, send a notification
-       if (updateRuntimeFilterFlags(spawn))
-       {
-		 spawn->updateLastChanged();
-		 emit changeItem(spawn, tSpawnChangedRuntimeFilter);
-       }
+       item->updateLastChanged();
+       changed.push_back(item);
      }
    }
-   else
-   {
-     Item* item;
-     // iterate over all the items in the map
-     while (it.hasNext())
-     {
-       it.next();
-
-       // get the item
-       item = it.value();
-       if (!item)
-           break;
-
-       // update the flags, if they changed, send a notification
-       if (updateRuntimeFilterFlags(item))
-       {
-		 item->updateLastChanged();
-		 emit changeItem(item, tSpawnChangedRuntimeFilter);
-       }
-     }
-   }
+   std::sort(changed.begin(), changed.end(),
+             [](const Item* a, const Item* b) {
+               if (a->id() != b->id()) return a->id() < b->id();
+               return a->name() < b->name();
+             });
+   for (Item* item : changed)
+     emit changeItem(item, tSpawnChangedRuntimeFilter);
 }
 
 void SpawnShell::saveSpawns(void)
