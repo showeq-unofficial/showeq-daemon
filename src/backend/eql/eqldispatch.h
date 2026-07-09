@@ -34,11 +34,11 @@ class EqlDispatch
 public:
     EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player);
 
-    // OP_PlayerProfile (0x5207) S>C: identity header (race/class/level).
+    // OP_PlayerProfile (0x62f0) S>C: identity header (race/class/level).
     void profile(const uint8_t* data, size_t len, uint8_t dir);
-    // OP_ClientUpdate (0x0b03) C>S: this player's float position + heading.
+    // OP_ClientUpdate (0x7171) C>S: this player's float position + heading.
     void playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir);
-    // OP_NewZone (0x5ab6) S>C: null-terminated short/long zone names.
+    // OP_NewZone (0x1dbf) S>C: packed null-terminated short/long zone names.
     void newZone(const uint8_t* data, size_t len, uint8_t dir);
     // OP_ZoneSpawns (0x7475) S>C: null-terminated name + fixed spawn block.
     void spawn(const uint8_t* data, size_t len, uint8_t dir);

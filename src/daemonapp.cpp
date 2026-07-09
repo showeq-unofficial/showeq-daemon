@@ -313,6 +313,11 @@ bool DaemonApp::start()
             this,      SLOT(loadZoneMap(const QString&)));
     connect(m_zoneMgr, SIGNAL(zoneChanged(const QString&)),
             this,      SLOT(loadZoneMap(const QString&)));
+    // eql delivers the zone name late (OP_NewZone, after the spawn bulk) via
+    // zoneResolved — load the map on it too, but note zoneResolved does NOT
+    // clear spawns like zoneBegin/zoneChanged. Never emitted on live/test.
+    connect(m_zoneMgr, SIGNAL(zoneResolved(const QString&)),
+            this,      SLOT(loadZoneMap(const QString&)));
 
     // Same dual-signal wiring for the per-zone filter overlay. Without
     // this, FilterMgr::loadZone only fires once at startup and the
@@ -320,6 +325,8 @@ bool DaemonApp::start()
     connect(m_zoneMgr,   SIGNAL(zoneBegin(const QString&)),
             m_filterMgr, SLOT(loadZone(const QString&)));
     connect(m_zoneMgr,   SIGNAL(zoneChanged(const QString&)),
+            m_filterMgr, SLOT(loadZone(const QString&)));
+    connect(m_zoneMgr,   SIGNAL(zoneResolved(const QString&)),
             m_filterMgr, SLOT(loadZone(const QString&)));
 
     // Let the WebSocket server hand these to each SessionAdapter it spawns.
@@ -777,12 +784,16 @@ void DaemonApp::onBoxCreated(Box* box)
     // doesn't clobber the active box's map.
     if (!box->is_primary) {
         if (ZoneMgr* zm = m_boxManagers[box].zoneMgr) {
-            connect(zm, qOverload<const QString&>(&ZoneMgr::zoneChanged), this,
-                    [this, box](const QString& zone) {
+            auto reloadIfActive = [this, box](const QString& zone) {
                 BoxRegistry& reg = m_packet->boxRegistry();
                 if (reg.currentBoxFor(reg.activeBoxId()) == box)
                     loadZoneMap(zone);
-            });
+            };
+            connect(zm, qOverload<const QString&>(&ZoneMgr::zoneChanged), this,
+                    reloadIfActive);
+            // eql resolves the zone late via zoneResolved (OP_NewZone), not
+            // zoneChanged — reload the active box's map on it too.
+            connect(zm, &ZoneMgr::zoneResolved, this, reloadIfActive);
         }
     }
 }

@@ -82,10 +82,15 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_ZoneChange", SP_Zone, DIR_Client | DIR_Server,
          "zoneChangeStruct", SZC_Match,
          seqBind(ms.zoneMgr, &ZoneMgr::zoneChange));
-    // EQ Legends OP_NewZone (0x4bc8) is NOT wired: its zone id (@6) is the BIND
-    // zone, identical across zones (confirmed nektulos-vs-upperguk) — it does not
-    // track the current zone. The CURRENT zone is set from OP_PlayerProfile
-    // (@36211) via EqlDispatch::profile -> ZoneMgr::setZoneById. See OPCODES_LEGENDS.md.
+    // EQ Legends OP_NewZone (0x1dbf) S>C: the authoritative current zone, carried
+    // as packed short + long name text (parsed in EqlDispatch). Fires once per
+    // zone-in, AFTER the profile + bulk spawn list — EqlDispatch::newZone drives
+    // ZoneMgr::setZoneByName -> zoneResolved (map/filter/web, no spawn-clear /
+    // player-reset). The old 0x4bc8 "OP_NewZone" carried only the BIND zone id
+    // (identical across zones) and is not OP_NewZone. See OPCODES_LEGENDS.md.
+    wire("OP_NewZone", SP_Zone, DIR_Server,
+         "uint8_t", SZC_None,
+         seqBind(eql, &EqlDispatch::newZone));
     wire("OP_SendZonePoints", SP_Zone, DIR_Server,
          "zonePointsStruct", SZC_None,
          seqBind(ms.zoneMgr, &ZoneMgr::zonePoints));

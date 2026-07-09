@@ -66,13 +66,14 @@ class ZoneMgr : public QObject
   uint32_t dzType() { return m_dzType; }
 
   // Target-neutral primitive for the eql backend (EqlDispatch): set the active
-  // zone directly from decoded short/long names and emit zoneChanged. Unused on
-  // live/test (they drive zones through zoneNew/zoneChange).
+  // zone directly from OP_NewZone's decoded short/long names and emit
+  // zoneResolved. Unused on live/test (they drive zones through
+  // zoneNew/zoneChange). NOTE: this deliberately does NOT emit zoneChanged —
+  // eql delivers the zone name AFTER the bulk spawn list + player profile (a
+  // fresh box per zone-in), so a zoneChanged here would clear the just-loaded
+  // spawns and reset the just-set identity. zoneResolved drives only the map /
+  // filter / web, never the clear/reset slots. See eqldispatch.cpp.
   void setZoneByName(const QString& shortName, const QString& longName);
-
-  // Same, for numeric-zone backends: eql's OP_NewZone sends a classic zone id
-  // (no name text). Resolves id -> short/long via zones.h, then setZoneByName.
-  void setZoneById(uint16_t zoneId);
 
  public slots:
   void saveZoneState(void);
@@ -99,6 +100,11 @@ class ZoneMgr : public QObject
   void zoneChanged(const QString& shortZoneName);
   void zoneChanged(const zoneChangeStruct*, size_t, uint8_t);
   void zoneEnd(const QString& shortZoneName, const QString& longZoneName);
+  // eql-only: the authoritative current-zone name (from OP_NewZone) is now
+  // known. Drives map load / filter overlay / web ZoneChanged envelope WITHOUT
+  // the spawn-clear + player-reset that ride on zoneChanged. Never emitted on
+  // live/test.
+  void zoneResolved(const QString& shortZoneName);
   
  private:
   QString m_longZoneName;

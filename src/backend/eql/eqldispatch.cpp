@@ -40,21 +40,16 @@ EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* playe
 
 void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_PlayerProfile S>C: identity header only (race/class/level).
+    // OP_PlayerProfile S>C: identity header only (race/class/level). The current
+    // zone is NOT read here anymore — it comes from OP_NewZone (newZone() below),
+    // which carries the zone name as text. Nothing on the eql zone path fires a
+    // reset, so the identity set here survives the later OP_NewZone.
     if (dir != DIR_Server)
         return;
     auto out = seq::rust::decode_player_profile(
         rust::Slice<const uint8_t>{data, len});
     if (!out.ok)
         return;
-    // Resolve the CURRENT zone FIRST (classic id @36211; 0x4bc8 is the BIND
-    // zone, not current). A zone change fires ZoneMgr::zoneChanged ->
-    // Player::zoneChanged() -> reset(), which wipes the player's identity — so
-    // the zone MUST be applied before setIdentity or the identity is lost
-    // (symptom: player shows default race1/class1/level1). Matches Live, which
-    // establishes identity after the zone reset.
-    if (out.zone_id != 0)
-        m_zoneMgr->setZoneById(out.zone_id);
     m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
 }
 
@@ -86,14 +81,17 @@ void EqlDispatch::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
 
 void EqlDispatch::newZone(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_NewZone S>C (post-2026-07-07): a numeric classic zone id, no name text.
+    // OP_NewZone (0x1dbf) S>C, once per zone-in: the authoritative current zone,
+    // carried as packed null-terminated short + long name text. Drives the map /
+    // filter / web via ZoneMgr::setZoneByName -> zoneResolved (which does NOT
+    // clear spawns or reset the player — see zonemgr.cpp). This fires AFTER the
+    // bulk spawn list + the profile, so it must not reset the box.
     if (dir != DIR_Server)
         return;
     auto out = seq::rust::decode_new_zone(rust::Slice<const uint8_t>{data, len});
     if (!out.ok)
         return;
-    // Resolve the zone id -> short/long name via zones.h.
-    m_zoneMgr->setZoneById((uint16_t)out.zone_id);
+    m_zoneMgr->setZoneByName(latin1(out.short_name), latin1(out.long_name));
 }
 
 void EqlDispatch::spawn(const uint8_t* data, size_t len, uint8_t dir)

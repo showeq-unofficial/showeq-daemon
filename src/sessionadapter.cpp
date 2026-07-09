@@ -384,6 +384,11 @@ void SessionAdapter::connectPerBox()
                 this,      SLOT(onZoneBegin(const QString&)));
         connect(m_zoneMgr, SIGNAL(zoneChanged(const QString&)),
                 this,      SLOT(onZoneChanged(const QString&)));
+        // eql: the current zone name arrives via zoneResolved (OP_NewZone), after
+        // the spawn bulk — send the web the ZoneChanged envelope + map geometry
+        // without the spawn-clear that zoneBegin/zoneChanged carry.
+        connect(m_zoneMgr, SIGNAL(zoneResolved(const QString&)),
+                this,      SLOT(onZoneChanged(const QString&)));
     }
 
     // Player stat signals — every one of these gets coalesced into a

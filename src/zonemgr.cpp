@@ -577,9 +577,13 @@ void ZoneMgr::zoneNew(const uint8_t* data, size_t len, uint8_t dir)
 }
 
 // Target-neutral primitive for the eql backend (EqlDispatch): the caller has
-// already parsed the wire payload into short/long names, so just adopt them
-// and drive the map via zoneChanged. Unlike zoneNew this does not touch the
-// exp multiplier / safe point / saved zone state.
+// already parsed OP_NewZone into short/long names, so just adopt them and drive
+// the map/filter/web via zoneResolved. Unlike zoneNew this does not touch the
+// exp multiplier / safe point / saved zone state. Deliberately emits
+// zoneResolved, NOT zoneChanged: on eql the zone name arrives after the bulk
+// spawn list + profile (fresh box per zone), so zoneChanged's spawn-clear +
+// player-reset slots would wipe just-loaded state. See setZoneByName() in
+// zonemgr.h.
 void ZoneMgr::setZoneByName(const QString& shortName, const QString& longName)
 {
   m_shortZoneName = shortName;
@@ -589,13 +593,7 @@ void ZoneMgr::setZoneByName(const QString& shortName, const QString& longName)
   seqInfo("ZoneMgr: zone '%s' (%s)",
           m_shortZoneName.toLatin1().data(), m_longZoneName.toLatin1().data());
 
-  emit zoneChanged(m_shortZoneName);
-}
-
-void ZoneMgr::setZoneById(uint16_t zoneId)
-{
-  // zones.h is the classic-EQ id->name table; eql reuses those ids.
-  setZoneByName(zoneNameFromID(zoneId), zoneLongNameFromID(zoneId));
+  emit zoneResolved(m_shortZoneName);
 }
 
 void ZoneMgr::zonePoints(const uint8_t* data, size_t len, uint8_t)
