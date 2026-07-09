@@ -723,3 +723,26 @@ content across captures, not by fixed offset or fixed size.
 own — the **guktop capture is the discriminator** (current=65, bind=25). The
 `--dump-payload` flag is repeatable; dumping ~100 candidate opcodes across two zones +
 a Python offset scan is the fast path.
+
+**Follow-ups (2026-07-09).**
+
+- **Deterministic refilter emission (shared-core fix, daemon `2071b04`).** Wiring
+  OP_NewZone via `zoneResolved` makes the zone filter overlay (`FilterMgr::loadZone`)
+  load *after* the spawn burst, so it re-filters already-loaded spawns — which exposed
+  a latent bug: `SpawnShell::refilterSpawns` / `refilterSpawnsRuntime` iterated the
+  spawn `ItemMap` (a QHash) and emitted `changeItem(tSpawnChangedFilter/RuntimeFilter)`
+  in per-process-random hash order → a non-deterministic `spawn_added` stream (tier-2
+  goldens flapped). Fix: collect the changed items, sort by `(id, name)` (same key as
+  `sendSnapshot`), then emit — order-only change to an idempotent stream (clients key
+  by id). **Live tier-2 17/17 unchanged.**
+
+- **eql tier-2 goldens started.** 4 byte-stable fixtures recorded (gitignored /
+  dev-local): `chat`, `login-zone`, `upperguk`×2 — `check.sh` = 4 pass / 1 skip / 0 fail
+  (per-backend auto-detect from `build/CMakeCache.txt`). **`fulllogin` is SKIPPED** — it
+  has a rare (~1-3%), load-only replay-harness timing heisenbug (3 extra `spawn_added`
+  re-renders for summoned NPCs; binary golden outcome). Ruled out: QHash seed (31
+  `QT_HASH_SEED` values identical), the 100ms replay-pump batch window (packet.cpp:607),
+  the datetimemgr timer, and a data race (`.vpk` replay is single-threaded); any
+  instrumentation suppresses it. Not a decode bug — a flappy golden would false-fail the
+  pre-push hook, so it stays ungoldened until the harness is made wallclock-deterministic
+  (would also fix the `buffs` skip). See memory `project_eql_golden_spawn_order_flap`.
