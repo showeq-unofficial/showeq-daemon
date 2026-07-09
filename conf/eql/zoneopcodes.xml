@@ -46,8 +46,8 @@
         <payload dir="server" typename="guildMOTDStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="7171" name="OP_ClientUpdate" updated="07/05/26">
-        <comment>EQ Legends: C>S self-position (42B). A 24B S>C variant also exists (other-player / server position broadcast?) — acknowledged below, not yet decoded. See OPCODES_LEGENDS.md</comment>
-        <payload dir="client" typename="uint8_t" sizechecktype="none"/>
+        <comment>EQ Legends: C>S self-position (42B, wired). A 28B S>C variant carries OTHER-PLAYER positions (own byte-aligned pos+vel layout, not MobUpdate's packing) — identified 2026-07-08, field layout partial (needs a 2nd-char walk capture to finalize), still unwired. See OPCODES_LEGENDS.md</comment>
+        <payload dir="client" typename="playerSelfPosStruct" sizechecktype="match"/>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="4606" name="OP_ZoneSpawns" updated="07/08/26">
@@ -61,7 +61,7 @@
     </opcode>
     <opcode id="67e0" name="OP_MobUpdate" updated="07/08/26">
         <comment>EQ Legends per-mob position update (S>C, 14B). Byte-identical to Live spawnPositionUpdate (packed y:19/z:19/u3:7/x:19/heading:12 fixed-point x8, spawnId u16@0 + 2 zero bytes); decoded by the shared decode_mob_update. The earlier i16-offset read (Y@4/8, Z@6/64, X@10) was a truncated window of these bitfields — the source of the 8192-unit north&lt;->south Y wrap. See OPCODES_LEGENDS.md.</comment>
-        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+        <payload dir="server" typename="spawnPositionUpdate" sizechecktype="match"/>
     </opcode>
     <opcode id="59a1" name="OP_DeleteSpawn" updated="07/08/26">
         <comment>EQ Legends spawn removal / death (S>C, 4B {u32 spawnId}, deleteSpawnStruct). CONFIRMED 2026-07-08 by time-correlation: 8/9 ids stop receiving OP_MobUpdate position updates at/after this event (mobs killed over a combat session). Lights up the already-wired SpawnShell::deleteSpawn. NOTE: 0x67a8 is the LOOK-ALIKE 4B {id} op but is combat engage/disengage (ids keep moving after; id=0 clears) — NOT despawn. See OPCODES_LEGENDS.md</comment>
@@ -82,6 +82,11 @@
     <opcode id="ffff" name="OP_SpawnAppearance" updated="05/20/26">
         <comment>SpawnAppearanceCode</comment>
         <payload dir="both" typename="spawnAppearanceStruct" sizechecktype="match"/>
+    </opcode>
+    <opcode id="1bdc" name="OP_SpawnAppearance2" updated="07/08/26">
+        <comment>EQ Legends extended appearance (24B) — byte-identical to Live spawnAppearance2Struct {u32 spawnId, u32 type, u32 value, u8[12] pad}. Confirmed 2026-07-08: 55 spawn ids, type set {5,6,8,22,26,...} matches Live's {5,6,8,22,26,36,42}; type->value fits (type 6->100/110/115, type 43->0/1/2 flag). Wired S>C to the neutral SpawnShell::updateSpawnLock (acts on type 0x2c mob-lock; no-op on other types). C>S half (ClickBuffOff, type 0x24) acknowledged, unwired. See OPCODES_LEGENDS.md</comment>
+        <payload dir="server" typename="spawnAppearance2Struct" sizechecktype="match"/>
+        <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_Stamina" updated="05/25/26">
         <comment>Server updating on hunger/thirst</comment>

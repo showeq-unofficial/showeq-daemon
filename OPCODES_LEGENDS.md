@@ -48,8 +48,8 @@ per-backend decoders.
 |--------|-----------|-----------|--------|
 | OP_TargetMouse   | 0x1bfe | **0x2867** | ✅ confirmed 19/19 (value-match; 0=untarget). Layout unchanged (`{u32 spawn_id}`) |
 | OP_Consider      | *(new)* | **0x4212** | ✅ NEW. 24B `{u32 self=27090, u32 target, u32 faction, u32 =7}`; C>S req has faction=0, S>C reply fills faction (**2=warmly, 4=amiably**; level comes from spawn). Companions: `0x5b5e` target-HP reveal `{u32 target, u32 cur_hp,…}`, `0x0e54` `{0,target}` |
-| OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ 42B C>S self (+ 28B S>C variant). **FULLY DECODED** (2026-07-08): spawnId u16@2; wire has gameY@10 / gameX@18 / z@30 (f32) → bound **x=gameX@18, y=gameY@10**; velocity deltaX@26 / deltaY@6 (f32); **heading u16@14, 11-bit (0–2047, North≈0)** — Sense-Heading-confirmed. deltaZ candidate @22. (X/Y-swap fixed `60b2a79`) |
-| OP_ZoneSpawns    | 0x7475 | **0x4606** | ✅ id (var 343–352B NPC / 486B rich). level@block+4 OK. **POS from block END**: three u32 words z@(len-95), **y=gameY@(len-91), x=gameX@(len-87)**, each a **signed 19-bit fixed-point (×8) coord in the word's low bits** (Live spawnStruct-style packing; upper 13 bits = other subfields). The earlier `/8 i16` read was the same field truncated — wrapped past ±4095. hp/body offsets TBD |
+| OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ **C>S 42B self FULLY DECODED**; **S>C 28B = other-player positions** (identified 2026-07-08, layout partial — see entry below, unwired). C>S: spawnId u16@2; wire has gameY@10 / gameX@18 / z@30 (f32) → bound **x=gameX@18, y=gameY@10**; velocity deltaX@26 / deltaY@6 (f32); **heading u16@14, 11-bit (0–2047, North≈0)** — Sense-Heading-confirmed. deltaZ candidate @22. (X/Y-swap fixed `60b2a79`) |
+| OP_ZoneSpawns    | 0x7475 | **0x4606** | ✅ id (var 343–352B NPC / 486B rich). level@block+4 OK. **POS from block END**: three u32 words z@(len-95), **y=gameY@(len-91), x=gameX@(len-87)**, each a **signed 19-bit fixed-point (×8) coord in the word's low bits** (Live spawnStruct-style packing; upper 13 bits = other subfields). The earlier `/8 i16` read was the same field truncated — wrapped past ±4095. hp/body offsets TBD. **C>S 92B = client zone-entry / spawn-list request** (name@4 + session token + fixed signature block; identified 2026-07-08, see entry below) |
 | OP_MobUpdate     | 0x061b | **0x67e0** | ✅ id (14B, ids 416/416 match spawns). **Byte-identical to Live `spawnPositionUpdate`** (2026-07-08): spawnId u16@0 + 2 zero bytes, then packed `y:19 z:19 u3:7 x:19` (fixed-point ×8, u64@4) + `heading:12`@12 — decoded by the shared `decode_mob_update`, full range, no wrap. The old i16-offset read (y@4/8, z@6/64, x@10 "unscaled") was a truncated window of these bitfields. Sparse full-position sync; continuous movement is OP_NpcMoveUpdate |
 | OP_NpcMoveUpdate | 917c (dead) | **0x7352** | ✅ **2026-07-08**. The continuous per-NPC movement stream (var 15–21B, top S>C opcode: 734 fires/51 ids vs MobUpdate's 591). **Byte-identical bit format to Live** OP_NpcMoveUpdate → decoded by the shared `decode_npc_move_update`; only the opcode-id mapping was wrong (917c never appears on the wire). Carries pos **+ velocity + heading**. Confirmed: all 51 ids (16b BE spawnId) + decoded x/y/z match the 0x67e0 stream. Fixes "mobs freeze while moving, jump on stop" |
 | OP_ItemPacket    | 0x74b0 | **0x6805** | ✅ id (bulk items; names + `Benefit:`/`Trophy:`) |
@@ -146,6 +146,66 @@ so it may shift with big inventory changes — re-derive if the zone resolves wr
 
 **Still TODO:** ClientUpdate heading+deltas (left 0 — no facing arrow / speed-between-updates;
 need a `/loc`-while-turning capture). That's the last open piece.
+
+### 2026-07-08 — Reverse-direction sweep: OP_ClientUpdate S>C (28B, other players) + OP_ZoneSpawns C>S (92B, zone-entry request)
+
+Read-only sweep of the existing eql fixtures (`fulllogin`, `login-zone`, `chat`, `upperguk`) for
+opcodes that fire **both** directions but only had one side wired. Method: replay against the eql
+build + `--dump-payload OP:PATH --dump-all-sessions`, split files by dir/size, diff samples.
+`dir=1`=C>S, `dir=2`=S>C. No `typename`/struct edits made (struct strategy deferred — see below).
+
+**OP_ClientUpdate `0x7171` — S>C 28B = OTHER-PLAYER position broadcast. Identity CONFIRMED, field layout PARTIAL.**
+- Direction split: C>S 42B (self, wired) + **S>C 28B** (1 fire in fulllogin; **230 in login-zone across 24 distinct ids**).
+- Confirmed *other players*, not a self-echo: the C>S self id (`0x69d2`) never appears in the S>C
+  stream, and **20 of 24 S>C ids are absent from the OP_MobUpdate (NPC) id set** → player-controlled
+  spawns. Same split as Live (NPCs → MobUpdate/NpcMoveUpdate; players → ClientUpdate both ways).
+- Structure (moving-sample diffs, busiest id n=78): `u16 spawnId@0`, `u16 pad@2 (=0)`, motion/flags
+  block @4–11 (`@4=0x1b` marker once moving), state/pose byte `@12` (`0x13` while active), `@13–15=0`,
+  then per-axis **`u16 pos` + `i16 vel`** pairs @16–23 (`@16` pos climbs monotonically while walking,
+  `@18` vel tracks speed; `@20/@22` the second axis), heading candidate `@24` (small, tracks turning),
+  `@26–27=0`. **NOT** MobUpdate's 19-bit MSB packing — its own byte-aligned pos+vel layout.
+- **Axis→game-axis binding + scale are UNCONFIRMED and cannot be finished from existing fixtures:**
+  self isn't echoed S>C, and the 4 S>C ids that overlap MobUpdate have only 1–2 samples each (ranges
+  too wide to disambiguate a field-value scan). **Finish with a purpose capture** — a 2nd known
+  character at a known `/loc` walking cardinals — the same method that pinned the 42B C>S self.
+
+**OP_ZoneSpawns `0x4606` — C>S 92B = client zone-entry / spawn-list request. Identity CONFIRMED, framing MOSTLY MAPPED.**
+- Fires **exactly once per zone-in**, C>S; the S>C side (spawn blocks) is already wired. 8 samples
+  across several zone-ins (same character).
+- Framing (offsets/roles only — identity bytes intentionally not transcribed): `u32 @0` = per-session
+  token (constant within a login session, differs across sessions); **null-terminated char name @4**;
+  `u32 @0x40` varies per zone-in (zone/position-dependent); `@0x44–0x53` = a fixed client/character
+  signature block (byte-identical across every session + zone captured); short trailer @0x54–0x5b.
+  Carries client **identity**, not spawn data — "I'm here, send the zone" → server replies with the
+  S>C spawn stream.
+
+**Also mapped in the sweep (unwired unknowns, for later):**
+- `0x1bdc` (24B, bidirectional, S>C-heavy) — **CONFIRMED OP_SpawnAppearance2**, byte-identical to the
+  neutral 24B `spawnAppearance2Struct` (`u32 spawnId@0` [hi-16 always 0], `u32 type@4`, `u32 value@8`,
+  `u8 pad[12]`). 55 spawn ids; type→value fits SpawnAppearance semantics (type 22→val 0; type 43→val
+  0/1/2 flag; type 6→val 100/110/115; type 5→val 7/11/12). A **name-swap** (not a mechanism customer).
+- `0x4f7a` (12B S>C ×200, steady in every capture) — periodic self-referential tick: `u32 counter@4`
+  (monotonic 0..N), constant self entity-id `@8`, optional other-id `@0`. Low tracker value.
+- `0x5c17` (C>S variable + S>C 23B×31) — probable request/response pair (bytes unexamined).
+
+**Struct/decoder architecture — DECIDED (2026-07-08): Rust-sourced sizes ("everything swappable").**
+The `SZC_Match` size-gate is a pure `name→size` map (`addStruct`); eql never casts a C++ struct
+(Rust decodes), so eql needs only a *number* per opcode. Plan: byte-identical opcodes point their
+toml `typename` at the existing **neutral** C++ struct + `match`; eql-unique sizes get a per-backend
+size table exported from `seq-bridge`/`seq-backend-eql` and registered via `addStruct(name, size)` —
+no C++ eql structs, neutral names, no reshaping, Rust is the reference.
+
+**Landed (byte-identical cleanups, verified regression-free):**
+- `OP_MobUpdate` 14B → `typename="spawnPositionUpdate"`, `SZC_Match` (was `uint8_t`/none + in-dispatcher `len==14`).
+- `OP_ClientUpdate` C>S 42B → `typename="playerSelfPosStruct"`, `SZC_Match` (size matches even though the eql field layout differs; decode stays Rust).
+- `OP_SpawnAppearance2` = **`0x1bdc`** (24B) → reuses the neutral `spawnAppearance2Struct`; adding the id mapping **lit up the already-present-but-dormant `wire_eql.cpp` handler** (`SpawnShell::updateSpawnLock`). No wire/handler change — just the toml id. Now resolves as known; golden byte-identical (handler no-ops on these captures' types; armed for lock-ruleset eql servers).
+- Verified: fulllogin replay → MobUpdate 658 / ClientUpdate 706 events (unchanged), 0x1bdc→OP_SpawnAppearance2 known, golden byte-identical run-to-run + across the SpawnAppearance2 change, 0 size warnings.
+
+**Method note (from this pass):** the daemon has a large catalog of neutral structs (`s_everquest.h` size index); many eql "unknown" opcodes are just Live opcodes remapped, so the play is to match eql `(size, dir, behavior)` against an existing neutral struct + reuse the Live opcode name (as with `spawnAppearance2Struct`), NOT to invent structs or deep-crack bytes. `dispatchFor` also has a **last-payload fallback** (a `wire()` typename that doesn't exactly match a toml payload binds to the opcode's LAST payload rather than erroring) — so always exact-match the toml payload; a mis-typed wire silently mis-binds instead of failing loudly.
+
+**Pending (need the Rust size-table mechanism — NOT pure name-swaps):** `OP_Consider` (24B; the C++
+`considerStruct` is **32B**, not a match) and `OP_Animation` (4B; **no `animationStruct` exists** in
+the daemon header). And the 28B S>C ClientUpdate once its layout is cracked.
 
 ### 2026-07-08 — OP_PlayerProfile `0x62f0` internals: multiclass level table (CONFIRMED) + class-data / loadout / storage leads
 

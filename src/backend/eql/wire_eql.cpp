@@ -101,11 +101,13 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     connect(ms.zoneMgr, SIGNAL(playerProfile(const charProfileStruct*)),
             ms.player,  SLOT(player(const charProfileStruct*)));
 
-    // EQ Legends OP_ClientUpdate (0x0b03): C>S self-position (42B float).
-    // Wired DIR_Client only — the 24B S>C variant isn't decoded yet. Payload is
-    // raw (uint8_t/SZC_None); EqlDispatch::playerUpdateSelf enforces len==42.
+    // EQ Legends OP_ClientUpdate (0x7171): C>S self-position (42B float).
+    // Wired DIR_Client only — the 28B S>C other-player variant isn't decoded yet.
+    // Size-gated on playerSelfPosStruct (sizeof==42); decode is Rust
+    // (decode_player_self_pos). The eql self-pos layout differs from Live's but
+    // the size matches, so this is a size-gate only, not a struct cast.
     wire("OP_ClientUpdate", SP_Zone, DIR_Client,
-         "uint8_t", SZC_None,
+         "playerSelfPosStruct", SZC_Match,
          seqBind(eql, &EqlDispatch::playerUpdateSelf));
 
     // OP_TimeOfDay / OP_ZoneServerInfo feed daemon-GLOBAL sinks. Only the
@@ -143,10 +145,11 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_ZoneSpawns", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(eql, &EqlDispatch::spawn));
-    // EQ Legends OP_MobUpdate (0x061b): per-mob position update (14B). Raw
-    // payload; EqlDispatch::mobUpdate enforces len==14.
+    // EQ Legends OP_MobUpdate (0x67e0): per-mob position update (14B),
+    // byte-identical to Live spawnPositionUpdate — size-gate on it directly;
+    // decode via the shared Rust decode_mob_update.
     wire("OP_MobUpdate", SP_Zone, DIR_Server,
-         "uint8_t", SZC_None,
+         "spawnPositionUpdate", SZC_Match,
          seqBind(eql, &EqlDispatch::mobUpdate));
     // EQ Legends OP_TargetMouse (0x1bfe): C>S target select. The Legends payload
     // is byte-identical to Live's clientTargetStruct ({u32 spawn_id}, 0 = clear),

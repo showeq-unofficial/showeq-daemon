@@ -126,15 +126,19 @@ comment = "GuildMOTD"
 id      = "7171"
 name    = "OP_ClientUpdate"
 updated = "2026-07-05"
-comment = "EQ Legends: C>S self-position (42B). A 24B S>C variant also exists (other-player / server position broadcast?) — acknowledged below, not yet decoded. See OPCODES_LEGENDS.md"
+comment = "EQ Legends: C>S self-position (42B, wired). A 28B S>C variant carries OTHER-PLAYER positions (own byte-aligned pos+vel layout, not MobUpdate's packing) — identified 2026-07-08, field layout partial (needs a 2nd-char walk capture to finalize), still unwired. See OPCODES_LEGENDS.md"
 
+  # Size-gated on playerSelfPosStruct (sizeof==42): the eql self-pos FIELD layout
+  # differs from Live's, but the size matches, so this is a size-gate only — the
+  # actual decode is Rust (decode_player_self_pos). No struct reshape, neutral name.
   [[zone.payloads]]
   dir           = "client"
-  typename      = "uint8_t"
-  sizechecktype = "none"      # EqlDispatch::playerUpdateSelf enforces len==42
+  typename      = "playerSelfPosStruct"
+  sizechecktype = "match"
 
-  # 24B S>C variant: accept without a size check so it doesn't spam
-  # "doesn't match" warnings. No handler yet (TBD: likely other-player pos).
+  # 28B S>C variant = other-player position broadcast; accept without a size
+  # check so it doesn't spam "doesn't match" warnings. No handler yet
+  # (layout partial — see OPCODES_LEGENDS.md 2026-07-08 reverse-direction sweep).
   [[zone.payloads]]
   dir           = "server"
   typename      = "uint8_t"
@@ -151,8 +155,9 @@ comment = "EQ Legends spawn info (S>C): null-term name + variable block; positio
   typename      = "uint8_t"
   sizechecktype = "none"
 
-  # A single C>S 0x7475 also occurs (client spawn request/ack?); acknowledge it
-  # so it doesn't warn. No handler yet.
+  # A single C>S 92B also fires once per zone-in = client zone-entry / spawn-list
+  # request (session token@0 + null-term char name@4 + fixed signature block).
+  # Acknowledge it so it doesn't warn. No handler yet — see OPCODES_LEGENDS.md.
   [[zone.payloads]]
   dir           = "client"
   typename      = "uint8_t"
@@ -175,10 +180,12 @@ name    = "OP_MobUpdate"
 updated = "2026-07-08"
 comment = "EQ Legends per-mob position update (S>C, 14B). Byte-identical to Live spawnPositionUpdate (packed y:19/z:19/u3:7/x:19/heading:12 fixed-point x8, spawnId u16@0 + 2 zero bytes); decoded by the shared decode_mob_update. The earlier i16-offset read (Y@4/8, Z@6/64, X@10) was a truncated window of these bitfields — the source of the 8192-unit north<->south Y wrap. See OPCODES_LEGENDS.md."
 
+  # Byte-identical to Live spawnPositionUpdate (sizeof==14) → size-gate on it
+  # directly; decode via the shared Rust decode_mob_update.
   [[zone.payloads]]
   dir           = "server"
-  typename      = "uint8_t"
-  sizechecktype = "none"      # EqlDispatch::mobUpdate enforces len==14
+  typename      = "spawnPositionUpdate"
+  sizechecktype = "match"
 
 [[zone]]
 id      = "59a1"
@@ -234,6 +241,22 @@ comment = "SpawnAppearanceCode"
   dir           = "both"
   typename      = "spawnAppearanceStruct"
   sizechecktype = "match"
+
+[[zone]]
+id      = "1bdc"
+name    = "OP_SpawnAppearance2"
+updated = "2026-07-08"
+comment = "EQ Legends extended appearance (24B) — byte-identical to Live spawnAppearance2Struct {u32 spawnId, u32 type, u32 value, u8[12] pad}. Confirmed 2026-07-08: 55 spawn ids, type set {5,6,8,22,26,...} matches Live's {5,6,8,22,26,36,42}; type->value fits (type 6->100/110/115, type 43->0/1/2 flag). Wired S>C to the neutral SpawnShell::updateSpawnLock (acts on type 0x2c mob-lock; no-op on other types). C>S half (ClickBuffOff, type 0x24) acknowledged, unwired. See OPCODES_LEGENDS.md"
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "spawnAppearance2Struct"
+  sizechecktype = "match"
+
+  [[zone.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
 
 [[zone]]
 id      = "ffff"

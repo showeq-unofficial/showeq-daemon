@@ -13,8 +13,9 @@
  * adapter groups them and is owned via a shared_ptr captured by the wired
  * closures, so its lifetime tracks the box's stream dispatchers.
  *
- * Each method casts the Legends wire struct (everquest_legends.h) and drives the
- * core managers through their target-NEUTRAL public primitives (Player::
+ * Each method decodes the Legends wire bytes via the Rust `seq::rust::decode_*`
+ * parsers (there is no `everquest_legends.h`; eql owns no C++ wire structs) and
+ * drives the core managers through their target-NEUTRAL public primitives (Player::
  * setIdentity/applySelfPosition, ZoneMgr::setZoneByName, SpawnShell::
  * upsertSpawn/moveSpawn). No Legends type ever enters core.
  */
