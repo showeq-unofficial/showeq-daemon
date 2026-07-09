@@ -138,3 +138,17 @@ void EqlDispatch::mobUpdate(const uint8_t* data, size_t len, uint8_t dir)
     m_spawnShell->moveSpawn(out.spawn_id,
                             int16_t(out.x), int16_t(out.y), int16_t(out.z));
 }
+
+void EqlDispatch::hpUpdate(const uint8_t* data, size_t len, uint8_t dir)
+{
+    // OP_HPUpdate S>C multiplexed stat channel. The eql parser returns ok only
+    // for the 6B subtype-0x02 HP-bar feed (spawn id + hp percent, max 100);
+    // other subtypes decode to ok=false and are dropped here. Passing the REAL
+    // length matters — the Live handlers hardcode sizeof(hpNpcUpdateStruct).
+    if (dir != DIR_Server)
+        return;
+    auto out = seq::rust::decode_hp_update(rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
+        return;
+    m_spawnShell->updateSpawnHP((uint16_t)out.spawn_id, out.cur_hp, out.max_hp);
+}

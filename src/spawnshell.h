@@ -115,6 +115,7 @@ public:
                     uint16_t race, uint8_t classVal, uint16_t deity,
                     uint16_t guildID, uint8_t npc);
    void moveSpawn(uint16_t id, int16_t x, int16_t y, int16_t z);
+   void updateSpawnHP(uint16_t id, int32_t curHp, int32_t maxHp);
 signals:
    // Fired when the player's own ZoneSpawns entry reveals the character name
    // during the playerChangedID reconcile (eql: the player id arrives late via

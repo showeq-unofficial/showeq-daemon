@@ -180,19 +180,18 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_SpawnAppearance2", SP_Zone, DIR_Server,
          "spawnAppearance2Struct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::updateSpawnLock));
-    wire("OP_HPUpdate", SP_Zone, DIR_Server | DIR_Client,
-         "hpNpcUpdateStruct", SZC_Match,
-         seqBind(ms.spawnShell, &SpawnShell::updateNpcHP));
+    // OP_HPUpdate is eql's multiplexed stat channel (6B subtype-0x02 = HP-bar
+    // feed), not Live's fixed hpNpcUpdateStruct — decode via EqlDispatch, which
+    // passes the real packet length. NPC/spawn HP bars only; the player's own
+    // numeric HP rides the (not-yet-decoded) 21B cur/max subtype.
+    wire("OP_HPUpdate", SP_Zone, DIR_Server,
+         "uint8_t", SZC_None,
+         seqBind(eql, &EqlDispatch::hpUpdate));
     wire("OP_MobHealth", SP_Zone, DIR_Server,
          "mobHealthStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::updateMobHealth));
 
     // Player vitals — same opcodes also feed Player (filtered by self).
-    // SpawnShell's OP_HPUpdate/OP_WearChange wires above MUST precede
-    // these (shared opcode+payload on the same stream dispatches in order).
-    wire("OP_HPUpdate", SP_Zone, DIR_Server | DIR_Client,
-         "hpNpcUpdateStruct", SZC_Match,
-         seqBind(ms.player, &Player::updateNpcHP));
     wire("OP_ManaChange", SP_Zone, DIR_Server,
          "manaDecrementStruct", SZC_Match,
          seqBind(ms.player, &Player::manaChange));

@@ -281,15 +281,15 @@ comment = "Server updating on hunger/thirst"
   sizechecktype = "match"
 
 [[zone]]
-id      = "ffff"
+id      = "2735"
 name    = "OP_HPUpdate"
-updated = "2026-05-25"
-comment = "NpcHpUpdateCode Update HP % of a PC or NPC"
+updated = "2026-07-09"
+comment = "07/07 rotation; multiplexed stat channel (subtype byte @4). 6B subtype-0x02 = HP-bar feed (u16 id, u16 0, 0x02, u8 hp%); decoded by EqlDispatch::hpUpdate. Other sizes/subtypes are cur/max i64 stat pairs (dropped)"
 
   [[zone.payloads]]
-  dir           = "both"
-  typename      = "hpNpcUpdateStruct"
-  sizechecktype = "match"
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
 
 [[zone]]
 id      = "ffff"

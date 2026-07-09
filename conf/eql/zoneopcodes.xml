@@ -96,9 +96,9 @@
         <comment>Server updating on hunger/thirst</comment>
         <payload dir="server" typename="staminaStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_HPUpdate" updated="05/25/26">
-        <comment>NpcHpUpdateCode Update HP % of a PC or NPC</comment>
-        <payload dir="both" typename="hpNpcUpdateStruct" sizechecktype="match"/>
+    <opcode id="2735" name="OP_HPUpdate" updated="07/09/26">
+        <comment>07/07 rotation; multiplexed stat channel (subtype byte @4). 6B subtype-0x02 = HP-bar feed (u16 id, u16 0, 0x02, u8 hp%); decoded by EqlDispatch::hpUpdate. Other sizes/subtypes are cur/max i64 stat pairs (dropped)</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_GuildMemberUpdate" updated="05/20/26">
         <comment>Info regarding guild members</comment>
