@@ -41,11 +41,13 @@ EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* playe
 void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
 {
     // OP_PlayerProfile S>C: identity header (race/class/level) + the character
-    // NAME (NUL-terminated at a fixed deep offset — decoded and validated in the
-    // Rust parser, empty when the offset drifts). The current zone is NOT read
-    // here — it comes from OP_NewZone (newZone() below), which carries the zone
-    // name as text. Nothing on the eql zone path fires a reset, so what we set
-    // here survives the later OP_NewZone.
+    // NAME, located by the Rust parser's absolute anchor-scan (the u32 64 + name
+    // + u32 32 + surname block signature — robust vs the old fixed deep offset,
+    // empty only when the block can't be found). The parser also recovers the
+    // surname + current zone/position/guild, but those stay unused here: the
+    // current zone comes from OP_NewZone (newZone() below) and position from
+    // OP_ClientUpdate, both authoritative. Nothing on the eql zone path fires a
+    // reset, so what we set here survives the later OP_NewZone.
     if (dir != DIR_Server)
         return;
     auto out = seq::rust::decode_player_profile(
