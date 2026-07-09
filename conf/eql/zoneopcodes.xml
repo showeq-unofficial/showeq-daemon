@@ -12,8 +12,8 @@
         <payload dir="client" typename="ClientZoneEntryStruct" sizechecktype="match"/>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_TimeOfDay" updated="05/20/26">
-        <comment>TimeOfDayCode</comment>
+    <opcode id="34c7" name="OP_TimeOfDay" updated="07/09/26">
+        <comment>07/07 rotation; 8B stock timeOfDayStruct byte-identical (wire-verified 8B); advances at EQ game rate</comment>
         <payload dir="server" typename="timeOfDayStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="1dbf" name="OP_NewZone" updated="07/08/26">
