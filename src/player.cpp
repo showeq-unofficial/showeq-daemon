@@ -1060,6 +1060,18 @@ void Player::setIdentity(uint16_t race, uint8_t classVal, uint8_t level)
   emit changeItem(this, tSpawnChangedALL);
 }
 
+void Player::setPlayerName(const QString& name)
+{
+  // eql: the authoritative character name off OP_PlayerProfile (name @36047).
+  // Live/test set the name through the charProfileStruct path; this neutral
+  // primitive lets the eql backend name the player without a Legends type in
+  // core. It only stores the name — the caller's setIdentity() emits the
+  // changeItem(tSpawnChangedALL) that carries it to the frontend — and signals
+  // DaemonApp to promote/merge the box under this name in the picker.
+  setName(name);
+  emit identityNameResolved(name);
+}
+
 void Player::applySelfPosition(int16_t px, int16_t py, int16_t pz,
                                int16_t pdeltaX, int16_t pdeltaY, int16_t pdeltaZ,
                                uint16_t heading, float speed)

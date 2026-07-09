@@ -758,13 +758,27 @@ void DaemonApp::onBoxCreated(Box* box)
         });
     }
 
-    // Name the box from the player's own-spawn adoption (SpawnShell::
-    // playerChangedID). This is the only name source on eql — its profile
-    // carries no name and OP_EnterWorld/NamePromoter is Live-shaped, so eql
-    // boxes otherwise stay "Unknown" in the picker. Promotion is deferred to
-    // this fallback only when nothing authoritative named the box first
-    // (display_name still empty), since a reused spawn id could in theory
-    // adopt a wrong name on live. Also feeds the --only-session name match.
+    // eql equivalent of the Live block above: the authoritative character name
+    // straight off OP_PlayerProfile (Player::setPlayerName -> identityName-
+    // Resolved). eql doesn't emit ZoneMgr::playerProfile — its profile is
+    // decoded in EqlDispatch, not fillProfileStruct — so the box is named here
+    // instead, and promoted unconditionally just like Live.
+    if (Player* pl = m_boxManagers[box].player) {
+        connect(pl, &Player::identityNameResolved, this,
+                [this, box](const QString& name) {
+            m_packet->boxRegistry().promoteByName(box, name);
+            onlySessionNameCheck(box, name);
+        });
+    }
+
+    // Fallback name source on eql: the player's own-spawn adoption (SpawnShell::
+    // playerChangedID). Used when the profile name is unavailable (offset
+    // drifted, or the own-spawn resolves before OP_PlayerProfile decodes);
+    // OP_EnterWorld/NamePromoter is Live-shaped, so without this a box lacking a
+    // profile name would stay "Unknown". Deferred to only when nothing
+    // authoritative named the box first (display_name still empty), since a
+    // reused spawn id could in theory adopt a wrong name on live. Also feeds the
+    // --only-session name match.
     if (SpawnShell* ss = m_boxManagers[box].spawnShell) {
         connect(ss, &SpawnShell::playerNameResolved, this,
                 [this, box](const QString& name) {

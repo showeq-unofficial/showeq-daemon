@@ -40,16 +40,25 @@ EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* playe
 
 void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_PlayerProfile S>C: identity header only (race/class/level). The current
-    // zone is NOT read here anymore — it comes from OP_NewZone (newZone() below),
-    // which carries the zone name as text. Nothing on the eql zone path fires a
-    // reset, so the identity set here survives the later OP_NewZone.
+    // OP_PlayerProfile S>C: identity header (race/class/level) + the character
+    // NAME (NUL-terminated at a fixed deep offset — decoded and validated in the
+    // Rust parser, empty when the offset drifts). The current zone is NOT read
+    // here — it comes from OP_NewZone (newZone() below), which carries the zone
+    // name as text. Nothing on the eql zone path fires a reset, so what we set
+    // here survives the later OP_NewZone.
     if (dir != DIR_Server)
         return;
     auto out = seq::rust::decode_player_profile(
         rust::Slice<const uint8_t>{data, len});
     if (!out.ok)
         return;
+    // Name first: setPlayerName only stores it (+ signals the box picker); the
+    // setIdentity() below then emits changeItem(tSpawnChangedALL) carrying the
+    // new name. An empty name (offset drifted) leaves box-naming to own-spawn
+    // adoption (SpawnShell::playerChangedID), the prior source.
+    QString name = latin1(out.name);
+    if (!name.isEmpty())
+        m_player->setPlayerName(name);
     m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
 }
 

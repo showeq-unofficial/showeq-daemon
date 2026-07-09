@@ -173,9 +173,15 @@ public:
    void applySelfPosition(int16_t x, int16_t y, int16_t z,
                           int16_t deltaX, int16_t deltaY, int16_t deltaZ,
                           uint16_t heading, float speed);
+   // Sets the character name from a decoded profile (eql: OP_PlayerProfile
+   // name @36047). Stores it (setName) + emits identityNameResolved so
+   // DaemonApp can authoritatively name/merge the box in the picker.
+   void setPlayerName(const QString& name);
 
  signals:
    void newPlayer(void);
+   // Authoritative character name decoded from the player's own profile (eql).
+   void identityNameResolved(const QString& name);
    void buffLoad(const spellBuff*); 
    void newSpeed               (double speed);
    void statChanged            ( int statNum,
