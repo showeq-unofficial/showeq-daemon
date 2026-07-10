@@ -216,14 +216,14 @@ comment = "EQ Legends death/corpse (S>C, 40B = newCorpseStruct, n=8). CONFIRMED 
   sizechecktype = "match"
 
 [[zone]]
-id      = "ffff"
+id      = "5c62"
 name    = "OP_WearChange"
-updated = "2026-05-27"
-comment = "Spawn-state / appearance broadcast (multi-slot). Header=wearChangeStruct(11B), then slotCount*wearChangeSlotStruct(16B+varname), then 2B pad. count=0→13B (hash refresh), count=N→header+N slots (~+23B/slot incl short name). slotCount@9 correlates with size; unk8=1 in equipment samples. Re-confirmed equipment form 2026-05-27 (wearchange-clean: 30 fires on equip/remove, 13B refresh, field@4=material code). POLYMORPHIC: this same wire opcode also carries buff-icon arrays (21B blocks: {spellID, value, caster-name\\0}) as a spawn-state broadcast — multiple spawn ids, fires on zone-in and around buff events. Those variants don't match SpawnUpdateStruct (SZC_Match) so they're unhandled, but appear in --list-events/--dump-payload — do NOT mistake them for a buff/BuffQuery opcode (cost a full 2026-05-27 hunt). Dedicated buff broadcast is OP_Buff 0x18b4 (trailing flag distinguishes)."
+updated = "2026-07-10"
+comment = "EQ Legends equip-change broadcast (32B), decoded but wired INERT (l-patch addendum 3). Layout: {u32 spawnId, u32 wearSlot (7=primary/8=secondary/9), u32 material, u8[20] 0}. S>C = other spawns' equip changes; C>S = the client's own. Stock ShowEQ's WearChange handler only acts on an HP subcommand (shows nothing for wear), so this is NAMED-but-INERT: NO handler is wired. The Live SpawnUpdateStruct/updateSpawnInfo bindings (still in wire_live.cpp) were REMOVED from wire_eql.cpp because sizeof(SpawnUpdateStruct)==32==this packet's size, so binding them would SZC_Match and mis-decode wear bytes as a spawn update (spawn-state corruption). Each wear event is preceded by a 0x2575/0x2a0a appearance-refresh pair (value 0x40=wear, 0x04=combat/death); own changes are echoed by 0x7820 (~1.1KB item). Live equipment tracking would build on this layout. Named per addendum 3 so it stops showing as unknown in --opcode-stats. See OPCODES_LEGENDS.md."
 
   [[zone.payloads]]
-  dir           = "server"
-  typename      = "wearChangeStruct"
+  dir           = "both"
+  typename      = "uint8_t"
   sizechecktype = "none"
 
 [[zone]]

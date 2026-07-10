@@ -48,7 +48,7 @@ per-backend decoders.
 |--------|-----------|-----------|--------|
 | OP_TargetMouse   | 0x1bfe | **0x2867** | ✅ confirmed 19/19 (value-match; 0=untarget). Layout unchanged (`{u32 spawn_id}`) |
 | OP_Consider      | *(new)* | **0x4212** | ✅ NEW. 24B `{u32 self=27090, u32 target, u32 faction, u32 =7}`; C>S req has faction=0, S>C reply fills faction (**2=warmly, 4=amiably**; level comes from spawn). Companions: `0x5b5e` target-HP reveal `{u32 target, u32 cur_hp,…}`, `0x0e54` `{0,target}` |
-| OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ **C>S 42B self FULLY DECODED**; **S>C 28B = other-player positions** (identified 2026-07-08, layout partial — see entry below, unwired). C>S: spawnId u16@2; wire has gameY@10 / gameX@18 / z@30 (f32) → bound **x=gameX@18, y=gameY@10**; velocity deltaX@26 / deltaY@6 (f32); **heading u16@14, 11-bit (0–2047, North≈0)** — Sense-Heading-confirmed. deltaZ candidate @22. (X/Y-swap fixed `60b2a79`) |
+| OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ **C>S 42B self FULLY DECODED**; **S>C 28B = other-spawn positions — POSITION CRACKED 2026-07-10** (x/y/z are 19-bit ×8 packed, NOT the byte-aligned floats the 2026-07-08 note guessed — see entry below; still unwired). C>S: spawnId u16@2; wire has gameY@10 / gameX@18 / z@30 (f32) → bound **x=gameX@18, y=gameY@10**; velocity deltaX@26 / deltaY@6 (f32); **heading u16@14, 11-bit (0–2047, North≈0)** — Sense-Heading-confirmed. deltaZ candidate @22. (X/Y-swap fixed `60b2a79`) |
 | OP_ZoneEntry     | 0x7475 | **0x4606** | ✅ id (var 343–352B NPC / 486B rich). **Renamed OP_ZoneSpawns → OP_ZoneEntry 2026-07-09** (stock SEQ: the s2c OP_ZoneEntry has carried the per-spawn payload — one fillSpawnStruct per packet — since 2008; OP_ZoneSpawns is the dead bulk-array op). Same id/decoder (EqlDispatch::spawn), stock-live name. level@block+4 OK. **POS from block END**: three u32 words z@(len-95), **y=gameY@(len-91), x=gameX@(len-87)**, each a **signed 19-bit fixed-point (×8) coord in the word's low bits** (Live spawnStruct-style packing; upper 13 bits = other subfields). The earlier `/8 i16` read was the same field truncated — wrapped past ±4095. hp/body offsets TBD. **C>S 92B = client zone-entry / spawn-list request** (name@4 + session token + fixed signature block; identified 2026-07-08, see entry below) |
 | OP_MobUpdate     | 0x061b | **0x67e0** | ✅ id (14B, ids 416/416 match spawns). **Byte-identical to Live `spawnPositionUpdate`** (2026-07-08): spawnId u16@0 + 2 zero bytes, then packed `y:19 z:19 u3:7 x:19` (fixed-point ×8, u64@4) + `heading:12`@12 — decoded by the shared `decode_mob_update`, full range, no wrap. The old i16-offset read (y@4/8, z@6/64, x@10 "unscaled") was a truncated window of these bitfields. Sparse full-position sync; continuous movement is OP_NpcMoveUpdate |
 | OP_NpcMoveUpdate | 917c (dead) | **0x7352** | ✅ **2026-07-08**. The continuous per-NPC movement stream (var 15–21B, top S>C opcode: 734 fires/51 ids vs MobUpdate's 591). **Byte-identical bit format to Live** OP_NpcMoveUpdate → decoded by the shared `decode_npc_move_update`; only the opcode-id mapping was wrong (917c never appears on the wire). Carries pos **+ velocity + heading**. Confirmed: all 51 ids (16b BE spawnId) + decoded x/y/z match the 0x67e0 stream. Fixes "mobs freeze while moving, jump on stop" |
@@ -64,6 +64,58 @@ per-backend decoders.
 | OP_Death         | 0x1eb2 | **0x66cb** | ✅ **WIRED 2026-07-08**. Death/corpse (S>C, 40B = `newCorpseStruct`, n=8). Decodes field-for-field: victim u32@0 (**all 8 ∈ the DeleteSpawn set**), killer u32@4 (=player 13167 every kill), corpse type@12, killing-blow spell u32@16 (-1=melee), damage u32@24 (9–80). → already-wired `SpawnShell::killSpawn`; replay emits **8 `SpawnKilled`** (0→8). Fires just before the matching DeleteSpawn |
 | OP_Animation     | 0x6dba | **0x1293** | ✅ **2026-07-08** (id-only, no handler). Animation broadcast (S>C, 4B, n=354/718). **Live `animationStruct`**: spawnId u16@0, action u8@2 (1–46), speed u8@3 (**=10 across all 354**). Remapped so it resolves in opcode-stats; animation isn't surfaced, so no handler wired |
 | *(target HP reveal)* | — | **0x5b5e** | ⚑ 2026-07-08 candidate (unwired). On-target HP reveal (S>C, 13B primary, n=12/22): `{u32 spawn_id, u32 cur_hp, u32 =0x07000001, u8 0}`; cur_hp is **absolute** (=0 for a just-dead spawn). Consider-companion (cf. 0x0e54 `{0,target}`). NOT a continuous %-HP bar stream |
+
+### 2026-07-10 — 28B S>C OP_ClientUpdate = other-spawn position broadcast, POSITION CRACKED
+
+Capture: `tests/replay/eql/eqlegends-levelup.vpk` — the first fixture with a busy zone
+(**3572 S>C 28B** fires + 3478 C>S 42B). Method: `--dump-payload 0x7171` → split by size (28 =
+S>C, 42 = C>S), then two independent cross-checks against ground truth.
+
+**The 2026-07-08 "byte-aligned pos+vel, NOT MobUpdate's packing" guess was WRONG.** The 28B S>C
+is the **same 19-bit ×8 packed family** as MobUpdate / Live `spawnStruct`, with the coordinate in
+the **low 19 bits** of its word (Live puts it in the *high* bits) and an extra eql-only u32 vs
+Live's 24B `playerSpawnPosStruct`.
+
+**Layout (LSB-first, `#pragma pack(1)`), CONFIDENCE-TIERED:**
+```text
+/*00*/ u16  spawnId            HIGH  (u16@2 spawnId2 = 0 in every sample)
+/*04*/ u32  unknown04          TBD   (eql-only; per-spawn small int, not in Live's 24B)
+/*08*/ u32  packed             MED   heading @ bit16 = (w>>16)&0x7FF, 11-bit 0..2047
+                                     (low bits = deltaZ/vel; see confidence note)
+/*12*/ u32  z:19 (low, signed) HIGH  ÷8   (high 13 bits ≈ 0 in samples)
+/*16*/ u32  y:19 (low, signed) HIGH  ÷8   (high 13 bits = a velocity-ish field, varies w/ speed)
+/*20*/ u32  x:19 (low, signed) HIGH  ÷8   (high 13 bits = per-spawn constant in samples; TBD)
+/*24*/ u32  packed             LOW   vel/heading2 (low13 ±244; alt heading candidate)
+```
+Extract each coord: `sign_extend(u32@off & 0x7FFFF, 19) / 8.0`  →  z@12, y@16, x@20.
+
+**Evidence (position = HIGH confidence, two independent methods):**
+1. **Cross-stream vs MobUpdate (0x67e0).** 49 spawnIds appear in both streams. For spawns
+   stationary across both capture windows, z@12 / y@16 / x@20 (low-19 ÷8) reproduce the MobUpdate
+   median position exactly — e.g. sid 3014: (x,y,z) decoded (684.6, −329.8, 6.8) vs MobUpdate
+   (686.6, −331.3, 6.8); sid 4849 (347.2, 86.6, −29.0) vs (345, 87, −28.9); sid 5270 y=2769.6
+   exact. (Movers drift because the two sparse streams aren't time-aligned — that noise, not a bad
+   layout, is why the naïve all-49 median match looked weak.)
+2. **Trajectory self-consistency (no ground truth needed).** Decoding a dense walk yields a smooth
+   path at EQ run speed — spawn 5121 (897 samples): idle (steps 0.0–0.35) → steady walk (7.78,
+   8.33, 8.25, 8.60, 8.81, 8.29 units/tick) with z pinned at ground. The two rejected alternatives
+   are garbage: Live-style **hi-19** gives 14000–22000-unit jumps; a **shift-by-4** layout gives
+   periodic 1024-unit jumps. Median step ≈ 8 for walkers, ≈ 0 for idlers.
+
+**Heading (MED):** `(u32@8 >> 16) & 0x7FF`, 11-bit 0..2047 — full-bit-position scan vs movement
+direction gives R=0.65 (moderate: facing ≠ movement exactly; strafe/turn/backpedal), phase ≈ −7°.
+Matches the old "angle 0–2047" note. A weaker alt sits in @24 (R=0.56). Velocity/pitch/animation
+occupy the remaining high bits of @8/@24 and the coord-word high 13 bits — not pinned, **not needed
+to render other spawns on the map**.
+
+**Spawn coverage:** 104 distinct spawnId@0. 49 overlap MobUpdate (also NPC-positioned); the other
+55 are ClientUpdate-only (player-style spawns positioned primarily by this op, as on Live).
+
+**Wiring (not yet done):** parser `parse_legends_spawn_pos` (28B) in `seq-backend-eql` → decode via
+`seq-bridge` → `EqlDispatch` handler → the already-neutral `SpawnShell::moveSpawn` (the exact path
+MobUpdate uses); size override `("playerSpawnPosStruct", 28)` (already scoped in
+`BACKEND_SIZE_TABLE_PLAN.md`) + flip the toml payload `uint8_t/none → playerSpawnPosStruct/match`;
+regen eql tier-2 goldens (adds position events). Mirror: **eql-only, do NOT mirror to legacy.**
 
 ### 2026-07-09 — Tier-1 id-sync from the community f-patch (`eql-full-edits-20260709f`)
 
@@ -161,6 +213,28 @@ exp bar, so the daemon does too. `OP_ExpUpdate 0x6801` now routes through **`Eql
 only ever decreases at a ding — a bare `new < last` test needs no death-dip guard. `applyLevel` is
 unused on live/test (they get level from `OP_LevelUpdate`); live tier-2 17/0 unregressed. Verified:
 replay fires the heuristic exactly twice, **level 1→2→3**, no false dings. eql tier-2 4/0.
+
+### 2026-07-10 — l-patch addendum 3 batch: size-check hardening (already in place) + `OP_WearChange 0x5c62` named-inert
+
+Went through addendum 3's "put the size checks back" list against `conf/eql/opcodes.toml`. **The hardening
+is already complete** — no churn needed: `OP_CastSpell 0x10b5`, `OP_Consider 0x4212`,
+`OP_SpawnAppearance2 0x1bdc`, `OP_InspectAnswer 0x17af`, `OP_RandomReply 0x6589`, `OP_SwapSpell 0x0fa0`
+are all on `match`; `OP_Emote 0x1cde` (S>C variable) and `OP_RandomReq 0x08cb` (8/9B) are correctly `none`.
+The prior Tier-1 + cast/con/buff work already set these. Deferred/blocked: `OP_Buff 0x3ada` (skipped by
+design — BuffList `0x77ae` covers the player), `OP_ZoneChange 0x76d3` (entangled with the death/respawn
+reset path — hold for bug #0), group ops 168B (blocked, no group capture).
+
+**`OP_WearChange = 0x5c62`** (32B, both dirs; n=337 levelup / 3 chat) — mapped from `ffff` and named per
+addendum 3, but wired **INERT**. Layout (patch, fully decoded): `{u32 spawnId, u32 wearSlot (7=primary /
+8=secondary / 9), u32 material, u8[20] 0}`. **Footgun removed:** the eql wiring carried a byte-for-byte
+copy of Live's two `OP_WearChange → SpawnUpdateStruct/updateSpawnInfo` bindings — and `sizeof(SpawnUpdateStruct)
+== 32 == this packet's size`, so the moment the id was mapped those bindings would `SZC_Match` and mis-decode
+wear bytes as a spawn update (spawn-state corruption). Removed both from `wire_eql.cpp` (kept in
+`wire_live.cpp` where they're correct); `updateSpawnInfo` has no other eql use. Stock's WearChange handler
+shows nothing for equip changes anyway, so inert = stock parity, just named instead of `unknown`. Verified:
+`0x5c62` classifies as `OP_WearChange`, no handler fires, eql tier-2 4/0 stable. Live equip tracking would
+need an eql-specific 32B decoder built on the layout above. (Related unnamed pair: `0x2575`/`0x2a0a` 8B
+`{u32 spawnId, u32 flag}` appearance-refresh triggers — flag 0x40=wear, 0x04=combat/death.)
 
 ### 2026-07-09 — exp opcodes were CROSS-WIRED: `OP_ExpUpdate`=`0x6801`, `OP_AAExpUpdate`=`0x42d1`
 

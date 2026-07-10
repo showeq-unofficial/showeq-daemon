@@ -170,9 +170,13 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_TargetMouse", SP_Zone, DIR_Client,
          "clientTargetStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::clientTarget));
-    wire("OP_WearChange", SP_Zone, DIR_Server | DIR_Client,
-         "SpawnUpdateStruct", SZC_Match,
-         seqBind(ms.spawnShell, &SpawnShell::updateSpawnInfo));
+    // OP_WearChange (0x5c62) is NAMED in conf/eql/opcodes.toml but deliberately
+    // UNWIRED (l-patch addendum 3: stock's WearChange handler shows nothing for
+    // equip changes). The two Live SpawnUpdateStruct/updateSpawnInfo bindings (kept
+    // in wire_live.cpp) were removed here: eql's WearChange is a 32B {spawnId,
+    // wearSlot, material} packet and sizeof(SpawnUpdateStruct)==32, so binding it
+    // would SZC_Match and mis-decode wear bytes as a spawn update (spawn-state
+    // corruption). Re-derive an eql-specific decoder if live equip tracking is wanted.
     // OP_SpawnAppearance2 type=0x2c = TLP mob-lock / FTE flag.
     wire("OP_SpawnAppearance2", SP_Zone, DIR_Server,
          "spawnAppearance2Struct", SZC_Match,
@@ -218,9 +222,7 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_SkillUpdate", SP_Zone, DIR_Server,
          "skillIncStruct", SZC_Match,
          seqBind(ms.player, &Player::increaseSkill));
-    wire("OP_WearChange", SP_Zone, DIR_Server | DIR_Client,
-         "SpawnUpdateStruct", SZC_Match,
-         seqBind(ms.player, &Player::updateSpawnInfo));
+    // (OP_WearChange intentionally unwired on eql — see the note above OP_SpawnAppearance2.)
     wire("OP_DeleteSpawn", SP_Zone, DIR_Server | DIR_Client,
          "deleteSpawnStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::deleteSpawn));
