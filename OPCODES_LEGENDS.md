@@ -65,6 +65,38 @@ per-backend decoders.
 | OP_Animation     | 0x6dba | **0x1293** | ✅ **2026-07-08** (id-only, no handler). Animation broadcast (S>C, 4B, n=354/718). **Live `animationStruct`**: spawnId u16@0, action u8@2 (1–46), speed u8@3 (**=10 across all 354**). Remapped so it resolves in opcode-stats; animation isn't surfaced, so no handler wired |
 | *(target HP reveal)* | — | **0x5b5e** | ⚑ 2026-07-08 candidate (unwired). On-target HP reveal (S>C, 13B primary, n=12/22): `{u32 spawn_id, u32 cur_hp, u32 =0x07000001, u8 0}`; cur_hp is **absolute** (=0 for a just-dead spawn). Consider-companion (cf. 0x0e54 `{0,target}`). NOT a continuous %-HP bar stream |
 
+### 2026-07-09 — Tier-1 id-sync from the community f-patch (`eql-full-edits-20260709f`)
+
+Mirrored the refreshed community patch's wire-verified ids into `conf/eql/opcodes.toml`,
+each **validated against the daemon capture library** before flipping (stock struct names,
+no `*EQL` suffix). Also renamed the per-spawn 4606 stream `OP_ZoneSpawns → OP_ZoneEntry`
+(stock SEQ: s2c ZoneEntry = per-spawn since 2008).
+
+**Lit up (wired handler; decode confirmed via replay + tier-2 goldens):**
+- `OP_RemoveSpawn 0x71ad` (removeSpawnStruct/none, 5B) → spawns despawn (+spawn_removed)
+- `OP_SkillUpdate 0x6982` (skillIncStruct, 12B×15) → Skills window (+15 player_stats)
+- `OP_SpecialMesg 0x22e1` (specialMessageStruct, 59/60B×8) → NPC speech (+8 chat)
+- `OP_CommonMessage 0x55eb` (channelMessageStruct) → /say /tell
+- `OP_GroundSpawn 0x0def` (makeDropStruct/none, 62/63B; wire szt Modulus→None) → ground
+  items decode via `decode_ground_spawn` (`IT401_ACTORDEF`→"Drop: Red Mushroom", sane coords)
+- `OP_ClickObject 0x04d1` (remDropStruct, match-gated), `OP_InspectAnswer 0x17af`
+  (inspectDataStruct 1956B) — community-verified, not in current fixtures
+
+**Named for logs (not wired; passive / guild-tier):** `OP_GuildMOTD 0x46df`,
+`OP_Emote 0x1cde`, `OP_SwapSpell 0x0fa0`, `OP_RandomReq 0x08cb` (match→none),
+`OP_RandomReply 0x6589`, `OP_InspectRequest 0x2cc0`, `OP_HideCorpse 0x1ede` (new).
+
+**Named, decoder DEFERRED (wire diverges from the Live struct; wire removed to avoid a
+last-payload mis-bind + OOB read):** `OP_ExpUpdate 0x42d1` (12B, 0-100000 scale vs Live 16B
+x/330), `OP_AAExpUpdate 0x6801` (16B, 0-100000 vs Live 12B), `OP_SpawnDoor 0x71ca`
+(132B rows, `1452=11*132`, vs Live doorStruct 136B → modulus rejects). Each needs a struct
+size override (+ exp scale conversion) before wiring — Tier-2/3.
+
+**Divergence kept (daemon finding wins):** `OP_ManaChange 0x07c9` — a real 20B S>C mana
+packet (23× in captures), kept over the community "mana only rides 0x2735".
+
+eql tier-2 **4/0 (1 skip)**, stable over 2 runs.
+
 **RE-WIRED 2026-07-07** (decoder-rs + daemon): all ids updated in `conf/eql/opcodes.toml`;
 the `seq-backend-eql` parsers re-derived — ClientUpdate pos `x=gameX@18 / y=gameY@10 / z@30`
 (f32); ZoneSpawns pos from the block END (`z@(len-95)/8, x=gameX@(len-87)/8, y=gameY@(len-91)/8`,
