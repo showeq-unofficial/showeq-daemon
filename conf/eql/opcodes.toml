@@ -85,10 +85,10 @@ comment = "Coords in a zone that will port you to another zone"
   sizechecktype = "none"
 
 [[zone]]
-id      = "6801"
+id      = "42d1"
 name    = "OP_AAExpUpdate"
 updated = "2026-07-09"
-comment = "07/07 rotation (community f-patch id, daemon-confirmed 16B×N). DECODER DEFERRED: eql is 16B {u32 aaexp 0-100000 scale, u32 0, u32 type=2, u32 0x30000000} — Live's altExpUpdateStruct is 12B x/330. Needs a 16B struct size override + the 0-100000->330 scale conversion before wiring. Named for logs; NOT wired."
+comment = "07/09 l-patch correction: the AA-exp bar rides 0x42d1 (12B altExpUpdateStruct), NOT 0x6801 — the ids were CROSS-WIRED with OP_ExpUpdate (the 12B/16B sizes now match their structs). eql layout: u32 altexp (0-100000 per-AA-point progress), u32 aapoints (unspent AA), u32 tail. DEFERRED: wiring needs the 0-100000->330 conversion in Player::updateAltExp. Named for logs; NOT wired yet."
 
   [[zone.payloads]]
   dir           = "server"
@@ -96,15 +96,15 @@ comment = "07/07 rotation (community f-patch id, daemon-confirmed 16B×N). DECOD
   sizechecktype = "none"
 
 [[zone]]
-id      = "42d1"
+id      = "6801"
 name    = "OP_ExpUpdate"
 updated = "2026-07-09"
-comment = "07/07 rotation (community f-patch id, daemon-confirmed 12B×N). DECODER DEFERRED: eql is 12B {u32 exp on a 0-100000 scale, u32 type=2, u32 junk} — Live's expUpdateStruct is 16B x/330. Needs a 12B struct size override + the 0-100000->330 scale conversion in Player::updateExp before wiring. Named for logs; NOT wired (would size-reject + mis-scale)."
+comment = "07/09 l-patch correction: the regular exp bar rides 0x6801 (16B expUpdateStruct), NOT 0x42d1 — the ids were CROSS-WIRED with OP_AAExpUpdate. eql layout matches expUpdateStruct: u32 exp (0-100000 permille, in-game-calibrated against the exp bar), u32 0, u32 aaUnspent (@8, not Live's type), u32 0. exp@0 feeds Player::updateExp directly — the daemon already works in 0-100000, so NO scale conversion. Verified: exp wraps once at the level-up in the death-respawn capture (99.459%->3.622%)."
 
   [[zone.payloads]]
   dir           = "server"
-  typename      = "uint8_t"
-  sizechecktype = "none"
+  typename      = "expUpdateStruct"
+  sizechecktype = "match"
 
 [[zone]]
 id      = "46df"

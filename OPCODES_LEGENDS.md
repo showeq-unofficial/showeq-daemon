@@ -129,6 +129,23 @@ shared `decode_hp_update` FFI is stubbed inert for eql.
 - Self-contained: Rust + `EqlDispatch` only, no proto/web change (rides the existing
   `player_stats`/`spawn_updated` plumbing). eql tier-2 goldens regenerated (HP/mana values shift).
 
+### 2026-07-09 — exp opcodes were CROSS-WIRED: `OP_ExpUpdate`=`0x6801`, `OP_AAExpUpdate`=`0x42d1`
+
+Per the community l-patch (`eql-full-edits-20260709l`) + capture verification: the daemon had
+the two exp opcodes swapped, which is why BOTH were "deferred" (each size-mismatched its struct).
+Corrected in `conf/eql/opcodes.toml`:
+- **`OP_ExpUpdate` = `0x6801`** (16B `expUpdateStruct`) — the **regular** exp bar. Layout: `u32 exp
+  (0-100000 permille), u32 0, u32 aaUnspent (@8, NOT Live's type), u32 0`. Now **WIRED** →
+  `Player::updateExp` (`SZC_Match`). No scale conversion: the daemon already runs the 0-100000
+  scale (`reset()`/`loadProfile` set `m_minExp=0/m_maxExp=100000/m_tickExp=1`), so `exp@0` feeds
+  straight through. Verified: `player_stats.exp_cur` now populates (upperguk 9017→27751); the
+  death-respawn capture's single level-up shows the wrap 99.459%→3.622% at 0x6801 (vs 0x42d1's
+  TWO wraps = AA-point earns, which is how the cross-wiring was caught).
+- **`OP_AAExpUpdate` = `0x42d1`** (12B `altExpUpdateStruct`) — the AA bar. `u32 altexp (0-100000),
+  u32 aapoints, u32 tail`. DEFERRED: needs the 0-100000→330 conversion in `Player::updateAltExp`
+  before wiring (the l-patch has it). Id corrected + named for logs; not wired.
+- eql tier-2 goldens regenerated (`exp_cur` now present in `player_stats`). eql-only (no shared core).
+
 eql tier-2 **4/0 (1 skip)**, stable over 2 runs.
 
 **RE-WIRED 2026-07-07** (decoder-rs + daemon): all ids updated in `conf/eql/opcodes.toml`;

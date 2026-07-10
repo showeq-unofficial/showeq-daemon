@@ -198,10 +198,14 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_EndUpdate", SP_Zone, DIR_Server,
          "endUpdateStruct", SZC_Match,
          seqBind(ms.player, &Player::updateEndurance));
-    // OP_ExpUpdate (0x42d1): DECODER DEFERRED. eql is 12B on a 0-100000 scale;
-    // Live's expUpdateStruct is 16B x/330. Wiring updateExp now would mis-bind
-    // (the toml payload is uint8_t/none) and mis-scale. Named for logs; wire it
-    // with a 12B size override + the 0-100000->330 conversion in Player::updateExp.
+    // OP_ExpUpdate (0x6801, 16B expUpdateStruct): the regular exp bar. The ids
+    // were cross-wired with OP_AAExpUpdate (0x42d1); corrected per the community
+    // l-patch. exp@0 is 0-100000 permille — the same scale the daemon already
+    // uses (reset()/loadProfile set m_minExp=0/m_maxExp=100000/m_tickExp=1), so
+    // Player::updateExp consumes it directly with no conversion.
+    wire("OP_ExpUpdate", SP_Zone, DIR_Server,
+         "expUpdateStruct", SZC_Match,
+         seqBind(ms.player, &Player::updateExp));
     wire("OP_LevelUpdate", SP_Zone, DIR_Server,
          "levelUpUpdateStruct", SZC_Match,
          seqBind(ms.player, &Player::updateLevel));
