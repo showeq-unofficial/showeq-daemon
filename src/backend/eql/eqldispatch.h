@@ -40,7 +40,8 @@ public:
     void playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir);
     // OP_NewZone (0x1dbf) S>C: packed null-terminated short/long zone names.
     void newZone(const uint8_t* data, size_t len, uint8_t dir);
-    // OP_ZoneSpawns (0x7475) S>C: null-terminated name + fixed spawn block.
+    // OP_ZoneEntry (0x4606) S>C: null-terminated name + fixed spawn block
+    // (stock-SEQ name for the per-spawn zone stream; not the dead OP_ZoneSpawns).
     void spawn(const uint8_t* data, size_t len, uint8_t dir);
     // OP_MobUpdate (0x061b) S>C: per-mob position update.
     void mobUpdate(const uint8_t* data, size_t len, uint8_t dir);

@@ -107,7 +107,7 @@ void EqlDispatch::newZone(const uint8_t* data, size_t len, uint8_t dir)
 
 void EqlDispatch::spawn(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_ZoneSpawns S>C: null-terminated name + variable NPC block, decoded by
+    // OP_ZoneEntry S>C: null-terminated name + variable NPC block, decoded by
     // the full front walk in parse_zone_spawn (name, lastName, race/class/deity/
     // guild, real npc flag, decoded position, HP, h2048 heading). title/suffix
     // are decoded but have no daemon/proto home yet; the heading is the starting

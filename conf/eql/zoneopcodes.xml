@@ -7,11 +7,6 @@
         <comment>EQ Legends char profile (~38KB): hdr race@21/class@25/level@33; bind@39; name deep. See OPCODES_LEGENDS.md</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_ZoneEntry" updated="05/20/26">
-        <comment>ZoneEntryCode</comment>
-        <payload dir="client" typename="ClientZoneEntryStruct" sizechecktype="match"/>
-        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
-    </opcode>
     <opcode id="34c7" name="OP_TimeOfDay" updated="07/09/26">
         <comment>07/07 rotation; 8B stock timeOfDayStruct byte-identical (wire-verified 8B); advances at EQ game rate</comment>
         <payload dir="server" typename="timeOfDayStruct" sizechecktype="match"/>
@@ -54,8 +49,8 @@
         <payload dir="client" typename="playerSelfPosStruct" sizechecktype="match"/>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="4606" name="OP_ZoneSpawns" updated="07/08/26">
-        <comment>EQ Legends spawn info (S>C): null-term name + variable block; position = three u32 words at the block tail (Z/Y/X @ len-95/-91/-87), each a signed 19-bit fixed-point (x8) coord in the word's low bits — same packing as Live spawnStruct position words. See OPCODES_LEGENDS.md</comment>
+    <opcode id="4606" name="OP_ZoneEntry" updated="07/09/26">
+        <comment>EQ Legends per-spawn zone stream (S>C, one spawn per payload): null-term name + variable block; position = three u32 words at the block tail (Z/Y/X @ len-95/-91/-87), each a signed 19-bit fixed-point (x8) coord in the word's low bits — same packing as Live spawnStruct position words. NAMED OP_ZoneEntry per stock SEQ: the s2c OP_ZoneEntry has carried the per-spawn payload (one fillSpawnStruct per packet) since 2008; OP_ZoneSpawns is the long-dead bulk-array opcode. Decoded by EqlDispatch::spawn. See OPCODES_LEGENDS.md</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>

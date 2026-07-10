@@ -4,7 +4,7 @@
  * Definition of DaemonApp::wireBoxPipeline() for -DSEQ_TARGET=eql. Structurally
  * this is wire_live.cpp with five opcodes re-pointed at the backend-owned
  * EqlDispatch adapter (OP_PlayerProfile / OP_ClientUpdate / OP_NewZone /
- * OP_ZoneSpawns / OP_MobUpdate) and the Live S>C OP_ClientUpdate spawn-position
+ * OP_ZoneEntry / OP_MobUpdate) and the Live S>C OP_ClientUpdate spawn-position
  * wire dropped (that opcode/struct differs on Legends and isn't mapped yet).
  * Every OTHER wire is carried over from Live unchanged: it only fires if a
  * Legends opcode id collides with a Live-named opcode present in conf/eql, and
@@ -72,9 +72,10 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     auto eql = std::make_shared<EqlDispatch>(ms.zoneMgr, ms.spawnShell, ms.player);
 
     // --- ZoneMgr: zone transitions + player profile.
-    wire("OP_ZoneEntry", SP_Zone, DIR_Client,
-         "ClientZoneEntryStruct", SZC_Match,
-         seqBind(ms.zoneMgr, &ZoneMgr::zoneEntryClient));
+    // (EQ Legends has no separate c2s OP_ZoneEntry: the 4606 c2s 92B is a
+    // spawn-list request, acknowledged under OP_ZoneEntry below and NOT wired to
+    // ZoneMgr::zoneEntryClient — on eql that would emit zoneBegin() and clear the
+    // spawn list. Zone identity comes from OP_PlayerProfile + OP_NewZone.)
     // EQ Legends OP_PlayerProfile (0x5207): header-only identity decode.
     wire("OP_PlayerProfile", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
@@ -142,12 +143,13 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_SpawnDoor", SP_Zone, DIR_Server,
          "doorStruct", SZC_Modulus,
          seqBind(ms.spawnShell, &SpawnShell::newDoorSpawns));
-    wire("OP_ZoneEntry", SP_Zone, DIR_Server,
-         "uint8_t", SZC_None,
-         seqBind(ms.spawnShell, &SpawnShell::zoneEntry));
-    // EQ Legends OP_ZoneSpawns (0x7475): one spawn per payload (name + block);
+    // EQ Legends OP_ZoneEntry (0x4606): one spawn per payload (name + block);
     // EqlDispatch parses the variable-length name and the fixed spawn block.
-    wire("OP_ZoneSpawns", SP_Zone, DIR_Server,
+    // Stock-SEQ name: the s2c OP_ZoneEntry has been the per-spawn payload since
+    // 2008 (OP_ZoneSpawns is the dead bulk-array op). Replaces the leftover Live
+    // SpawnShell::zoneEntry wire — that path calls m_player->update() on the PC
+    // record, which eql routes through EqlDispatch::spawn/upsertSpawn instead.
+    wire("OP_ZoneEntry", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(eql, &EqlDispatch::spawn));
     // EQ Legends OP_MobUpdate (0x67e0): per-mob position update (14B),
