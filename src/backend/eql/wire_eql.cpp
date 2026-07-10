@@ -165,14 +165,6 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_TargetMouse", SP_Zone, DIR_Client,
          "clientTargetStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::clientTarget));
-    // EQ Legends OP_Consider (0x4212): 24B {self, target, faction}. Decoded by
-    // seq-backend-eql's parse_legends_consider into the shared Consider, then the
-    // SAME neutral SpawnShell::consMessage Live uses — emits spawnConsidered ->
-    // Considered envelope -> web (select-on-consider). uint8_t/SZC_None: the 24B
-    // Legends payload isn't Live's 32B considerStruct, so the parser length-checks.
-    wire("OP_Consider", SP_Zone, DIR_Server | DIR_Client,
-         "uint8_t", SZC_None,
-         seqBind(ms.spawnShell, &SpawnShell::consMessage));
     wire("OP_WearChange", SP_Zone, DIR_Server | DIR_Client,
          "SpawnUpdateStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::updateSpawnInfo));
@@ -234,6 +226,12 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_RemoveSpawn", SP_Zone, DIR_Server | DIR_Client,
          "removeSpawnStruct", SZC_None,
          seqBind(ms.spawnShell, &SpawnShell::removeSpawn));
+    // OP_Consider (0x4212, 24B both dirs): eql's considerStruct is its OWN 24B
+    // struct (seq-backend-eql owns it; Live's is 32B), size-gated via the backend
+    // size table (struct_size_overrides) — so SZC_Match validates the real 24B
+    // with the real name, no uint8_t placeholder. parse_consider -> shared
+    // Consider -> neutral SpawnShell::consMessage (spawnConsidered -> Considered
+    // envelope -> web select-on-consider), the same path Live uses.
     wire("OP_Consider", SP_Zone, DIR_Server | DIR_Client,
          "considerStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::consMessage));

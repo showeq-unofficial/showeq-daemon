@@ -56,7 +56,7 @@ per-backend decoders.
 | OP_ZoneServerInfo| —      | **0x35d4** | ✅ world 130B, zone-server host `…everquestlegends.com` |
 | OP_EnterWorld    | 0x0839 | **0x26bf** | ✅ **2026-07-08**. World C>S 72B, **byte-identical to Live**: char name zero-padded @0 + 64B zeros + `0xffffffff` trailer; server reuses the opcode for a 1B S>C ack. Confirmed 2/2 login captures via dump-payload (name = known char). Mapping it lights up NamePromoter on eql (matches by opcode name + 72B len) → boxes are named at the **world handshake**, before zone-in; `--only-session <charname>` relays from that point. Prior 9bdc was a dead pre-patch guess |
 | OP_ChatServer    | —      | **0x4de7** | world 67B, chat connect `host,9877,rivervale.<char>,token` |
-| OP_PlayerProfile | 0x5207 | **0x62f0** | ✅ id (~40KB, embeds char name + inventory). name-stub = `0x46df` (656B). race u32@21 / class u32@25 / level u8@33; **name NUL-term @36047 → authoritative eql box name (2026-07-09)** |
+| OP_PlayerProfile | 0x5207 | **0x62f0** | ✅ id (~40KB, embeds char name + inventory). name-stub = `0x46df` (656B). race u32@21 / class u32@25 / level u8@33; **name via anchor-scan → authoritative eql box name (2026-07-09)** |
 | OP_NewZone       | 0x5ab6 | **0x1dbf** | ✅ **WIRED 2026-07-08**. Current zone as packed null-terminated `short_name` + `long_name` **text** (S>C, ~340B, once per zone-in) — the earlier "no zone-name text on the wire" sweep missed it. 3-way confirmed: guktop/"The City of Guk", nektulos/"Nektulos Forest", unrest/"The Estate of Unrest" (each a different length). Fires AFTER the profile + spawn bulk → `EqlDispatch::newZone`→`ZoneMgr::setZoneByName` via the new **`zoneResolved`** signal (map/filter/web, no spawn-clear/reset). Replaced the profile-@36211 hack; the old 0x4bc8 was the BIND zone (now `OP_ZoneBindMarker`) |
 | OP_Action2       | 0x32a9 | **0x1734** | ✅ **WIRED 2026-07-08**. Combat/damage stream (S>C, 48B, n=481/968). **Byte-identical to Live `action2Struct`**: target u16@0, source u16@2, damage i32@8, spell i32@20 (**-1=melee** for 422/481), type u8@40; @24–39 = knockback floats. Sole 48B S>C op. Lit up the already-wired `CombatRouter::action2` → replay emits **481 CombatEvent envelopes** (real src/tgt/dmg, e.g. 13167→13154 dmg107) |
 | OP_Action        | 0x049e | **0x73de** | ✅ **WIRED 2026-07-08**. Spell/special action (S>C). **Live paired send**: 64B `actionStruct` (n=97/117) + 88B `actionAltStruct` (n=22/43); target/source @0/@2, spell u16@4 (real ids 502/445/821…). Sole 64B/88B op → `SpellShell::action` (both payloads), 119 fires |
@@ -147,39 +147,36 @@ so it may shift with big inventory changes — re-derive if the zone resolves wr
 **Still TODO:** ClientUpdate heading+deltas (left 0 — no facing arrow / speed-between-updates;
 need a `/loc`-while-turning capture). That's the last open piece.
 
-### 2026-07-09 — OP_PlayerProfile `0x62f0` character NAME @36047 → authoritative eql box name
+### 2026-07-09 — OP_PlayerProfile `0x62f0` character NAME → authoritative eql box name
 
 The eql player/box name had been coming from **own-spawn adoption**, not the profile:
 the char's own `OP_ZoneSpawns` entry lands as a mob; `OP_ClientUpdate` later establishes
 the player id; `SpawnShell::playerChangedID` adopts that mob's name. i.e. sourced from the
-position/spawn path. The profile carries the name directly:
+position/spawn path. The profile carries the name directly.
 
-- **name = NUL-terminated Latin-1 string at OP_PlayerProfile offset `36047`**, immediately
-  followed by the skills `u32` array (0x100, 0x157, 0x1eb, …), ~164B before the `@36211`
-  zone record — all in the same deep tail record.
-- **Offset stable for this patch:** identical @36047 across an L26 (41611B) and an L30
-  (41891B) capture — the ~280B size delta is entirely in the tail *after* the name. But it
-  sits past the inventory block, so a big inventory change or a patch can shift it (same
-  fragility class as the removed `@36211` zone read).
+- **Located by an absolute anchor-scan, not a fixed offset.** `find_profile_name_block`
+  (`seq-backend-eql`) scans for the name/surname block signature — `u32 == 64` + 64-byte
+  NUL-terminated name buffer + `u32 == 32` + 32-byte NUL-terminated surname buffer — and
+  validates the candidate (a real first name is a capitalized, printable, NUL-terminated
+  run, so binary won't false-match). From that anchor the whole Live-shaped tail (surname,
+  birthday, expansions, languages, current zone, position, guild, money) parses positionally
+  (`read_profile_name_and_tail`).
+- **Why anchor-scan, not the offset.** The name was *first* found at a fixed offset (`36047`,
+  confirmed stable across an L26/41611B and an L30/41891B capture), but that offset sits
+  past the inventory block, so a big inventory change or a patch shifts it — same fragility
+  class as the removed `@36211` zone read. The anchor-scan is offset-independent (survives
+  the inventory/spellbook drift), so it **superseded** the fixed-offset read.
 
-**Decode (fixed offset + validate/fallback).** `read_profile_name` (`seq-backend-eql`) reads
-the NUL-terminated string at 36047 within a bounded 32B window and **validates it's a short
-(≤20) all-ASCII-alpha run**; a read that isn't (offset drifted → binary) returns "" and the
-daemon keeps its own-spawn-adoption name — graceful, never garbage. Filled into the shared
-`PlayerProfile.name` (bridge already maps it).
+**Wiring.** `EqlDispatch::profile` reads `out.name` → neutral `Player::setPlayerName` (stores
+name + emits `Player::identityNameResolved`); `DaemonApp` promotes the box on that signal
+**unconditionally** — the eql equivalent of Live's `ZoneMgr::playerProfile` → `promoteByName`
+(eql never emits `playerProfile`; its profile is decoded in `EqlDispatch`, not
+`fillProfileStruct`). Own-spawn adoption stays as the fallback for when the anchor block
+isn't found.
 
-**Wiring.** `EqlDispatch::profile` → new neutral `Player::setPlayerName` (stores name + emits
-`Player::identityNameResolved`); `DaemonApp` promotes the box on that signal **unconditionally**
-— the eql equivalent of Live's `ZoneMgr::playerProfile` → `promoteByName` (eql never emits
-`playerProfile`; its profile is decoded in `EqlDispatch`, not `fillProfileStruct`). Own-spawn
-adoption stays as the fallback for when the profile name is empty.
-
-**Verified** against `login-zone` / `upperguk` / `chat` fixtures: the profile now injects a
-non-empty, alpha-validated name into the early identity event — isolated per-fixture delta vs
-clean main is a single localized **+3-byte** growth of one ~891B message (placeholder → real
-name), entire remainder byte-identical, nothing dropped. Rust unit tests cover the valid read
-plus the drift / short-buffer rejection. (The eql tier-2 goldens are separately red on a
-map-geometry change owned by another session; they go green when this checkout returns to main.)
+**Verified** against `login-zone` / `upperguk` / `chat` fixtures: the profile names the box
+authoritatively, eql tier-2 goldens green. (The anchor-scan parser lives in `seq-backend-eql`;
+the fixed-offset first cut is kept above only as the derivation trail.)
 
 ### 2026-07-08 — Reverse-direction sweep: OP_ClientUpdate S>C (28B, other players) + OP_ZoneSpawns C>S (92B, zone-entry request)
 

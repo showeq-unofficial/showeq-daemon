@@ -56,8 +56,8 @@ void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
         return;
     // Name first: setPlayerName only stores it (+ signals the box picker); the
     // setIdentity() below then emits changeItem(tSpawnChangedALL) carrying the
-    // new name. An empty name (offset drifted) leaves box-naming to own-spawn
-    // adoption (SpawnShell::playerChangedID), the prior source.
+    // new name. An empty name (anchor block not found) leaves box-naming to
+    // own-spawn adoption (SpawnShell::playerChangedID), the prior source.
     QString name = latin1(out.name);
     if (!name.isEmpty())
         m_player->setPlayerName(name);

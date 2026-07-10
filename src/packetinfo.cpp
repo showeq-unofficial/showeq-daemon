@@ -32,11 +32,13 @@
 #include <QXmlStreamReader>
 
 #include <map>
+#include <string>
 
 #include "packetinfo.h"
 #include "packetcommon.h"
 #include "everquest.h"
 #include "diagnosticmessages.h"
+#include "seq-bridge-cxx/lib.h"
 
 
 //----------------------------------------------------------------------
@@ -65,6 +67,19 @@ EQPacketTypeDB::EQPacketTypeDB()
   addStruct("uint8_t", sizeof(uint8_t));
   addStruct("none", 0);
   addStruct("unknown", 0);
+
+  // Backend-sourced size overrides. The size table above is built from the
+  // daemon's compiled (Live) everquest.h sizeof (s_everquest.h); the linked
+  // Rust backend declares the authoritative size for any payload whose wire
+  // diverges (e.g. eql's 24B considerStruct vs Live's 32B). Applied last so
+  // they win over the sizeof entries. This is why SZC_Match validates against
+  // the backend's size, not a hardcoded daemon sizeof; live/test return an
+  // empty list, so this is a no-op there.
+  for (const auto& s : seq::rust::struct_size_overrides())
+  {
+    std::string name(s.name.data(), s.name.size());
+    addStruct(name.c_str(), (size_t)s.size);
+  }
 }
 
 EQPacketTypeDB::~EQPacketTypeDB()

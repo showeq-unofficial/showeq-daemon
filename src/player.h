@@ -173,9 +173,9 @@ public:
    void applySelfPosition(int16_t x, int16_t y, int16_t z,
                           int16_t deltaX, int16_t deltaY, int16_t deltaZ,
                           uint16_t heading, float speed);
-   // Sets the character name from a decoded profile (eql: OP_PlayerProfile
-   // name @36047). Stores it (setName) + emits identityNameResolved so
-   // DaemonApp can authoritatively name/merge the box in the picker.
+   // Sets the character name from a decoded profile (eql: the OP_PlayerProfile
+   // name, located by the Rust anchor-scan). Stores it (setName) + emits
+   // identityNameResolved so DaemonApp can authoritatively name/merge the box.
    void setPlayerName(const QString& name);
 
  signals:

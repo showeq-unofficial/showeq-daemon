@@ -1062,7 +1062,8 @@ void Player::setIdentity(uint16_t race, uint8_t classVal, uint8_t level)
 
 void Player::setPlayerName(const QString& name)
 {
-  // eql: the authoritative character name off OP_PlayerProfile (name @36047).
+  // eql: the authoritative character name off OP_PlayerProfile (located by the
+  // Rust parser's anchor-scan of the name/surname block, not a fixed offset).
   // Live/test set the name through the charProfileStruct path; this neutral
   // primitive lets the eql backend name the player without a Legends type in
   // core. It only stores the name — the caller's setIdentity() emits the
