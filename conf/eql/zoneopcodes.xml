@@ -19,12 +19,12 @@
         <comment>EQ Legends bind-point marker (14B S>C, once at zone-in). Carries the BIND zone id (u32@6), identical across zones (nektulos-vs-upperguk both read 25) — NOT the current zone. Was mis-labeled OP_NewZone until 2026-07-08. Unwired. See OPCODES_LEGENDS.md</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_SpawnDoor" updated="05/20/26">
-        <comment>DoorSpawnsCode</comment>
-        <payload dir="server" typename="doorStruct" sizechecktype="modulus"/>
+    <opcode id="71ca" name="OP_SpawnDoor" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, daemon-confirmed bulk door array 1452/2376B). DECODER DEFERRED: eql door rows are 132B (1452=11*132, 2376=18*132) vs Live doorStruct 136B, so SZC_Modulus on the 136B struct rejects it. Needs a 132B doorStruct size override (or an eql door decoder) before wiring. Named for logs; NOT wired.</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroundSpawn" updated="05/20/26">
-        <comment>MakeDropCode</comment>
+    <opcode id="0def" name="OP_GroundSpawn" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, daemon-confirmed): ground-item defs, makeDropStruct none. Present 19×(62/63B) in upperguk capture. Wired SpawnShell::newGroundItem (wire szt aligned none).</comment>
         <payload dir="server" typename="makeDropStruct" sizechecktype="none"/>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
@@ -32,16 +32,16 @@
         <comment>Coords in a zone that will port you to another zone</comment>
         <payload dir="server" typename="zonePointsStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_AAExpUpdate" updated="05/20/26">
-        <comment>Receiving AA experience. Also when percent to AA changes.</comment>
-        <payload dir="server" typename="altExpUpdateStruct" sizechecktype="match"/>
+    <opcode id="6801" name="OP_AAExpUpdate" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, daemon-confirmed 16B×N). DECODER DEFERRED: eql is 16B {u32 aaexp 0-100000 scale, u32 0, u32 type=2, u32 0x30000000} — Live's altExpUpdateStruct is 12B x/330. Needs a 16B struct size override + the 0-100000->330 scale conversion before wiring. Named for logs; NOT wired.</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_ExpUpdate" updated="05/25/26">
-        <comment>ExpUpdateCode</comment>
-        <payload dir="server" typename="expUpdateStruct" sizechecktype="match"/>
+    <opcode id="42d1" name="OP_ExpUpdate" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, daemon-confirmed 12B×N). DECODER DEFERRED: eql is 12B {u32 exp on a 0-100000 scale, u32 type=2, u32 junk} — Live's expUpdateStruct is 16B x/330. Needs a 12B struct size override + the 0-100000->330 scale conversion in Player::updateExp before wiring. Named for logs; NOT wired (would size-reject + mis-scale).</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GuildMOTD" updated="05/20/26">
-        <comment>GuildMOTD</comment>
+    <opcode id="46df" name="OP_GuildMOTD" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, daemon-confirmed): stock guildMOTDStruct byte-perfect (target@8, sender@72, message@140; 656B = header + msg buffer). Present 1×656B in captures. NOT wired yet — named for logs; handler wiring is guild-tier work.</comment>
         <payload dir="server" typename="guildMOTDStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="7171" name="OP_ClientUpdate" updated="07/05/26">
@@ -66,8 +66,8 @@
         <comment>EQ Legends spawn removal / death (S>C, 4B {u32 spawnId}, deleteSpawnStruct). CONFIRMED 2026-07-08 by time-correlation: 8/9 ids stop receiving OP_MobUpdate position updates at/after this event (mobs killed over a combat session). Lights up the already-wired SpawnShell::deleteSpawn. NOTE: 0x67a8 is the LOOK-ALIKE 4B {id} op but is combat engage/disengage (ids keep moving after; id=0 clears) — NOT despawn. See OPCODES_LEGENDS.md</comment>
         <payload dir="both" typename="deleteSpawnStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_RemoveSpawn" updated="05/20/26">
-        <comment>Remove spawn from zone</comment>
+    <opcode id="71ad" name="OP_RemoveSpawn" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, daemon-confirmed): S>C 5B + C>S 4B removeSpawnStruct, none-gated. Present 78×5B in upperguk capture. Wired SpawnShell::removeSpawn.</comment>
         <payload dir="both" typename="removeSpawnStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="66cb" name="OP_Death" updated="07/08/26">
@@ -99,8 +99,8 @@
         <comment>Info regarding guild members</comment>
         <payload dir="server" typename="GuildMemberUpdate" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_ClickObject" updated="05/20/26">
-        <comment>Items dropped on the ground</comment>
+    <opcode id="04d1" name="OP_ClickObject" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, wire-verified drop+pickup): stock remDropStruct byte-perfect (u16 dropId matches ground-spawn id, u16 spawnId=player). Match-gated. Wired SpawnShell::removeGroundItem. Not in current fixtures — community-verified.</comment>
         <payload dir="both" typename="remDropStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="73de" name="OP_Action" updated="07/08/26">
@@ -196,20 +196,20 @@
         <comment>StartCastCode - C>S 39B: {i32 gemSlot, u32 spellId, u8[10] 0xff, u32 targetId, ...}. Re-confirmed post-2026-05-22 patch.</comment>
         <payload dir="client" typename="startCastStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_SwapSpell" updated="07/19/23">
-        <comment>TradeSpellBookSlotsCode</comment>
+    <opcode id="0fa0" name="OP_SwapSpell" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, wire-verified): stock tradeSpellBookSlotsStruct (slot1 u32@0, slot2 u32@4) 8B exact. Match-gated. NOT wired yet — named for logs; not in current fixtures.</comment>
         <payload dir="both" typename="tradeSpellBookSlotsStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_MemorizeSpell" updated="05/26/26">
         <comment>Bidirectional 16B: {u32 gem_slot, u32 spellId, int16 action, int16 pad, u8[4] unknown}. action=1 C>S begin memorizing (no ack); action=2 C>S+S>C memorize complete (client shows 'You have finished memorizing'); action=3 C>S+S>C zone-in spell sync (declare existing spell in slot); action=4 observed post-patch (gem clear/forget, semantics TBD). Re-confirmed post-2026-05-22 patch: 11 C>S + 11 S>C balanced.</comment>
         <payload dir="both" typename="memSpellStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_InspectAnswer" updated="05/25/26">
-        <comment>InspectDataCode</comment>
+    <opcode id="17af" name="OP_InspectAnswer" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id): stock inspectDataStruct byte-perfect incl. 1956B total size (3/3 community inspects). Match-gated (dark if size differs). Wired MessageShell::inspectData. Not in current fixtures — community-verified.</comment>
         <payload dir="server" typename="inspectDataStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_Emote" updated="07/19/23">
-        <comment>EmoteTextCode</comment>
+    <opcode id="1cde" name="OP_Emote" updated="07/09/26">
+        <comment>07/09 EQL (community f-patch id): 4B header (ffffffff) + emote text; client is a fixed 1028B buffer, server dir is variable, so none-gated. NOT wired yet — named for logs (emote also rides OP_FormattedMessage which is handled).</comment>
         <payload dir="both" typename="emoteTextStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_SimpleMessage" updated="05/20/26">
@@ -220,20 +220,20 @@
         <comment>FormattedMessageCode i.e. pet dismissed etc</comment>
         <payload dir="server" typename="formattedMessageStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_CommonMessage" updated="05/20/26">
-        <comment>ChannelMessageCode i.e. /tell /ooc /shout etc</comment>
+    <opcode id="55eb" name="OP_CommonMessage" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, daemon-confirmed): /tell /ooc /shout etc, channelMessageStruct none. Present both dirs (63/71B) in captures. Wired MessageShell::channelMessage.</comment>
         <payload dir="both" typename="channelMessageStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_SpecialMesg" updated="05/20/26">
-        <comment>Communicate textual info to client including hail responses etc</comment>
+    <opcode id="22e1" name="OP_SpecialMesg" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, daemon-confirmed): NPC speech / hail responses, specialMessageStruct none. Present 8×(59/60B) in upperguk capture. Wired MessageShell::specialMessage.</comment>
         <payload dir="server" typename="specialMessageStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_RandomReq" updated="05/25/26">
-        <comment>RandomReqCode - C>S 8 bytes: {u32 bottom, u32 top}</comment>
-        <payload dir="client" typename="randomReqStruct" sizechecktype="match"/>
+    <opcode id="08cb" name="OP_RandomReq" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, wire-verified /random): stock randomReqStruct {u32 bottom, u32 top}, BUT both 8B and 9B forms on the wire (trailing byte optional) so none-gated. NOT wired yet — named for logs.</comment>
+        <payload dir="client" typename="randomReqStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_RandomReply" updated="05/25/26">
-        <comment>RandomCode - S>C 76 bytes broadcast: {u32 bottom, u32 top, u32 result, char name[64]}</comment>
+    <opcode id="6589" name="OP_RandomReply" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, wire-verified /random 1 100 = 63): stock randomStruct {u32 bottom, u32 top, u32 result, char name[64]} 76B exact. Match-gated. NOT wired yet — named for logs.</comment>
         <payload dir="server" typename="randomStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_ConsentResponse" updated="02/17/21">
@@ -261,8 +261,8 @@
         <comment>MoneyOnCorpseCode</comment>
         <payload dir="server" typename="moneyOnCorpseStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_SkillUpdate" updated="05/25/26">
-        <comment>Skill up code</comment>
+    <opcode id="6982" name="OP_SkillUpdate" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, daemon-confirmed): stock skillIncStruct byte-perfect (12B: skillId u32, value i32, +4). Present 15×12B in upperguk capture. Wired Player::increaseSkill.</comment>
         <payload dir="server" typename="skillIncStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_LevelUpdate" updated="05/25/26">
@@ -449,8 +449,8 @@
         <comment>WhoAllOutputCode - Variable length</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_InspectRequest" updated="05/25/26">
-        <comment>InspectRequestCode - 8 bytes C>S: {u32 target_spawn_id, u32 self_spawn_id}</comment>
+    <opcode id="2cc0" name="OP_InspectRequest" updated="07/09/26">
+        <comment>07/09 EQL (community f-patch id, wire-verified): C>S 8B {u32 targetId, u32 selfId}. Identification-only, no consumer. Named for logs.</comment>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_GetGuildMOTD" updated="11/28/12">
@@ -811,5 +811,9 @@
     </opcode>
     <opcode id="ffff" name="OP_RespondAA" updated="05/25/26">
         <comment>Server response to OP_AAAction; carries 12B records (ability_id, rank, _) for player's full AA list incl. auto-grants and purchased ranks</comment>
+    </opcode>
+    <opcode id="1ede" name="OP_HideCorpse" updated="07/09/26">
+        <comment>07/07 rotation (community f-patch id, daemon-confirmed): C>S 4B corpse-hide toggle. Present 18×4B C>S in upperguk capture. Identification-only, no consumer. Named for logs.</comment>
+        <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
 </seqopcodes>

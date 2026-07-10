@@ -134,15 +134,18 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     }
 
     // --- SpawnShell: spawn lifecycle + positions.
+    // eql ground-item defs are makeDropStruct/none (variable name field);
+    // szt matches conf/eql/opcodes.toml so the handler binds directly.
     wire("OP_GroundSpawn", SP_Zone, DIR_Server,
-         "makeDropStruct", SZC_Modulus,
+         "makeDropStruct", SZC_None,
          seqBind(ms.spawnShell, &SpawnShell::newGroundItem));
     wire("OP_ClickObject", SP_Zone, DIR_Server,
          "remDropStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::removeGroundItem));
-    wire("OP_SpawnDoor", SP_Zone, DIR_Server,
-         "doorStruct", SZC_Modulus,
-         seqBind(ms.spawnShell, &SpawnShell::newDoorSpawns));
+    // OP_SpawnDoor (0x71ca): DECODER DEFERRED. eql door rows are 132B (1452=11*132)
+    // vs Live doorStruct 136B, so the modulus check on the 136B struct rejects the
+    // bulk array. Named in conf/eql/opcodes.toml (uint8_t/none) for logs; wire it
+    // once a 132B doorStruct size override (or an eql door decoder) exists.
     // EQ Legends OP_ZoneEntry (0x4606): one spawn per payload (name + block);
     // EqlDispatch parses the variable-length name and the fixed spawn block.
     // Stock-SEQ name: the s2c OP_ZoneEntry has been the per-spawn payload since
@@ -195,9 +198,10 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_EndUpdate", SP_Zone, DIR_Server,
          "endUpdateStruct", SZC_Match,
          seqBind(ms.player, &Player::updateEndurance));
-    wire("OP_ExpUpdate", SP_Zone, DIR_Server,
-         "expUpdateStruct", SZC_Match,
-         seqBind(ms.player, &Player::updateExp));
+    // OP_ExpUpdate (0x42d1): DECODER DEFERRED. eql is 12B on a 0-100000 scale;
+    // Live's expUpdateStruct is 16B x/330. Wiring updateExp now would mis-bind
+    // (the toml payload is uint8_t/none) and mis-scale. Named for logs; wire it
+    // with a 12B size override + the 0-100000->330 conversion in Player::updateExp.
     wire("OP_LevelUpdate", SP_Zone, DIR_Server,
          "levelUpUpdateStruct", SZC_Match,
          seqBind(ms.player, &Player::updateLevel));
