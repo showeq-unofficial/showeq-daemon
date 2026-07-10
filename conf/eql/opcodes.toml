@@ -120,8 +120,8 @@ comment = "07/07 rotation (community f-patch id, daemon-confirmed): stock guildM
 [[zone]]
 id      = "7171"
 name    = "OP_ClientUpdate"
-updated = "2026-07-05"
-comment = "EQ Legends: C>S self-position (42B, wired). A 28B S>C variant carries OTHER-PLAYER positions (own byte-aligned pos+vel layout, not MobUpdate's packing) — identified 2026-07-08, field layout partial (needs a 2nd-char walk capture to finalize), still unwired. See OPCODES_LEGENDS.md"
+updated = "2026-07-10"
+comment = "EQ Legends: C>S self-position (42B float, wired). The 28B S>C variant is the OTHER-spawn position broadcast — 19-bit ×8 packed (coord in each word's low bits), NOT the byte-aligned floats the 2026-07-08 note guessed. Position cracked + WIRED 2026-07-10 (playerUpdateOther → SpawnShell::moveSpawn). See OPCODES_LEGENDS.md"
 
   # Size-gated on playerSelfPosStruct (sizeof==42): the eql self-pos FIELD layout
   # differs from Live's, but the size matches, so this is a size-gate only — the
@@ -131,13 +131,15 @@ comment = "EQ Legends: C>S self-position (42B, wired). A 28B S>C variant carries
   typename      = "playerSelfPosStruct"
   sizechecktype = "match"
 
-  # 28B S>C variant = other-player position broadcast; accept without a size
-  # check so it doesn't spam "doesn't match" warnings. No handler yet
-  # (layout partial — see OPCODES_LEGENDS.md 2026-07-08 reverse-direction sweep).
+  # 28B S>C other-spawn position broadcast. eql's playerSpawnPosStruct is 28B
+  # (19-bit ×8 packed) vs Live's 24B; the size (28) is declared by
+  # seq-backend-eql::size_overrides, so SZC_Match validates the real struct name
+  # (no uint8_t placeholder). Decode is Rust (decode_player_spawn_pos, eql's own
+  # 28B copy) → EqlDispatch::playerUpdateOther → SpawnShell::moveSpawn.
   [[zone.payloads]]
   dir           = "server"
-  typename      = "uint8_t"
-  sizechecktype = "none"
+  typename      = "playerSpawnPosStruct"
+  sizechecktype = "match"
 
 [[zone]]
 id      = "4606"

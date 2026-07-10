@@ -4,8 +4,9 @@
  * Definition of DaemonApp::wireBoxPipeline() for -DSEQ_TARGET=eql. Structurally
  * this is wire_live.cpp with five opcodes re-pointed at the backend-owned
  * EqlDispatch adapter (OP_PlayerProfile / OP_ClientUpdate / OP_NewZone /
- * OP_ZoneEntry / OP_MobUpdate) and the Live S>C OP_ClientUpdate spawn-position
- * wire dropped (that opcode/struct differs on Legends and isn't mapped yet).
+ * OP_ZoneEntry / OP_MobUpdate). The S>C OP_ClientUpdate spawn-position wire is
+ * kept (Legends' 28B playerSpawnPosStruct → EqlDispatch::playerUpdateOther),
+ * just re-pointed at the backend adapter like the C>S self-position wire.
  * Every OTHER wire is carried over from Live unchanged: it only fires if a
  * Legends opcode id collides with a Live-named opcode present in conf/eql, and
  * the size checks keep mismatched payloads from dispatching. Install order is
@@ -108,7 +109,8 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
             ms.player,  SLOT(player(const charProfileStruct*)));
 
     // EQ Legends OP_ClientUpdate (0x7171): C>S self-position (42B float).
-    // Wired DIR_Client only — the 28B S>C other-player variant isn't decoded yet.
+    // Wired DIR_Client here; the 28B S>C other-spawn variant is wired separately
+    // below (playerUpdateOther), at the Live playerUpdate slot for fire order.
     // Size-gated on playerSelfPosStruct (sizeof==42); decode is Rust
     // (decode_player_self_pos). The eql self-pos layout differs from Live's but
     // the size matches, so this is a size-gate only, not a struct cast.
@@ -259,9 +261,17 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_NpcMoveUpdate", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(ms.spawnShell, &SpawnShell::npcMoveUpdate));
-    // (EQ Legends) The S>C OP_ClientUpdate spawn-position broadcast is a
-    // different opcode/struct than Live's playerSpawnPosStruct; not yet mapped,
-    // so no wire here (Live wired SpawnShell::playerUpdate at this spot).
+    // EQ Legends OP_ClientUpdate (0x7171) S>C, 28B: the position broadcast for
+    // OTHER spawns. eql's playerSpawnPosStruct is 28B (19-bit ×8 packed, coord in
+    // the LOW bits) vs Live's 24B, so it's size-gated via the backend size table
+    // (struct_size_overrides declares 28) — SZC_Match with the real struct name,
+    // no uint8_t placeholder. Decoded by eql's own parse_player_spawn_pos (28B)
+    // → EqlDispatch → the neutral SpawnShell::moveSpawn, the same primitive
+    // OP_MobUpdate uses (this is the exact slot Live wires SpawnShell::playerUpdate
+    // — keep here for fire order). Position cracked 2026-07-10; see OPCODES_LEGENDS.md.
+    wire("OP_ClientUpdate", SP_Zone, DIR_Server,
+         "playerSpawnPosStruct", SZC_Match,
+         seqBind(eql, &EqlDispatch::playerUpdateOther));
     wire("OP_CorpseLocResponse", SP_Zone, DIR_Server,
          "corpseLocStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::corpseLoc));

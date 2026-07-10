@@ -48,7 +48,7 @@ per-backend decoders.
 |--------|-----------|-----------|--------|
 | OP_TargetMouse   | 0x1bfe | **0x2867** | ✅ confirmed 19/19 (value-match; 0=untarget). Layout unchanged (`{u32 spawn_id}`) |
 | OP_Consider      | *(new)* | **0x4212** | ✅ NEW. 24B `{u32 self=27090, u32 target, u32 faction, u32 =7}`; C>S req has faction=0, S>C reply fills faction (**2=warmly, 4=amiably**; level comes from spawn). Companions: `0x5b5e` target-HP reveal `{u32 target, u32 cur_hp,…}`, `0x0e54` `{0,target}` |
-| OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ **C>S 42B self FULLY DECODED**; **S>C 28B = other-spawn positions — POSITION CRACKED 2026-07-10** (x/y/z are 19-bit ×8 packed, NOT the byte-aligned floats the 2026-07-08 note guessed — see entry below; still unwired). C>S: spawnId u16@2; wire has gameY@10 / gameX@18 / z@30 (f32) → bound **x=gameX@18, y=gameY@10**; velocity deltaX@26 / deltaY@6 (f32); **heading u16@14, 11-bit (0–2047, North≈0)** — Sense-Heading-confirmed. deltaZ candidate @22. (X/Y-swap fixed `60b2a79`) |
+| OP_ClientUpdate  | 0x0b03 | **0x7171** | ✅ **C>S 42B self FULLY DECODED**; **S>C 28B = other-spawn positions — CRACKED + WIRED 2026-07-10** (x/y/z are 19-bit ×8 packed, NOT the byte-aligned floats the 2026-07-08 note guessed → `EqlDispatch::playerUpdateOther`→`SpawnShell::moveSpawn`; see entry below). C>S: spawnId u16@2; wire has gameY@10 / gameX@18 / z@30 (f32) → bound **x=gameX@18, y=gameY@10**; velocity deltaX@26 / deltaY@6 (f32); **heading u16@14, 11-bit (0–2047, North≈0)** — Sense-Heading-confirmed. deltaZ candidate @22. (X/Y-swap fixed `60b2a79`) |
 | OP_ZoneEntry     | 0x7475 | **0x4606** | ✅ id (var 343–352B NPC / 486B rich). **Renamed OP_ZoneSpawns → OP_ZoneEntry 2026-07-09** (stock SEQ: the s2c OP_ZoneEntry has carried the per-spawn payload — one fillSpawnStruct per packet — since 2008; OP_ZoneSpawns is the dead bulk-array op). Same id/decoder (EqlDispatch::spawn), stock-live name. level@block+4 OK. **POS from block END**: three u32 words z@(len-95), **y=gameY@(len-91), x=gameX@(len-87)**, each a **signed 19-bit fixed-point (×8) coord in the word's low bits** (Live spawnStruct-style packing; upper 13 bits = other subfields). The earlier `/8 i16` read was the same field truncated — wrapped past ±4095. hp/body offsets TBD. **C>S 92B = client zone-entry / spawn-list request** (name@4 + session token + fixed signature block; identified 2026-07-08, see entry below) |
 | OP_MobUpdate     | 0x061b | **0x67e0** | ✅ id (14B, ids 416/416 match spawns). **Byte-identical to Live `spawnPositionUpdate`** (2026-07-08): spawnId u16@0 + 2 zero bytes, then packed `y:19 z:19 u3:7 x:19` (fixed-point ×8, u64@4) + `heading:12`@12 — decoded by the shared `decode_mob_update`, full range, no wrap. The old i16-offset read (y@4/8, z@6/64, x@10 "unscaled") was a truncated window of these bitfields. Sparse full-position sync; continuous movement is OP_NpcMoveUpdate |
 | OP_NpcMoveUpdate | 917c (dead) | **0x7352** | ✅ **2026-07-08**. The continuous per-NPC movement stream (var 15–21B, top S>C opcode: 734 fires/51 ids vs MobUpdate's 591). **Byte-identical bit format to Live** OP_NpcMoveUpdate → decoded by the shared `decode_npc_move_update`; only the opcode-id mapping was wrong (917c never appears on the wire). Carries pos **+ velocity + heading**. Confirmed: all 51 ids (16b BE spawnId) + decoded x/y/z match the 0x67e0 stream. Fixes "mobs freeze while moving, jump on stop" |
@@ -111,11 +111,19 @@ to render other spawns on the map**.
 **Spawn coverage:** 104 distinct spawnId@0. 49 overlap MobUpdate (also NPC-positioned); the other
 55 are ClientUpdate-only (player-style spawns positioned primarily by this op, as on Live).
 
-**Wiring (not yet done):** parser `parse_legends_spawn_pos` (28B) in `seq-backend-eql` → decode via
-`seq-bridge` → `EqlDispatch` handler → the already-neutral `SpawnShell::moveSpawn` (the exact path
-MobUpdate uses); size override `("playerSpawnPosStruct", 28)` (already scoped in
-`BACKEND_SIZE_TABLE_PLAN.md`) + flip the toml payload `uint8_t/none → playerSpawnPosStruct/match`;
-regen eql tier-2 goldens (adds position events). Mirror: **eql-only, do NOT mirror to legacy.**
+**Wiring (DONE 2026-07-10):** `seq-backend-eql`'s own `parse_player_spawn_pos` rewritten for the
+28B layout (clean-break: Live's 24B copy in `seq-decode` untouched) → reuses the existing
+`decode_player_spawn_pos` FFI (no new bridge surface) → `EqlDispatch::playerUpdateOther` applies
+`>> 3` and calls the neutral `SpawnShell::moveSpawn` (the exact path OP_MobUpdate uses; guards the
+player's own id). Wired in `wire_eql.cpp` at the Live `playerUpdate` slot (fire order). Size override
+`("playerSpawnPosStruct", 28)` added to `size_overrides()`; toml payload flipped `uint8_t/none →
+playerSpawnPosStruct/match`. **Verified:** `--opcode-stats` shows 0x7171 `known`, 0 "doesn't match";
+login-zone `spawn_updated` **2316 → 2542** (+226 ≈ the 230 S>C fires); a spawn seen in BOTH streams
+(id 26973) has an identical ClientUpdate vs MobUpdate centroid (**dist 0.0**), median step 8.3 (vs
+golden 8.5) — positions agree in sign/scale/frame; 15 spawns (mostly players absent from MobUpdate)
+gain smooth ground-level positions. eql tier-2 **4/0** (regenerated the 3 fixtures with S>C fires,
+stable ×3); Rust workspace green; Live regression **17/0**. Mirror: **eql-only, do NOT mirror to
+legacy.** Heading/velocity still ride the high bits (unused by `moveSpawn`).
 
 ### 2026-07-09 — Tier-1 id-sync from the community f-patch (`eql-full-edits-20260709f`)
 
@@ -213,6 +221,39 @@ exp bar, so the daemon does too. `OP_ExpUpdate 0x6801` now routes through **`Eql
 only ever decreases at a ding — a bare `new < last` test needs no death-dip guard. `applyLevel` is
 unused on live/test (they get level from `OP_LevelUpdate`); live tier-2 17/0 unregressed. Verified:
 replay fires the heuristic exactly twice, **level 1→2→3**, no false dings. eql tier-2 4/0.
+
+### 2026-07-10 — collision audit: eql C++ dispatch still gates on Live struct sizes (0 active bugs, 11 dormant landmines)
+
+Full audit of all 45 `wire_eql.cpp` bindings (struct `sizeof` from `backend/live/everquest.h` + Rust
+`size_overrides()` vs eql packet sizes across all 7 captures). **The Rust DECODE is fully separated
+(`seq-backend-eql`), but the C++ WIRE layer still borrows Live struct SIZES for the `SZC_Match` gate.**
+Result: **0 truly-dead wires, 0 active mis-decodes** — WearChange (fixed above) was the only live landmine.
+Buckets: 9 clean (`uint8_t`+Rust), 14 firing-OK (Live size == eql size: byte-identical fmt or override),
+3 multi-payload, 11 `SZC_None`+Live-name (gate off, Rust decodes by length → struct name is cosmetic),
+**11 DORMANT `ffff`+Live-struct `SZC_Match` = WearChange-class landmines** (safe until mapped).
+
+**Gate size has THREE silent sources** — C++ `sizeof` (Live `everquest.h`), the toml, and the Rust
+`size_overrides()` table (`seq-backend-eql/src/lib.rs:717`, applied `packetinfo.cpp:78`; only 2 entries:
+considerStruct→24, startCastStruct→40). A static-`sizeof` read alone is WRONG (it false-flagged Consider/
+CastSpell as dead). **Before mapping any `ffff` eql opcode, check its collision size below against the real
+eql packet size** (see also the [[project_eql_wire_copy_collision]] rule):
+
+```
+OP_ZoneChange 100   OP_MobHealth 6    OP_Stamina 8     OP_EndUpdate 10    OP_LevelUpdate 24
+OP_SpawnRename 195  OP_Illusion 332   OP_SpawnAppearance 8   OP_CorpseLocResponse 16   OP_SimpleMessage 12
+```
+
+**De-piggyback mechanism — BUILT 2026-07-10.** (1) `seq-backend-eql::size_overrides()` extended from the 3
+divergent structs to the FULL eql `SZC_Match` gate-size registry (19 entries) — every mapped eql `SZC_Match`
+opcode now declares its gate size in the backend (sourced from the crate's own pinned `eqstructs` where a
+binding exists, else the capture-confirmed size), so no eql gate silently inherits the daemon's compiled Live
+`sizeof`. (2) `EQPacketTypeDB` records which sizes were backend-declared; `EQPacketOPCodeDB::warnUndeclaredBackendGateSizes()`
+(called after each opcode-DB load in `packet.cpp`) warns loudly at startup for any MAPPED `SZC_Match` opcode
+still gating on a Live `sizeof` — turning the WearChange-class collision from a silent mis-decode into a
+visible map-time error. No-op on live/test (`hasOverrides()==false`). The validation proved itself by catching
+3 omissions on first run (BuffWindow/RandomReply/SwapSpell, now declared). Verified: eql 4/0, live 17/0, 0
+warnings both. The next `ffff→id` map for any of the 11 dormant landmines above will now warn until its eql
+size is declared.
 
 ### 2026-07-10 — l-patch addendum 3 batch: size-check hardening (already in place) + `OP_WearChange 0x5c62` named-inert
 

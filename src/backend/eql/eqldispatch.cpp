@@ -119,6 +119,31 @@ void EqlDispatch::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
                                 out.heading, speed);
 }
 
+void EqlDispatch::playerUpdateOther(const uint8_t* data, size_t len, uint8_t dir)
+{
+    // OP_ClientUpdate S>C, 28B: the position broadcast for spawns OTHER than the
+    // local player (players + some NPCs). Distinct from Live's 24B
+    // playerSpawnPosStruct — eql packs each coord in the LOW 19 bits of a u32
+    // (×8 fixed-point), decoded by this backend's own parse_player_spawn_pos.
+    // The parser surfaces raw 19-bit values; apply >> 3 here for the 1/8-unit →
+    // integer conversion (as Live's SpawnShell::playerUpdate does). Position
+    // only → the neutral SpawnShell::moveSpawn, the same path OP_MobUpdate uses;
+    // moveSpawn takes no heading, so the decoded heading is unused for now.
+    if (dir != DIR_Server)
+        return;
+    auto out = seq::rust::decode_player_spawn_pos(
+        rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
+        return;
+    // The player's own position is authoritative from OP_ClientUpdate C>S
+    // (playerUpdateSelf); never let the broadcast move the PC record.
+    if (m_player && out.spawn_id == (uint16_t)m_player->id())
+        return;
+    m_spawnShell->moveSpawn(out.spawn_id,
+                            int16_t(out.x >> 3), int16_t(out.y >> 3),
+                            int16_t(out.z >> 3));
+}
+
 void EqlDispatch::newZone(const uint8_t* data, size_t len, uint8_t dir)
 {
     // OP_NewZone (0x1dbf) S>C, once per zone-in: the authoritative current zone,

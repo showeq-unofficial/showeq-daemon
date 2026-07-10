@@ -44,10 +44,10 @@
         <comment>07/07 rotation (community f-patch id, daemon-confirmed): stock guildMOTDStruct byte-perfect (target@8, sender@72, message@140; 656B = header + msg buffer). Present 1×656B in captures. NOT wired yet — named for logs; handler wiring is guild-tier work.</comment>
         <payload dir="server" typename="guildMOTDStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="7171" name="OP_ClientUpdate" updated="07/05/26">
-        <comment>EQ Legends: C>S self-position (42B, wired). A 28B S>C variant carries OTHER-PLAYER positions (own byte-aligned pos+vel layout, not MobUpdate's packing) — identified 2026-07-08, field layout partial (needs a 2nd-char walk capture to finalize), still unwired. See OPCODES_LEGENDS.md</comment>
+    <opcode id="7171" name="OP_ClientUpdate" updated="07/10/26">
+        <comment>EQ Legends: C>S self-position (42B float, wired). The 28B S>C variant is the OTHER-spawn position broadcast — 19-bit ×8 packed (coord in each word's low bits), NOT the byte-aligned floats the 2026-07-08 note guessed. Position cracked + WIRED 2026-07-10 (playerUpdateOther → SpawnShell::moveSpawn). See OPCODES_LEGENDS.md</comment>
         <payload dir="client" typename="playerSelfPosStruct" sizechecktype="match"/>
-        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+        <payload dir="server" typename="playerSpawnPosStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="4606" name="OP_ZoneEntry" updated="07/09/26">
         <comment>EQ Legends per-spawn zone stream (S>C, one spawn per payload): null-term name + variable block; position = three u32 words at the block tail (Z/Y/X @ len-95/-91/-87), each a signed 19-bit fixed-point (x8) coord in the word's low bits — same packing as Live spawnStruct position words. NAMED OP_ZoneEntry per stock SEQ: the s2c OP_ZoneEntry has carried the per-spawn payload (one fillSpawnStruct per packet) since 2008; OP_ZoneSpawns is the long-dead bulk-array opcode. Decoded by EqlDispatch::spawn. See OPCODES_LEGENDS.md</comment>
