@@ -534,6 +534,17 @@ comment = "S>C buff broadcast — variable length, no legacy 168b buffStruct fit
   sizechecktype = "none"
 
 [[zone]]
+id      = "77ae"
+name    = "OP_BuffList"
+updated = "2026-07-10"
+comment = "07/09 l-patch: authoritative per-spawn active-buff list, resent at zone-in + on every buff change, carrying REAL server-side remaining durations (the patch's 'one that makes it work'). Variable size (VALIDATED 26/26 upperguk, cursor lands on packet end): u32 spawnId, u32 (seq/ts), u8 flag=1, u8 count, u8[5] pad, then count records {u32 spellId, u32=1, i32 remainingTicks, u32=0} + NUL caster name + slot (u32 between records, u16 on the final). remainingTicks<=0 = permanent. Wired → SpellShell::buffList (player-only); mob lists dropped."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
 id      = "ffff"
 name    = "OP_BeginCast"
 updated = "2026-05-26"

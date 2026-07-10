@@ -43,7 +43,8 @@ SpellItem::SpellItem()
     m_casterId(0),
     m_targetId(0),
     m_buffSlot(-1),
-    m_isSong(false)
+    m_isSong(false),
+    m_permanent(false)
 {
     // m_cast (startCastStruct) is a wire struct populated by update();
     // not read until then. m_spellName/m_casterName/m_targetName default
@@ -370,6 +371,62 @@ void SpellShell::buff(const uint8_t* data, size_t size, uint8_t dir)
   }
 }
 
+void SpellShell::buffList(const uint8_t* data, size_t size, uint8_t dir)
+{
+  // EQ Legends OP_BuffList (0x77ae): authoritative per-spawn buff list, resent
+  // at zone-in and on every buff change. We surface the LOCAL PLAYER's buffs
+  // (the showeq-web buff panel already renders personal buffs from the buffs
+  // proto); mob buff lists are dropped for now.
+  if (dir == DIR_Client)
+    return;
+  auto entries =
+      seq::rust::decode_buff_list(rust::Slice<const uint8_t>{data, size});
+  if (entries.empty())   // decode failed / empty list
+    return;
+
+  const uint32_t spawnId = entries.front().spawn_id;
+  if (m_player->id() == 0 || spawnId != m_player->id())
+    return;   // another spawn's buff list — not surfaced
+
+  // remainingTicks <= 0 is a permanent buff. Encode it as duration -1: the
+  // timer sweep skips negative durations (never counts down, never expires) and
+  // the proto forwards -1 so the web panel renders it as "Permanent" with no
+  // countdown. Real timers are remainingTicks * 6 seconds.
+  bool added = false;
+  for (const auto& e : entries)
+  {
+    if (e.spell_id == 0 || e.spell_id == 0xffffffff)
+      continue;
+    const bool permanent = e.remaining_ticks <= 0;
+    const int duration =
+        permanent ? SpellItem::PERMANENT_DURATION : e.remaining_ticks * 6;
+    const Spell* spell = m_spells->spell(e.spell_id);
+    SpellItem* item = findSpell(e.spell_id, m_player->id(), m_player->name());
+    if (item)
+    {
+      item->setPermanent(permanent);
+      item->setDuration(duration);
+      item->setBuffSlot(e.slot);
+      emit changeSpell(item);
+    }
+    else
+    {
+      item = new SpellItem();
+      item->update(e.spell_id, spell, duration, 0, "Buff",
+                   m_player->id(), m_player->name());
+      item->setPermanent(permanent);
+      item->setBuffSlot(e.slot);
+      m_spellList.append(item);
+      emit addSpell(item);
+      added = true;
+    }
+  }
+
+  if (added && !m_timer->isActive())
+    m_timer->start(1000 *
+                   pSEQPrefs->getPrefInt("SpellTimer", "SpellList", 6));
+}
+
 void SpellShell::action(const uint8_t* data, size_t len, uint8_t)
 {
   if (len != sizeof(actionStruct) && len != sizeof(actionAltStruct)) return;
@@ -579,6 +636,15 @@ void SpellShell::timeout()
   while (it != m_spellList.end())
   {
     spell = *it;
+
+    // Permanent buffs never count down and are never swept. (A sign check would
+    // be wrong: the stock sweep transiently parks a normal buff at -5..-1 before
+    // removing it, so gate on the explicit flag, not duration < 0.)
+    if (spell->isPermanent())
+    {
+      it++;
+      continue;
+    }
 
     int d = spell->duration() -
       pSEQPrefs->getPrefInt("SpellTimer", "SpellList", 6);

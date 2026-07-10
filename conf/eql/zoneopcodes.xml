@@ -188,6 +188,10 @@
         <comment>S>C buff broadcast — variable length, no legacy 168b buffStruct fit. Observed forms: 13b (likely fade: {u32 spawnID, u32 spellID, u16=0x0001, u8=0, u8 slot, u8=0}); 30b (single self-buff add, no caster); 34/51/53/59b (one or two embedded blocks each carrying {tag=0x036a u32, counter u32, padding, caster-name\0}); 85b (3-block form). Pre-patch OP_Buff 0x55b9 no longer fires; this slot carries all buff broadcasts. Confirmed across 53 fires (3 captures) — only opcode firing this variable-size buff-shaped pattern.</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
+    <opcode id="77ae" name="OP_BuffList" updated="07/10/26">
+        <comment>07/09 l-patch: authoritative per-spawn active-buff list, resent at zone-in + on every buff change, carrying REAL server-side remaining durations (the patch's 'one that makes it work'). Variable size (VALIDATED 26/26 upperguk, cursor lands on packet end): u32 spawnId, u32 (seq/ts), u8 flag=1, u8 count, u8[5] pad, then count records {u32 spellId, u32=1, i32 remainingTicks, u32=0} + NUL caster name + slot (u32 between records, u16 on the final). remainingTicks&lt;=0 = permanent. Wired → SpellShell::buffList (player-only); mob lists dropped.</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+    </opcode>
     <opcode id="ffff" name="OP_BeginCast" updated="05/26/26">
         <comment>BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad}. Re-confirmed post-2026-05-22 patch (castTime decodes to real ms: 4000/6500/9000).</comment>
         <payload dir="server" typename="beginCastStruct" sizechecktype="match"/>

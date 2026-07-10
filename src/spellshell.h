@@ -60,8 +60,12 @@ class Item;
 class SpellItem
 {
  public:
+  // A permanent buff: duration never counts down and is never swept; the proto
+  // forwards this so the web renders "Permanent" with no timer.
+  static constexpr int PERMANENT_DURATION = -1;
+
   SpellItem();
-  
+
   // get accessors
   uint32_t spellId() const;
   uint16_t targetId() const;
@@ -70,6 +74,11 @@ class SpellItem
   QString castTimeStr() const;
   int duration() const;
   QString durationStr() const;
+  // A permanent buff (remainingTicks <= 0 on the wire): the timer never
+  // decrements or sweeps it; duration() stays PERMANENT_DURATION so the proto
+  // forwards a permanent marker to the web.
+  bool isPermanent() const { return m_permanent; }
+  void setPermanent(bool p) { m_permanent = p; }
   bool isSong() const { return m_isSong; }
   const QString spellName() const;
   const QString targetName() const;
@@ -103,6 +112,7 @@ class SpellItem
   uint16_t m_targetId;
   int m_buffSlot;
   bool m_isSong;
+  bool m_permanent;
 
   struct startCastStruct m_cast; // Needed?
 };
@@ -215,6 +225,10 @@ class SpellShell : public QObject
   void selfStartSpellCast(const uint8_t*);
   void buffLoad(const spellBuff*);
   void buff(const uint8_t*, size_t, uint8_t);
+  // EQ Legends OP_BuffList (0x77ae): the authoritative per-spawn active-buff
+  // list with real remaining durations. Player-only here — refreshes the local
+  // player's spell-timer entries (add/update per record); mob lists are ignored.
+  void buffList(const uint8_t*, size_t, uint8_t);
   void action(const uint8_t*, size_t, uint8_t);
   void simpleMessage(const uint8_t* cmsg, size_t, uint8_t);
   void spellMessage(QString&);
