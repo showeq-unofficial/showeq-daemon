@@ -32,6 +32,7 @@
 #include <QObject>
 #include <QList>
 #include <QHash>
+#include <QSet>
 #include <QByteArray>
 #include <QString>
 #include <QStringList>
@@ -67,10 +68,19 @@ class EQPacketTypeDB
   bool valid(const char* typeName) const;
   void list(void) const;
 
+  // Backend gate-size ownership (see the ctor + struct_size_overrides()).
+  // wasOverridden() is true when the linked backend explicitly declared this
+  // type's size (so a SZC_Match gate on it is backend-owned, not an inherited
+  // Live sizeof). hasOverrides() is true for any backend that ships overrides
+  // (i.e. eql) — false for live/test, which legitimately use the compiled sizeof.
+  bool wasOverridden(const QString& typeName) const;
+  bool hasOverrides() const;
+
  protected:
   void addStruct(const char* typeName, size_t);
 
   QHash<QByteArray, size_t> m_typeSizeDict;
+  QSet<QString>             m_overriddenTypes;
 };
 
 //----------------------------------------------------------------------
@@ -279,6 +289,13 @@ class EQPacketOPCodeDB
   bool load(const EQPacketTypeDB& typeDB, const QString& filename);
   bool save(const QString& filename);
   void list(void) const;
+
+  // De-piggyback guard: warn (loudly, at load) for any MAPPED opcode whose
+  // SZC_Match payload gate size still comes from the compiled Live sizeof
+  // instead of an explicit backend size override. No-op unless the backend
+  // ships overrides (eql). Turns the WearChange-class collision from a silent
+  // mis-decode into a visible map-time error. See seq-backend-eql size_overrides().
+  void warnUndeclaredBackendGateSizes(const EQPacketTypeDB& typeDB) const;
   void clear(void);
   EQPacketOPCode* add(uint16_t opcode, const QString& opcodeName);
   EQPacketOPCode* edit(uint16_t opcode);

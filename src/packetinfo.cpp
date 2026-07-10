@@ -79,7 +79,21 @@ EQPacketTypeDB::EQPacketTypeDB()
   {
     std::string name(s.name.data(), s.name.size());
     addStruct(name.c_str(), (size_t)s.size);
+    // Record that this type's size is backend-owned, so the load-time gate-size
+    // audit (warnUndeclaredBackendGateSizes) can tell a declared eql size apart
+    // from a silently-inherited Live sizeof.
+    m_overriddenTypes.insert(QString::fromLatin1(name.c_str()));
   }
+}
+
+bool EQPacketTypeDB::wasOverridden(const QString& typeName) const
+{
+  return m_overriddenTypes.contains(typeName);
+}
+
+bool EQPacketTypeDB::hasOverrides() const
+{
+  return !m_overriddenTypes.isEmpty();
 }
 
 EQPacketTypeDB::~EQPacketTypeDB()
@@ -514,6 +528,52 @@ EQPacketOPCode* EQPacketOPCodeDB::add(uint16_t opcode, const QString& name)
 
   // return the opcode object
   return newOPCode;
+}
+
+void EQPacketOPCodeDB::warnUndeclaredBackendGateSizes(const EQPacketTypeDB& typeDB) const
+{
+  // Only backends that ship size overrides (eql) own their gate sizes; live/test
+  // legitimately gate on the compiled everquest.h sizeof, so this is a no-op there.
+  if (!typeDB.hasOverrides())
+    return;
+
+  int flagged = 0;
+  QHashIterator<int, EQPacketOPCode*> it(m_opcodes);
+  while (it.hasNext())
+  {
+    it.next();
+    EQPacketOPCode* op = it.value();
+    if (!op || op->opcode() == 0xffff)   // unmapped: no wire packets → no live gate yet
+      continue;
+
+    QListIterator<EQPacketPayload*> pit(*op);
+    while (pit.hasNext())
+    {
+      const EQPacketPayload* pl = pit.next();
+      if (!pl || pl->sizeCheckType() != SZC_Match)
+        continue;   // SZC_None / other checks don't gate on an exact struct size
+
+      const QString& tn = pl->typeName();
+      if (tn == "uint8_t" || tn == "char" || tn == "none" || tn == "unknown")
+        continue;   // primitive / sizeless payloads carry no Live struct
+
+      if (!typeDB.wasOverridden(tn))
+      {
+        seqWarn("BACKEND GATE-SIZE: %s (0x%04x) SZC_Match gates on the compiled Live "
+                "sizeof(%s)=%zu — declare its size in seq-backend-eql size_overrides() so the "
+                "eql gate is backend-owned (WearChange-class collision guard; see OPCODES_LEGENDS.md).",
+                op->name().toLatin1().constData(), op->opcode(),
+                tn.toLatin1().constData(), typeDB.size(tn.toLatin1().constData()));
+        ++flagged;
+      }
+    }
+  }
+
+  if (flagged)
+    seqWarn("BACKEND GATE-SIZE: %d mapped SZC_Match opcode(s) still inherit a Live sizeof instead "
+            "of a backend-owned size — each is a silent-mis-decode landmine if that Live struct "
+            "diverges or collides. Add explicit size_overrides() entries.",
+            flagged);
 }
 
 void EQPacketOPCodeDB::list(void) const

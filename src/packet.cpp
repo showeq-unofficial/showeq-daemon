@@ -138,6 +138,10 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
   if (!m_worldOPCodeDB->load(*m_packetTypeDB, worldopcodesxml))
     seqFatal("Error loading '%s'!", worldopcodesxml.toLatin1().data());
 
+  // de-piggyback guard: flag any mapped SZC_Match opcode still gating on a Live
+  // sizeof instead of a backend-owned size override (no-op on live/test).
+  m_worldOPCodeDB->warnUndeclaredBackendGateSizes(*m_packetTypeDB);
+
 #ifdef PACKET_OPCODEDB_DIAG
   m_worldOPCodeDB->list();
 #endif
@@ -150,6 +154,8 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
   // load the zone opcode db
   if (!m_zoneOPCodeDB->load(*m_packetTypeDB, zoneopcodesxml))
     seqFatal("Error loading '%s'!", zoneopcodesxml.toLatin1().data());
+
+  m_zoneOPCodeDB->warnUndeclaredBackendGateSizes(*m_packetTypeDB);
 
 #ifdef PACKET_OPCODEDB_DIAG
   m_zoneOPCodeDB->list();
