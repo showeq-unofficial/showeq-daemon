@@ -545,10 +545,10 @@ comment = "BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 c
   sizechecktype = "match"
 
 [[zone]]
-id      = "ffff"
+id      = "10b5"
 name    = "OP_CastSpell"
-updated = "2026-05-26"
-comment = "StartCastCode - C>S 39B: {i32 gemSlot, u32 spellId, u8[10] 0xff, u32 targetId, ...}. Re-confirmed post-2026-05-22 patch."
+updated = "2026-07-09"
+comment = "07/09 l-patch: the player's own cast request (C>S, 40B) = stock startCastStruct {i32 gemSlot@0, u32 spellId@4, u8[10]@8, u32 targetId@18, ...} + 1 trailing byte. Carries the target, so casts show in the spell-timer window immediately with the target. Wired → SpellShell::selfStartSpellCast; 40B via a startCastStruct size override (see seq-backend-eql size_overrides)."
 
   [[zone.payloads]]
   dir           = "client"

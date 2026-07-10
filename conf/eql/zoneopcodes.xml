@@ -192,8 +192,8 @@
         <comment>BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad}. Re-confirmed post-2026-05-22 patch (castTime decodes to real ms: 4000/6500/9000).</comment>
         <payload dir="server" typename="beginCastStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_CastSpell" updated="05/26/26">
-        <comment>StartCastCode - C>S 39B: {i32 gemSlot, u32 spellId, u8[10] 0xff, u32 targetId, ...}. Re-confirmed post-2026-05-22 patch.</comment>
+    <opcode id="10b5" name="OP_CastSpell" updated="07/09/26">
+        <comment>07/09 l-patch: the player's own cast request (C>S, 40B) = stock startCastStruct {i32 gemSlot@0, u32 spellId@4, u8[10]@8, u32 targetId@18, ...} + 1 trailing byte. Carries the target, so casts show in the spell-timer window immediately with the target. Wired → SpellShell::selfStartSpellCast; 40B via a startCastStruct size override (see seq-backend-eql size_overrides).</comment>
         <payload dir="client" typename="startCastStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="0fa0" name="OP_SwapSpell" updated="07/09/26">
