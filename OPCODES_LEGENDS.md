@@ -129,6 +129,39 @@ shared `decode_hp_update` FFI is stubbed inert for eql.
 - Self-contained: Rust + `EqlDispatch` only, no proto/web change (rides the existing
   `player_stats`/`spawn_updated` plumbing). eql tier-2 goldens regenerated (HP/mana values shift).
 
+### 2026-07-10 — LEVEL-UP: no discrete opcode exists; wired the exp-wrap heuristic instead
+
+**Question settled: EQL sends NO mid-session level packet.** `OP_LevelUpdate` stays `ffff` in
+`conf/eql/opcodes.toml`. Hunt fixture: `tests/replay/eql/eqlegends-levelup.vpk` (multi-ding grind,
+43× `0x6801`). Method + evidence (all `--dump-payload` over the `--replay` events timeline):
+
+- **2 dings, level 1→3, cross-confirmed three ways.** `0x6801` exp (u32@0 permille) wraps exactly
+  twice — `96700→3614` (ev 23167) and `97542→8421` (ev 52196); the profile `0x62f0` `u8@33` reads
+  **1** at capture start and **3** at the end; and `@12146` (the parked 2nd-class level, per the
+  2026-07-08 multiclass note) went `5→7`. All three agree on 2 level-ups.
+- **No opcode carries the ding — five searches, all negative:**
+  1. No opcode fires *only* in both ding windows (dedicated level packet). The ding "burst"
+     (`0x577f → 0x487e → 0x42d1 → 0x6801`) is just the ordinary **per-kill** burst: `0x487e` (n=41,
+     32B) and `0x577f` (n=34, 64/44B) fire on nearly every kill, not per-ding.
+  2. No per-kill opcode (`0x487e`/`0x577f`/`0x42d1`) has a field that's constant-then-`+1` at dings.
+  3. `OP_SpawnAppearance2 0x1bdc` for the player (id 4791, 137 fires) is `{spawnId, type∈{22,26}}`
+     with **param always 0** — no level broadcast (the ding-adjacent `0x1bdc` are the killed mobs).
+  4. Profile `0x62f0` fires 4× (login ×3 + once at capture end), **never at a ding**.
+  5. **Exhaustive scan of all 228 zone opcodes** (every u8/u16/u32 offset) + an **entity-keyed
+     rescan filtered to the player id** (closes the multi-entity blind spot, e.g. the `0x2735` stat
+     channel): **zero** `v→v+1→v+2` ding-aligned fields. Matches the l-patch author's "LevelUp is
+     missing" and the prior single-ding hunt.
+
+**Wired: the exp-wrap heuristic (`daemon`, eql-only).** The client itself infers a ding from the
+exp bar, so the daemon does too. `OP_ExpUpdate 0x6801` now routes through **`EqlDispatch::expUpdate`**
+(was `Player::updateExp` direct): it seeds level from the profile (`setIdentity`), and on each wrap
+(regular exp `new < last`) bumps the level via a new neutral `Player::applyLevel(uint8_t)` primitive
+(sets level + `fillConTable` + `levelChanged`/`changeItem(tSpawnChangedLevel)`), then forwards to
+`Player::updateExp`. **EQL has NO death XP penalty** (per-server design, per user), so regular exp
+only ever decreases at a ding — a bare `new < last` test needs no death-dip guard. `applyLevel` is
+unused on live/test (they get level from `OP_LevelUpdate`); live tier-2 17/0 unregressed. Verified:
+replay fires the heuristic exactly twice, **level 1→2→3**, no false dings. eql tier-2 4/0.
+
 ### 2026-07-09 — exp opcodes were CROSS-WIRED: `OP_ExpUpdate`=`0x6801`, `OP_AAExpUpdate`=`0x42d1`
 
 Per the community l-patch (`eql-full-edits-20260709l`) + capture verification: the daemon had

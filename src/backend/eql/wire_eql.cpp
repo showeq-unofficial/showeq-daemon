@@ -202,10 +202,16 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     // were cross-wired with OP_AAExpUpdate (0x42d1); corrected per the community
     // l-patch. exp@0 is 0-100000 permille — the same scale the daemon already
     // uses (reset()/loadProfile set m_minExp=0/m_maxExp=100000/m_tickExp=1), so
-    // Player::updateExp consumes it directly with no conversion.
+    // updateExp consumes it directly with no conversion. Routed through
+    // EqlDispatch (not Player::updateExp direct) because eql has no discrete
+    // level-up packet — expUpdate derives the ding from the exp wrap, then
+    // forwards to Player::updateExp. See OP_LevelUpdate below + OPCODES_LEGENDS.md.
     wire("OP_ExpUpdate", SP_Zone, DIR_Server,
          "expUpdateStruct", SZC_Match,
-         seqBind(ms.player, &Player::updateExp));
+         seqBind(eql, &EqlDispatch::expUpdate));
+    // OP_LevelUpdate stays mapped to `ffff` in conf/eql/opcodes.toml — eql has no
+    // discrete level packet (exhaustively confirmed 2026-07-10, OPCODES_LEGENDS.md),
+    // so this never fires; kept wired in case a future patch introduces one.
     wire("OP_LevelUpdate", SP_Zone, DIR_Server,
          "levelUpUpdateStruct", SZC_Match,
          seqBind(ms.player, &Player::updateLevel));

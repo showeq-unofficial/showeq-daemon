@@ -48,11 +48,17 @@ public:
     // OP_HPUpdate (0x2735) S>C: multiplexed stat-sync channel — spawn HP cur/max
     // (wide numeric or narrow percent) plus the player's mana/endurance.
     void statSync(const uint8_t* data, size_t len, uint8_t dir);
+    // OP_ExpUpdate (0x6801) S>C: the regular exp bar. eql has NO discrete
+    // level-up packet, so this ALSO drives the level — a wrap (exp resets to a
+    // low value) is a ding. See the .cpp + OPCODES_LEGENDS.md.
+    void expUpdate(const uint8_t* data, size_t len, uint8_t dir);
 
 private:
     ZoneMgr*    m_zoneMgr;
     SpawnShell* m_spawnShell;
     Player*     m_player;
+    // Last regular-exp permille seen (−1 = unseeded); a decrease is a ding.
+    int64_t     m_lastExp = -1;
 };
 
 #endif // SEQ_BACKEND_EQL_EQLDISPATCH_H
