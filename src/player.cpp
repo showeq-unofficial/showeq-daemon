@@ -654,6 +654,41 @@ void Player::manaChange(const uint8_t* data)
     savePlayerState();
 }
 
+void Player::setHealth(uint32_t cur, uint32_t max)
+{
+  // Neutral primitive: set the player's current+max HP from already-decoded
+  // cur/max and emit the stock displays (mirrors updateNpcHP's effect on the
+  // Player object so player_stats carries hp_cur/hp_max). Used by the eql
+  // 0x2735 stat-sync channel, where self HP arrives as real cur/max.
+  m_curHP = cur;
+  m_maxHP = max;
+  m_validHP = true;
+
+  updateLastChanged();
+
+  emit changeItem(this, tSpawnChangedHP);
+
+  emit hpChanged(m_curHP, m_maxHP);
+
+  if (showeq_params->savePlayerState)
+    savePlayerState();
+}
+
+void Player::setMana(uint32_t cur, uint32_t max)
+{
+  // Neutral primitive: set the player's current+max mana and emit the stock
+  // manaChanged display, now with a real max. Used by the eql 0x2735 stat-sync
+  // channel; coexists with manaChange() (OP_ManaChange) — last writer wins.
+  m_mana = cur;
+  m_maxMana = max;
+  m_validMana = true;
+
+  emit manaChanged(m_mana, m_maxMana);
+
+  if (showeq_params->savePlayerState)
+    savePlayerState();
+}
+
 void Player::updateAltExp(const uint8_t* data)
 {
   const altExpUpdateStruct* altexp = (const altExpUpdateStruct*)data;

@@ -45,9 +45,9 @@ public:
     void spawn(const uint8_t* data, size_t len, uint8_t dir);
     // OP_MobUpdate (0x061b) S>C: per-mob position update.
     void mobUpdate(const uint8_t* data, size_t len, uint8_t dir);
-    // OP_HPUpdate (0x2735) S>C: multiplexed stat channel; 6B subtype-0x02 is the
-    // NPC HP-bar feed (percent).
-    void hpUpdate(const uint8_t* data, size_t len, uint8_t dir);
+    // OP_HPUpdate (0x2735) S>C: multiplexed stat-sync channel — spawn HP cur/max
+    // (wide numeric or narrow percent) plus the player's mana/endurance.
+    void statSync(const uint8_t* data, size_t len, uint8_t dir);
 
 private:
     ZoneMgr*    m_zoneMgr;

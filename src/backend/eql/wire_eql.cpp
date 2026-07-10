@@ -177,13 +177,13 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_SpawnAppearance2", SP_Zone, DIR_Server,
          "spawnAppearance2Struct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::updateSpawnLock));
-    // OP_HPUpdate is eql's multiplexed stat channel (6B subtype-0x02 = HP-bar
-    // feed), not Live's fixed hpNpcUpdateStruct — decode via EqlDispatch, which
-    // passes the real packet length. NPC/spawn HP bars only; the player's own
-    // numeric HP rides the (not-yet-decoded) 21B cur/max subtype.
+    // OP_HPUpdate is eql's multiplexed stat-sync channel (u32 id + u8 flags +
+    // per-stat payload), not Live's fixed hpNpcUpdateStruct — decode via
+    // EqlDispatch, which passes the real packet length. Feeds spawn HP cur/max
+    // (wide numeric or narrow percent) and the player's mana (wide form).
     wire("OP_HPUpdate", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
-         seqBind(eql, &EqlDispatch::hpUpdate));
+         seqBind(eql, &EqlDispatch::statSync));
     wire("OP_MobHealth", SP_Zone, DIR_Server,
          "mobHealthStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::updateMobHealth));

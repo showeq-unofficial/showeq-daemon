@@ -139,16 +139,39 @@ void EqlDispatch::mobUpdate(const uint8_t* data, size_t len, uint8_t dir)
                             int16_t(out.x), int16_t(out.y), int16_t(out.z));
 }
 
-void EqlDispatch::hpUpdate(const uint8_t* data, size_t len, uint8_t dir)
+void EqlDispatch::statSync(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_HPUpdate S>C multiplexed stat channel. The eql parser returns ok only
-    // for the 6B subtype-0x02 HP-bar feed (spawn id + hp percent, max 100);
-    // other subtypes decode to ok=false and are dropped here. Passing the REAL
-    // length matters — the Live handlers hardcode sizeof(hpNpcUpdateStruct).
+    // OP_HPUpdate (0x2735) S>C multiplexed stat-sync channel. The Rust parser
+    // (parse_stat_sync) decodes u32 spawnId + u8 flags + per-stat payload —
+    // wide {i64 cur,max} pairs or narrow u8 percents — for HP/mana/endurance,
+    // with a structural size canary. Passing the REAL length matters: the size
+    // varies per packet (6/7/21/37/53B, optional +4 tail).
     if (dir != DIR_Server)
         return;
-    auto out = seq::rust::decode_hp_update(rust::Slice<const uint8_t>{data, len});
+    auto out = seq::rust::decode_stat_sync(rust::Slice<const uint8_t>{data, len});
     if (!out.ok)
         return;
-    m_spawnShell->updateSpawnHP((uint16_t)out.spawn_id, out.cur_hp, out.max_hp);
+
+    // HP. The Legends server sends the player their own real cur/max via the
+    // wide form and other spawns a narrow percent (max=100). The daemon surfaces
+    // the player's vitals through the Player object (→ player_stats), NOT through
+    // m_spawns — the player is never a m_spawns entry here (unlike legacy SEQ,
+    // where the f-patch routes to m_spawns.value(spawnId)). So split by id: the
+    // player's HP → Player::setHealth; every other spawn's HP → updateSpawnHP.
+    // Guard max>0 so a wide zero-max packet can't blank an HP bar.
+    if (out.has_hp && out.hp_max > 0)
+    {
+        if (m_player && out.spawn_id == (uint32_t)m_player->id())
+            m_player->setHealth((uint32_t)out.hp_cur, (uint32_t)out.hp_max);
+        else
+            m_spawnShell->updateSpawnHP((uint16_t)out.spawn_id,
+                                        (int32_t)out.hp_cur, (int32_t)out.hp_max);
+    }
+
+    // Mana → the player only, and only from the wide (real cur/max) form; the
+    // narrow percent form has no useful max. Plays the role of Live's absent
+    // OP_ManaChange on the Legends wire. Endurance has no stock display.
+    if (out.has_mana && out.wide && m_player &&
+        out.spawn_id == (uint32_t)m_player->id())
+        m_player->setMana((uint32_t)out.mana_cur, (uint32_t)out.mana_max);
 }

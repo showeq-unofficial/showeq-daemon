@@ -95,6 +95,40 @@ size override (+ exp scale conversion) before wiring — Tier-2/3.
 **Divergence kept (daemon finding wins):** `OP_ManaChange 0x07c9` — a real 20B S>C mana
 packet (23× in captures), kept over the community "mana only rides 0x2735".
 
+### 2026-07-09 — `0x2735` = the stat-sync channel, FULLY DECODED + WIRED (`OP_HPUpdate`)
+
+Resolves the 2026-07-08 "0x2735 = message/entity-event channel" investigation below: the
+per-entity structure that pass correctly *saw* (id@0 + subtype byte@4) but misread as text is
+the **stat-sync channel** — real HP / mana / endurance, not eqstr string-ids. Community f-patch
+(`SpawnShell::spawnStatEQL`, 6378 packets, zero layout exceptions) + our byte re-verification.
+
+**Wire** (`u32 spawnId | u8 flags | per-stat payload | [optional u32 tail]`):
+- `flags`: bit0 = wide, bit1 = HP, bit2 = mana, bit3 = stamina/endurance, bits4-5 = reason.
+- Wide form = `{i64 cur, i64 max}` per set stat bit (in bit order HP→mana→endurance); narrow
+  form = one `u8 percent` per stat (max=100). Size is exactly `5 + 16n` (wide) or `5 + n`
+  (narrow), optionally `+4` (trailing u32). `flags 0x31`, no stat bits = 6s keepalive.
+- Byte-verified over the 571 upperguk `0x2735` fires (`sizes=6:370,21:110,7:32,37:29,53:27,5:3`):
+  **0 structural-canary failures**, every wide `{cur,max}` sane (cur≤max, max>0).
+
+**Decode** = Rust `seq_backend_eql::parse_stat_sync` → FFI `decode_stat_sync` → `StatSync{spawn_id,
+wide, has_hp/hp_cur/hp_max, has_mana/mana_cur/mana_max}` (endurance parsed for the size canary but
+not surfaced — no stock display). The old 6B-percent-only `parse_hp_update` override is gone; the
+shared `decode_hp_update` FFI is stubbed inert for eql.
+
+**Wiring** (`EqlDispatch::statSync`, `OP_HPUpdate 0x2735 S>C`):
+- **Player HP** (the wide form is exclusively the player's own real cur/max — all 129 wide-HP
+  fires in upperguk target the player) → `Player::setHealth` → `player_stats.hp_cur/hp_max`.
+  *Daemon adaptation*: the f-patch routes HP to `m_spawns.value(spawnId)`, but here the player is
+  **never a `m_spawns` entry** (verified: `updateSpawnHP(13167)` finds nothing 129/129) — the
+  daemon surfaces player vitals through the Player object, so the player's HP must go there, not
+  to `updateSpawnHP` (which would silently drop it, like the pre-wide feed did).
+- **Other-spawn HP** (narrow percent) → `SpawnShell::updateSpawnHP` → `spawn_updated.hp_cur` (NPC
+  bars; 174 carry HP in upperguk).
+- **Player mana** (wide form only) → `Player::setMana` → `player_stats.mana_cur/mana_max`
+  (real numbers, max 743). Plays Live's OP_ManaChange role; coexists with the kept 0x07c9.
+- Self-contained: Rust + `EqlDispatch` only, no proto/web change (rides the existing
+  `player_stats`/`spawn_updated` plumbing). eql tier-2 goldens regenerated (HP/mana values shift).
+
 eql tier-2 **4/0 (1 skip)**, stable over 2 runs.
 
 **RE-WIRED 2026-07-07** (decoder-rs + daemon): all ids updated in `conf/eql/opcodes.toml`;
@@ -318,6 +352,13 @@ The single u32 item-id that appears/vanishes localizes the storage array; the ch
 `{race,class,gear}` block localizes loadouts.
 
 ### 2026-07-08 — `0x2735` = formatted-message channel (S>C); Sense Heading decoded
+
+> **SUPERSEDED (2026-07-09):** `0x2735` is the **stat-sync channel** (HP/mana/endurance) —
+> see the entry above. The "per-entity event stream" structure this pass found (id@0 +
+> subtype@4) was right; the "message/text channel" reading was wrong (the `u32@0` is the
+> spawn id, the `@4` byte is the stat `flags`, and the "string-ids" were HP/mana values). It
+> is now decoded + wired. Kept below as a cautionary tale on the entity-id/string-id
+> number-space collision that produced the false "173 text messages" reading.
 
 `0x2735` is the high-volume S>C **message channel** (1026 fires in the Nektulos
 capture, 571 in Upper Guk; variable 5–53 B). It's multiplexed — each message type has
