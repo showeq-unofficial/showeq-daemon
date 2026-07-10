@@ -852,6 +852,30 @@ void Player::updateLevel(const uint8_t* data)
   emit changeItem(this, tSpawnChangedLevel);
 }
 
+void Player::applyLevel(uint8_t newLevel)
+{
+  // Neutral level-set for backends without a discrete level packet (eql derives
+  // a ding from the exp bar wrapping — see EqlDispatch::expUpdate). No exp
+  // bookkeeping here: the caller still runs the normal exp path (updateExp), so
+  // this only moves the level and mirrors updateLevel()'s notification tail.
+  if (newLevel == 0 || newLevel == m_level)
+    return;
+
+  m_level = newLevel;
+
+  // update the con table
+  fillConTable();
+
+  updateLastChanged();
+
+  // signal that the level changed
+  emit levelChanged(m_level);
+  emit changeItem(this, tSpawnChangedLevel);
+
+  if (showeq_params->savePlayerState)
+    savePlayerState();
+}
+
 void Player::updateNpcHP(const uint8_t* data)
 {
   auto out = seq::rust::decode_hp_update(

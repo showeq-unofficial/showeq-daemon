@@ -91,6 +91,12 @@ public:
    void updateExp(const uint8_t* exp);
    void updateAltExp(const uint8_t* altexp);
    void updateLevel(const uint8_t* levelup);
+   // Neutral level-set primitive for backends that DERIVE a level change with
+   // no discrete level packet: eql has no OP_LevelUpdate, so it infers a ding
+   // from the exp bar wrapping (see EqlDispatch::expUpdate / OPCODES_LEGENDS.md).
+   // Sets the level and fires the same con-table refresh + notifications
+   // updateLevel() does. Unused on live/test (they get level from OP_LevelUpdate).
+   void applyLevel(uint8_t level);
    void updateNpcHP(const uint8_t* hpupdate);
    void updateSpawnInfo(const uint8_t* su);
    void updateStamina(const uint8_t* stam);
