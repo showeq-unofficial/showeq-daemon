@@ -572,10 +572,17 @@ bool DaemonApp::startCapture()
     // selected by the compiled SEQ_OPCODE_SUBDIR ("live"/"test"/"eql"). The
     // rest of --config-dir (seqdef.xml, maps/, etc.) stays shared at the root.
     const QString opcodeSubdir = QStringLiteral(SEQ_OPCODE_SUBDIR);
+    // preferUser=false: opcode tables are shipped/generated config (conf/, from
+    // opcodes.toml), NOT user data. The user data dir (~/.showeq) is SHARED with
+    // legacy showeq, whose flat zoneopcodes.xml the user may swap per target
+    // (e.g. EQL opcodes for legacy headless .vpk playback). Preferring user-data
+    // there made the LIVE daemon (SEQ_OPCODE_SUBDIR=".") load ~/.showeq's EQL
+    // table for a live capture → total mis-decode / SessionDisconnect. conf/
+    // wins; ~/.showeq stays a fallback only when conf/ lacks the file.
     const QFileInfo worldOpcodes =
-        m_dataLocationMgr->findExistingFile(opcodeSubdir, "worldopcodes.xml");
+        m_dataLocationMgr->findExistingFile(opcodeSubdir, "worldopcodes.xml", false, false);
     const QFileInfo zoneOpcodes =
-        m_dataLocationMgr->findExistingFile(opcodeSubdir, "zoneopcodes.xml");
+        m_dataLocationMgr->findExistingFile(opcodeSubdir, "zoneopcodes.xml", false, false);
     if (!worldOpcodes.exists() || !zoneOpcodes.exists()) {
         qCritical("missing opcode XML (%s/worldopcodes.xml / zoneopcodes.xml) "
                   "— check that conf/ is installed to PKGDATADIR",
