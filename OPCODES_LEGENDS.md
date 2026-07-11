@@ -65,6 +65,25 @@ per-backend decoders.
 | OP_Animation     | 0x6dba | **0x1293** | ✅ **2026-07-08** (id-only, no handler). Animation broadcast (S>C, 4B, n=354/718). **Live `animationStruct`**: spawnId u16@0, action u8@2 (1–46), speed u8@3 (**=10 across all 354**). Remapped so it resolves in opcode-stats; animation isn't surfaced, so no handler wired |
 | *(target HP reveal)* | — | **0x5b5e** | ⚑ 2026-07-08 candidate (unwired). On-target HP reveal (S>C, 13B primary, n=12/22): `{u32 spawn_id, u32 cur_hp, u32 =0x07000001, u8 0}`; cur_hp is **absolute** (=0 for a just-dead spawn). Consider-companion (cf. 0x0e54 `{0,target}`). NOT a continuous %-HP bar stream |
 
+### 2026-07-11 — OP_LoadoutSwap = `0x7477` (multiclass class/level refresh), WIRED
+
+**OP_LoadoutSwap = `0x7477`** (S>C, variable). Sent when a player switches loadouts
+(the Legends multiclass class/level change) — no `OP_PlayerProfile` follows, so this
+is the sole source for the new identity. Header `u32 spawnId | u8 | u16 innerLen |
+<record> | <inventory tail>`; the embedded record (`data[7..innerLen]`) is byte-
+identical to the `OP_ZoneEntry` (0x4606) spawn record, so `parse_loadout_swap` reuses
+**`parse_zone_spawn`** (eql's parser — NOT the Live-format `parse_spawn`, which silently
+mis-decodes) and surfaces the fields a swap changes: **level + class**. Two variants:
+self ~118 KB (own refresh, with inventory tail) and a short ~490 B **broadcast** the
+server sends nearby clients for ANY in-range player's swap (no tail). Confirmed firing
+2026-07-11 on login-zone (2×) + levelup (3×), 486–491 B; decode verified against the
+same character's 0x4606 record (race/class match, level tracks the swap — e.g. id 27034
+race=12 class=12, level 14→10). Wired: `EqlDispatch::loadoutSwap` → self routes to
+`Player::setIdentity`, broadcast to the new neutral `SpawnShell::updateSpawnIdentity`
+(level+class in place, no position; mirrors `updateSpawnHP`). eql goldens 5/0 (broadcast
+targets weren't tracked in these captures, so no golden delta — decode-verified, effect
+via real play). Ported from the external legacy port (rev 2026-07-10a); credit Xerxes.
+
 ### 2026-07-10 — 28B S>C OP_ClientUpdate = other-spawn position broadcast, POSITION CRACKED
 
 Capture: `tests/replay/eql/eqlegends-levelup.vpk` — the first fixture with a busy zone

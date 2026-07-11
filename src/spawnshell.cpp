@@ -872,6 +872,22 @@ void SpawnShell::updateSpawnHP(uint16_t id, int32_t curHp, int32_t maxHp)
   emit changeItem(item, tSpawnChangedHP);
 }
 
+// Neutral identity-apply primitive (eql OP_LoadoutSwap). Updates only the
+// fields a loadout swap changes on an already-known spawn (level + class);
+// position/HP are left to their own streams. The player's own spawn is not
+// tracked in m_spawns — the caller refreshes it via Player::setIdentity.
+void SpawnShell::updateSpawnIdentity(uint16_t id, uint8_t level, uint8_t classVal)
+{
+  Item* item = m_spawns.value(id, nullptr);
+  if (item == NULL)
+    return;
+  Spawn* spawn = (Spawn*)item;
+  spawn->setLevel(level);
+  spawn->setClassVal(classVal);
+  item->updateLastChanged();
+  emit changeItem(item, tSpawnChangedALL);
+}
+
 void SpawnShell::playerUpdate2(const uint8_t* data, size_t len, uint8_t dir)
 {
   if (m_zoneMgr->isZoning())

@@ -157,6 +157,14 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_ZoneEntry", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(eql, &EqlDispatch::spawn));
+    // EQ Legends OP_LoadoutSwap (0x7477): a player's multiclass loadout change.
+    // Variable-size (self ~118KB w/ inventory tail, broadcast ~490B) — hand-
+    // decoded via decode_loadout_swap (reuses the ZoneEntry record parser), so
+    // size-gate none. Self refreshes Player identity; broadcast updates a nearby
+    // tracked spawn's class/level. See eqldispatch.cpp / OPCODES_LEGENDS.md.
+    wire("OP_LoadoutSwap", SP_Zone, DIR_Server,
+         "uint8_t", SZC_None,
+         seqBind(eql, &EqlDispatch::loadoutSwap));
     // EQ Legends OP_MobUpdate (0x67e0): per-mob position update (14B),
     // byte-identical to Live spawnPositionUpdate — size-gate on it directly;
     // decode via the shared Rust decode_mob_update.

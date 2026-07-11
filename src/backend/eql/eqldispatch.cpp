@@ -226,6 +226,33 @@ void EqlDispatch::spawn(const uint8_t* data, size_t len, uint8_t dir)
                               (uint16_t)out.guild_id, out.npc);
 }
 
+void EqlDispatch::loadoutSwap(const uint8_t* data, size_t len, uint8_t dir)
+{
+    // OP_LoadoutSwap (0x7477) S>C: a player switched loadouts (the Legends
+    // multiclass class/level change). EQL sends no OP_PlayerProfile on a swap,
+    // so this is the only source for the new identity. The self variant carries
+    // a serialized inventory tail; the server also broadcasts a short ~490B
+    // variant for ANY nearby player's swap. Both share the header + ZoneEntry-
+    // format record the Rust decoder reads (see loadout_swap.rs).
+    if (dir != DIR_Server)
+        return;
+    auto out = seq::rust::decode_loadout_swap(rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
+        return;
+    if (m_player && out.spawn_id == (uint32_t)m_player->id())
+    {
+        // Our own swap: refresh identity. Race is unchanged on a swap but the
+        // record carries it correctly, so the existing setIdentity primitive is
+        // safe (it drives class + level to the frontend via tSpawnChangedALL).
+        m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
+        return;
+    }
+    // A nearby player's swap: update the tracked spawn's level + class in place
+    // (no position/HP — the spawn list / con display is the consumer), so it
+    // doesn't read stale until that spawn's next regular OP_ZoneEntry.
+    m_spawnShell->updateSpawnIdentity((uint16_t)out.spawn_id, out.level, (uint8_t)out.class_);
+}
+
 void EqlDispatch::mobUpdate(const uint8_t* data, size_t len, uint8_t dir)
 {
     // OP_MobUpdate S>C, 14B (parser validates len).
