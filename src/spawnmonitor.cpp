@@ -326,6 +326,11 @@ void SpawnMonitor::checkSpawnPoint(const Spawn* spawn )
 
 void SpawnMonitor::saveSpawnPoints()
 {
+  // Replay: don't persist. The .sp file is written in QHash order and the
+  // capture's own promotions are what the goldens verify.
+  if (!m_persist)
+    return;
+
   // only save if modified
   if (!m_modified)
     return;
@@ -415,6 +420,10 @@ void SpawnMonitor::saveSpawnPoints()
 
 void SpawnMonitor::loadSpawnPoints()
 {
+  // Replay: don't reload persisted points (see setPersist).
+  if (!m_persist)
+    return;
+
   QString fileName;
 
   fileName = m_zoneName + ".sp";

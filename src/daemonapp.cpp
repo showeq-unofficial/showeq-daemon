@@ -643,6 +643,14 @@ ManagerSet DaemonApp::buildManagerSet()
     ms.spawnMonitor = new SpawnMonitor(m_dataLocationMgr.get(),
                                        ms.zoneMgr, ms.spawnShell,
                                        this, "spawnMonitor");
+    // --replay: don't load/save ~/.showeq/spawnpoints/*.sp. Those files are
+    // written in QHash order and reloaded on zone, so persisting during a
+    // replay makes spawn-point emission order (and tier-2 goldens)
+    // non-deterministic run-to-run. Mirrors the ItemCache handling above.
+    if (!m_cfg.replay.isEmpty()) {
+        ms.spawnMonitor->setPersist(false);
+        qInfo("SpawnMonitor: replay mode, spawn-point persistence disabled");
+    }
     // Persist on shutdown. saveSpawnPoints is a no-op unless modified, so
     // this is cheap; aboutToQuit fires from the event loop after quit().
     connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit,

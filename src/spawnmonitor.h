@@ -117,6 +117,9 @@ public:
   const QHash<QString, SpawnPoint*>& spawnPoints() { return m_points; }
   const QHash<QString, SpawnPoint*>& spawns() { return m_spawns; }
   const SpawnPoint* selected() { return m_selected; }
+  // Disabled in --replay: the .sp files persist in QHash order and reload on
+  // zone, which makes spawn-point emission order non-deterministic run-to-run.
+  void setPersist(bool p) { m_persist = p; }
 
 public slots:
   void setName(const SpawnPoint* sp, const QString& name);
@@ -155,6 +158,7 @@ protected:
   QString m_zoneName;
   QHash<QString, SpawnPoint*> m_spawns;
   QHash<QString, SpawnPoint*> m_points;
+  bool m_persist = true;
   const SpawnPoint* m_selected;
   bool m_modified;
 };
