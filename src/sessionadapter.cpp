@@ -1245,34 +1245,36 @@ void SessionAdapter::sendBoxList()
     if (m_deterministic) return;
     seq::v1::Envelope env;
     auto* upd = env.mutable_box_list_updated();
-    m_boxes->forEach([&](const Box& b) {
-        if (b.is_merged()) return;
+    // Character-refactor Inc 2: build the picker from the name-keyed view
+    // (BoxRegistry::characters) instead of walking boxes and filtering
+    // merged_into. One entry per distinct identity; its live session
+    // (c.session == currentBoxFor) supplies ip / packet count, so a character
+    // that has re-zoned shows its CURRENT session's activity rather than the
+    // dead first-seen anchor's. SessionAdapter no longer touches merged_into.
+    for (const Character& c : m_boxes->characters()) {
         auto* meta = upd->add_boxes();
-        meta->set_box_id(b.box_id.toStdString());
-        meta->set_display_name(b.display_name.toStdString());
-        meta->set_client_ip(
-            QHostAddress(ntohl(b.client_ip)).toString().toStdString());
-        meta->set_packet_count(uint32_t(b.packet_count));
-        // Enrich with the box's live zone + level (Phase 3). Resolve the
-        // box's CURRENT decode managers (currentBoxFor follows re-handshake
-        // merges to the newest zone session) and read the short zone name +
-        // player level. Empty zone / zero level serialize as proto defaults,
-        // so a not-yet-decoded box simply omits them.
+        meta->set_box_id(c.id.toStdString());
+        meta->set_display_name(c.name.toStdString());
+        if (c.session) {
+            meta->set_client_ip(
+                QHostAddress(ntohl(c.session->client_ip)).toString().toStdString());
+            meta->set_packet_count(uint32_t(c.session->packet_count));
+        }
+        // Zone + level come from the character's CURRENT decode managers
+        // (managersForBox resolves the live session). Empty zone / zero level
+        // serialize as proto defaults, so a not-yet-decoded character omits them.
         if (m_managerProvider) {
-            if (const ManagerSet* ms =
-                    m_managerProvider->managersForBox(b.box_id)) {
+            if (const ManagerSet* ms = m_managerProvider->managersForBox(c.id)) {
                 if (ms->zoneMgr)
                     meta->set_zone(ms->zoneMgr->shortZoneName().toStdString());
-                // Only surface level for a promoted box (display_name set =
-                // OP_PlayerProfile decoded). Player::level() returns the
-                // DefaultLevel pref (1) for an undecoded box, which would
-                // mislabel transient placeholder entries as "L1".
-                if (!b.display_name.isEmpty() && ms->player &&
-                    ms->player->level() > 0)
+                // Only a promoted character (name set = OP_PlayerProfile decoded)
+                // surfaces level; Player::level() returns the DefaultLevel pref (1)
+                // for an undecoded box, which would mislabel placeholders as "L1".
+                if (!c.name.isEmpty() && ms->player && ms->player->level() > 0)
                     meta->set_level(uint32_t(ms->player->level()));
             }
         }
-    });
+    }
     upd->set_active_box_id(m_boxes->activeBoxId().toStdString());
     sendOrBuffer(std::move(env));
 }
