@@ -210,11 +210,17 @@ void SpellShell::clear()
 
    m_spellList.clear();
 
-   emit clearEffects();
-   for(QList<SpellItem*>::Iterator it = m_targetEffects.begin();
-         it != m_targetEffects.end(); it++)
-      delete (*it);
-   m_targetEffects.clear();
+   // Only signal an effects-clear if there were effects — an unconditional
+   // empty send fires on every login (newPlayer -> clear), and its wallclock
+   // captured_ms makes every replay golden flap.
+   if (!m_targetEffects.isEmpty())
+   {
+     emit clearEffects();
+     for(QList<SpellItem*>::Iterator it = m_targetEffects.begin();
+           it != m_targetEffects.end(); it++)
+        delete (*it);
+     m_targetEffects.clear();
+   }
 
    m_timer->stop();
 }
