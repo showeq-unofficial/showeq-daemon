@@ -44,6 +44,7 @@ SpellItem::SpellItem()
     m_targetId(0),
     m_buffSlot(-1),
     m_isSong(false),
+    m_beneficial(true),
     m_permanent(false)
 {
     // m_cast (startCastStruct) is a wire struct populated by update();
@@ -101,6 +102,7 @@ void SpellItem::update(uint32_t spellId, const Spell* spell, int duration,
      {
        setSpellName(spell->name());
        m_isSong = spell->isSong();
+       m_beneficial = spell->beneficial();
 
        if (spell->targetType() != 0x06)
 	 setTargetId(targetId);
@@ -109,6 +111,7 @@ void SpellItem::update(uint32_t spellId, const Spell* spell, int duration,
      {
        setSpellName(spell_name(spellId));
        m_isSong = false;
+       m_beneficial = true;   // unknown spell — don't suppress as a debuff
        setTargetId(targetId);
      }
 
@@ -222,66 +225,6 @@ void SpellShell::deleteSpell(SpellItem *item)
 }
 
 // slots
-
-void SpellShell::selfStartSpellCast(const uint8_t* data)
-{
-  auto out = seq::rust::decode_start_cast(
-      rust::Slice<const uint8_t>{data, sizeof(startCastStruct)});
-  if (!out.ok) return;
-  startCastStruct tmp{};
-  tmp.slot     = out.slot;
-  tmp.spellId  = out.spell_id;
-  tmp.targetId = out.target_id;
-  const startCastStruct *c = &tmp;
-#ifdef DIAG_SPELLSHELL
-  seqDebug("selfStartSpellCast - id=%d (slot=%d, inv=%d) on spawnid=%d", 
-	   c->spellId, c->slot, c->inventorySlot, c->targetId);
-#endif // DIAG_SPELLSHELL
-
-  // get the target 
-  const Item* s;
-  QString targetName;
-  int duration = 0;
-  const Spell* spell = m_spells->spell(c->spellId);
-  SpellItem *item;
-  if (spell)
-    duration = spell->calcDuration(m_player->level()) * 6;
-
-  if (!spell || spell->targetType() != 6)
-  {
-    if (c->targetId && 
-	((s = m_spawnShell->findID(tSpawn, c->targetId))))
-      targetName = s->name();
-    
-    item = findSpell(c->spellId, c->targetId, targetName);
-  }
-  else
-  {
-    targetName = m_player->name();
-    item = findSpell(c->spellId);
-  }
-
-  if (item) 
-  { // exists
-    item->update(c->spellId, spell, duration,
-		 m_player->id(), m_player->name(),
-		 c->targetId, targetName);
-    emit changeSpell(item);
-  } 
-  else 
-  { // new spell
-    item = new SpellItem();
-    item->update(c->spellId, spell, duration,
-		 m_player->id(), m_player->name(),
-		 c->targetId, targetName);
-    m_spellList.append(item);
-    if ((m_spellList.count() > 0) && (!m_timer->isActive()))
-      m_timer->start(1000 *
-		     pSEQPrefs->getPrefInt("SpellTimer", "SpellList", 6));
-    emit addSpell(item);
-    m_lastPlayerSpell = item;
-  }
-}
 
 //slot for loading buffs when main char struct is loaded
 void SpellShell::buffLoad(const spellBuff* c)

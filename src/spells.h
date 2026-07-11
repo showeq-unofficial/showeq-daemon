@@ -55,6 +55,10 @@ class Spell
   // the class column order. A non-255 value means Bard can cast the spell,
   // which is the reliable discriminator for songs vs other spell types.
   bool isSong() const { return m_classLevels[5] != 255; }
+  // "Good effect" column (spellInfo[28] in the post-2018 layout): 1 for
+  // beneficial spells (buffs/heals), 0 for detrimental (debuffs/nukes/DoTs).
+  // Verified against both the Live (166-field) and EQL (173-field) files.
+  bool beneficial() const { return m_beneficial; }
 
   QString spellField(uint8_t field) const;
 
@@ -66,6 +70,7 @@ class Spell
   int16_t m_buffDurationFormula;
   int16_t m_buffDurationArgument;
   uint8_t m_targetType;
+  bool m_beneficial;
   uint8_t m_classLevels[playerClasses];
 };
 

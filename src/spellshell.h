@@ -80,6 +80,9 @@ class SpellItem
   bool isPermanent() const { return m_permanent; }
   void setPermanent(bool p) { m_permanent = p; }
   bool isSong() const { return m_isSong; }
+  // Beneficial (buff/heal) vs detrimental (debuff/DoT), from the spell DB.
+  // Unknown spells default to beneficial so real buffs are never suppressed.
+  bool beneficial() const { return m_beneficial; }
   const QString spellName() const;
   const QString targetName() const;
   const QString casterName() const;
@@ -112,6 +115,7 @@ class SpellItem
   uint16_t m_targetId;
   int m_buffSlot;
   bool m_isSong;
+  bool m_beneficial;
   bool m_permanent;
 
   struct startCastStruct m_cast; // Needed?
@@ -222,7 +226,6 @@ class SpellShell : public QObject
   void clear();
 
   // slots received from EQPacket...
-  void selfStartSpellCast(const uint8_t*);
   void buffLoad(const spellBuff*);
   void buff(const uint8_t*, size_t, uint8_t);
   // EQ Legends OP_BuffList (0x77ae): the authoritative per-spawn active-buff

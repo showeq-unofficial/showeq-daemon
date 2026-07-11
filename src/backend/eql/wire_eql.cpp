@@ -322,9 +322,11 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
 
     // --- SpellShell. (OP_SimpleMessage here is a SECOND receiver after
     // MessageShell above — order preserved.)
-    wire("OP_CastSpell", SP_Zone, DIR_Server | DIR_Client,
-         "startCastStruct", SZC_Match,
-         seqBind(ms.spellShell, &SpellShell::selfStartSpellCast));
+    // NOTE: OP_CastSpell is deliberately NOT wired to SpellShell. Inserting a
+    // spell at cast start put it in the buff list ~cast-time before it landed
+    // (premature "fading" on short self-buffs) AND added spells cast ON MOBS to
+    // the player's own buff list. On EQL the authoritative player buff bar
+    // arrives via OP_BuffList (below), so cast-start insertion is pure noise.
     wire("OP_Buff", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(ms.spellShell, &SpellShell::buff));

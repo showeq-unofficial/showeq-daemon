@@ -176,6 +176,9 @@ Spell::Spell(const QString& spells_enLine)
   m_buffDurationFormula = spellInfo[11].toUShort();		//spells_us.txt layout changed December 2018
   m_buffDurationArgument = spellInfo[12].toUShort();		//spells_us.txt layout changed December 2018
   m_targetType = uint8_t(spellInfo[32].toUShort());		//spells_us.txt layout changed December 2018
+  // "Good effect" flag: 1 = beneficial (buff/heal), 0 = detrimental. .value()
+  // is bounds-safe against a short/malformed line (defaults to detrimental).
+  m_beneficial = spellInfo.value(28).toUShort() != 0;
 
   for (size_t i = 0; i < playerClasses; i++)
     m_classLevels[i] = uint8_t(spellInfo[38 + i].toUShort());	//spells_us.txt layout changed December 2018
