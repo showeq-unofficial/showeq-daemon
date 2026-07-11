@@ -224,8 +224,16 @@ void EqlDispatch::statSync(const uint8_t* data, size_t len, uint8_t dir)
 
     // Mana → the player only, and only from the wide (real cur/max) form; the
     // narrow percent form has no useful max. Plays the role of Live's absent
-    // OP_ManaChange on the Legends wire. Endurance has no stock display.
+    // OP_ManaChange on the Legends wire.
     if (out.has_mana && out.wide && m_player &&
         out.spawn_id == (uint32_t)m_player->id())
         m_player->setMana((uint32_t)out.mana_cur, (uint32_t)out.mana_max);
+
+    // Endurance → the player only, wide form. Legends drives endurance through
+    // this channel (the standalone OP_EndUpdate opcode id is unknown/ffff, so it
+    // never fires), and it moves constantly as skills/abilities consume it —
+    // surface it as the stock End bar (player_stats.endurance_cur/max).
+    if (out.has_end && out.wide && m_player &&
+        out.spawn_id == (uint32_t)m_player->id())
+        m_player->setEndurance((uint32_t)out.end_cur, (uint32_t)out.end_max);
 }

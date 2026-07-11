@@ -81,13 +81,15 @@ public:
    void loadProfile(const playerProfileStruct& player);
    void increaseSkill(const uint8_t* skilli);
    void manaChange(const uint8_t* mana);
-   // Neutral primitives: set the player's current+max HP/mana and emit the stock
-   // hpChanged/manaChanged displays. Used where self vitals arrive as real
-   // cur/max already decoded (the eql 0x2735 stat-sync channel — the player is
-   // not a m_spawns entry there, so its vitals surface via player_stats, not
-   // spawn_updated). Unused on live/test.
+   // Neutral primitives: set the player's current+max HP/mana/endurance and emit
+   // the stock hpChanged/manaChanged/endChanged displays. Used where self vitals
+   // arrive as real cur/max already decoded (the eql 0x2735 stat-sync channel —
+   // the player is not a m_spawns entry there, so its vitals surface via
+   // player_stats, not spawn_updated). Unused on live/test (endurance there comes
+   // from the standalone OP_EndUpdate via updateEndurance()).
    void setHealth(uint32_t cur, uint32_t max);
    void setMana(uint32_t cur, uint32_t max);
+   void setEndurance(uint32_t cur, uint32_t max);
    void updateExp(const uint8_t* exp);
    void updateAltExp(const uint8_t* altexp);
    void updateLevel(const uint8_t* levelup);

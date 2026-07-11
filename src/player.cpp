@@ -689,6 +689,21 @@ void Player::setMana(uint32_t cur, uint32_t max)
     savePlayerState();
 }
 
+void Player::setEndurance(uint32_t cur, uint32_t max)
+{
+  // Neutral primitive: set the player's current+max endurance and emit the stock
+  // endChanged display. Used by the eql 0x2735 stat-sync channel, where the
+  // player's endurance arrives as real cur/max (Legends has no standalone
+  // OP_EndUpdate). Same effect as updateEndurance(), minus the wire decode.
+  m_enduranceCur = cur;
+  m_enduranceMax = max;
+
+  emit endChanged(m_enduranceCur, m_enduranceMax);
+
+  if (showeq_params->savePlayerState)
+    savePlayerState();
+}
+
 void Player::updateAltExp(const uint8_t* data)
 {
   const altExpUpdateStruct* altexp = (const altExpUpdateStruct*)data;

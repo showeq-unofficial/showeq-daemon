@@ -171,9 +171,9 @@ the **stat-sync channel** — real HP / mana / endurance, not eqstr string-ids. 
   **0 structural-canary failures**, every wide `{cur,max}` sane (cur≤max, max>0).
 
 **Decode** = Rust `seq_backend_eql::parse_stat_sync` → FFI `decode_stat_sync` → `StatSync{spawn_id,
-wide, has_hp/hp_cur/hp_max, has_mana/mana_cur/mana_max}` (endurance parsed for the size canary but
-not surfaced — no stock display). The old 6B-percent-only `parse_hp_update` override is gone; the
-shared `decode_hp_update` FFI is stubbed inert for eql.
+wide, has_hp/hp_cur/hp_max, has_mana/mana_cur/mana_max, has_end/end_cur/end_max}`. The old
+6B-percent-only `parse_hp_update` override is gone; the shared `decode_hp_update` FFI is stubbed
+inert for eql.
 
 **Wiring** (`EqlDispatch::statSync`, `OP_HPUpdate 0x2735 S>C`):
 - **Player HP** (the wide form is exclusively the player's own real cur/max — all 129 wide-HP
@@ -186,8 +186,11 @@ shared `decode_hp_update` FFI is stubbed inert for eql.
   bars; 174 carry HP in upperguk).
 - **Player mana** (wide form only) → `Player::setMana` → `player_stats.mana_cur/mana_max`
   (real numbers, max 743). Plays Live's OP_ManaChange role; coexists with the kept 0x07c9.
+- **Player endurance** (wide form only) → `Player::setEndurance` → `player_stats.endurance_cur/max`
+  (added 2026-07-10). This channel is eql's SOLE endurance feed — the standalone OP_EndUpdate id is
+  `ffff` (unknown), so it never fires; endurance moves constantly as skills/abilities consume it.
 - Self-contained: Rust + `EqlDispatch` only, no proto/web change (rides the existing
-  `player_stats`/`spawn_updated` plumbing). eql tier-2 goldens regenerated (HP/mana values shift).
+  `player_stats`/`spawn_updated` plumbing). eql tier-2 goldens regenerated (HP/mana/endurance shift).
 
 ### 2026-07-10 — LEVEL-UP: no discrete opcode exists; wired the exp-wrap heuristic instead
 
