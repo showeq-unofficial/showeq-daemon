@@ -55,6 +55,10 @@ public:
     // level-up packet, so this ALSO drives the level — a wrap (exp resets to a
     // low value) is a ding. See the .cpp + OPCODES_LEGENDS.md.
     void expUpdate(const uint8_t* data, size_t len, uint8_t dir);
+    // OP_Death (0x66cb) S>C: mob deaths take the shared Live corpse path; the
+    // player's OWN death severs the self-id so the in-zone respawn's new self-id
+    // is re-adopted by playerUpdateSelf (EQL sends no player-reinit OP_ZoneEntry).
+    void death(const uint8_t* data, size_t len, uint8_t dir);
 
 private:
     ZoneMgr*    m_zoneMgr;
@@ -62,6 +66,10 @@ private:
     Player*     m_player;
     // Last regular-exp permille seen (−1 = unseeded); a decrease is a ding.
     int64_t     m_lastExp = -1;
+    // While awaiting the in-zone respawn after the local player's own death,
+    // holds the dead self-spawn id (0 = not awaiting). Guards playerUpdateSelf
+    // from re-adopting the dead id onto a trailing corpse-side update.
+    uint32_t    m_awaitingRespawnFromId = 0;
 };
 
 #endif // SEQ_BACKEND_EQL_EQLDISPATCH_H

@@ -101,9 +101,17 @@ void EqlDispatch::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
     if (!out.ok)
         return;
 
-    // Wired DIR_Client only, but keep the self-spawn guard from the branch.
-    if (dir == DIR_Client && m_player->id() == 0)
+    // Adopt the self-spawn id when we don't have one yet: at zone-in (id 0), and
+    // after the player's own death severed it — an in-zone respawn brings a
+    // BRAND-NEW self-id (see death() below). Never adopt a transient spawn_id==0,
+    // and never re-adopt the dead id off a trailing corpse-side update; wait for
+    // the genuine respawn id.
+    if (dir == DIR_Client && m_player->id() == 0 &&
+        out.spawn_id != 0 && out.spawn_id != m_awaitingRespawnFromId)
+    {
         m_player->setPlayerID(out.spawn_id);
+        m_awaitingRespawnFromId = 0;
+    }
     if (out.spawn_id != m_player->id())
         return;   // controlling another spawn (Eye of Zomm / boat) — not mapped
 
@@ -117,6 +125,46 @@ void EqlDispatch::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
                                 int16_t(out.delta_x), int16_t(out.delta_y),
                                 int16_t(out.delta_z),
                                 out.heading, speed);
+}
+
+void EqlDispatch::death(const uint8_t* data, size_t len, uint8_t dir)
+{
+    // OP_Death (0x66cb) S>C, 40B newCorpseStruct (victim = spawn_id, killer_id).
+    if (dir != DIR_Server)
+        return;
+    auto out = seq::rust::decode_death(rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
+        return;
+
+    if (m_player && out.spawn_id == (uint32_t)m_player->id())
+    {
+        // The LOCAL player died. On EQL a death respawns you IN-ZONE with a
+        // BRAND-NEW self-spawn id: there is no SessionDisconnect (unlike a zone
+        // change, which resets the self-id to 0 and self-heals) and no
+        // player-reinit OP_ZoneEntry (the classic charProfile re-entry). The
+        // respawned PC is simply re-broadcast as an ordinary OP_ZoneEntry NewSpawn
+        // and the C>S self-pos stream switches to the new id (confirmed on
+        // eqlegends-corpsepin: self-id 12636 -> 12913, no id-0 dip). The Live
+        // death chain (killSpawn -> corpse-in-place, then respawnFromHover +
+        // OP_ZoneEntry re-init) never completes here, so routing the player's own
+        // death to killSpawn pins the PC record to the death spot as a renamed
+        // corpse forever — the marker never follows the respawn (the reported
+        // bug). Instead sever the player from its id so the next self-pos
+        // re-adopts the respawn id (playerUpdateSelf's id()==0 path) and
+        // playerChangedID re-adopts the respawn spawn's name; stash the dead id so
+        // a trailing self-pos for the old body can't re-pin us. The server's own
+        // OP_RemoveSpawn/OP_DeleteSpawn for the old id clears the stale body, and
+        // EQL broadcasts no lingering player-corpse spawn, so we fabricate none.
+        m_awaitingRespawnFromId = out.spawn_id;
+        m_player->setID(0);
+        return;
+    }
+
+    // A mob (or any non-player spawn) died: unchanged shared Live corpse path
+    // (marks the spawn a corpse, sets last-kill on our killing blow, emits
+    // SpawnKilled). It re-decodes the same bytes — cheap, and keeps one owner of
+    // the corpse logic.
+    m_spawnShell->killSpawn(data);
 }
 
 void EqlDispatch::playerUpdateOther(const uint8_t* data, size_t len, uint8_t dir)

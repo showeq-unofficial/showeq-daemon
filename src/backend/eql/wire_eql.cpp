@@ -237,9 +237,14 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_SpawnAppearance", SP_Zone, DIR_Server | DIR_Client,
          "spawnAppearanceStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::updateSpawnAppearance));
+    // OP_Death: mob deaths take the shared Live corpse path, but the player's OWN
+    // death needs eql-specific respawn handling (EQL respawns in-zone with a new
+    // self-id and sends no player-reinit OP_ZoneEntry), so route through
+    // EqlDispatch::death, which forwards non-player deaths to SpawnShell::killSpawn
+    // and severs the self-id on the player's own death. See eqldispatch.cpp.
     wire("OP_Death", SP_Zone, DIR_Server,
          "newCorpseStruct", SZC_Match,
-         seqBind(ms.spawnShell, &SpawnShell::killSpawn));
+         seqBind(eql, &EqlDispatch::death));
     wire("OP_Shroud", SP_Zone, DIR_Server,
          "spawnShroudSelf", SZC_None,
          seqBind(ms.spawnShell, &SpawnShell::shroudSpawn));
