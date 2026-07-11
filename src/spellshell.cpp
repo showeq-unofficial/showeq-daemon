@@ -386,6 +386,24 @@ void SpellShell::buffList(const uint8_t* data, size_t size, uint8_t dir)
     }
   }
 
+  // OP_BuffList is authoritative: a player buff no longer present has dropped
+  // (EQL has no per-buff fade opcode, so nothing else removes it). Prune stale
+  // entries — otherwise dropped buffs (e.g. Invis once you attack) and the
+  // instant spells action() parks here linger forever. Lists are tiny, so the
+  // linear scan is cheap.
+  QList<SpellItem*> stale;
+  for (SpellItem* si : m_spellList)
+  {
+    if (!si) continue;
+    bool present = false;
+    for (const auto& e : entries)
+      if (e.spell_id == si->spellId()) { present = true; break; }
+    if (!present)
+      stale.append(si);
+  }
+  for (SpellItem* si : stale)
+    deleteSpell(si);
+
   if (added && !m_timer->isActive())
     m_timer->start(1000 *
                    pSEQPrefs->getPrefInt("SpellTimer", "SpellList", 6));
@@ -438,12 +456,16 @@ void SpellShell::action(const uint8_t* data, size_t len, uint8_t)
 	       a->source, a->level, a->spell, a->target, a->damage);
 #endif // DIAG_SPELLSHELL
       
-      item->update(a->spell, spell, duration, 
+      item->update(a->spell, spell, duration,
 		   a->source, casterName, a->target, targetName);
       emit changeSpell(item);
     }
-    else
+    else if (duration > 0)
     {
+      // Only track spells with a lingering buff/debuff duration. Instant
+      // spells (nukes, lifetaps, direct heals) a mob lands on the player have
+      // duration 0 and would otherwise sit in the buff list forever (dur<=0 is
+      // treated as permanent, so the sweep never removes them).
       // otherwise check for spells cast on us
 #ifdef DIAG_SPELLSHELL
       seqDebug("action - new - source=%d (lvl: %d) cast id=%d on target=%d causing %d damage", 
