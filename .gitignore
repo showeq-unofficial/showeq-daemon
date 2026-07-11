@@ -38,3 +38,6 @@ conf/.handoff
 conf/.hstate_Zone.dat
 conf/.hstate_Spawns.dat
 conf/.hstate_Player.dat
+
+# Claude Code local session state (cozempic hooks, worktrees)
+.claude/
