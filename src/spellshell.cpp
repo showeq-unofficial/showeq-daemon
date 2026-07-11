@@ -191,6 +191,14 @@ SpellItem* SpellShell::findSpellBySlot(int slot)
   return nullptr;
 }
 
+SpellItem* SpellShell::findEffect(uint32_t spellId, uint16_t targetId)
+{
+  for (SpellItem* si : m_targetEffects)
+    if (si->spellId() == spellId && si->targetId() == targetId)
+      return si;
+  return nullptr;
+}
+
 void SpellShell::clear()
 {
    emit clearSpells();
@@ -201,6 +209,13 @@ void SpellShell::clear()
       delete (*it);
 
    m_spellList.clear();
+
+   emit clearEffects();
+   for(QList<SpellItem*>::Iterator it = m_targetEffects.begin();
+         it != m_targetEffects.end(); it++)
+      delete (*it);
+   m_targetEffects.clear();
+
    m_timer->stop();
 }
 
@@ -438,7 +453,39 @@ void SpellShell::action(const uint8_t* data, size_t len, uint8_t)
 	m_timer->start(1000 *
 		       pSEQPrefs->getPrefInt("SpellTimer", "SpellList", 6));
       emit addSpell(item);
-    }    
+    }
+  }
+  else if (a->source == m_player->id() && a->target != 0)
+  {
+    // The PLAYER cast a spell ON a mob (source == us, target != us). Track it
+    // as a target effect (DoT/debuff/snare) attributed to the mob spawn, in
+    // the SEPARATE m_targetEffects list so it never reaches the buff panel.
+    int duration = 0;
+    const Spell* spell = m_spells->spell(a->spell);
+    if (spell)
+      duration = spell->calcDuration(a->level) * 6;
+    // A pure-damage nuke (no buff duration) leaves nothing lingering to show.
+    if (duration <= 0)
+      return;
+
+    SpellItem* eff = findEffect(a->spell, a->target);
+    if (eff)
+    {
+      eff->update(a->spell, spell, duration,
+		  a->source, m_player->name(), a->target, targetName);
+      emit changeEffect(eff);
+    }
+    else
+    {
+      eff = new SpellItem();
+      eff->update(a->spell, spell, duration,
+		  a->source, m_player->name(), a->target, targetName);
+      m_targetEffects.append(eff);
+      if (!m_timer->isActive())
+	m_timer->start(1000 *
+		       pSEQPrefs->getPrefInt("SpellTimer", "SpellList", 6));
+      emit addEffect(eff);
+    }
   }
 }
 
@@ -527,6 +574,17 @@ void SpellShell::zoneChanged(void)
     spell->setTargetId(0);
     spell->setCasterId(0);
   }
+
+  // Mob effects don't survive a zone change — the mobs are gone. Drop them.
+  if (!m_targetEffects.isEmpty())
+  {
+    emit clearEffects();
+    for (SpellItem* e : m_targetEffects)
+      delete e;
+    m_targetEffects.clear();
+    if (m_spellList.isEmpty())
+      m_timer->stop();
+  }
 }
 
 void SpellShell::killSpawn(const Item* deceased)
@@ -563,12 +621,52 @@ void SpellShell::killSpawn(const Item* deceased)
             }
         }
 
-        if (m_spellList.count() == 0)
+        // The mob died — drop the player's effects on it too.
+        it = m_targetEffects.begin();
+        while(it != m_targetEffects.end())
+        {
+            spell = *it;
+            if (spell->targetId() == id)
+            {
+                it = m_targetEffects.erase(it);
+                emit delEffect(spell);
+                delete spell;
+            }
+            else
+            {
+                ++it;
+            }
+        }
+
+        if (m_spellList.isEmpty() && m_targetEffects.isEmpty())
         {
             m_timer->stop();
         }
     }
 
+}
+
+void SpellShell::delSpawn(const Item* despawned)
+{
+  if (!despawned) return;
+  uint16_t id = despawned->id();
+  bool changed = false;
+  QList<SpellItem*>::Iterator it = m_targetEffects.begin();
+  while (it != m_targetEffects.end())
+  {
+    SpellItem* eff = *it;
+    if (eff->targetId() == id)
+    {
+      it = m_targetEffects.erase(it);
+      emit delEffect(eff);
+      delete eff;
+      changed = true;
+    }
+    else
+      ++it;
+  }
+  if (changed && m_spellList.isEmpty() && m_targetEffects.isEmpty())
+    m_timer->stop();
 }
 
 void SpellShell::timeout()
@@ -608,6 +706,32 @@ void SpellShell::timeout()
     }
    }
 
-  if (m_spellList.count() == 0)
+  // Same countdown sweep for mob effects (the player's DoTs/debuffs on mobs).
+  it = m_targetEffects.begin();
+  while (it != m_targetEffects.end())
+  {
+    spell = *it;
+    if (spell->isPermanent())
+    {
+      it++;
+      continue;
+    }
+    int d = spell->duration() -
+      pSEQPrefs->getPrefInt("SpellTimer", "SpellList", 6);
+    if (d > -6)
+    {
+      spell->setDuration(d);
+      emit changeEffect(spell);
+      it++;
+    }
+    else
+    {
+      it = m_targetEffects.erase(it);
+      emit delEffect(spell);
+      delete spell;
+    }
+  }
+
+  if (m_spellList.isEmpty() && m_targetEffects.isEmpty())
     m_timer->stop();
 }

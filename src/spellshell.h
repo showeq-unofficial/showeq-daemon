@@ -215,13 +215,22 @@ class SpellShell : public QObject
   virtual ~SpellShell();
   void deleteSpell(const SpellItem*);
   const QList<SpellItem*>& spellList() const { return m_spellList; }
-  
+  // Effects the player has cast ON mobs (DoTs/debuffs/snares), attributed to
+  // the target spawn. Kept SEPARATE from m_spellList so they never reach the
+  // personal buff panel.
+  const QList<SpellItem*>& targetEffects() const { return m_targetEffects; }
+
  signals:
   void addSpell(const SpellItem *); // done
   void delSpell(const SpellItem *); // done
   void changeSpell(const SpellItem *); // done
   void clearSpells(); // done
-  
+  // Same, for the mob-effect list (target != player).
+  void addEffect(const SpellItem *);
+  void delEffect(const SpellItem *);
+  void changeEffect(const SpellItem *);
+  void clearEffects();
+
  public slots:
   void clear();
 
@@ -237,12 +246,17 @@ class SpellShell : public QObject
   void spellMessage(QString&);
   void zoneChanged(void);
   void killSpawn(const Item* deceased);
+  // Despawn (OP_DeleteSpawn / out-of-range): drop any mob effects on that
+  // spawn. Wired to SpawnShell::delItem — killSpawn only covers deaths.
+  void delSpawn(const Item* despawned);
   void timeout();
 
  protected:
   void deleteSpell(SpellItem *);
   SpellItem* findSpell(uint32_t spellId,
 		       uint16_t targetId, const QString& targetName);
+  // Locate an existing mob effect by (spell, target) in m_targetEffects.
+  SpellItem* findEffect(uint32_t spellId, uint16_t targetId);
   SpellItem* findSpell(uint32_t spell_id);
   SpellItem* FindSpell(uint32_t spell_id, int target_id);
   SpellItem* findSpellBySlot(int slot);
@@ -252,6 +266,7 @@ class SpellShell : public QObject
   SpawnShell* m_spawnShell;
   Spells* m_spells;
   QList<SpellItem *> m_spellList;
+  QList<SpellItem *> m_targetEffects;
   SpellItem* m_lastPlayerSpell;
   QTimer *m_timer;
 };

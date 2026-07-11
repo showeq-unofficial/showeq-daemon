@@ -328,6 +328,8 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
             sendPlayerStats();
             sendGroupUpdate();
             sendBuffsUpdate();
+            if (m_spellShell && !m_spellShell->targetEffects().isEmpty())
+                sendEffectsUpdate();
         }
         return;
     }
@@ -467,6 +469,15 @@ void SessionAdapter::connectPerBox()
                 this,         SLOT(onBuffsChanged()));
         connect(m_spellShell, SIGNAL(clearSpells()),
                 this,         SLOT(onBuffsChanged()));
+        // Mob-effect signals (player's DoTs/debuffs on mobs) → SpawnEffectsUpdate.
+        connect(m_spellShell, SIGNAL(addEffect(const SpellItem*)),
+                this,         SLOT(onEffectsChanged()));
+        connect(m_spellShell, SIGNAL(delEffect(const SpellItem*)),
+                this,         SLOT(onEffectsChanged()));
+        connect(m_spellShell, SIGNAL(changeEffect(const SpellItem*)),
+                this,         SLOT(onEffectsChanged()));
+        connect(m_spellShell, SIGNAL(clearEffects()),
+                this,         SLOT(onEffectsChanged()));
     }
 
     if (m_combatRouter) {
@@ -595,6 +606,13 @@ void SessionAdapter::startStreaming()
     // Initial BuffsUpdate (may be an empty list before login).
     if (m_spellShell) {
         sendBuffsUpdate();
+        // No initial EMPTY effects send: effects only exist after the player
+        // casts on a mob, and the signal-driven path handles add/clear. An
+        // empty envelope here would just add a wallclock-captured_ms envelope
+        // to every session (golden-flapping, like buffs). Only re-prime when
+        // there's actually something to catch up on.
+        if (!m_spellShell->targetEffects().isEmpty())
+            sendEffectsUpdate();
     }
     // Initial CategoriesUpdate (loaded from prefs at CategoryMgr ctor).
     if (m_categoryMgr) {
@@ -976,6 +994,26 @@ void SessionAdapter::onBuffsChanged()
     sendBuffsUpdate();
 }
 
+void SessionAdapter::onEffectsChanged()
+{
+    if (!m_spellShell) return;
+    sendEffectsUpdate();
+}
+
+void SessionAdapter::sendEffectsUpdate()
+{
+    if (!m_spellShell) return;
+    seq::v1::Envelope env;
+    auto* update = env.mutable_spawn_effects();
+    update->set_captured_ms(static_cast<uint64_t>(
+        QDateTime::currentMSecsSinceEpoch()));
+    for (const SpellItem* s : m_spellShell->targetEffects()) {
+        if (!s) continue;
+        seq::encode::fillBuff(update->add_effects(), *s);
+    }
+    sendOrBuffer(std::move(env));
+}
+
 void SessionAdapter::sendBuffsUpdate()
 {
     if (!m_spellShell) return;
@@ -1192,6 +1230,8 @@ void SessionAdapter::onActiveBoxChanged()
     sendPlayerStats();
     sendGroupUpdate();
     sendBuffsUpdate();
+    if (m_spellShell && !m_spellShell->targetEffects().isEmpty())
+        sendEffectsUpdate();
 }
 
 void SessionAdapter::sendBoxList()

@@ -147,6 +147,7 @@ private slots:
     void onGroupChanged();
     // Re-emits the full active-buff list on any SpellShell change.
     void onBuffsChanged();
+    void onEffectsChanged();
     // Forwards a CombatRouter combatEvent signal as a CombatEvent envelope.
     void onCombatEvent(uint32_t sourceId, const QString& sourceName,
                        uint32_t targetId, const QString& targetName,
@@ -214,6 +215,7 @@ private:
     void sendPlayerStats();
     void sendGroupUpdate();
     void sendBuffsUpdate();
+    void sendEffectsUpdate();
     void sendCategoriesUpdate();
     void sendFilterRulesUpdate();
     void sendPrefsSnapshot();

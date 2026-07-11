@@ -678,6 +678,10 @@ ManagerSet DaemonApp::buildManagerSet()
             ms.spellShell, SLOT(zoneChanged()));
     connect(ms.spawnShell, SIGNAL(killSpawn(const Item*, const Item*, uint16_t)),
             ms.spellShell, SLOT(killSpawn(const Item*)));
+    // Prune the player's mob effects when a mob despawns (out-of-range /
+    // OP_DeleteSpawn) — killSpawn only covers deaths, which leave a corpse.
+    connect(ms.spawnShell, SIGNAL(delItem(const Item*)),
+            ms.spellShell, SLOT(delSpawn(const Item*)));
 
     // CombatRouter parses OP_Action2 into structured combat events.
     ms.combatRouter = new CombatRouter(ms.spawnShell, m_spells, this);

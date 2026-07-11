@@ -84,7 +84,10 @@ for vpk in "${vpks[@]}"; do
     # packet stream (decrements buff durations / removes expired ones),
     # so any fixture that exercises buff lifecycles produces a different
     # byte stream per run.
-    if [[ "${name}" == "buffs" ]]; then
+    # eqlegends-death-respawn: the player casts DoTs/debuffs on mobs, so it
+    # exercises the same wallclock timer via SpawnEffectsUpdate (effect
+    # durations decrement on the 6s sweep, flapping the byte stream).
+    if [[ "${name}" == "buffs" || "${name}" == "eqlegends-death-respawn" ]]; then
         echo "SKIP ${name} (wallclock-dependent SpellShell timer; cmp non-deterministic)"
         skip=$((skip+1))
         continue
