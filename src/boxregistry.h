@@ -30,6 +30,17 @@
 
 class EQPacketStream;
 
+// SCAFFOLD (character refactor — see docs / the BoxRegistry design note §07).
+// The lifecycle a session moves through in the target model. Today this is a
+// non-behavioral annotation stamped alongside the existing tuple+merge logic
+// (routing and decode still key on the wire tuple and merged_into); it makes
+// the state machine concrete so consumers can migrate onto it incrementally.
+//   Pending    — observed by tuple, no character yet (the "Unknown" window)
+//   Attached   — the character's live session; decodes the zone
+//   Superseded — a newer session for the same character took over (detaching)
+//   Reaped     — freed by evictStale
+enum class SessionState : uint8_t { Pending, Attached, Superseded, Reaped };
+
 class Box {
 public:
     in_addr_t client_ip          = 0;
@@ -92,8 +103,25 @@ public:
 
     bool      is_merged() const { return !merged_into.isEmpty(); }
 
+    // SCAFFOLD (character refactor): where this session sits in the lifecycle
+    // (SessionState above). Set by observe/promoteByName/evictStale; not yet
+    // consulted by routing or decode.
+    SessionState state = SessionState::Pending;
+
     // Human-readable summary for --list-boxes output.
     QString   summary() const;
+};
+
+// SCAFFOLD (character refactor): the target-model read shape. A character is a
+// NAME (stable across zones) with exactly one live session — the box currently
+// decoding. Today this is a VIEW computed over the box storage
+// (BoxRegistry::characters); a later increment makes it the authoritative
+// entity and retires merged_into / currentBoxFor.
+struct Character {
+    QString name;                 // display_name; empty for a still-anonymous box
+    QString id;                   // stable id (the hashed box_id / anchor id)
+    Box*    session    = nullptr; // the ATTACHED live session (== currentBoxFor)
+    int     aliasCount = 0;       // superseded re-handshake sessions still around
 };
 
 class BoxRegistry : public QObject {
@@ -167,6 +195,15 @@ public:
     // (re-handshakes merge into the first); only the latest decodes the
     // live zone, so SessionAdapter resolves managers through this.
     Box* currentBoxFor(const QString& box_id);
+
+    // SCAFFOLD (character refactor): the name-keyed read API the picker + the
+    // SessionAdapter will migrate onto. characters() is one entry per distinct
+    // identity — the new-model view of the box list. currentSessionFor resolves
+    // a character's live session by NAME: the "pin to the character, not the
+    // last-zoned session" primitive. Both are computed over the current storage
+    // for now; a later increment makes Character the storage and these O(1).
+    std::vector<Character> characters();
+    Box* currentSessionFor(const QString& name);
 
     size_t size() const { return m_boxes.size(); }
 

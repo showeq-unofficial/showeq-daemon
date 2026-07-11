@@ -8,6 +8,20 @@
 #include <QHash>
 #include <QHostAddress>
 
+namespace {
+// SCAFFOLD (character refactor): stable label for --list-boxes / summary().
+const char* stateName(SessionState s)
+{
+    switch (s) {
+        case SessionState::Pending:    return "pending";
+        case SessionState::Attached:   return "attached";
+        case SessionState::Superseded: return "superseded";
+        case SessionState::Reaped:     return "reaped";
+    }
+    return "?";
+}
+}  // namespace
+
 BoxRegistry::BoxRegistry(QObject* parent) : QObject(parent) {}
 
 QString Box::summary() const
@@ -17,14 +31,15 @@ QString Box::summary() const
     // box_id already encodes identity (a hash of the character name once
     // promoted); never print the raw display_name — keep EQ character names
     // out of logs. promoted= conveys the same recon signal name-safely.
-    return QStringLiteral("%1box %2  ip=%3  ports=%4->%5  pkts=%6  promoted=%7")
+    return QStringLiteral("%1box %2  ip=%3  ports=%4->%5  pkts=%6  promoted=%7  state=%8")
         .arg(primary)
         .arg(box_id)
         .arg(ip)
         .arg(ntohs(client_world_port))
         .arg(ntohs(server_world_port))
         .arg(packet_count)
-        .arg(display_name.isEmpty() ? QStringLiteral("no") : QStringLiteral("yes"));
+        .arg(display_name.isEmpty() ? QStringLiteral("no") : QStringLiteral("yes"))
+        .arg(QString::fromLatin1(stateName(state)));
 }
 
 Box* BoxRegistry::observe(in_addr_t client_ip,
@@ -170,6 +185,7 @@ int BoxRegistry::evictStale(qint64 now_ms, qint64 ttl_ms)
     // release their per-box resources while the Box is still valid.
     for (Box* v : victims) {
         seqInfo("BoxRegistry: evicting idle box %s", qUtf8Printable(v->box_id));
+        v->state = SessionState::Reaped;   // SCAFFOLD (state machine): terminal
         emit boxAboutToBeRemoved(v);
     }
 
@@ -262,6 +278,18 @@ Box* BoxRegistry::promoteByName(Box* box, const QString& name)
     if (m_activeBoxId == charId) {
         emit activeBoxChanged(nullptr, box);
     }
+
+    // SCAFFOLD (state machine): reclassify this character's sessions — the live
+    // one (currentBoxFor) is ATTACHED, every other is SUPERSEDED. Kept in step
+    // with the routing authority (currentBoxFor) so the annotation is honest;
+    // becomes the real transition once storage flips to Character-owned.
+    Box* live = currentBoxFor(charId);
+    for (auto& up : m_boxes) {
+        Box* b = up.get();
+        if (b->box_id != charId && b->merged_into != charId) continue;
+        b->state = (b == live) ? SessionState::Attached : SessionState::Superseded;
+    }
+
     emit changed();
     return parent;
 }
@@ -375,4 +403,37 @@ QString BoxRegistry::dumpString() const
         out += QChar('\n');
     }
     return out;
+}
+
+// SCAFFOLD (character refactor): the new-model read API, computed over the
+// current box storage. One Character per distinct identity (non-merged box);
+// its live session is currentBoxFor. When storage flips to Character-owned this
+// becomes a direct walk of the character map and merged_into disappears.
+std::vector<Character> BoxRegistry::characters()
+{
+    std::vector<Character> out;
+    for (auto& up : m_boxes) {
+        Box* b = up.get();
+        if (b->is_merged()) continue;          // aliases fold into their anchor
+        Character c;
+        c.name    = b->display_name;
+        c.id      = b->box_id;
+        c.session = currentBoxFor(b->box_id);  // the ATTACHED live session
+        for (auto& a : m_boxes)
+            if (a->merged_into == b->box_id) ++c.aliasCount;
+        out.push_back(std::move(c));
+    }
+    return out;
+}
+
+Box* BoxRegistry::currentSessionFor(const QString& name)
+{
+    if (name.isEmpty()) return nullptr;
+    for (auto& up : m_boxes) {
+        Box* b = up.get();
+        if (b->is_merged()) continue;
+        if (b->display_name == name)
+            return currentBoxFor(b->box_id);   // pin to the character, not last-zoned
+    }
+    return nullptr;
 }

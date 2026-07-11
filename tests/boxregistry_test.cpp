@@ -51,6 +51,10 @@ private slots:
   void evictStaleReapsLoggedOffGroup();
   void evictStaleProtectsPrimaryActiveFresh();
   void evictStaleDisabledAndNoVictims();
+  // SCAFFOLD (character refactor): the session state machine + name-keyed view.
+  void stateStartsPendingUntilPromoted();
+  void stateAttachedSupersededOnRelog();
+  void charactersViewAndCurrentSessionFor();
 };
 
 void BoxRegistryTest::observeCreatesPrimary()
@@ -377,6 +381,68 @@ void BoxRegistryTest::evictStaleDisabledAndNoVictims()
   // Nothing stale enough yet (huge ttl) -> no-op, no changed() churn.
   QCOMPARE(reg.evictStale(now, 100'000'000), 0);
   QCOMPARE(reg.size(), size_t(2));
+}
+
+// --- Session state machine (character-refactor scaffold) -------------------
+
+void BoxRegistryTest::stateStartsPendingUntilPromoted()
+{
+  BoxRegistry reg;
+  Box* b = reg.observe(kClientIp, cport(1000), kSrvPort, 1);
+  QCOMPARE(b->state, SessionState::Pending);     // observed, still anonymous
+  reg.promoteByName(b, QStringLiteral("Alpha"));
+  QCOMPARE(b->state, SessionState::Attached);     // name resolved -> live session
+}
+
+void BoxRegistryTest::stateAttachedSupersededOnRelog()
+{
+  BoxRegistry reg;
+  Box* first = reg.observe(kClientIp, cport(1000), kSrvPort, 10);
+  first->first_seen_ms = 10;
+  reg.promoteByName(first, QStringLiteral("Alpha"));
+  QCOMPARE(first->state, SessionState::Attached);
+
+  // Alpha zones: a newer session promotes and takes over as the live one.
+  Box* second = reg.observe(kClientIp, cport(1001), kSrvPort, 20);
+  second->first_seen_ms = 20;
+  reg.promoteByName(second, QStringLiteral("Alpha"));
+
+  QCOMPARE(second->state, SessionState::Attached);    // newest is the live session
+  QCOMPARE(first->state,  SessionState::Superseded);  // prior one handed off
+  // The state annotation agrees with today's routing authority.
+  QCOMPARE(reg.currentBoxFor(first->box_id), second);
+}
+
+void BoxRegistryTest::charactersViewAndCurrentSessionFor()
+{
+  BoxRegistry reg;
+  // Alpha with a re-handshake (two sessions), plus a distinct Beta.
+  Box* aP = reg.observe(kClientIp, cport(1000), kSrvPort, 10);
+  aP->first_seen_ms = 10;
+  reg.promoteByName(aP, QStringLiteral("Alpha"));
+  Box* aZ = reg.observe(kClientIp, cport(1001), kSrvPort, 20);
+  aZ->first_seen_ms = 20;
+  reg.promoteByName(aZ, QStringLiteral("Alpha"));   // Alpha's live session now
+  Box* bP = reg.observe(kClientIp, cport(1002), kSrvPort, 30);
+  bP->first_seen_ms = 30;
+  reg.promoteByName(bP, QStringLiteral("Beta"));
+
+  std::vector<Character> chars = reg.characters();
+  QCOMPARE(chars.size(), size_t(2));                 // two distinct identities
+
+  const Character* alpha = nullptr;
+  for (const auto& c : chars)
+    if (c.name == QStringLiteral("Alpha")) alpha = &c;
+  QVERIFY(alpha != nullptr);
+  QCOMPARE(alpha->session, aZ);                       // live = newest zone session
+  QCOMPARE(alpha->id, aP->box_id);                   // identity anchored to first
+  QCOMPARE(alpha->aliasCount, 1);                    // one superseded re-handshake
+
+  // The name-keyed primitive: pin to the character, not the last-zoned session.
+  QCOMPARE(reg.currentSessionFor(QStringLiteral("Alpha")), aZ);
+  QCOMPARE(reg.currentSessionFor(QStringLiteral("Beta")), bP);
+  QVERIFY(reg.currentSessionFor(QStringLiteral("Nobody")) == nullptr);
+  QVERIFY(reg.currentSessionFor(QString()) == nullptr);
 }
 
 QTEST_GUILESS_MAIN(BoxRegistryTest)
