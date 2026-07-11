@@ -387,6 +387,14 @@ void SpawnMonitor::saveSpawnPoints()
 
   if (old.exists())
   {
+    // QDir::rename (QFile::rename) refuses to overwrite an existing
+    // target, so a leftover <zone>.sp.bak from a prior save makes the
+    // .sp -> .bak rename fail, which skips the .new -> .sp promotion and
+    // silently strands the freshly-written points in <zone>.sp.new.
+    // Clear the stale backup first so the rename chain can proceed.
+    if (dir.exists(backupName))
+      dir.remove(backupName);
+
     if (dir.rename( fileName, backupName))
     {
       if (!dir.rename( newName, fileName))
