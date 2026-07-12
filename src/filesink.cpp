@@ -41,6 +41,9 @@ void FileSink::send(const seq::v1::Envelope& env)
     if (scrubbed.has_buffs()) {
         scrubbed.mutable_buffs()->set_captured_ms(0);
     }
+    if (scrubbed.has_spawn_effects()) {
+        scrubbed.mutable_spawn_effects()->set_captured_ms(0);
+    }
 
     const uint32_t len = static_cast<uint32_t>(scrubbed.ByteSizeLong());
     QByteArray buf;

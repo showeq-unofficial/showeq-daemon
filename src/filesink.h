@@ -20,7 +20,7 @@ namespace seq::v1 { class Envelope; }
 // same .vpk produce byte-identical files. Specifically:
 //   - Envelope.server_ts_ms is cleared (set in emitEnvelope from
 //     QDateTime::currentMSecsSinceEpoch — wall-clock noise)
-//   - BuffsUpdate.captured_ms is cleared (also wall-clock)
+//   - BuffsUpdate.captured_ms and SpawnEffectsUpdate.captured_ms are cleared (also wall-clock)
 // A future `--record-envelopes-debug` mode could keep them; today's only
 // use of FileSink is regression goldens, so zeroing is the right default.
 class FileSink : public IEnvelopeSink {
