@@ -2245,6 +2245,21 @@ name    = "OP_EnterWorld"
 updated = "2026-07-08"
 comment = "Client tells world server to enter world with selected char. EQ Legends: 72b C>S, BYTE-IDENTICAL to Live's layout — char name (zero-padded) at offset 0 + 64b zeros + 0xffffffff trailer; server reuses the opcode for a 1b S>C ack. Confirmed 2/2 login captures (fulllogin-20260708, login-zone-20260707) via dump-payload; name matches the known char. Mapping this id makes NamePromoter fire on eql (it matches by opcode name + 72b len), naming the box at the WORLD handshake — earlier than the own-spawn adoption fallback. Prior id 9bdc was a stale pre-2026-07-07-patch guess (never on the wire)."
 
+  # C>S 72B enter-world (login + every in-place session re-entry). Bound so
+  # EqlDispatch::enterWorld can reset the box + re-snapshot on a private-instance
+  # / same-socket zone re-entry (no struct — payload is only a trigger).
+  [[world.payloads]]
+  dir           = "client"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+  # S>C 1B ack (the server reuses the opcode for it). Declared with no handler
+  # so the ack matches a payload instead of logging "(dataLen: 1) doesn't match".
+  [[world.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
 [[world]]
 id      = "6bcf"
 name    = "OP_ExpansionInfo"

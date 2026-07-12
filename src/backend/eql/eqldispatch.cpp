@@ -19,6 +19,7 @@
 
 #include "seq-bridge-cxx/lib.h"
 
+#include "diagnosticmessages.h"
 #include "packetcommon.h"   // DIR_Client / DIR_Server
 #include "player.h"
 #include "spawnshell.h"
@@ -167,6 +168,37 @@ void EqlDispatch::death(const uint8_t* data, size_t len, uint8_t dir)
     m_spawnShell->killSpawn(data);
 }
 
+void EqlDispatch::enterWorld(const uint8_t*, size_t, uint8_t dir)
+{
+    // OP_EnterWorld (0x26bf) C>S, 72B: the client entering the world with its
+    // character. It fires at login and AGAIN on every in-place session re-entry
+    // — a private instance, or any zone that reuses the world socket. Because the
+    // world socket is reused, BoxRegistry keeps the SAME box, so no active-box
+    // roll re-snapshots the client, and zoneResolved is deliberately non-clearing
+    // (the first zone-in's name arrives after its bulk). So on a re-entry the box
+    // still holds the OLD zone's spawns and our old self-id, and the instance can
+    // share the old zone's short name (making its zone_changed a client no-op).
+    //
+    // Reset here — BEFORE the instance's OP_ZoneEntry bulk repopulates — and drop
+    // the self-id so playerUpdateSelf / own-spawn adoption re-adopts the instance's
+    // NEW one; stash the old id so a trailing old-session self-pos can't re-pin us
+    // (mirrors death()). That re-adoption calls Player::setPlayerID, whose
+    // changedID signal already drives SessionAdapter::onPlayerIdChanged -> a fresh
+    // Snapshot, so the web re-primes with the instance's spawns + new self-id with
+    // no extra plumbing here. Gate on an established session so the initial login
+    // (whose OP_EnterWorld precedes any zone) does not reset.
+    if (dir != DIR_Client)
+        return;
+    if (!m_sessionEstablished || !m_player)
+        return;
+    seqInfo("EQL: session re-entry (OP_EnterWorld) — resetting box, self-id %d -> 0",
+            m_player->id());
+    const uint32_t oldId = (uint32_t)m_player->id();
+    m_spawnShell->clear();
+    m_player->setID(0);
+    m_awaitingRespawnFromId = oldId;
+}
+
 void EqlDispatch::playerUpdateOther(const uint8_t* data, size_t len, uint8_t dir)
 {
     // OP_ClientUpdate S>C, 28B: the position broadcast for spawns OTHER than the
@@ -205,6 +237,9 @@ void EqlDispatch::newZone(const uint8_t* data, size_t len, uint8_t dir)
     if (!out.ok)
         return;
     m_zoneMgr->setZoneByName(latin1(out.short_name), latin1(out.long_name));
+    // A zone has now resolved: any LATER OP_EnterWorld is a genuine re-entry
+    // (see enterWorld()).
+    m_sessionEstablished = true;
 }
 
 void EqlDispatch::spawn(const uint8_t* data, size_t len, uint8_t dir)

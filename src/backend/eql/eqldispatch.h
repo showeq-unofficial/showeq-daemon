@@ -63,6 +63,14 @@ public:
     // class + level, no profile resend). Self refreshes the PC identity; the
     // broadcast variant updates a nearby tracked spawn's class/level.
     void loadoutSwap(const uint8_t* data, size_t len, uint8_t dir);
+    // OP_EnterWorld (0x26bf) C>S: the world handshake, fired at login AND on
+    // every in-place session re-entry (private instance, or any zone that reuses
+    // the world socket — same BoxRegistry box, so no active-box roll re-primes
+    // the client). On a re-entry it resets the box (clears the old zone's spawns,
+    // drops the stale self-id); the instance's new self-id then re-adopts via
+    // setPlayerID, whose changedID signal already re-snapshots the client. A
+    // no-op at the initial login (no zone resolved yet).
+    void enterWorld(const uint8_t* data, size_t len, uint8_t dir);
 
 private:
     ZoneMgr*    m_zoneMgr;
@@ -74,6 +82,10 @@ private:
     // holds the dead self-spawn id (0 = not awaiting). Guards playerUpdateSelf
     // from re-adopting the dead id onto a trailing corpse-side update.
     uint32_t    m_awaitingRespawnFromId = 0;
+    // True once the first OP_NewZone has resolved, i.e. a session is established.
+    // Gates enterWorld(): the initial login's OP_EnterWorld precedes any zone, so
+    // it must not reset; every LATER OP_EnterWorld is a genuine re-entry.
+    bool        m_sessionEstablished = false;
 };
 
 #endif // SEQ_BACKEND_EQL_EQLDISPATCH_H

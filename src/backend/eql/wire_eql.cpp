@@ -93,6 +93,19 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_NewZone", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(eql, &EqlDispatch::newZone));
+    // EQ Legends OP_EnterWorld (0x26bf) C>S, 72B: the client entering the world
+    // with its character — fires at login AND on every in-place session re-entry
+    // (private instance, or any zone that reuses the world socket, so BoxRegistry
+    // keeps the SAME box and no active-box roll re-primes the web). EqlDispatch::
+    // enterWorld resets the box on a re-entry so the new self-id re-adopts and
+    // re-snapshots the client via changedID (a no-op at the initial login). Wired
+    // per-box, NOT gated on wireGlobalSinks: it drives only
+    // THIS box's SpawnShell/Player, so each box resets its own state on its own
+    // re-handshake. NamePromoter also hooks this op (lower layer, to name the box)
+    // — independent fan-out, both fire.
+    wire("OP_EnterWorld", SP_World, DIR_Client,
+         "uint8_t", SZC_None,
+         seqBind(eql, &EqlDispatch::enterWorld));
     wire("OP_SendZonePoints", SP_Zone, DIR_Server,
          "zonePointsStruct", SZC_None,
          seqBind(ms.zoneMgr, &ZoneMgr::zonePoints));
