@@ -84,8 +84,15 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
     if (m_boxes) {
         connect(m_boxes, &BoxRegistry::changed,
                 this, &SessionAdapter::sendBoxList);
+        // Character-follow (Increment 3): rebind on BOTH the active-box roll AND
+        // any registry change (promotion / merge / eviction). currentSessionFor
+        // re-resolves the pinned character's current session, so a zone-in that
+        // spins up a fresh box is followed deterministically instead of being
+        // left to the narrow activeBoxChanged trigger.
         connect(m_boxes, &BoxRegistry::activeBoxChanged,
-                this, [this](Box*, Box*) { onActiveBoxChanged(); });
+                this, [this](Box*, Box*) { followActiveCharacter(); });
+        connect(m_boxes, &BoxRegistry::changed,
+                this, &SessionAdapter::followActiveCharacter);
     }
 }
 
@@ -314,6 +321,13 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
         const QString id =
             QString::fromStdString(env.set_active_box().box_id());
         const bool alreadyActive = (m_boxes->activeBoxId() == id);
+        // Re-pin to the picked character BEFORE the switch: setActiveBoxId emits
+        // activeBoxChanged/changed() SYNCHRONOUSLY, which fires followActiveCharacter
+        // — it must already see the new pin so it resolves to the picked character,
+        // not the previously-pinned one. Empty display_name (an unpromoted pick)
+        // clears the pin → follow falls back to the active box.
+        if (Box* tb = m_boxes->findById(id))
+            m_pinnedCharacter = tb->display_name;
         if (!m_boxes->setActiveBoxId(id)) {
             qInfo("set_active_box: unknown box_id %s",
                   qUtf8Printable(id));
@@ -522,7 +536,7 @@ void SessionAdapter::startStreaming()
     // WsServer; if the active box was switched between construction and this
     // Subscribe (e.g. a new browser tab opened to an already-running multibox
     // session), the constructor-set managers are stale. Same re-bind logic as
-    // onActiveBoxChanged(), but without the m_liveTailing guard since we
+    // followActiveCharacter(), but without the m_liveTailing guard since we
     // haven't started streaming yet.
     if (m_managerProvider && m_boxes) {
         const ManagerSet* ns =
@@ -1198,19 +1212,36 @@ void SessionAdapter::onZoneServerChanged(const QString& host, quint16 port)
     sendOrBuffer(std::move(env));
 }
 
-void SessionAdapter::onActiveBoxChanged()
+void SessionAdapter::followActiveCharacter()
 {
     // Non-destructive switch. Every box has been decoding into its own
-    // ManagerSet all along, so we just detach from the old box's managers,
-    // repoint to the new box's (already-populated) managers, reattach, and
+    // ManagerSet all along, so we just detach from the old session's managers,
+    // repoint to the new session's (already-populated) managers, reattach, and
     // ship a fresh Snapshot from the new state — no clear(), no waiting for
     // packets to repopulate.
     if (!m_liveTailing) return;          // not streaming yet — startStreaming binds
     if (!m_managerProvider || !m_boxes) return;
-    const ManagerSet* ns =
-        m_managerProvider->managersForBox(m_boxes->activeBoxId());
+
+    // Resolve the session now decoding for OUR character. Pin by name once known
+    // (survives box_id collisions + alias eviction across zone re-handshakes);
+    // before the name resolves (first Subscribe, or an Unknown box) fall back to
+    // the active box. currentSessionFor follows the character to its newest zone
+    // session, so this tracks the one character across zones deterministically.
+    Box* target = m_pinnedCharacter.isEmpty()
+        ? nullptr
+        : m_boxes->currentSessionFor(m_pinnedCharacter);
+    if (!target)
+        target = m_boxes->currentBoxFor(m_boxes->activeBoxId());
+    if (!target) return;
+
+    // Latch the pin from the resolved session's name the moment it's known, so
+    // subsequent follows are name-anchored rather than active-box-anchored.
+    if (!target->display_name.isEmpty())
+        m_pinnedCharacter = target->display_name;
+
+    const ManagerSet* ns = m_managerProvider->managersForBox(target->box_id);
     if (!ns || !ns->spawnShell) return;
-    if (ns->spawnShell == m_spawnShell) return;  // already active — no-op
+    if (ns->spawnShell == m_spawnShell) return;  // already on this session
 
     disconnectPerBox();
     m_spawnShell   = ns->spawnShell;
@@ -1222,8 +1253,11 @@ void SessionAdapter::onActiveBoxChanged()
     m_combatRouter = ns->combatRouter;
     m_spawnMonitor = ns->spawnMonitor;
     connectPerBox();
+    // box_id is a name hash, not the raw character name — safe to log.
+    qInfo("SessionAdapter: character-follow rebind to session %s",
+          qUtf8Printable(target->box_id));
 
-    // Re-prime the client from the new box's current state. sendSnapshot
+    // Re-prime the client from the new session's current state. sendSnapshot
     // re-establishes spawns/zone/player; the derived envelopes catch the
     // stats/group/buff panels that aren't part of the Snapshot.
     sendSnapshot();

@@ -110,7 +110,7 @@ public:
 
     // Resolver for the active box's per-box ManagerSet. Set by WsServer
     // on connect (and by DaemonApp for the golden adapter). Used by
-    // onActiveBoxChanged() to rebind to the newly-active box's managers.
+    // followActiveCharacter() to rebind to the newly-active box's managers.
     // Null in unit tests / smoke modes — switching then no-ops.
     void setManagerProvider(ManagerSetProvider* p) { m_managerProvider = p; }
 
@@ -205,7 +205,7 @@ private:
     // managers it currently points at (m_spawnShell, m_zoneMgr, m_player,
     // m_messageShell, m_groupMgr, m_spellShell, m_combatRouter,
     // m_spawnMonitor). startStreaming() calls connectPerBox() once;
-    // onActiveBoxChanged() disconnect→repoint→reconnect for a live,
+    // followActiveCharacter() disconnect→repoint→reconnect for a live,
     // non-destructive box switch. The daemon-global managers (ItemCache,
     // CategoryMgr, FilterMgr, PrefsBroker, DateTimeMgr, ZoneServerMgr) are
     // wired directly in startStreaming() and never rebind.
@@ -229,7 +229,13 @@ private:
     // populates as its traffic flows in (which started moments before
     // the switch, since per-box streams stay unmuted for the active
     // box and muted for everyone else).
-    void onActiveBoxChanged();
+    // Deterministic character-follow (character-registry Increment 3): re-resolve
+    // the pinned character's CURRENT session on any BoxRegistry change and rebind
+    // if it moved. Replaces reliance on the narrow activeBoxChanged roll, which
+    // fires only at promotion time under one condition and was leaving the web on
+    // the old zone after a zone-in (EQL opens a fresh world socket = a new box per
+    // zone). Wired to BOTH activeBoxChanged and changed() in the ctor.
+    void followActiveCharacter();
     void sendMapPackages();
     void emitEnvelope(seq::v1::Envelope&& env);
     void sendOrBuffer(seq::v1::Envelope&& env);
@@ -251,6 +257,12 @@ private:
     DateTimeMgr*                 m_dateTimeMgr  = nullptr;
     ZoneServerMgr*               m_zoneServerMgr = nullptr;
     BoxRegistry*                 m_boxes         = nullptr;
+    // The character this session is pinned to, by NAME (character-registry
+    // Increment 3). Latched from the bound session's display_name; followed via
+    // BoxRegistry::currentSessionFor so the view tracks the one character across
+    // its zone sessions regardless of which world socket last zoned. Empty until
+    // the name resolves — falls back to the active box until then.
+    QString                      m_pinnedCharacter;
     IMapPackageHost*             m_mapPackageHost = nullptr;
     ManagerSetProvider*          m_managerProvider = nullptr;
 

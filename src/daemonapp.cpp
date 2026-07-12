@@ -504,7 +504,7 @@ bool DaemonApp::start()
         // the PREVIOUS box's geometry — the re-snapshot would re-ship the old
         // map. Reload MapData for the new box's current zone here, resolving
         // the same managers SessionAdapter will. Connected at startup, this
-        // runs before any per-client SessionAdapter::onActiveBoxChanged (those
+        // runs before any per-client SessionAdapter::followActiveCharacter (those
         // attach when a ws client connects, strictly later), so sendSnapshot
         // reads fresh geometry.
         connect(&m_packet->boxRegistry(), &BoxRegistry::activeBoxChanged,
