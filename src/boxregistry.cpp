@@ -122,6 +122,16 @@ void BoxRegistry::onPromoted(Box* box, const QString& old_box_id)
     // collides with an existing one; m_activeBoxId may point at the
     // pre-existing parent already — leave it as-is, the changed()
     // re-emit gives the client a fresh picture either way.
+
+    // Inc 4: maintain the Character store here — this is the ONE hook both
+    // promotion paths funnel through (NamePromoter's OP_EnterWorld path sets
+    // box_id/display_name/merged_into then calls onPromoted; BoxRegistry::
+    // promoteByName does the same then calls onPromoted). charId = the anchor
+    // (merged_into if this session merged into an earlier one, else its own id).
+    // Runs BEFORE changed() so the SessionAdapter follow reads the fresh store.
+    const QString charId = box->is_merged() ? box->merged_into : box->box_id;
+    upsertCharacter(charId, box->display_name, box);
+
     emit changed();
 }
 
@@ -283,18 +293,19 @@ Box* BoxRegistry::promoteByName(Box* box, const QString& name)
         }
     }
 
-    // If this box belongs to the ACTIVE character, the current decode box
-    // just rolled to it (newest zone session) — nudge SessionAdapter to
-    // rebind so the live view follows the character into its new zone.
+    // The Character store is maintained in onPromoted() (called above), so by
+    // here currentBoxFor/currentSessionFor already resolve the fresh session.
     const QString charId = parent ? parent->box_id : box->box_id;
+
+    // If this box belongs to the ACTIVE character, the current decode box just
+    // rolled to it (newest zone session) — nudge SessionAdapter to rebind so the
+    // live view follows the character into its new zone.
     if (m_activeBoxId == charId) {
         emit activeBoxChanged(nullptr, box);
     }
 
     // SCAFFOLD (state machine): reclassify this character's sessions — the live
-    // one (currentBoxFor) is ATTACHED, every other is SUPERSEDED. Kept in step
-    // with the routing authority (currentBoxFor) so the annotation is honest;
-    // becomes the real transition once storage flips to Character-owned.
+    // one (currentBoxFor) is ATTACHED, every other is SUPERSEDED.
     Box* live = currentBoxFor(charId);
     for (auto& up : m_boxes) {
         Box* b = up.get();
@@ -302,27 +313,21 @@ Box* BoxRegistry::promoteByName(Box* box, const QString& name)
         b->state = (b == live) ? SessionState::Attached : SessionState::Superseded;
     }
 
-    // Inc 4 step 1: keep the authoritative Character store in step with the merge.
-    upsertCharacter(charId, box->display_name);
-
     emit changed();
     return parent;
 }
 
 Box* BoxRegistry::currentBoxFor(const QString& box_id)
 {
-    Box* parent = findById(box_id);
-    if (!parent) return nullptr;
-    Box* current = parent;
-    // Among the character's boxes (the non-merged parent + every box merged
-    // into it), the live one is the most recently seen.
-    for (auto& b : m_boxes) {
-        if (b->merged_into == parent->box_id &&
-            b->first_seen_ms >= current->first_seen_ms) {
-            current = b.get();
-        }
-    }
-    return current;
+    // Inc 4 step 2: Character-owned — the live session is the store's session.
+    // The old merge-scan (newest box with merged_into == anchor) is now
+    // maintained into c.session by upsertCharacter.
+    for (const Character& c : m_characters)
+        if (c.id == box_id)
+            return c.session;
+    // Not a promoted character (a Pending placeholder id, or unknown): resolve
+    // the box itself — matches the old findById + no-merged-children path.
+    return findById(box_id);
 }
 
 Box* BoxRegistry::lookupBoundZone(in_addr_t client_ip,
@@ -441,22 +446,24 @@ std::vector<Character> BoxRegistry::characters()
     return out;
 }
 
-void BoxRegistry::upsertCharacter(const QString& id, const QString& name)
+void BoxRegistry::upsertCharacter(const QString& id, const QString& name,
+                                  Box* newSession)
 {
-    // The character's current live box (newest zone session). currentBoxFor is
-    // still the routing authority this step; the store mirrors it.
-    Box* session = currentBoxFor(id);
     for (Character& c : m_characters) {
         if (c.id == id) {
-            c.name    = name;
-            c.session = session;
+            c.name = name;
+            // Adopt the newer session; a late-promoting OLDER box must not steal
+            // the live session from a newer one (guard on first_seen).
+            if (!c.session ||
+                newSession->first_seen_ms >= c.session->first_seen_ms)
+                c.session = newSession;
             return;
         }
     }
     Character c;
     c.name    = name;
     c.id      = id;
-    c.session = session;
+    c.session = newSession;
     m_characters.push_back(std::move(c));
 }
 

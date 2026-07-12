@@ -294,9 +294,10 @@ private:
     // with merged_into until the later sub-steps retire the merge anchors).
     std::vector<Character> m_characters;
 
-    // Upsert the Character for anchor `id` with `name`, pointing its session at
-    // the character's current live box (currentBoxFor). No-op-safe / idempotent.
-    void upsertCharacter(const QString& id, const QString& name);
+    // Upsert the Character for anchor `id` with `name`, adopting `newSession` as
+    // its live box (the just-promoted, newest session). Computes newest directly
+    // (first_seen guard) — NOT via currentBoxFor, which now reads this store.
+    void upsertCharacter(const QString& id, const QString& name, Box* newSession);
 };
 
 #endif // BOXREGISTRY_H
