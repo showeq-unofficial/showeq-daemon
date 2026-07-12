@@ -286,6 +286,17 @@ private:
     std::vector<std::unique_ptr<Box>> m_boxes;
     BoxCreatedHook m_hook;
     QString m_activeBoxId;
+
+    // Inc 4 (character-registry) step 1: authoritative Character store, keyed by
+    // the character's anchor id. Maintained in promoteByName (upsert) + evictStale
+    // (prune whole-group reaps). currentSessionFor() reads from it; characters()
+    // and currentBoxFor() still compute over the boxes this step (dual-maintained
+    // with merged_into until the later sub-steps retire the merge anchors).
+    std::vector<Character> m_characters;
+
+    // Upsert the Character for anchor `id` with `name`, pointing its session at
+    // the character's current live box (currentBoxFor). No-op-safe / idempotent.
+    void upsertCharacter(const QString& id, const QString& name);
 };
 
 #endif // BOXREGISTRY_H

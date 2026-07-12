@@ -198,6 +198,18 @@ int BoxRegistry::evictStale(qint64 now_ms, qint64 ttl_ms)
             m_boxes.end());
     }
 
+    // Inc 4 step 1: drop Characters whose live session was reaped. evictStale
+    // protects a character's current box, so its session is only a victim on a
+    // whole-group reap (the character logged off / camped). Pointer comparison
+    // only — the Box is freed but never dereferenced here.
+    m_characters.erase(
+        std::remove_if(m_characters.begin(), m_characters.end(),
+            [&victims](const Character& c) {
+                return std::find(victims.begin(), victims.end(), c.session)
+                       != victims.end();
+            }),
+        m_characters.end());
+
     emit changed();
     return int(victims.size());
 }
@@ -289,6 +301,9 @@ Box* BoxRegistry::promoteByName(Box* box, const QString& name)
         if (b->box_id != charId && b->merged_into != charId) continue;
         b->state = (b == live) ? SessionState::Attached : SessionState::Superseded;
     }
+
+    // Inc 4 step 1: keep the authoritative Character store in step with the merge.
+    upsertCharacter(charId, box->display_name);
 
     emit changed();
     return parent;
@@ -426,14 +441,33 @@ std::vector<Character> BoxRegistry::characters()
     return out;
 }
 
+void BoxRegistry::upsertCharacter(const QString& id, const QString& name)
+{
+    // The character's current live box (newest zone session). currentBoxFor is
+    // still the routing authority this step; the store mirrors it.
+    Box* session = currentBoxFor(id);
+    for (Character& c : m_characters) {
+        if (c.id == id) {
+            c.name    = name;
+            c.session = session;
+            return;
+        }
+    }
+    Character c;
+    c.name    = name;
+    c.id      = id;
+    c.session = session;
+    m_characters.push_back(std::move(c));
+}
+
 Box* BoxRegistry::currentSessionFor(const QString& name)
 {
     if (name.isEmpty()) return nullptr;
-    for (auto& up : m_boxes) {
-        Box* b = up.get();
-        if (b->is_merged()) continue;
-        if (b->display_name == name)
-            return currentBoxFor(b->box_id);   // pin to the character, not last-zoned
-    }
+    // Inc 4 step 1: authoritative — resolve via the Character store (pin to the
+    // character, not the last-zoned box). Equivalent to the old anchor-scan +
+    // currentBoxFor, which is now maintained into c.session by upsertCharacter.
+    for (const Character& c : m_characters)
+        if (c.name == name)
+            return c.session;
     return nullptr;
 }
