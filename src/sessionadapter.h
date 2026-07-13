@@ -142,7 +142,8 @@ private slots:
     // signal.
     void onChatMessage(uint32_t channel, const QString& from,
                        const QString& target, const QString& text,
-                       uint32_t chatColor);
+                       uint32_t chatColor,
+                       const QString& channelName = QString());
     // Re-emits the full group state on any GroupMgr add/remove/clear.
     void onGroupChanged();
     // Re-emits the full active-buff list on any SpellShell change.

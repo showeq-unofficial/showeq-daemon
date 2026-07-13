@@ -177,7 +177,11 @@ class EQPacket : public QObject
    void decodedWorldPacket(const uint8_t* data, size_t len, uint8_t dir,
 			   uint16_t opcode, const EQPacketOPCode* opcodeEntry,
                bool unknown);
-   void rawZonePacket(const uint8_t* data, size_t len, uint8_t dir, 
+   // EQ Legends UCS (cross-zone chat): one raw server->client port-9877 UDP
+   // payload, forwarded to MessageShell::ucsChatMessage for Rust decode.
+   void ucsChatData(const uint8_t* data, size_t len, uint8_t dir);
+
+   void rawZonePacket(const uint8_t* data, size_t len, uint8_t dir,
 		      uint16_t opcode);
    void decodedZonePacket(const uint8_t* data, size_t len, uint8_t dir,
 			  uint16_t opcode, const EQPacketOPCode* opcodeEntry);
@@ -257,6 +261,8 @@ class EQPacket : public QObject
    void disconnectReconTaps();
    void dispatchPacket   (int size, unsigned char *buffer);
    void dispatchPacket(EQUDPIPPacketFormat& packet);
+   // EQ Legends UCS: forward a raw port-9877 chat payload to MessageShell.
+   void decodeUCSPacket(EQUDPIPPacketFormat& packet);
  protected slots:
    void resetEQPacket();
    void dispatchWorldChatData (size_t len, uint8_t* data, uint8_t direction = 0);

@@ -62,6 +62,10 @@ const in_port_t WorldServerGeneralMinPort = 9000;
 const in_port_t WorldServerGeneralMaxPort = 9020;
 const in_port_t WorldServerChatPort = 9876;
 const in_port_t WorldServerChat2Port = 9875; // xgame tells, mail
+// Modern EQ (EQ Legends) carries cross-zone/global channel chat over a
+// separate obfuscated SOE "chat" (UCS) session on this UDP port. Decoded by
+// EQPacket::decodeUCSPacket -> MessageShell::ucsChatMessage (eql only).
+const in_port_t WorldServerUCSPort = 9877;
 const in_port_t LoginServerMinPort = 15900;
 const in_port_t LoginServerMaxPort = 15910;
 const in_port_t ChatServerPort = 5998;

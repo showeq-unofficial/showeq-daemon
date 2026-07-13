@@ -832,6 +832,15 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
     // Drop email and cross-game chat traffic
     return;
   }
+  else if ((packet.getDestPort() == WorldServerUCSPort) ||
+      (packet.getSourcePort() == WorldServerUCSPort))
+  {
+    // EQ Legends cross-zone/global chat rides a separate XOR-obfuscated SOE
+    // (UCS) session with no cleartext SOE framing — the zone streams would
+    // choke on it. Decode + emit it ourselves instead of dropping.
+    decodeUCSPacket(packet);
+    return;
+  }
   else if (((packet.getDestPort() >= LoginServerMinPort) &&
       (packet.getDestPort() <= LoginServerMaxPort)) ||
       ((packet.getSourcePort() >= LoginServerMinPort) &&
@@ -965,6 +974,26 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
     }
   }
 } /* end dispatchPacket() */
+
+////////////////////////////////////////////////////
+// EQ Legends UCS (cross-zone chat) — forward one raw UDP payload from the
+// port-9877 session to MessageShell, which runs the keyless XOR + parse in
+// Rust (seq::rust::decode_ucs_chat) and resolves channel names. We deliberately
+// bypass the stream/CRC/reassembly path: UCS data packets carry no cleartext
+// SOE framing. Direction is derived from the client addr; only the inbound
+// (server->client) side carries chat and MessageShell gates on it.
+void EQPacket::decodeUCSPacket(EQUDPIPPacketFormat& packet)
+{
+  const uint8_t* raw = packet.getUDPPayload();
+  uint32_t rawLen = packet.getUDPPayloadLength();
+  if ((raw == NULL) || (rawLen < 12))
+    return;
+
+  uint8_t dir = (packet.getIPv4SourceN() == m_client_addr) ?
+    DIR_Client : DIR_Server;
+
+  emit ucsChatData(raw, (size_t)rawLen, dir);
+}
 
 ////////////////////////////////////////////////////
 // Reclaim a non-primary box's owned objects when the registry evicts it.

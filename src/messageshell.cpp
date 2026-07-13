@@ -299,6 +299,50 @@ void MessageShell::specialMessage(const uint8_t* data, size_t len, uint8_t dir)
                    out.message_color);
 }
 
+void MessageShell::ucsChatMessage(const uint8_t* data, size_t len, uint8_t dir)
+{
+  // Only the inbound (server->client) side carries chat; outgoing rides the
+  // zone/world server. Rust does the keyless XOR + SPAM-anchored record parse.
+  if (dir != DIR_Server || data == NULL || len < 12)
+    return;
+
+  auto recs = seq::rust::decode_ucs_chat(rust::Slice<const uint8_t>{data, len});
+
+  for (const auto& r : recs)
+  {
+    const QString rest =
+        QString::fromLatin1(r.channel_rest.data(), r.channel_rest.size());
+
+    // The channel name's first char is masked by a per-session XOR. Recover
+    // that mask ONCE from the auto-joined General* channel (clean remainder
+    // "eneral", true first char 'G'), then repair every channel's first char
+    // — no /list needed. See OPCODES_LEGENDS.md and ucs_chat.rs.
+    if (m_ucsChanError < 0 && rest == QLatin1String("eneral"))
+      m_ucsChanError = (int)(r.channel_first ^ (uint8_t)'G');
+
+    QString channelName = rest;
+    if (m_ucsChanError >= 0)
+    {
+      const uint8_t first = r.channel_first ^ (uint8_t)m_ucsChanError;
+      if (first >= 0x20 && first < 0x7f)      // valid repaired first char
+        channelName.prepend(QChar((ushort)first));
+      // else: framing-parity outlier — fall back to the clean remainder
+    }
+    // else: mask not yet bootstrapped (no General* seen); show the remainder
+    // and let later lines resolve fully once General* arrives.
+
+    const QString sender =
+        QString::fromLatin1(r.sender.data(), r.sender.size());
+    QString text = QString::fromLatin1(r.message.data(), r.message.size());
+    if (r.spam)
+      text.prepend(QStringLiteral("(SPAM) "));
+
+    // General channel chat; the literal channel rides channelName. chat_color
+    // 0 (CC_Default) — UCS carries no per-line wire colour.
+    emit chatMessage(MT_General, sender, QString(), text, 0, channelName);
+  }
+}
+
 void MessageShell::guildMOTD(const uint8_t* data, size_t, uint8_t dir)
 {
   // avoid client chatter and do nothing if not viewing channel messages

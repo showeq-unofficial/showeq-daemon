@@ -66,6 +66,10 @@ class MessageShell : public QObject
    void formattedMessage(const uint8_t* cmsg, size_t, uint8_t);
    void simpleMessage(const uint8_t* cmsg, size_t, uint8_t);
    void specialMessage(const uint8_t* smsg, size_t, uint8_t);
+   // EQ Legends UCS cross-zone chat: one raw port-9877 server->client payload
+   // (from EQPacket::ucsChatData). Runs the Rust decode + channel resolution
+   // and emits chatMessage per line. No-op on live/test (Rust stub is empty).
+   void ucsChatMessage(const uint8_t* data, size_t len, uint8_t dir);
    void guildMOTD(const uint8_t* gmotd, size_t, uint8_t);
    void consent(const uint8_t* consent, size_t, uint8_t);
    void moneyOnCorpse(const uint8_t* money);
@@ -130,9 +134,13 @@ class MessageShell : public QObject
    // Non-player message types (system, NPC emote, formatted/special
    // server messages, etc.) are not emitted here. Phase 3 sessionadapter
    // listens to this and forwards to clients as seq.v1.ChatMessage.
+   // channelName carries the literal UCS channel name ("General", "NewPlayers")
+   // for cross-zone channels that don't map to a fixed MessageType; empty for
+   // the typed channels enumerated in `channel`. Defaulted so the existing
+   // typed-channel emitters below stay 5-arg.
    void chatMessage(uint32_t channel, const QString& from,
                     const QString& target, const QString& text,
-                    uint32_t chatColor);
+                    uint32_t chatColor, const QString& channelName = QString());
 
    // Emitted when OP_InspectAnswer arrives. SessionAdapter listens and
    // forwards to clients as seq.v1.InspectAnswer.
@@ -147,6 +155,11 @@ class MessageShell : public QObject
    ZoneMgr* m_zoneMgr;
    SpawnShell* m_spawnShell;
    Player* m_player;
+
+   // UCS channel-name resolution state: the per-session XOR mask on the
+   // channel's masked first char, recovered once from the auto-joined General*
+   // channel (field[4] ^ 'G'). -1 = not yet bootstrapped. See ucsChatMessage.
+   int m_ucsChanError = -1;
 };
 
 

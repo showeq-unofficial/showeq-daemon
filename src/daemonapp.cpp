@@ -248,6 +248,25 @@ bool DaemonApp::start()
     m_spellShell   = active.spellShell;
     m_combatRouter = active.combatRouter;
 
+    // EQ Legends UCS cross-zone chat: EQPacket intercepts the port-9877 chat
+    // session and hands each raw payload to the CURRENTLY-ACTIVE box's
+    // MessageShell, which decodes it (Rust) and re-emits chatMessage ->
+    // SessionAdapter -> web. UCS is a single global session but SessionAdapter
+    // follows the active box across zones (a client that zones spawns a new
+    // box), so we must resolve the active MessageShell per payload rather than
+    // pin the initial one — otherwise chat is lost after the first zone.
+    // No-op on live/test (the Rust decoder is an empty stub there).
+    if (m_packet) {
+        connect(m_packet, &EQPacket::ucsChatData, this,
+                [this](const uint8_t* d, size_t l, uint8_t dir) {
+            const ManagerSet* ns = managersForBox(QString());
+            MessageShell* ms = (ns && ns->messageShell) ? ns->messageShell
+                                                         : m_messageShell;
+            if (ms)
+                ms->ucsChatMessage(d, l, dir);
+        });
+    }
+
     // Per-zone filter overlay for an already-known zone (e.g. replay mode
     // with the zone fixed). Needs the active ZoneMgr, so it runs after
     // buildManagerSet(). The signal it would emit has no listener yet.
