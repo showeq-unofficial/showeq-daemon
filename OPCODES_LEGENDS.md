@@ -65,6 +65,32 @@ per-backend decoders.
 | OP_Animation     | 0x6dba | **0x1293** | ✅ **2026-07-08** (id-only, no handler). Animation broadcast (S>C, 4B, n=354/718). **Live `animationStruct`**: spawnId u16@0, action u8@2 (1–46), speed u8@3 (**=10 across all 354**). Remapped so it resolves in opcode-stats; animation isn't surfaced, so no handler wired |
 | *(target HP reveal)* | — | **0x5b5e** | ⚑ 2026-07-08 candidate (unwired). On-target HP reveal (S>C, 13B primary, n=12/22): `{u32 spawn_id, u32 cur_hp, u32 =0x07000001, u8 0}`; cur_hp is **absolute** (=0 for a just-dead spawn). Consider-companion (cf. 0x0e54 `{0,target}`). NOT a continuous %-HP bar stream |
 
+### 2026-07-12 — OP_SimpleMessage = `0x50a7` (canned server-string channel), WIRED
+
+**OP_SimpleMessage = `0x50a7`** (S>C, fixed 12B `simpleMessageStruct` `{u32 eqstrId,
+u32 color, u32 0}`) — the server telling the client to print a canned `eqstr_us.txt`
+string by id (the string never crosses the wire). Was pinned to the dead Live opcode
+`ffff`, so the already-wired handlers never fired. Identity is unambiguous: across the
+pcap library it is a **12B S>C** op in every capture that carries system messages and
+none of the pure-movement ones (`0x50a7` counts: 224 death-respawn, 41 fulllogin, 13
+upperguk, …), and it was one of the 13 candidates **tested-and-rejected** as the mob-HP
+carrier — consistent with a string channel, not a stat feed. Category-free anchor: the
+fast-camp-refusal string (eqstr 10031, color 13). A single general channel, not the
+per-category split the earlier pet-only trigger suggested.
+
+Wired by remapping `ffff → 0x50a7` in `conf/eql/opcodes.toml` (SZC_Match) **plus** a
+`simpleMessageStruct` entry in `seq-backend-eql` `size_overrides()` so the 12B gate is
+eql-owned (no `BACKEND GATE-SIZE` warning; de-piggybacks the Live sizeof). Handlers were
+already correct: `MessageShell::simpleMessage` (→ `decode_simple_message` + eqStr lookup
+→ `chatMessage` proto) and the second `SpellShell::simpleMessage` receiver (clears a
+stuck just-cast timer on spell-failure strings). Verified by replay: `eql-ab-zone` gains
+4 `chat` envelopes with real strings (e.g. "You avoid the stunning blow." color 10);
+tier-2 eql goldens regenerated (`eql-ab-zone`, `eqlegends-chat-20260708`,
+`eqlegends-upperguk-20260707`), check.sh **5 pass / 0 fail** stable. Mirrors the legacy
+`showeq/` fix (external port addendum 7, rev 2026-07-12a). Complement: `OP_FormattedMessage`
+`0x3c0a` carries argument-bearing strings (e.g. spell-interrupt eqstr 439), a distinct
+struct — do not conflate.
+
 ### 2026-07-11 — OP_LoadoutSwap = `0x7477` (multiclass class/level refresh), WIRED
 
 **OP_LoadoutSwap = `0x7477`** (S>C, variable). Sent when a player switches loadouts

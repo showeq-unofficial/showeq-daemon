@@ -220,8 +220,8 @@
         <comment>07/09 EQL (community f-patch id): 4B header (ffffffff) + emote text; client is a fixed 1028B buffer, server dir is variable, so none-gated. NOT wired yet — named for logs (emote also rides OP_FormattedMessage which is handled).</comment>
         <payload dir="both" typename="emoteTextStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_SimpleMessage" updated="05/20/26">
-        <comment>SimpleMessageCode</comment>
+    <opcode id="50a7" name="OP_SimpleMessage" updated="07/12/26">
+        <comment>EQL 07/12 rotation; single general SimpleMessage channel (12B server: u32 eqstrId, u32 color, u32 0). Wire-verified via the fast-camp-refusal string (eqstr 10031, color 13); replay opcodestats show it as 12B S>C across every system-message capture. Was pinned to the dead live opcode ffff; the MessageShell/SpellShell handlers were already correct</comment>
         <payload dir="server" typename="simpleMessageStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="ffff" name="OP_FormattedMessage" updated="05/20/26">

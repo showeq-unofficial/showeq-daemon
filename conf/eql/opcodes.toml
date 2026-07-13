@@ -624,10 +624,10 @@ comment = "07/09 EQL (community f-patch id): 4B header (ffffffff) + emote text; 
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "50a7"
 name    = "OP_SimpleMessage"
-updated = "2026-05-20"
-comment = "SimpleMessageCode"
+updated = "2026-07-12"
+comment = "EQL 07/12 rotation; single general SimpleMessage channel (12B server: u32 eqstrId, u32 color, u32 0). Wire-verified via the fast-camp-refusal string (eqstr 10031, color 13); replay opcodestats show it as 12B S>C across every system-message capture. Was pinned to the dead live opcode ffff; the MessageShell/SpellShell handlers were already correct"
 
   [[zone.payloads]]
   dir           = "server"
