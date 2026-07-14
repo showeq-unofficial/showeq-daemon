@@ -1248,24 +1248,28 @@ void EQPacketStream::processPacket(EQProtocolPacket& packet, bool isSubpacket)
     break;
     default :
     {
-      // net-opcode 0x0000 is not a real SOE control opcode. On EQL it's an
-      // opaque sub-protocol / encrypted channel that shares the zone 5-tuple
-      // (84-byte structured-but-not-EQ payloads: 4 zero bytes + a 16-byte
-      // high-entropy id + constants + an encrypted blob). Not decodable game
-      // state, so keep it at debug rather than spamming warnings. Genuinely
-      // unhandled net opcodes still warn.
+      // net-opcode 0x0000 is not a real SOE control opcode, and on the wire it
+      // is NOT EQ traffic at all. With a broad "udp" capture on a mirror port,
+      // ambient LAN UDP that happens to start with 00 00 shares no EQ 5-tuple
+      // and falls through to the zone stream. Empirically 0 of these involve the
+      // EQ server (69.174.201.x) across 37k+ EQ packets — they are IPsec NAT-T
+      // keepalives (port 4500, byte-identical payloads) and other UDP services
+      // (e.g. a cloud/Azure host). Keep it quiet rather than spamming warnings;
+      // genuinely unhandled net opcodes still warn. (Earlier notes here guessed
+      // an "EQL encrypted channel"/AEAD — that was a misdiagnosis of this
+      // ambient noise. The real EQL encrypted stream is the UCS chat session on
+      // port 9877, which IS decodable and is handled in packet.cpp. Scope
+      // captures with a server CIDR — capture.py --net / --ip 69.174.0.0/16 —
+      // to keep this out entirely.)
       if (packet.getNetOpCode() == 0x0000) {
-        // EQL multiplexes an ENCRYPTED channel on the game socket (C>S, fires
-        // during combat/activity). Verified not decodable: no plaintext EQ
-        // structure (no spawn-ids / names / eqstr), high-entropy unique
-        // payloads, and a per-packet 16-byte field consistent with an AEAD
-        // nonce. Not the server game-state we decode (that's the S>C SOE
-        // channels). Drop silently; announce once so it's discoverable.
+        // Non-EQ ambient UDP swept in by the broad capture filter; 5-tuple is
+        // not the EQ server. Drop silently; announce once so it's discoverable.
         static bool announced = false;
         if (!announced) {
           announced = true;
-          seqInfo("EQPacket: ignoring EQL encrypted net-0000 channel on %s "
-            "(opaque C>S, not decodable)", EQStreamStr[m_streamid]);
+          seqInfo("EQPacket: ignoring non-EQ net-0000 UDP on %s (ambient LAN "
+            "traffic, not an EQ channel — scope with --ip <server-CIDR>)",
+            EQStreamStr[m_streamid]);
         }
       }
       else

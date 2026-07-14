@@ -652,6 +652,16 @@ Notes / gotchas:
      field = an **AEAD nonce** signature. Not decodable without the client key, and NOT
      the server game-state we decode (that's the S→C SOE channels, intact). Dropped
      silently with a one-time announce (`44f5a76`).
+     **⚠ CORRECTED 2026-07-13: source 2 was a MISDIAGNOSIS — it is not EQ traffic at
+     all.** 5-tuple audit across 37k+ EQ packets: **0** of the net-0000 packets involve
+     the EQ server (69.174.201.x). They are ambient LAN UDP the broad mirror-port `udp`
+     capture sweeps in — IPsec NAT-T keepalives (port 4500, byte-identical payloads;
+     the "high entropy" was ESP ciphertext, hence the AEAD-shaped read) and other
+     non-EQ services (e.g. a cloud/Azure host). The only real EQL encrypted stream is
+     the UCS chat session on :9877, which IS decoded. Fixed at the capture layer
+     (`0bcf33d`): `--ip` accepts a server CIDR (`net` BPF term) and `scripts/capture.py`
+     defaults to the Daybreak block 69.174.0.0/16; the one-time announce now says
+     ambient-LAN, not "encrypted channel".
   Separately, the **`calcCRC16 called for length > 1048576`** spam (~every 10s) was a
   **1-byte packet** (netOp `0x00ff`) underflowing `rawPacketLength()-2` (unsigned) into a
   ~4.29GB length — guarded in `calculateCRC` (`c12bf31`). `0x2735` messages are **not**
