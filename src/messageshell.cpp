@@ -320,9 +320,32 @@ static QString ucsResolveChannel(uint8_t first, const QString& rest,
                                  const QString& run, int mask,
                                  QSet<QString>& known)
 {
-  // Dominant framing: the trailing run is the clean rest, optionally preceded
-  // by the (printable) masked first char at field[4] — i.e. run == rest (masked
-  // first char was non-printable and dropped) or run == [first][rest].
+  // 1. Match the trailing run against a learned channel name — from /list
+  //    rosters and join notices (which carry names un-masked) AND from earlier
+  //    dominant-framing chat — by longest shared suffix (>= 5 chars, so a short
+  //    coincidental tail can't false-match). This is the authoritative path: it
+  //    resolves framing outliers AND records seen before the General* mask
+  //    bootstraps (e.g. the very first chat line, once /list has been seen).
+  {
+    QString best;
+    int bestLen = 4;
+    for (const QString& k : known)
+    {
+      int l = 0;
+      while (l < run.length() && l < k.length() &&
+             run.at(run.length() - 1 - l) == k.at(k.length() - 1 - l))
+        ++l;
+      if (l > bestLen) { bestLen = l; best = k; }
+    }
+    if (!best.isEmpty())
+      return best;
+  }
+
+  // 2. Dominant framing: the trailing run is the clean rest, optionally preceded
+  //    by the (printable) masked first char at field[4] — i.e. run == rest
+  //    (masked first char non-printable, dropped) or run == [first][rest].
+  //    Mask-repair it and LEARN the name so later records (and outliers) match
+  //    it in step 1.
   const bool dominant =
       (run == rest) ||
       (run.length() == rest.length() + 1 && run.mid(1) == rest);
@@ -335,27 +358,13 @@ static QString ucsResolveChannel(uint8_t first, const QString& rest,
       if (f >= 0x20 && f < 0x7f)             // valid repaired first char
         name.prepend(QChar((ushort)f));
     }
-    // Learn confident names (uppercase-led) so framing outliers can suffix-match
-    // them. Dominant detection keeps this safe (these are the correct names).
     if (name.length() >= 2 && name.at(0).isLetter() && name.at(0).isUpper())
       known.insert(name);
     return name;
   }
 
-  // Framing outlier: field[4]/rest are mis-aligned. Recover by the longest
-  // trailing-run suffix shared with a learned channel name (>= 5 chars, so a
-  // short coincidental tail can't false-match).
-  QString best;
-  int bestLen = 4;
-  for (const QString& k : known)
-  {
-    int l = 0;
-    while (l < run.length() && l < k.length() &&
-           run.at(run.length() - 1 - l) == k.at(k.length() - 1 - l))
-      ++l;
-    if (l > bestLen) { bestLen = l; best = k; }
-  }
-  return best.isEmpty() ? run : best;        // no learned match yet -> raw run
+  // 3. Framing outlier with nothing learned yet — best effort: the raw run.
+  return run;
 }
 
 void MessageShell::ucsChatMessage(const uint8_t* data, size_t len, uint8_t dir,
@@ -367,6 +376,14 @@ void MessageShell::ucsChatMessage(const uint8_t* data, size_t len, uint8_t dir,
     return;
 
   auto recs = seq::rust::decode_ucs_chat(rust::Slice<const uint8_t>{data, len});
+
+  // Learn full channel names from any /list roster / join notice in this packet
+  // (they carry names un-masked), seeding the per-client resolver so even the
+  // first chat line and framing outliers resolve without the General crib.
+  for (const auto& name :
+       seq::rust::decode_ucs_channels(rust::Slice<const uint8_t>{data, len}))
+    s_ucsKnownChans[clientAddr].insert(
+        QString::fromLatin1(name.data(), name.size()));
 
   for (const auto& r : recs)
   {
