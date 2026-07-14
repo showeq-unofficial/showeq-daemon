@@ -74,13 +74,13 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
          "ClientZoneEntryStruct", SZC_Match,
          seqBind(ms.zoneMgr, &ZoneMgr::zoneEntryClient));
     wire("OP_PlayerProfile", SP_Zone, DIR_Server,
-         "charProfileStruct", SZC_Match,
+         "uint8_t", SZC_None,
          seqBind(ms.zoneMgr, &ZoneMgr::zonePlayer));
     wire("OP_ZoneChange", SP_Zone, DIR_Client | DIR_Server,
          "zoneChangeStruct", SZC_Match,
          seqBind(ms.zoneMgr, &ZoneMgr::zoneChange));
     wire("OP_NewZone", SP_Zone, DIR_Server,
-         "newZoneStruct", SZC_Match,
+         "uint8_t", SZC_None,
          seqBind(ms.zoneMgr, &ZoneMgr::zoneNew));
     wire("OP_SendZonePoints", SP_Zone, DIR_Server,
          "zonePointsStruct", SZC_None,
@@ -89,7 +89,7 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
          "dzSwitchInfo", SZC_None,
          seqBind(ms.zoneMgr, &ZoneMgr::dynamicZonePoints));
     wire("OP_DzInfo", SP_Zone, DIR_Server,
-         "dzInfo", SZC_None,
+         "dzInfo", SZC_Match,
          seqBind(ms.zoneMgr, &ZoneMgr::dynamicZoneInfo));
 
     // Cross-manager: profile feeds Player too (after GroupMgr, which is
@@ -111,7 +111,7 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     // ZoneServer / EqTimeSync / ItemLearned envelopes to the client.
     if (wireGlobalSinks) {
         wire("OP_ItemPacket", SP_Zone, DIR_Server,
-             "uint8_t", SZC_None,
+             "itemPacketStruct", SZC_None,
              seqBind(m_itemCache, &ItemCache::onItemPacket));
         wire("OP_TimeOfDay", SP_Zone, DIR_Server,
              "timeOfDayStruct", SZC_Match,
@@ -123,7 +123,7 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
 
     // --- SpawnShell: spawn lifecycle + positions.
     wire("OP_GroundSpawn", SP_Zone, DIR_Server,
-         "makeDropStruct", SZC_Modulus,
+         "makeDropStruct", SZC_None,
          seqBind(ms.spawnShell, &SpawnShell::newGroundItem));
     wire("OP_ClickObject", SP_Zone, DIR_Server,
          "remDropStruct", SZC_Match,
@@ -137,8 +137,8 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_MobUpdate", SP_Zone, DIR_Server | DIR_Client,
          "spawnPositionUpdate", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::updateSpawns));
-    wire("OP_WearChange", SP_Zone, DIR_Server | DIR_Client,
-         "SpawnUpdateStruct", SZC_Match,
+    wire("OP_WearChange", SP_Zone, DIR_Server,
+         "wearChangeStruct", SZC_None,
          seqBind(ms.spawnShell, &SpawnShell::updateSpawnInfo));
     // OP_SpawnAppearance2 type=0x2c = TLP mob-lock / FTE flag.
     wire("OP_SpawnAppearance2", SP_Zone, DIR_Server,
@@ -169,14 +169,20 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_ExpUpdate", SP_Zone, DIR_Server,
          "expUpdateStruct", SZC_Match,
          seqBind(ms.player, &Player::updateExp));
+    // Player::updateAltExp survived the showeq-c extraction but its wiring
+    // didn't — the AA bar only refreshed at zone-in (charProfile) until this
+    // was re-wired 2026-07-13.
+    wire("OP_AAExpUpdate", SP_Zone, DIR_Server,
+         "altExpUpdateStruct", SZC_Match,
+         seqBind(ms.player, &Player::updateAltExp));
     wire("OP_LevelUpdate", SP_Zone, DIR_Server,
          "levelUpUpdateStruct", SZC_Match,
          seqBind(ms.player, &Player::updateLevel));
     wire("OP_SkillUpdate", SP_Zone, DIR_Server,
          "skillIncStruct", SZC_Match,
          seqBind(ms.player, &Player::increaseSkill));
-    wire("OP_WearChange", SP_Zone, DIR_Server | DIR_Client,
-         "SpawnUpdateStruct", SZC_Match,
+    wire("OP_WearChange", SP_Zone, DIR_Server,
+         "wearChangeStruct", SZC_None,
          seqBind(ms.player, &Player::updateSpawnInfo));
     wire("OP_DeleteSpawn", SP_Zone, DIR_Server | DIR_Client,
          "deleteSpawnStruct", SZC_Match,

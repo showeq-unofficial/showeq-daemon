@@ -113,7 +113,7 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
          "dzSwitchInfo", SZC_None,
          seqBind(ms.zoneMgr, &ZoneMgr::dynamicZonePoints));
     wire("OP_DzInfo", SP_Zone, DIR_Server,
-         "dzInfo", SZC_None,
+         "dzInfo", SZC_Match,
          seqBind(ms.zoneMgr, &ZoneMgr::dynamicZoneInfo));
 
     // Cross-manager: profile feeds Player too (after GroupMgr, which is
@@ -236,6 +236,15 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_ExpUpdate", SP_Zone, DIR_Server,
          "expUpdateStruct", SZC_Match,
          seqBind(eql, &EqlDispatch::expUpdate));
+    // OP_AAExpUpdate (0x42d1, 12B): u32 altexp (0-100000 per-AA-point
+    // progress), u32 aapoints (unspent), u32 tail (unread; Live carries u8
+    // percent + pad there, which updateAltExp ignores). First 8 bytes match
+    // Live's altExpUpdateStruct and the scale is the same 0-100000 the
+    // handler consumes natively (the old "needs a ->330 conversion" note
+    // predated ac918ec's rescale), so it wires straight to the Live handler.
+    wire("OP_AAExpUpdate", SP_Zone, DIR_Server,
+         "altExpUpdateStruct", SZC_Match,
+         seqBind(ms.player, &Player::updateAltExp));
     // OP_LevelUpdate stays mapped to `ffff` in conf/eql/opcodes.toml — eql has no
     // discrete level packet (exhaustively confirmed 2026-07-10, OPCODES_LEGENDS.md),
     // so this never fires; kept wired in case a future patch introduces one.
@@ -281,9 +290,8 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_Consider", SP_Zone, DIR_Server | DIR_Client,
          "considerStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::consMessage));
-    wire("OP_TargetMouse", SP_Zone, DIR_Server | DIR_Client,
-         "clientTargetStruct", SZC_Match,
-         seqBind(ms.spawnShell, &SpawnShell::clientTarget));
+    // (OP_TargetMouse is wired once, DIR_Client, further up — the Live-copy
+    // DIR_Server|DIR_Client duplicate double-registered the C>S handler.)
     wire("OP_NpcMoveUpdate", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(ms.spawnShell, &SpawnShell::npcMoveUpdate));

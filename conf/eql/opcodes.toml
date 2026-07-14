@@ -87,13 +87,13 @@ comment = "Coords in a zone that will port you to another zone"
 [[zone]]
 id      = "42d1"
 name    = "OP_AAExpUpdate"
-updated = "2026-07-09"
-comment = "07/09 l-patch correction: the AA-exp bar rides 0x42d1 (12B altExpUpdateStruct), NOT 0x6801 — the ids were CROSS-WIRED with OP_ExpUpdate (the 12B/16B sizes now match their structs). eql layout: u32 altexp (0-100000 per-AA-point progress), u32 aapoints (unspent AA), u32 tail. DEFERRED: wiring needs the 0-100000->330 conversion in Player::updateAltExp. Named for logs; NOT wired yet."
+updated = "2026-07-13"
+comment = "07/09 l-patch correction: the AA-exp bar rides 0x42d1 (12B altExpUpdateStruct), NOT 0x6801 — the ids were CROSS-WIRED with OP_ExpUpdate (the 12B/16B sizes now match their structs). eql layout: u32 altexp (0-100000 per-AA-point progress), u32 aapoints (unspent AA), u32 tail (Live carries u8 percent + pad there; handler reads neither). WIRED 2026-07-13 straight to Player::updateAltExp — the handler is 0-100000-native since ac918ec, so the old 'needs a ->330 conversion' deferral was stale. Size gate declared in seq-backend-eql size_overrides()."
 
   [[zone.payloads]]
   dir           = "server"
-  typename      = "uint8_t"
-  sizechecktype = "none"
+  typename      = "altExpUpdateStruct"
+  sizechecktype = "match"
 
 [[zone]]
 id      = "6801"
@@ -1676,17 +1676,6 @@ comment = "EQ Legends buff-window init (S>C, 12B = buffWindowSlotStruct, fires 1
   dir           = "server"
   typename      = "buffWindowSlotStruct"
   sizechecktype = "match"
-
-[[zone]]
-id      = "ffff"
-name    = "OP_SpawnAppearance2"
-updated = "2026-05-27"
-comment = "Extended 24-byte bidirectional appearance update. Payload: {u32 spawn_id, u32 type, u32 value, u8[12] pad}. C>S type=0x24 (36) with spawn_id=0 = OP_ClickBuffOff (buff_slot in value field). S>C fires carry guild/cast/appearance types and co-occur with buff landing messages. Distinct from OP_SpawnAppearance. Re-confirmed post-2026-05-22 patch: type set {5,6,8,22,26,36,42} matches; ClickBuffOff C>S type=0x24 fires with spawn_id=0, varying buff_slot. type=0x2c (44) S>C = TLP-ruleset mob-lock / FTE attackable flag: value=0 = attackable (fires ~5-7s after a fresh spawn's OP_ZoneEntry — the grey→attackable transition), value=1 = locked/engaged (fires when a mob is claimed; observed firing for the engaged target exactly at engage time). Per-spawn 0/1 toggle, balanced across a session; absent on standard Live (mobs always attackable). Confirmed 2026-05-27 on a locked TLP server (moblock.vpk): fresh spawns 14245/14247/14264 each spawn→value=0 after ~5-7s; engaged target 13799 → value=1 at engage. Wired to Spawn.locked → web UI."
-
-  [[zone.payloads]]
-  dir           = "both"
-  typename      = "uint8_t"
-  sizechecktype = "none"
 
 [[zone]]
 id      = "ffff"
