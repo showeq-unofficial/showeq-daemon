@@ -178,8 +178,10 @@ class EQPacket : public QObject
 			   uint16_t opcode, const EQPacketOPCode* opcodeEntry,
                bool unknown);
    // EQ Legends UCS (cross-zone chat): one raw server->client port-9877 UDP
-   // payload, forwarded to MessageShell::ucsChatMessage for Rust decode.
-   void ucsChatData(const uint8_t* data, size_t len, uint8_t dir);
+   // payload + the owning client's addr (for the per-client channel-mask
+   // cache), forwarded to MessageShell::ucsChatMessage for Rust decode.
+   void ucsChatData(const uint8_t* data, size_t len, uint8_t dir,
+                    in_addr_t clientAddr);
 
    void rawZonePacket(const uint8_t* data, size_t len, uint8_t dir,
 		      uint16_t opcode);

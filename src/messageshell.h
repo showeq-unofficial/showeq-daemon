@@ -67,9 +67,11 @@ class MessageShell : public QObject
    void simpleMessage(const uint8_t* cmsg, size_t, uint8_t);
    void specialMessage(const uint8_t* smsg, size_t, uint8_t);
    // EQ Legends UCS cross-zone chat: one raw port-9877 server->client payload
-   // (from EQPacket::ucsChatData). Runs the Rust decode + channel resolution
-   // and emits chatMessage per line. No-op on live/test (Rust stub is empty).
-   void ucsChatMessage(const uint8_t* data, size_t len, uint8_t dir);
+   // (from EQPacket::ucsChatData) + the owning client's addr. Runs the Rust
+   // decode + channel resolution and emits chatMessage per line. No-op on
+   // live/test (Rust stub is empty).
+   void ucsChatMessage(const uint8_t* data, size_t len, uint8_t dir,
+                       uint32_t clientAddr);
    void guildMOTD(const uint8_t* gmotd, size_t, uint8_t);
    void consent(const uint8_t* consent, size_t, uint8_t);
    void moneyOnCorpse(const uint8_t* money);
@@ -155,11 +157,6 @@ class MessageShell : public QObject
    ZoneMgr* m_zoneMgr;
    SpawnShell* m_spawnShell;
    Player* m_player;
-
-   // UCS channel-name resolution state: the per-session XOR mask on the
-   // channel's masked first char, recovered once from the auto-joined General*
-   // channel (field[4] ^ 'G'). -1 = not yet bootstrapped. See ucsChatMessage.
-   int m_ucsChanError = -1;
 };
 
 

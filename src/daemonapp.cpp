@@ -258,12 +258,13 @@ bool DaemonApp::start()
     // No-op on live/test (the Rust decoder is an empty stub there).
     if (m_packet) {
         connect(m_packet, &EQPacket::ucsChatData, this,
-                [this](const uint8_t* d, size_t l, uint8_t dir) {
+                [this](const uint8_t* d, size_t l, uint8_t dir,
+                       in_addr_t client) {
             const ManagerSet* ns = managersForBox(QString());
             MessageShell* ms = (ns && ns->messageShell) ? ns->messageShell
                                                          : m_messageShell;
             if (ms)
-                ms->ucsChatMessage(d, l, dir);
+                ms->ucsChatMessage(d, l, dir, static_cast<uint32_t>(client));
         });
     }
 

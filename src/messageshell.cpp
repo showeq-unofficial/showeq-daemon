@@ -38,6 +38,7 @@
 #include "netstream.h"
 
 #include <QRegularExpression>
+#include <QHash>
 
 namespace {
 
@@ -299,7 +300,16 @@ void MessageShell::specialMessage(const uint8_t* data, size_t len, uint8_t dir)
                    out.message_color);
 }
 
-void MessageShell::ucsChatMessage(const uint8_t* data, size_t len, uint8_t dir)
+// Per-client UCS channel-name XOR mask cache. The channel name's masked first
+// char is `true ^ mask`, where `mask` is a per-session constant. Keyed by
+// client addr (NOT per-MessageShell) so it survives a client's zone/box
+// switches — the UCS session is one persistent connection, the same mask across
+// zones — and is re-derived from EVERY General* record so it self-heals after a
+// re-login (new session key). Single-threaded decode, so a plain static is safe.
+static QHash<uint32_t, int> s_ucsChanMask;
+
+void MessageShell::ucsChatMessage(const uint8_t* data, size_t len, uint8_t dir,
+                                  uint32_t clientAddr)
 {
   // Only the inbound (server->client) side carries chat; outgoing rides the
   // zone/world server. Rust does the keyless XOR + SPAM-anchored record parse.
@@ -314,22 +324,24 @@ void MessageShell::ucsChatMessage(const uint8_t* data, size_t len, uint8_t dir)
         QString::fromLatin1(r.channel_rest.data(), r.channel_rest.size());
 
     // The channel name's first char is masked by a per-session XOR. Recover
-    // that mask ONCE from the auto-joined General* channel (clean remainder
-    // "eneral", true first char 'G'), then repair every channel's first char
-    // — no /list needed. See OPCODES_LEGENDS.md and ucs_chat.rs.
-    if (m_ucsChanError < 0 && rest == QLatin1String("eneral"))
-      m_ucsChanError = (int)(r.channel_first ^ (uint8_t)'G');
+    // (and keep re-deriving) the mask from the auto-joined General* channel
+    // (clean remainder "eneral", true first char 'G'), keyed by client so it
+    // carries across that client's zone switches — no /list needed. See
+    // OPCODES_LEGENDS.md and ucs_chat.rs.
+    if (rest == QLatin1String("eneral"))
+      s_ucsChanMask.insert(clientAddr, (int)(r.channel_first ^ (uint8_t)'G'));
 
     QString channelName = rest;
-    if (m_ucsChanError >= 0)
+    const int mask = s_ucsChanMask.value(clientAddr, -1);
+    if (mask >= 0)
     {
-      const uint8_t first = r.channel_first ^ (uint8_t)m_ucsChanError;
+      const uint8_t first = r.channel_first ^ (uint8_t)mask;
       if (first >= 0x20 && first < 0x7f)      // valid repaired first char
         channelName.prepend(QChar((ushort)first));
       // else: framing-parity outlier — fall back to the clean remainder
     }
-    // else: mask not yet bootstrapped (no General* seen); show the remainder
-    // and let later lines resolve fully once General* arrives.
+    // else: no General* seen yet for this client; show the remainder and let
+    // later lines resolve once General* arrives.
 
     const QString sender =
         QString::fromLatin1(r.sender.data(), r.sender.size());

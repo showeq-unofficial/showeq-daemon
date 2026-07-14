@@ -992,7 +992,13 @@ void EQPacket::decodeUCSPacket(EQUDPIPPacketFormat& packet)
   uint8_t dir = (packet.getIPv4SourceN() == m_client_addr) ?
     DIR_Client : DIR_Server;
 
-  emit ucsChatData(raw, (size_t)rawLen, dir);
+  // Identify WHICH client's UCS session this is (the non-server side), so the
+  // channel-mask cache is keyed per client — a client's UCS seed is constant
+  // across its zone (box) switches, and distinct clients have distinct seeds.
+  in_addr_t clientAddr = (dir == DIR_Server) ? packet.getIPv4DestN()
+                                             : packet.getIPv4SourceN();
+
+  emit ucsChatData(raw, (size_t)rawLen, dir, clientAddr);
 }
 
 ////////////////////////////////////////////////////
