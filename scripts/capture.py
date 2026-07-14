@@ -48,7 +48,14 @@ def main() -> int:
     parser.add_argument("--device", default=DEVICE, help=f"capture device (default: {DEVICE})")
     parser.add_argument("--ip", default=None,
                         help="EQ client IP to capture (default: auto-detect). "
-                             "Set explicitly when two EQ clients share the LAN.")
+                             "Set explicitly when two EQ clients share the LAN. "
+                             "Overrides --net.")
+    parser.add_argument("--net", default="69.174.0.0/16",
+                        help="server netblock (CIDR) to scope the capture to, so "
+                             "a mirror port's ambient LAN UDP (IPsec NAT-T, cloud "
+                             "services) stays out of the .vpk. Default is the "
+                             "Daybreak/EQ block (covers login/world/zone/UCS/"
+                             "voice). Pass 'all' to capture unscoped.")
     parser.add_argument("--no-stats", action="store_true",
                         help="skip --opcode-stats output")
     parser.add_argument("--no-events", action="store_true",
@@ -93,8 +100,13 @@ def main() -> int:
         "--record-vpk", str(vpk),
         "--no-listen",
     ]
-    if args.ip:
-        cmd.extend(["--ip", args.ip])
+    # Scope the BPF filter: an explicit client --ip wins; else the --net server
+    # block (a CIDR the daemon turns into a `net` filter), unless 'all'. Both go
+    # through the daemon's --ip (host vs net chosen by the '/').
+    scope = args.ip or (None if args.net.strip().lower() in ("", "all", "none")
+                        else args.net)
+    if scope:
+        cmd.extend(["--ip", scope])
     if not args.no_stats:
         cmd.extend(["--opcode-stats", str(stats)])
     if not args.no_events:
@@ -106,7 +118,8 @@ def main() -> int:
         print(f"=> opcode stats to {stats.relative_to(DAEMON_DIR)}")
     if not args.no_events:
         print(f"=> event timeline to {events.relative_to(DAEMON_DIR)}")
-    print(f"=> device: {args.device}    ip: {args.ip or 'auto-detect'}    Ctrl-C to stop")
+    print(f"=> device: {args.device}    scope: {scope or 'unscoped (all UDP)'}"
+          f"    Ctrl-C to stop")
     print()
 
     try:

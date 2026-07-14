@@ -479,8 +479,12 @@ void PacketCaptureThread::setFilter (const char *device,
     if (address_type == IP_ADDRESS_TYPE)
     {
         if (hostname && strlen(hostname) && strcmp(hostname, AUTOMATIC_CLIENT_IP) != 0)
-            // host was specified/detected
-            pfb += sprintf(pfb, " and host %s", hostname);
+            // host/net was specified/detected. A CIDR (contains '/') scopes to a
+            // netblock — e.g. the Daybreak server block 69.174.0.0/16 to keep
+            // only EQ traffic (login/world/zone/UCS/voice) and drop ambient LAN
+            // UDP (IPsec NAT-T, cloud services) a mirror port also sees.
+            pfb += sprintf(pfb, " and %s %s",
+                           strchr(hostname, '/') ? "net" : "host", hostname);
     }
     else if (address_type == MAC_ADDRESS_TYPE)
     {

@@ -115,10 +115,11 @@ int main(int argc, char** argv)
         "Network device to capture on (e.g. eth0). Required for live capture.",
         "device");
     QCommandLineOption ipOpt(QStringList{"ip"},
-        "EQ client IP to capture (sets the pcap BPF filter). Defaults to "
-        "auto-detect on the first session handshake; set explicitly when "
-        "multiple EQ clients share the LAN so two simultaneous captures "
-        "don't both lock onto the same client.",
+        "EQ client IP, or a server netblock in CIDR form (e.g. 69.174.0.0/16), "
+        "to scope the pcap BPF filter (host vs net chosen by the '/'). Defaults "
+        "to auto-detect the client on the first session handshake; set a client "
+        "IP when multiple EQ clients share the LAN, or a server CIDR to keep "
+        "only EQ traffic and drop ambient LAN UDP the mirror port also sees.",
         "ip");
     QCommandLineOption listenOpt(QStringList{"l", "listen"},
         "Address:port to serve WebSocket clients on (default 127.0.0.1:9090).",
