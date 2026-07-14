@@ -73,6 +73,47 @@ per-backend decoders.
 | OP_Animation     | 0x6dba | **0x1293** | ✅ **2026-07-08** (id-only, no handler). Animation broadcast (S>C, 4B, n=354/718). **Live `animationStruct`**: spawnId u16@0, action u8@2 (1–46), speed u8@3 (**=10 across all 354**). Remapped so it resolves in opcode-stats; animation isn't surfaced, so no handler wired |
 | *(target HP reveal)* | — | **0x5b5e** | ⚑ 2026-07-08 candidate (unwired). On-target HP reveal (S>C, 13B primary, n=12/22): `{u32 spawn_id, u32 cur_hp, u32 =0x07000001, u8 0}`; cur_hp is **absolute** (=0 for a just-dead spawn). Consider-companion (cf. 0x0e54 `{0,target}`). NOT a continuous %-HP bar stream |
 
+### 2026-07-13 — dispatch hardening fallout: SpawnDoor + AAExpUpdate WIRED, mob-lock revived, TargetMouse dedup
+
+`dispatchFor` no longer silently binds a handler to the wrong payload on a
+(dir, typename, sizecheck) mismatch — it warns and registers nothing (new tier-1
+`packetstream_dispatch_test`). Turning that on surfaced and fixed four latent eql/live
+wiring bugs, and unblocked the two deferred decoders:
+
+- **OP_SpawnDoor `0x71ca` WIRED.** eql door rows are **132B**; the first 88B are
+  byte-identical to Live's `doorStruct` (name[32]@0, y/x/z/heading f32 + incline u32
+  @32–51, 20B field copy, size u32@72, doorId/opentype/spawnstate/invertstate@80,
+  zonePoint u32@84 — `0xffffffff` = none), trailing unknown 44B vs Live's 48B. Derived
+  from eql-ab-zone dump-payload (2×660B = 5×132 rows, e.g. `GIANTLEV` lever y/x/z
+  ≈ -1237/-537/+14, heading 256.0, size 100, doorId 5, opentype 40). eql owns
+  `parse_door` (132B, offset-based) + a `doorStruct` size override; the array stride is
+  backend-owned via the new bridge `door_stride()` (136 live/test, 132 eql) because
+  `newDoorSpawns` otherwise strides `sizeof(doorStruct)`. Replay: ab-zone +10 DOOR
+  spawns ("Door: GIANTLEV (5)"), chat capture +102, login-zone +11.
+- **OP_AAExpUpdate `0x42d1` WIRED** straight to `Player::updateAltExp` — the "needs a
+  0-100000→330 conversion" deferral was stale: the handler has been 0-100000-native
+  since `ac918ec`. eql layout `{u32 altexp 0-100000, u32 aaUnspent, u32 tail}`; first 8
+  bytes match Live's `altExpUpdateStruct` and the tail (Live: u8 percent + pad) is
+  unread. 12B size override declared. Bonus find: `updateAltExp` was wired NOWHERE —
+  the live wiring was lost in the showeq-c extraction, so the AA bar only refreshed at
+  zone-in on live too; re-wired on both backends (live fixtures gain player_stats
+  envelopes, e.g. login-charmgmt 21→36).
+- **OP_SpawnAppearance2 `0x1bdc` mob-lock was DEAD on eql** — a stale `ffff` Live-copy
+  duplicate entry in `conf/eql/opcodes.toml` shadowed the real `1bdc` entry in the
+  name-keyed lookup, so `updateSpawnLock` bound to a never-firing opcode. Duplicate
+  deleted (dup-name sweep of all three TOMLs: it was the only one). Live's own entry was
+  flipped `uint8_t/none → spawnAppearance2Struct/match` (server-only) so the wire binds
+  exactly instead of via the removed fallback.
+- **OP_TargetMouse `0x2867` double-fire fixed** — wire_eql carried both the eql
+  DIR_Client wire and a dormant Live-copy `DIR_Server|DIR_Client` duplicate; every C>S
+  target select fired `clientTarget` twice (goldens: targeted 286→143 / 38→19 / 52→26 /
+  22→11 across fixtures). The Live-copy wire is removed.
+
+Also: mapped `SZC_Match` gate-size audit is now CI-enforceable (`--strict-gate-sizes`,
+wired into the per-target opcode-load smoke), and `OP_GroundSpawn` decode was revived on
+LIVE (its wire asked `makeDropStruct/SZC_Modulus` vs the TOML's `none`; the old fallback
+bound it to the client payload = dead handler — live fixtures gain "Drop:" spawns).
+
 ### 2026-07-12 — OP_SimpleMessage = `0x50a7` (canned server-string channel), WIRED
 
 **OP_SimpleMessage = `0x50a7`** (S>C, fixed 12B `simpleMessageStruct` `{u32 eqstrId,
@@ -204,6 +245,9 @@ last-payload mis-bind + OOB read):** `OP_ExpUpdate 0x42d1` (12B, 0-100000 scale 
 x/330), `OP_AAExpUpdate 0x6801` (16B, 0-100000 vs Live 12B), `OP_SpawnDoor 0x71ca`
 (132B rows, `1452=11*132`, vs Live doorStruct 136B → modulus rejects). Each needs a struct
 size override (+ exp scale conversion) before wiring — Tier-2/3.
+*(Update: the exp ids above were later found CROSS-WIRED — see the 2026-07-09 entry;
+both exp opcodes wired 07-09/07-13 and OP_SpawnDoor cracked + wired 2026-07-13. This
+deferred list is now EMPTY.)*
 
 **Divergence kept (daemon finding wins):** `OP_ManaChange 0x07c9` — a real 20B S>C mana
 packet (23× in captures), kept over the community "mana only rides 0x2735".
