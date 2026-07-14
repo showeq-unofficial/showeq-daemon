@@ -272,3 +272,30 @@ QString EQStr::formatMessage(uint32_t formatid,
     }
 
 }
+
+QString EQStr::formatMessage(uint32_t formatid, const QStringList& args) const
+{
+  // The EQL OP_FormattedMessage args arrive already split (and wrapped in
+  // \x12 link markers the Live length-prefixed wire never carries). Strip the
+  // markers and re-encode as the {u32 len, bytes} blob the shared
+  // formatMessage() consumes, so the %T/%N interpolation + caret-field cleanup
+  // (keep the name after the last '^') are reused verbatim rather than forked.
+  QByteArray blob;
+  for (const QString& raw : args)
+  {
+    QString a = raw;
+    a.remove(QChar(0x12));
+    const QByteArray bytes = a.toUtf8();
+    const quint32 len = static_cast<quint32>(bytes.size());
+    const char lenLE[4] = {
+      static_cast<char>(len & 0xff),
+      static_cast<char>((len >> 8) & 0xff),
+      static_cast<char>((len >> 16) & 0xff),
+      static_cast<char>((len >> 24) & 0xff),
+    };
+    blob.append(lenLE, 4);
+    blob.append(bytes);
+  }
+  return formatMessage(formatid, blob.constData(),
+		       static_cast<size_t>(blob.size()));
+}

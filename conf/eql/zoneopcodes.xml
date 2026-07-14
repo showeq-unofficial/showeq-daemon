@@ -224,8 +224,8 @@
         <comment>EQL 07/12 rotation; single general SimpleMessage channel (12B server: u32 eqstrId, u32 color, u32 0). Wire-verified via the fast-camp-refusal string (eqstr 10031, color 13); replay opcodestats show it as 12B S>C across every system-message capture. Was pinned to the dead live opcode ffff; the MessageShell/SpellShell handlers were already correct</comment>
         <payload dir="server" typename="simpleMessageStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_FormattedMessage" updated="05/20/26">
-        <comment>FormattedMessageCode i.e. pet dismissed etc</comment>
+    <opcode id="3c0a" name="OP_FormattedMessage" updated="07/14/26">
+        <comment>EQL 0x3c0a, wire-verified (corpsepin, 750 pkts): layout diverges from Live (format id @9 not @5) — spellId @0 (0xffffffff=non-spell), msgType @4, spawnId @5, formatId @9, NUL-split caret args @13. msgType multiplexes overhead damage/heal floaters + spell interrupts/casts/resists. Hand-decoded by seq-backend-eql parse_formatted_message; routed by MessageShell::formattedMessageEQL (spell -> MT_Spell, floaters suppressed).</comment>
         <payload dir="server" typename="formattedMessageStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="55eb" name="OP_CommonMessage" updated="07/09/26">

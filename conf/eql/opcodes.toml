@@ -635,10 +635,10 @@ comment = "EQL 07/12 rotation; single general SimpleMessage channel (12B server:
   sizechecktype = "match"
 
 [[zone]]
-id      = "ffff"
+id      = "3c0a"
 name    = "OP_FormattedMessage"
-updated = "2026-05-20"
-comment = "FormattedMessageCode i.e. pet dismissed etc"
+updated = "2026-07-14"
+comment = "EQL 0x3c0a, wire-verified (corpsepin, 750 pkts): layout diverges from Live (format id @9 not @5) — spellId @0 (0xffffffff=non-spell), msgType @4, spawnId @5, formatId @9, NUL-split caret args @13. msgType multiplexes overhead damage/heal floaters + spell interrupts/casts/resists. Hand-decoded by seq-backend-eql parse_formatted_message; routed by MessageShell::formattedMessageEQL (spell -> MT_Spell, floaters suppressed)."
 
   [[zone.payloads]]
   dir           = "server"

@@ -317,9 +317,12 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_CommonMessage", SP_Zone, DIR_Client | DIR_Server,
          "channelMessageStruct", SZC_None,
          seqBind(ms.messageShell, &MessageShell::channelMessage));
+    // EQL 0x3c0a diverges from the Live formattedMessageStruct layout
+    // (format id @9, spell id @0, pre-split caret args) — decoded by the
+    // eql parse_formatted_message and routed via formattedMessageEQL.
     wire("OP_FormattedMessage", SP_Zone, DIR_Server,
          "formattedMessageStruct", SZC_None,
-         seqBind(ms.messageShell, &MessageShell::formattedMessage));
+         seqBind(ms.messageShell, &MessageShell::formattedMessageEQL));
     wire("OP_SimpleMessage", SP_Zone, DIR_Server,
          "simpleMessageStruct", SZC_Match,
          seqBind(ms.messageShell, &MessageShell::simpleMessage));

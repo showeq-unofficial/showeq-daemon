@@ -73,6 +73,52 @@ per-backend decoders.
 | OP_Animation     | 0x6dba | **0x1293** | ✅ **2026-07-08** (id-only, no handler). Animation broadcast (S>C, 4B, n=354/718). **Live `animationStruct`**: spawnId u16@0, action u8@2 (1–46), speed u8@3 (**=10 across all 354**). Remapped so it resolves in opcode-stats; animation isn't surfaced, so no handler wired |
 | *(target HP reveal)* | — | **0x5b5e** | ⚑ 2026-07-08 candidate (unwired). On-target HP reveal (S>C, 13B primary, n=12/22): `{u32 spawn_id, u32 cur_hp, u32 =0x07000001, u8 0}`; cur_hp is **absolute** (=0 for a just-dead spawn). Consider-companion (cf. 0x0e54 `{0,target}`). NOT a continuous %-HP bar stream |
 
+### 2026-07-14 — OP_FormattedMessage = `0x3c0a` (arg-bearing text: spell interrupts/casts + floaters), WIRED
+
+**OP_FormattedMessage = `0x3c0a`** (S>C, variable 13..70+B). Previously `unknown` in
+opcode-stats — EQL formatted messages were not decoded at all. The EQL layout **diverges
+from Live** (`formattedMessageStruct` puts the format id at offset 5): capture-verified
+against `eqlegends-corpsepin` (750 pkts, `--dump-payload 0x3c0a`) the wire is
+
+```
+u32 spellId  @0   0xffffffff = non-spell; a real spell id on spell classes (233 Expulse Undead, 74077 Blooming Heal)
+u8  msgType  @4   message-class discriminator (multiplexed — see below)
+u32 spawnId  @5   actor spawn id (the player self-id sits here on self-directed msgs)
+u32 formatId @9   eqstr format-string id (439 interrupt/heal, 173/12478 cast, 15566 floater)
+args         @13  NUL-terminated substitution fields; link fields are \x12-bracketed caret EQ links
+```
+
+`msgType` **multiplexes** onto one opcode: 7/5/8 = overhead damage/heal **floaters** (a
+bare number, fmt 15566, ~89% of volume — suppressed, not chat); 0/1 = spell
+cast/heal/interrupt/resist text (fmt 173/439, caret spell-link arg); 1+name = NPC-cast-at-you
+(a name arg then a spell-link arg). Layout matches the community f-patch **addendum 11**
+(credit Xerxes); our work = capture verification + full daemon/Rust/proto/web integration.
+
+Full stack: `seq-backend-eql` `parse_formatted_message` rewritten to the EQL offsets
+(returns spellId/msgType/spawnId/formatId + NUL-split args `Vec<String>`; neutral names —
+the crate is the namespace); the shared `FormattedMessage` cxx struct enriched (empty on
+live/test) with `decode_formatted_message` cfg-branched (**reuses the existing FFI**, live/test
+byte-identical); `EQStr::formatMessage(uint32_t, QStringList)` overload strips the `\x12`
+markers and re-encodes to the `{u32 len,bytes}` blob so the proven `%T`/`%N` + caret cleanup
+is reused; `MessageShell::formattedMessageEQL` suppresses floaters, routes
+`spellId != 0xffffffff → MT_Spell` else `MT_General`, and **synthesizes a ChatColor**
+(`CC_User_Spells` 264 / `CC_User_Default` 273) since 0x3c0a carries no wire colour — so the
+web's existing `cc:264 → 'Spell'/Spells` mapping renders it with **no web change**. Wired via
+`conf/eql/opcodes.toml` (`ffff → 0x3c0a`, SZC_None) + `wire_eql.cpp` rebind to
+`formattedMessageEQL`.
+
+Verified: replay of `levelup`/`upperguk`/`chat`/`corpsepin` (none the derivation capture)
+produces clean `"X spell is interrupted."` / `"X spell fizzles!"` / `"You regain your
+concentration…"` under MT_Spell(26)+cc264, non-spell (forage/quest) under MT_General(19), no
+floater spam; a headless WebSocket client received **1151 chat envelopes** live over the wire.
+eql `check.sh` **5 pass / 0 fail** (regen'd `upperguk-20260707` + `chat-20260708`, diff purely
+additive to MT_Spell); live `check.sh` 14 pass / 0 fail (shared-core safe).
+
+> **Note — post-2026-07-14 patch.** EQL patched again on 2026-07-14 and the app opcode IDs
+> rotated, so `0x3c0a` is the **pre-patch** id (correct for the fixtures above). The **layout
+> is patch-stable** — only the id moves — so the re-map (next todo) is a one-line
+> `conf/eql/opcodes.toml` id change; the parser/handler stay.
+
 ### 2026-07-13 — dispatch hardening fallout: SpawnDoor + AAExpUpdate WIRED, mob-lock revived, TargetMouse dedup
 
 `dispatchFor` no longer silently binds a handler to the wrong payload on a

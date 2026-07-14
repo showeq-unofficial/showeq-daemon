@@ -29,6 +29,7 @@
 
 #include <QHash>
 #include <QString>
+#include <QStringList>
 
 //----------------------------------------------------------------------
 // EQStr
@@ -41,8 +42,12 @@ class EQStr
   bool load(const QString& eqstrFile);
   QString find(uint32_t formatid) const;
   QString message(uint32_t formatid) const;
-  QString formatMessage(uint32_t formatid, 
+  QString formatMessage(uint32_t formatid,
 			const char* arguments, size_t argslen) const;
+  // Overload for callers that already hold the substitution args as a list
+  // (the EQL OP_FormattedMessage path — its args arrive pre-split from the
+  // Rust decoder rather than as the Live {u32 len, bytes} wire blob).
+  QString formatMessage(uint32_t formatid, const QStringList& args) const;
 
  protected:
    QHash<int, QString> m_messageStrings;
