@@ -39,6 +39,7 @@
 
 #include <QRegularExpression>
 #include <QHash>
+#include <QSet>
 
 namespace {
 
@@ -307,6 +308,55 @@ void MessageShell::specialMessage(const uint8_t* data, size_t len, uint8_t dir)
 // zones — and is re-derived from EVERY General* record so it self-heals after a
 // re-login (new session key). Single-threaded decode, so a plain static is safe.
 static QHash<uint32_t, int> s_ucsChanMask;
+// Channel names resolved from dominant-framing records, per client — used to
+// recover the ~1% framing-outlier records (a data-dependent NUL in the masked
+// header shifts field[4] mid-name) by suffix match.
+static QHash<uint32_t, QSet<QString>> s_ucsKnownChans;
+
+// Resolve one UCS channel name. `rest` = clean remainder from field[5..];
+// `run` = the field's whole trailing printable run; `first` = masked byte at
+// field[4]; `mask` = the per-session first-char XOR (-1 if unknown).
+static QString ucsResolveChannel(uint8_t first, const QString& rest,
+                                 const QString& run, int mask,
+                                 QSet<QString>& known)
+{
+  // Dominant framing: the trailing run is the clean rest, optionally preceded
+  // by the (printable) masked first char at field[4] — i.e. run == rest (masked
+  // first char was non-printable and dropped) or run == [first][rest].
+  const bool dominant =
+      (run == rest) ||
+      (run.length() == rest.length() + 1 && run.mid(1) == rest);
+  if (dominant)
+  {
+    QString name = rest;
+    if (mask >= 0)
+    {
+      const uint8_t f = first ^ (uint8_t)mask;
+      if (f >= 0x20 && f < 0x7f)             // valid repaired first char
+        name.prepend(QChar((ushort)f));
+    }
+    // Learn confident names (uppercase-led) so framing outliers can suffix-match
+    // them. Dominant detection keeps this safe (these are the correct names).
+    if (name.length() >= 2 && name.at(0).isLetter() && name.at(0).isUpper())
+      known.insert(name);
+    return name;
+  }
+
+  // Framing outlier: field[4]/rest are mis-aligned. Recover by the longest
+  // trailing-run suffix shared with a learned channel name (>= 5 chars, so a
+  // short coincidental tail can't false-match).
+  QString best;
+  int bestLen = 4;
+  for (const QString& k : known)
+  {
+    int l = 0;
+    while (l < run.length() && l < k.length() &&
+           run.at(run.length() - 1 - l) == k.at(k.length() - 1 - l))
+      ++l;
+    if (l > bestLen) { bestLen = l; best = k; }
+  }
+  return best.isEmpty() ? run : best;        // no learned match yet -> raw run
+}
 
 void MessageShell::ucsChatMessage(const uint8_t* data, size_t len, uint8_t dir,
                                   uint32_t clientAddr)
@@ -322,26 +372,20 @@ void MessageShell::ucsChatMessage(const uint8_t* data, size_t len, uint8_t dir,
   {
     const QString rest =
         QString::fromLatin1(r.channel_rest.data(), r.channel_rest.size());
+    const QString run =
+        QString::fromLatin1(r.channel_run.data(), r.channel_run.size());
 
-    // The channel name's first char is masked by a per-session XOR. Recover
-    // (and keep re-deriving) the mask from the auto-joined General* channel
-    // (clean remainder "eneral", true first char 'G'), keyed by client so it
-    // carries across that client's zone switches — no /list needed. See
-    // OPCODES_LEGENDS.md and ucs_chat.rs.
+    // Recover (and keep re-deriving) the per-session first-char XOR mask from
+    // the auto-joined General* channel (clean remainder "eneral"), keyed by
+    // client so it carries across that client's zone switches — no /list
+    // needed. See OPCODES_LEGENDS.md and ucs_chat.rs.
     if (rest == QLatin1String("eneral"))
       s_ucsChanMask.insert(clientAddr, (int)(r.channel_first ^ (uint8_t)'G'));
 
-    QString channelName = rest;
-    const int mask = s_ucsChanMask.value(clientAddr, -1);
-    if (mask >= 0)
-    {
-      const uint8_t first = r.channel_first ^ (uint8_t)mask;
-      if (first >= 0x20 && first < 0x7f)      // valid repaired first char
-        channelName.prepend(QChar((ushort)first));
-      // else: framing-parity outlier — fall back to the clean remainder
-    }
-    // else: no General* seen yet for this client; show the remainder and let
-    // later lines resolve once General* arrives.
+    const QString channelName =
+        ucsResolveChannel(r.channel_first, rest, run,
+                          s_ucsChanMask.value(clientAddr, -1),
+                          s_ucsKnownChans[clientAddr]);
 
     const QString sender =
         QString::fromLatin1(r.sender.data(), r.sender.size());
