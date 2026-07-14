@@ -162,6 +162,11 @@ int main(int argc, char** argv)
         "where no client connects: --record-vpk live captures, "
         "--replay + --record-golden runs, --opcode-stats diagnostics. "
         "Also avoids port-bind conflicts alongside another daemon.");
+    QCommandLineOption strictGateSizesOpt(QStringList{"strict-gate-sizes"},
+        "Exit non-zero if the backend gate-size audit flags any mapped "
+        "SZC_Match opcode still gating on an inherited Live sizeof "
+        "(default: warn only). Used by CI's per-target opcode-load smoke; "
+        "no-op on backends without size overrides (live/test).");
     QCommandLineOption dumpPayloadOpt(QStringList{"dump-payload"},
         "Recon: write raw payload bytes of a chosen zone opcode to disk "
         "every time it fires. Format OPCODE:PATH (e.g. 0xdb56:/tmp/profile). "
@@ -214,6 +219,7 @@ int main(int argc, char** argv)
     parser.addOption(recordGoldenOpt);
     parser.addOption(opcodeStatsOpt);
     parser.addOption(noListenOpt);
+    parser.addOption(strictGateSizesOpt);
     parser.addOption(dumpPayloadOpt);
     parser.addOption(listEventsOpt);
     parser.addOption(listBoxesOpt);
@@ -247,6 +253,7 @@ int main(int argc, char** argv)
     cfg.recordGolden = parser.value(recordGoldenOpt);
     cfg.opcodeStats  = parser.value(opcodeStatsOpt);
     cfg.noListen     = parser.isSet(noListenOpt);
+    cfg.strictGateSizes = parser.isSet(strictGateSizesOpt);
     cfg.dumpPayload  = parser.values(dumpPayloadOpt);
     cfg.listEvents   = parser.value(listEventsOpt);
     cfg.listBoxes    = parser.isSet(listBoxesOpt);

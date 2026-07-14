@@ -139,6 +139,12 @@ public:
         // where no client connects and the listen port is just a
         // collision risk against the user's main daemon instance.
         bool         noListen = false;
+        // --strict-gate-sizes: exit non-zero when the backend gate-size
+        // audit flags any mapped SZC_Match opcode still gating on an
+        // inherited Live sizeof (see warnUndeclaredBackendGateSizes).
+        // Default off (warn-only); CI's per-target opcode-load smoke
+        // sets it so an undeclared gate size fails the build.
+        bool         strictGateSizes = false;
         // Idle TTL (ms) after which BoxRegistry::evictStale reclaims a box
         // whose EQ session has gone silent — reaping the per-zone Box churn
         // a long multibox session accumulates. --box-idle-ttl SECONDS sets

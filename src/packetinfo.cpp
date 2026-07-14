@@ -530,12 +530,12 @@ EQPacketOPCode* EQPacketOPCodeDB::add(uint16_t opcode, const QString& name)
   return newOPCode;
 }
 
-void EQPacketOPCodeDB::warnUndeclaredBackendGateSizes(const EQPacketTypeDB& typeDB) const
+int EQPacketOPCodeDB::warnUndeclaredBackendGateSizes(const EQPacketTypeDB& typeDB) const
 {
   // Only backends that ship size overrides (eql) own their gate sizes; live/test
   // legitimately gate on the compiled everquest.h sizeof, so this is a no-op there.
   if (!typeDB.hasOverrides())
-    return;
+    return 0;
 
   int flagged = 0;
   QHashIterator<int, EQPacketOPCode*> it(m_opcodes);
@@ -574,6 +574,7 @@ void EQPacketOPCodeDB::warnUndeclaredBackendGateSizes(const EQPacketTypeDB& type
             "of a backend-owned size — each is a silent-mis-decode landmine if that Live struct "
             "diverges or collides. Add explicit size_overrides() entries.",
             flagged);
+  return flagged;
 }
 
 void EQPacketOPCodeDB::list(void) const

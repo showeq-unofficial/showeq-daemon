@@ -636,6 +636,13 @@ bool DaemonApp::startCapture()
             : PLAYBACK_OFF,
         /*playbackSpeed*/ 0,
         this, "packet");
+    if (m_cfg.strictGateSizes && m_packet->undeclaredGateSizeCount() > 0) {
+        qCritical("--strict-gate-sizes: %d mapped SZC_Match opcode(s) gate on an "
+                  "inherited Live sizeof — declare them in seq-backend-eql "
+                  "size_overrides() (see BACKEND GATE-SIZE warnings above)",
+                  m_packet->undeclaredGateSizeCount());
+        return false;
+    }
     if (wantRecord) {
         qInfo("recording raw packets to %s", qUtf8Printable(m_cfg.recordVpk));
     }

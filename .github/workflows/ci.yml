@@ -70,7 +70,7 @@ jobs:
           printf '1^Test%s\n' "$(printf '^0%.0s' {1..60})" > conf/spells_us.txt
           printf '1\n0\n' > conf/eqstr_us.txt
           touch /tmp/empty.vpk
-          ./build/showeq-daemon --replay /tmp/empty.vpk --no-listen --config-dir conf
+          ./build/showeq-daemon --replay /tmp/empty.vpk --no-listen --config-dir conf --strict-gate-sizes
 
   # The `build` job above builds the default target (live, SEQ_TARGET unset).
   # This job configures + builds the OTHER backends so a break in the test/eql
@@ -113,7 +113,10 @@ jobs:
         run: |
           # conf/<target>/opcodes.toml is committed; the build generates its
           # XML. Empty-vpk replay exercises startup + per-target opcode load.
+          # --strict-gate-sizes fails the job if a mapped SZC_Match opcode
+          # gates on an inherited Live sizeof (eql must declare it in
+          # seq-backend-eql size_overrides(); no-op on test).
           printf '1^Test%s\n' "$(printf '^0%.0s' {1..60})" > conf/spells_us.txt
           printf '1\n0\n' > conf/eqstr_us.txt
           touch /tmp/empty.vpk
-          ./build/showeq-daemon --replay /tmp/empty.vpk --no-listen --config-dir conf
+          ./build/showeq-daemon --replay /tmp/empty.vpk --no-listen --config-dir conf --strict-gate-sizes

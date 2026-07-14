@@ -295,7 +295,8 @@ class EQPacketOPCodeDB
   // instead of an explicit backend size override. No-op unless the backend
   // ships overrides (eql). Turns the WearChange-class collision from a silent
   // mis-decode into a visible map-time error. See seq-backend-eql size_overrides().
-  void warnUndeclaredBackendGateSizes(const EQPacketTypeDB& typeDB) const;
+  // Returns the number of flagged opcodes so --strict-gate-sizes can enforce it.
+  int warnUndeclaredBackendGateSizes(const EQPacketTypeDB& typeDB) const;
   void clear(void);
   EQPacketOPCode* add(uint16_t opcode, const QString& opcodeName);
   EQPacketOPCode* edit(uint16_t opcode);
