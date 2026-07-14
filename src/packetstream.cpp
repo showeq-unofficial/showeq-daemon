@@ -127,6 +127,7 @@ EQPacketDispatch* EQPacketStream::dispatchFor(const QString& opcodeName,
   }
 
   EQPacketPayload* payload = nullptr;
+  bool matched = false;
 
   // try to find a matching payload for this opcode
   EQPayloadListIterator pit(*opcode);
@@ -139,16 +140,30 @@ EQPacketDispatch* EQPacketStream::dispatchFor(const QString& opcodeName,
     if ((payload->dir() & m_dir) &&
 	(payload->typeName() == payloadType) &&
 	(payload->sizeCheckType() == szt))
+    {
+      matched = true;
       break;
+    }
   }
 
-  // if no payload found, issue a warning
-  if (!payload)
+  // No exact (dir, typename, szt) match: register nothing. Binding to the
+  // last-iterated payload here would silently attach the handler to a
+  // different payload's dispatcher (a wiring/TOML typename mismatch).
+  if (!matched)
   {
-    seqDebug("dispatchFor: Warning! opcode '%s' has no matching payload.",
-            opcodeName.toLatin1().data());
-    seqDebug("\tdir '%d' payload '%s' szt '%d'",
-            m_dir, payloadType, szt);
+    seqWarn("dispatchFor: opcode '%s' has NO payload matching dir %d "
+            "typename '%s' szt %d — handler NOT bound",
+            opcodeName.toLatin1().data(), m_dir, payloadType, szt);
+    EQPayloadListIterator ait(*opcode);
+    while (ait.hasNext())
+    {
+      EQPacketPayload* avail = ait.next();
+      if (!avail)
+        continue;
+      seqWarn("\tavailable payload: dir %d typename '%s' szt %d",
+              avail->dir(), avail->typeName().toLatin1().data(),
+              avail->sizeCheckType());
+    }
     return nullptr;
   }
 
