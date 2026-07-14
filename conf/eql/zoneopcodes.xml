@@ -19,9 +19,9 @@
         <comment>EQ Legends bind-point marker (14B S>C, once at zone-in). Carries the BIND zone id (u32@6), identical across zones (nektulos-vs-upperguk both read 25) — NOT the current zone. Was mis-labeled OP_NewZone until 2026-07-08. Unwired. See OPCODES_LEGENDS.md</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="71ca" name="OP_SpawnDoor" updated="07/09/26">
-        <comment>07/07 rotation (community f-patch id, daemon-confirmed bulk door array 1452/2376B). DECODER DEFERRED: eql door rows are 132B (1452=11*132, 2376=18*132) vs Live doorStruct 136B, so SZC_Modulus on the 136B struct rejects it. Needs a 132B doorStruct size override (or an eql door decoder) before wiring. Named for logs; NOT wired.</comment>
-        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+    <opcode id="71ca" name="OP_SpawnDoor" updated="07/13/26">
+        <comment>07/07 rotation (community f-patch id, daemon-confirmed bulk door array 1452/2376B). eql door rows are 132B (1452=11*132, 2376=18*132) vs Live doorStruct 136B: first 88B byte-identical to Live's layout (name[32], y/x/z/heading floats + incline u32 @32, 20B field copy, size u32 @72, doorId/opentype/spawnstate/invertstate @80, zonePoint u32 @84), trailing unknown 44B vs Live's 48B. WIRED 2026-07-13: seq-backend-eql owns a 132B parse_door + the doorStruct size override, and newDoorSpawns strides via door_stride(); modulus gates on 132.</comment>
+        <payload dir="server" typename="doorStruct" sizechecktype="modulus"/>
     </opcode>
     <opcode id="0def" name="OP_GroundSpawn" updated="07/09/26">
         <comment>07/07 rotation (community f-patch id, daemon-confirmed): ground-item defs, makeDropStruct none. Present 19×(62/63B) in upperguk capture. Wired SpawnShell::newGroundItem (wire szt aligned none).</comment>

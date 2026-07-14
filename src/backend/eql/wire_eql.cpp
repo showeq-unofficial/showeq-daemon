@@ -157,10 +157,13 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_ClickObject", SP_Zone, DIR_Server,
          "remDropStruct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::removeGroundItem));
-    // OP_SpawnDoor (0x71ca): DECODER DEFERRED. eql door rows are 132B (1452=11*132)
-    // vs Live doorStruct 136B, so the modulus check on the 136B struct rejects the
-    // bulk array. Named in conf/eql/opcodes.toml (uint8_t/none) for logs; wire it
-    // once a 132B doorStruct size override (or an eql door decoder) exists.
+    // OP_SpawnDoor (0x71ca): eql door rows are 132B (Live doorStruct is 136B);
+    // seq-backend-eql's parse_door owns the 132B layout, the doorStruct size
+    // override makes the modulus gate 132, and newDoorSpawns strides via
+    // door_stride() — so the shared handler wires directly.
+    wire("OP_SpawnDoor", SP_Zone, DIR_Server,
+         "doorStruct", SZC_Modulus,
+         seqBind(ms.spawnShell, &SpawnShell::newDoorSpawns));
     // EQ Legends OP_ZoneEntry (0x4606): one spawn per payload (name + block);
     // EqlDispatch parses the variable-length name and the fixed spawn block.
     // Stock-SEQ name: the s2c OP_ZoneEntry has been the per-spawn payload since

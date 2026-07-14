@@ -503,12 +503,16 @@ void SpawnShell::removeGroundItem(const uint8_t* data, size_t, uint8_t dir)
 
 void SpawnShell::newDoorSpawns(const uint8_t* data, size_t len, uint8_t dir)
 {
-  const int nDoors = len / sizeof(doorStruct);
+  // Row stride is backend-owned (136 on live/test = sizeof(doorStruct); 132
+  // on eql) — striding by the compiled Live sizeof would shear a diverged
+  // backend's array after the first row.
+  const size_t stride = seq::rust::door_stride();
+  const int nDoors = len / stride;
   doorStruct tmp;
   for (int i = 0; i < nDoors; i++) {
-    const uint8_t* p = data + i * sizeof(doorStruct);
+    const uint8_t* p = data + i * stride;
     auto out = seq::rust::decode_door(
-        rust::Slice<const uint8_t>{p, sizeof(doorStruct)});
+        rust::Slice<const uint8_t>{p, stride});
     if (!out.ok) continue;
     std::memset(&tmp, 0, sizeof(tmp));
     std::memcpy(tmp.name, out.name.data(),

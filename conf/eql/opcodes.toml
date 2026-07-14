@@ -49,13 +49,13 @@ comment = "EQ Legends bind-point marker (14B S>C, once at zone-in). Carries the 
 [[zone]]
 id      = "71ca"
 name    = "OP_SpawnDoor"
-updated = "2026-07-09"
-comment = "07/07 rotation (community f-patch id, daemon-confirmed bulk door array 1452/2376B). DECODER DEFERRED: eql door rows are 132B (1452=11*132, 2376=18*132) vs Live doorStruct 136B, so SZC_Modulus on the 136B struct rejects it. Needs a 132B doorStruct size override (or an eql door decoder) before wiring. Named for logs; NOT wired."
+updated = "2026-07-13"
+comment = "07/07 rotation (community f-patch id, daemon-confirmed bulk door array 1452/2376B). eql door rows are 132B (1452=11*132, 2376=18*132) vs Live doorStruct 136B: first 88B byte-identical to Live's layout (name[32], y/x/z/heading floats + incline u32 @32, 20B field copy, size u32 @72, doorId/opentype/spawnstate/invertstate @80, zonePoint u32 @84), trailing unknown 44B vs Live's 48B. WIRED 2026-07-13: seq-backend-eql owns a 132B parse_door + the doorStruct size override, and newDoorSpawns strides via door_stride(); modulus gates on 132."
 
   [[zone.payloads]]
   dir           = "server"
-  typename      = "uint8_t"
-  sizechecktype = "none"
+  typename      = "doorStruct"
+  sizechecktype = "modulus"
 
 [[zone]]
 id      = "0def"
