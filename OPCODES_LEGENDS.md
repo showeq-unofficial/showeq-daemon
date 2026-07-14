@@ -6,6 +6,14 @@ Oversized framing — the daemon deframes it unchanged), but the **application
 opcode table is fully remapped** — every app opcode reads `unknown` against the
 Live table. This file tracks the Legends-specific opcode + struct mapping.
 
+> **Credit.** The bulk of the EQ Legends reverse-engineering documented here —
+> the opcode re-map, struct layouts, the stream/session findings, and the UCS
+> cross-zone-chat protocol — comes from **Xerxes** on the **showeq.net** forums,
+> via the community "eql-full-edits" drops for legacy ShowEQ. Our work here
+> integrates, verifies against captures, and ports that into the daemon / Rust
+> decoder / proto / web stack. Per-item provenance is noted in the dated entries
+> below; unless a find says otherwise, assume the wire-format credit is Xerxes'.
+
 Decode captures with the raw-pcap replay path:
 ```
 ./build/showeq-daemon --replay-pcap <capture>.pcap --config-dir conf --no-listen \
