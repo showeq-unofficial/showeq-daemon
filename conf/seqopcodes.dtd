@@ -2,13 +2,17 @@
 <!ATTLIST seqopcodes 
  version CDATA #IMPLIED>
 
-<!ELEMENT opcode (comment|payload)* >
-<!ATTLIST opcode 
+<!ELEMENT opcode (comment|priorityNote|payload)* >
+<!ATTLIST opcode
   id CDATA #REQUIRED
   name CDATA ""
+  priority CDATA ""
+  implicitlen CDATA ""
   updated CDATA "">
 
 <!ELEMENT comment (#PCDATA)>
+
+<!ELEMENT priorityNote (#PCDATA)>
 
 <!ELEMENT payload EMPTY>
 <!ATTLIST payload 

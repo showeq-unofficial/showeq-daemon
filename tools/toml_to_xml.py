@@ -65,9 +65,16 @@ def emit_xml(opcodes: list[dict]) -> str:
             attrs.append(f'updated="{xml_attr(date_legacy(op["updated"]))}"')
         if "implicitlen" in op:
             attrs.append(f'implicitlen="{xml_attr(op["implicitlen"])}"')
+        # priority/priorityNote: load-ignored patch-day triage metadata (mirrors
+        # Xerxes's legacy annotations). priority -1=dead/never-hunt, 0=inert,
+        # 1..10=hunt-order after an id rotation; priority_note holds the reason.
+        if "priority" in op:
+            attrs.append(f'priority="{xml_attr(str(op["priority"]))}"')
         out.append(f"    <opcode {' '.join(attrs)}>")
         if "comment" in op:
             out.append(f"        <comment>{xml_text(op['comment'])}</comment>")
+        if "priority_note" in op:
+            out.append(f"        <priorityNote>{xml_text(op['priority_note'])}</priorityNote>")
         for p in op.get("payloads", []):
             out.append(
                 f'        <payload dir="{xml_attr(p["dir"])}" '
