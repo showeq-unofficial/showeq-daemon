@@ -955,6 +955,17 @@ void Player::updateStamina(const uint8_t* data)
     savePlayerState();
 }
 
+void Player::moneyUpdate(const uint8_t* data, size_t len, uint8_t)
+{
+  auto out = seq::rust::decode_money_update(
+      rust::Slice<const uint8_t>{data, len});
+  // copper==0 fires are transient noise (the total flaps 0<->N in ms); ignore.
+  if (!out.ok || out.copper == 0 || out.copper == m_money)
+    return;
+  m_money = out.copper;
+  emit moneyChanged(m_money);
+}
+
 void Player::updateEndurance(const uint8_t* data)
 {
   auto out = seq::rust::decode_end_update(

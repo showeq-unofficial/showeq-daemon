@@ -696,6 +696,18 @@ comment = "EQL 07/12 rotation; single general SimpleMessage channel (12B server:
   sizechecktype = "match"
 
 [[zone]]
+id      = "4d77"
+name    = "OP_MoneyUpdate"
+priority = 4
+updated = "2026-07-16"
+comment = "eql running total money: 12B {u32 copper@0, u32=1, u32=42} (re-broadcast). Decoded by parse_money_update -> Player::moneyUpdate -> PlayerStats.money_copper."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
 id      = "7d46"
 name    = "OP_LootMessage"
 priority = 4

@@ -421,6 +421,8 @@ void SessionAdapter::connectPerBox()
                 this,     SLOT(onPlayerStatsChanged()));
         connect(m_player, SIGNAL(endChanged(uint32_t, uint32_t)),
                 this,     SLOT(onPlayerStatsChanged()));
+        connect(m_player, SIGNAL(moneyChanged(uint32_t)),
+                this,     SLOT(onPlayerStatsChanged()));
         connect(m_player, SIGNAL(levelChanged(uint8_t)),
                 this,     SLOT(onPlayerStatsChanged()));
         connect(m_player, SIGNAL(expChangedInt(int, int, int)),

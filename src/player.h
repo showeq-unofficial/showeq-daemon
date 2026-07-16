@@ -102,6 +102,8 @@ public:
    void updateNpcHP(const uint8_t* hpupdate);
    void updateSpawnInfo(const uint8_t* su);
    void updateStamina(const uint8_t* stam);
+   void moneyUpdate(const uint8_t* data, size_t, uint8_t);
+   uint32_t money() const { return m_money; }
    void updateEndurance(const uint8_t* end);
    void setLastKill(const QString& name, int level);
    void zoneChanged(void);
@@ -253,6 +255,7 @@ public:
                                
    void stamChanged            ( int, int, int, int);
    void endChanged             ( uint32_t cur, uint32_t max );
+   void moneyChanged           ( uint32_t copper );
   void hpChanged(int16_t, int16_t);
   void changedID(uint16_t oldPlayerID, uint16_t newPlayerID);
   void posChanged(int16_t x, int16_t y, int16_t z,
@@ -303,6 +306,7 @@ public:
   
   uint16_t m_food;
   uint16_t m_water;
+  uint32_t m_money = 0;   // total copper (eql OP_MoneyUpdate)
   uint16_t m_fatigue;
   uint32_t m_enduranceCur;
   uint32_t m_enduranceMax;

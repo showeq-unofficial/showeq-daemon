@@ -229,6 +229,10 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_EndUpdate", SP_Zone, DIR_Server,
          "endUpdateStruct", SZC_Match,
          seqBind(ms.player, &Player::updateEndurance));
+    // OP_MoneyUpdate (0x4d77): running total copper -> PlayerStats.money_copper.
+    wire("OP_MoneyUpdate", SP_Zone, DIR_Server,
+         "uint8_t", SZC_None,
+         seqBind(ms.player, &Player::moneyUpdate));
     // OP_ExpUpdate (0x6801, 16B expUpdateStruct): the regular exp bar. The ids
     // were cross-wired with OP_AAExpUpdate (0x42d1); corrected per the community
     // l-patch. exp@0 is 0-100000 permille — the same scale the daemon already
