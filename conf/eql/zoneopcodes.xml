@@ -93,8 +93,8 @@
         <payload dir="server" typename="spawnAppearance2Struct" sizechecktype="match"/>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_Stamina" updated="05/25/26" priority="4">
-        <comment>Server updating on hunger/thirst</comment>
+    <opcode id="3b0c" name="OP_Stamina" updated="07/16/26" priority="4">
+        <comment>07/14 id 0x3b0c (adopted from legacy showeqlegends, capture-verified): stock 8B staminaStruct {u32 food, u32 water} — 'ticks till next eat'. Fires 71x S>C at 8B in the fight capture; food/water tick DOWN together (3396->3364->3332, 4596->4564->4532, step 32). Wired Player::updateStamina; size eql-owned in seq-backend-eql size_overrides().</comment>
         <payload dir="server" typename="staminaStruct" sizechecktype="match"/>
     </opcode>
     <opcode id="a5c0" name="OP_HPUpdate" updated="07/14/26" priority="10">
@@ -282,8 +282,8 @@
         <comment>MoneyOnCorpseCode</comment>
         <payload dir="server" typename="moneyOnCorpseStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_SkillUpdate" updated="07/09/26" priority="5">
-        <comment>07/07 rotation (community f-patch id, daemon-confirmed): stock skillIncStruct byte-perfect (12B: skillId u32, value i32, +4). Present 15×12B in upperguk capture. Wired Player::increaseSkill.</comment>
+    <opcode id="3873" name="OP_SkillUpdate" updated="07/16/26" priority="5">
+        <comment>07/14 id 0x3873 (adopted from legacy showeqlegends, capture-verified): stock skillIncStruct byte-perfect (12B: skillId u32, value i32, +4). Fires 108x S>C at 12B in the fight capture; sane skillIds (26/52/80/82) with values incrementing on skill-up (244->245, 239->240). Wired Player::increaseSkill.</comment>
         <priorityNote>prior id 0dc7 was the zone-in bulk dump (OOB crash); bounds guard kept</priorityNote>
         <payload dir="server" typename="skillIncStruct" sizechecktype="match"/>
     </opcode>
