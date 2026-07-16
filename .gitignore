@@ -6,6 +6,11 @@ cmake-build-*/
 *.so
 *.pb.cc
 *.pb.h
+
+# decode_pbstream.py's generated-bindings cache + Python bytecode
+scripts/.pbgen/
+__pycache__/
+*.pyc
 CMakeCache.txt
 CMakeFiles/
 compile_commands.json
