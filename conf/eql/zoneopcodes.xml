@@ -235,8 +235,8 @@
         <comment>EQL 07/12 rotation; single general SimpleMessage channel (12B server: u32 eqstrId, u32 color, u32 0). Wire-verified via the fast-camp-refusal string (eqstr 10031, color 13); replay opcodestats show it as 12B S>C across every system-message capture. Was pinned to the dead live opcode ffff; the MessageShell/SpellShell handlers were already correct</comment>
         <payload dir="server" typename="simpleMessageStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="3c0a" name="OP_FormattedMessage" updated="07/14/26" priority="4">
-        <comment>EQL 0x3c0a, wire-verified (corpsepin, 750 pkts): layout diverges from Live (format id @9 not @5) — spellId @0 (0xffffffff=non-spell), msgType @4, spawnId @5, formatId @9, NUL-split caret args @13. msgType multiplexes overhead damage/heal floaters + spell interrupts/casts/resists. Hand-decoded by seq-backend-eql parse_formatted_message; routed by MessageShell::formattedMessageEQL (spell -> MT_Spell, floaters suppressed).</comment>
+    <opcode id="15d0" name="OP_FormattedMessage" updated="07/16/26" priority="4">
+        <comment>07/14 id 0x15d0 (was 0x3c0a; rotated AND relaid-out): stock length-prefixed FormattedMessage — {u32@0=0, u8@4=0, u32@5=formatId (eqstr_us.txt id), u32@9=msgType/chatColor, @13=length-prefixed [u32 len][bytes] arg slots}. Same arg blob EQStr::formatMessage consumes on Live. Decoded by seq-backend-eql parse_formatted_message (formatId@5, args cleaned) -> MessageShell::formattedMessageEQL interpolates via EQStr + emits chat. Resolves readable msgs incl. level-ups/exp/AA/combat/spell. The old 3c0a flat layout (spellId@0/formatId@9/caret@13) is retired.</comment>
         <payload dir="server" typename="formattedMessageStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="7015" name="OP_CommonMessage" updated="07/14/26" priority="9">

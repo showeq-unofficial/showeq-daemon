@@ -696,11 +696,11 @@ comment = "EQL 07/12 rotation; single general SimpleMessage channel (12B server:
   sizechecktype = "match"
 
 [[zone]]
-id      = "3c0a"
+id      = "15d0"
 name    = "OP_FormattedMessage"
 priority = 4
-updated = "2026-07-14"
-comment = "EQL 0x3c0a, wire-verified (corpsepin, 750 pkts): layout diverges from Live (format id @9 not @5) — spellId @0 (0xffffffff=non-spell), msgType @4, spawnId @5, formatId @9, NUL-split caret args @13. msgType multiplexes overhead damage/heal floaters + spell interrupts/casts/resists. Hand-decoded by seq-backend-eql parse_formatted_message; routed by MessageShell::formattedMessageEQL (spell -> MT_Spell, floaters suppressed)."
+updated = "2026-07-16"
+comment = "07/14 id 0x15d0 (was 0x3c0a; rotated AND relaid-out): stock length-prefixed FormattedMessage — {u32@0=0, u8@4=0, u32@5=formatId (eqstr_us.txt id), u32@9=msgType/chatColor, @13=length-prefixed [u32 len][bytes] arg slots}. Same arg blob EQStr::formatMessage consumes on Live. Decoded by seq-backend-eql parse_formatted_message (formatId@5, args cleaned) -> MessageShell::formattedMessageEQL interpolates via EQStr + emits chat. Resolves readable msgs incl. level-ups/exp/AA/combat/spell. The old 3c0a flat layout (spellId@0/formatId@9/caret@13) is retired."
 
   [[zone.payloads]]
   dir           = "server"

@@ -259,14 +259,10 @@ void MessageShell::formattedMessageEQL(const uint8_t* data, size_t len, uint8_t 
       rust::Slice<const uint8_t>{data, len});
   if (!out.ok) return;
 
-  // EQL 0x3c0a multiplexes overhead damage/heal floaters (msg_type 5/7/8,
-  // format 15566 — a bare number over a spawn, ~89% of the channel) onto the
-  // same opcode as spell interrupts / fizzles / resists / casts. The floaters
-  // aren't chat; suppress them in v1 (revisit as a combat-damage view).
-  if (out.msg_type == 5 || out.msg_type == 7 || out.msg_type == 8)
-    return;
-
-  // Rebuild the pre-split substitution args from the bridge (Vec<String>).
+  // EQL 0x15d0 (07/14): stock length-prefixed FormattedMessage — format_id@5,
+  // msg_color@9 (message type / chat colour), positional args (the parser has
+  // already dropped empty slots and reduced links to a readable name). Resolve
+  // the eqstr template + interpolate %N exactly as the Live path does.
   QStringList args;
   args.reserve(static_cast<int>(out.args.size()));
   for (const auto& a : out.args)
@@ -275,24 +271,14 @@ void MessageShell::formattedMessageEQL(const uint8_t* data, size_t len, uint8_t 
   const QString text = m_eqStrings->formatMessage(out.format_id, args);
   if (text.isEmpty()) return;
 
-  // Spell-related strings carry a real spellId (0xffffffff marks a non-spell
-  // string); route those to MT_Spell so the Spell filter covers interrupts,
-  // fizzles, resists and casts. Everything else falls to MT_General.
-  const MessageType mt =
-      (out.spell_id != 0xffffffffu) ? MT_Spell : MT_General;
-
-  m_messages->addMessage(mt, text);
-  // EQL 0x3c0a carries no wire ChatColor (the Live colour offset holds the
-  // format id here). Synthesize one from the message class so the web's `cc:`
-  // colour space — the path designed for server-coloured FormattedMessage —
-  // resolves the label, colour and Spells/System category (and the CombatLog
-  // spell-line scrape), instead of falling through to the sparse `mt:`
-  // fallback that lacks these channels. A coarse spell/non-spell split is
-  // enough for v1; refine to CC_User_SpellFailure for fizzles/resists later.
-  const uint32_t chatColor =
-      (out.spell_id != 0xffffffffu) ? CC_User_Spells : CC_User_Default;
-  emit chatMessage(static_cast<uint32_t>(mt), QString(), QString(), text,
-                   chatColor);
+  // v1: surface every formatted message as general chat carrying the wire
+  // message-type/colour (@9) so the web's `cc:` colour space labels/categorises
+  // it. Channel-splitting (spell/combat/system) by format id or msg_color is a
+  // future refinement — the 07/14 layout dropped the msg_type@4 discriminator
+  // and spellId@0 the old 3c0a routing keyed on.
+  m_messages->addMessage(MT_General, text);
+  emit chatMessage(static_cast<uint32_t>(MT_General), QString(), QString(),
+                   text, out.message_color);
 }
 
 void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)
