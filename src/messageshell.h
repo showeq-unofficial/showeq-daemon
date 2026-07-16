@@ -67,6 +67,7 @@ class MessageShell : public QObject
    // EQL OP_FormattedMessage (0x3c0a) diverges from the Live layout (format
    // id @9, spell id @0, pre-split caret args); decoded + routed separately.
    void formattedMessageEQL(const uint8_t* cmsg, size_t, uint8_t);
+   void lootMessage(const uint8_t* lmsg, size_t, uint8_t);
    void simpleMessage(const uint8_t* cmsg, size_t, uint8_t);
    void specialMessage(const uint8_t* smsg, size_t, uint8_t);
    // EQ Legends UCS cross-zone chat: one raw port-9877 server->client payload

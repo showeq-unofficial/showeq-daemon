@@ -324,6 +324,10 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_FormattedMessage", SP_Zone, DIR_Server,
          "formattedMessageStruct", SZC_None,
          seqBind(ms.messageShell, &MessageShell::formattedMessageEQL));
+    // OP_LootMessage (0x7d46): eql personal auto-loot/sell text.
+    wire("OP_LootMessage", SP_Zone, DIR_Server,
+         "uint8_t", SZC_None,
+         seqBind(ms.messageShell, &MessageShell::lootMessage));
     wire("OP_SimpleMessage", SP_Zone, DIR_Server,
          "simpleMessageStruct", SZC_Match,
          seqBind(ms.messageShell, &MessageShell::simpleMessage));

@@ -696,6 +696,18 @@ comment = "EQL 07/12 rotation; single general SimpleMessage channel (12B server:
   sizechecktype = "match"
 
 [[zone]]
+id      = "7d46"
+name    = "OP_LootMessage"
+priority = 4
+updated = "2026-07-16"
+comment = "eql personal auto-loot/sell text: {u32 color@0, NUL-term text with 0x12 item links (197-hex header + name)}. Decoded by parse_loot_message -> MessageShell::lootMessage -> chat."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
 id      = "15d0"
 name    = "OP_FormattedMessage"
 priority = 4

@@ -281,6 +281,22 @@ void MessageShell::formattedMessageEQL(const uint8_t* data, size_t len, uint8_t 
                    text, out.message_color);
 }
 
+// OP_LootMessage (0x7d46): eql personal auto-loot text (links already reduced to
+// the item name by the parser).
+void MessageShell::lootMessage(const uint8_t* data, size_t len, uint8_t dir)
+{
+  if (dir == DIR_Client)
+    return;
+  auto out = seq::rust::decode_loot_message(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok || out.message.empty())
+    return;
+  const QString text = QString::fromUtf8(out.message.data(), out.message.size());
+  m_messages->addMessage(MT_General, text);
+  emit chatMessage(static_cast<uint32_t>(MT_General), QString(), QString(),
+                   text, out.message_color);
+}
+
 void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)
 {
   // avoid client chatter and do nothing if not viewing channel messages
