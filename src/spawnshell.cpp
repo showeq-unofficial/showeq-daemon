@@ -799,6 +799,9 @@ void SpawnShell::upsertSpawn(uint16_t id, const QString& name, const QString& la
                              uint16_t race, uint8_t classVal, uint16_t deity,
                              uint16_t guildID, uint8_t npc)
 {
+  // The player's own spawn is owned by Player, never a spawns[] entry. (On eql the
+  // self-id is adopted in EqlDispatch::consumeSelfSpawn before this is reached; on
+  // live it comes from the profile — either way this guard stays target-neutral.)
   if (m_player && id == m_player->id())
     return;
 
