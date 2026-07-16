@@ -3,10 +3,10 @@
 # from this file by tools/toml_to_xml.py (run via CMake on build).
 
 [[zone]]
-id      = "62f0"
+id      = "6a88"
 name    = "OP_PlayerProfile"
-updated = "2026-07-05"
-comment = "EQ Legends char profile (~38KB): hdr race@21/class@25/level@33; bind@39; name deep. See OPCODES_LEGENDS.md"
+updated = "2026-07-14"
+comment = "07/14 rotation (was 0x62f0): the ~43KB char profile S>C, once at enter-world. Content-confirmed (carries the char name + identity). This is the self-id/name source — decoded by parse_player_profile (anchor-scan for name), which drives SpawnShell::zoneEntry name-match to adopt the self-spawn id. EQ Legends char profile: hdr race@21/class@25/level@33; bind@39; name via anchor-scan. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "server"
@@ -14,7 +14,7 @@ comment = "EQ Legends char profile (~38KB): hdr race@21/class@25/level@33; bind@
   sizechecktype = "none"
 
 [[zone]]
-id      = "34c7"
+id      = "ffff"
 name    = "OP_TimeOfDay"
 updated = "2026-07-09"
 comment = "07/07 rotation; 8B stock timeOfDayStruct byte-identical (wire-verified 8B); advances at EQ game rate"
@@ -25,9 +25,9 @@ comment = "07/07 rotation; 8B stock timeOfDayStruct byte-identical (wire-verifie
   sizechecktype = "match"
 
 [[zone]]
-id      = "1dbf"
+id      = "65dd"
 name    = "OP_NewZone"
-updated = "2026-07-08"
+updated = "2026-07-14"
 comment = "EQ Legends current zone (S>C, ~340B, once per zone-in). Packed null-terminated short_name + long_name (+ zonefile repeat + binary tail). Confirmed 3-way: guktop/'The City of Guk', nektulos/'Nektulos Forest', unrest/'The Estate of Unrest' — each the correct current zone, each a different length. Decoded by EqlDispatch::newZone -> ZoneMgr::setZoneByName. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
@@ -36,7 +36,7 @@ comment = "EQ Legends current zone (S>C, ~340B, once per zone-in). Packed null-t
   sizechecktype = "none"
 
 [[zone]]
-id      = "4bc8"
+id      = "ffff"
 name    = "OP_ZoneBindMarker"
 updated = "2026-07-08"
 comment = "EQ Legends bind-point marker (14B S>C, once at zone-in). Carries the BIND zone id (u32@6), identical across zones (nektulos-vs-upperguk both read 25) — NOT the current zone. Was mis-labeled OP_NewZone until 2026-07-08. Unwired. See OPCODES_LEGENDS.md"
@@ -47,9 +47,9 @@ comment = "EQ Legends bind-point marker (14B S>C, once at zone-in). Carries the 
   sizechecktype = "none"
 
 [[zone]]
-id      = "71ca"
+id      = "75dd"
 name    = "OP_SpawnDoor"
-updated = "2026-07-13"
+updated = "2026-07-14"
 comment = "07/07 rotation (community f-patch id, daemon-confirmed bulk door array 1452/2376B). eql door rows are 132B (1452=11*132, 2376=18*132) vs Live doorStruct 136B: first 88B byte-identical to Live's layout (name[32], y/x/z/heading floats + incline u32 @32, 20B field copy, size u32 @72, doorId/opentype/spawnstate/invertstate @80, zonePoint u32 @84), trailing unknown 44B vs Live's 48B. WIRED 2026-07-13: seq-backend-eql owns a 132B parse_door + the doorStruct size override, and newDoorSpawns strides via door_stride(); modulus gates on 132."
 
   [[zone.payloads]]
@@ -58,9 +58,9 @@ comment = "07/07 rotation (community f-patch id, daemon-confirmed bulk door arra
   sizechecktype = "modulus"
 
 [[zone]]
-id      = "0def"
+id      = "6360"
 name    = "OP_GroundSpawn"
-updated = "2026-07-09"
+updated = "2026-07-14"
 comment = "07/07 rotation (community f-patch id, daemon-confirmed): ground-item defs, makeDropStruct none. Present 19×(62/63B) in upperguk capture. Wired SpawnShell::newGroundItem (wire szt aligned none)."
 
   [[zone.payloads]]
@@ -85,7 +85,7 @@ comment = "Coords in a zone that will port you to another zone"
   sizechecktype = "none"
 
 [[zone]]
-id      = "42d1"
+id      = "ffff"
 name    = "OP_AAExpUpdate"
 updated = "2026-07-13"
 comment = "07/09 l-patch correction: the AA-exp bar rides 0x42d1 (12B altExpUpdateStruct), NOT 0x6801 — the ids were CROSS-WIRED with OP_ExpUpdate (the 12B/16B sizes now match their structs). eql layout: u32 altexp (0-100000 per-AA-point progress), u32 aapoints (unspent AA), u32 tail (Live carries u8 percent + pad there; handler reads neither). WIRED 2026-07-13 straight to Player::updateAltExp — the handler is 0-100000-native since ac918ec, so the old 'needs a ->330 conversion' deferral was stale. Size gate declared in seq-backend-eql size_overrides()."
@@ -96,7 +96,7 @@ comment = "07/09 l-patch correction: the AA-exp bar rides 0x42d1 (12B altExpUpda
   sizechecktype = "match"
 
 [[zone]]
-id      = "6801"
+id      = "ffff"
 name    = "OP_ExpUpdate"
 updated = "2026-07-09"
 comment = "07/09 l-patch correction: the regular exp bar rides 0x6801 (16B expUpdateStruct), NOT 0x42d1 — the ids were CROSS-WIRED with OP_AAExpUpdate. eql layout matches expUpdateStruct: u32 exp (0-100000 permille, in-game-calibrated against the exp bar), u32 0, u32 aaUnspent (@8, not Live's type), u32 0. exp@0 feeds Player::updateExp directly — the daemon already works in 0-100000, so NO scale conversion. Verified: exp wraps once at the level-up in the death-respawn capture (99.459%->3.622%)."
@@ -107,7 +107,7 @@ comment = "07/09 l-patch correction: the regular exp bar rides 0x6801 (16B expUp
   sizechecktype = "match"
 
 [[zone]]
-id      = "46df"
+id      = "ffff"
 name    = "OP_GuildMOTD"
 updated = "2026-07-09"
 comment = "07/07 rotation (community f-patch id, daemon-confirmed): stock guildMOTDStruct byte-perfect (target@8, sender@72, message@140; 656B = header + msg buffer). Present 1×656B in captures. NOT wired yet — named for logs; handler wiring is guild-tier work."
@@ -118,33 +118,35 @@ comment = "07/07 rotation (community f-patch id, daemon-confirmed): stock guildM
   sizechecktype = "none"
 
 [[zone]]
-id      = "7171"
+id      = "5188"
 name    = "OP_ClientUpdate"
-updated = "2026-07-10"
-comment = "EQ Legends: C>S self-position (42B float, wired). The 28B S>C variant is the OTHER-spawn position broadcast — 19-bit ×8 packed (coord in each word's low bits), NOT the byte-aligned floats the 2026-07-08 note guessed. Position cracked + WIRED 2026-07-10 (playerUpdateOther → SpawnShell::moveSpawn). See OPCODES_LEGENDS.md"
+updated = "2026-07-14"
+comment = "07/14 rotation (was 0x7171): whole position channel rotated id AND wire size. S>C 24B (was 28B) = OTHER-spawn position broadcast, 19-bit ×8 packed in each word's LOW bits (z rides bits13-31 of the @8 word; y@16 low19; x@20 low19) — re-cracked 2026-07-14 vs the OP_MobUpdate ground-truth stream + self-trajectory smoothness; WIRED S>C (playerUpdateOther → SpawnShell::moveSpawn). C>S 38B (was 42B) self-position — re-cracked 2026-07-14 vs a /loc ground-truth capture: IEEE floats gameX@14/gameY@26/gameZ@10 + heading@18 (low 12b); NO spawnId (client's self report carries none — self-id adoption is via SpawnShell::zoneEntry name-match). WIRED C>S (playerUpdateSelf → Player::applySelfPosition). See OPCODES_LEGENDS.md"
 
-  # Size-gated on playerSelfPosStruct (sizeof==42): the eql self-pos FIELD layout
-  # differs from Live's, but the size matches, so this is a size-gate only — the
-  # actual decode is Rust (decode_player_self_pos). No struct reshape, neutral name.
+  # C>S 38B self-position report (was 42B). Re-cracked 2026-07-14 against a /loc
+  # ground-truth capture; size-gated on playerSelfPosStruct (size override = 38 =
+  # PAYLOAD_LEN). Decode is Rust (parse_player_self_pos, eql's own 38B copy) →
+  # EqlDispatch::playerUpdateSelf → Player::applySelfPosition (C>S is always self).
   [[zone.payloads]]
   dir           = "client"
   typename      = "playerSelfPosStruct"
   sizechecktype = "match"
 
-  # 28B S>C other-spawn position broadcast. eql's playerSpawnPosStruct is 28B
-  # (19-bit ×8 packed) vs Live's 24B; the size (28) is declared by
-  # seq-backend-eql::size_overrides, so SZC_Match validates the real struct name
-  # (no uint8_t placeholder). Decode is Rust (decode_player_spawn_pos, eql's own
-  # 28B copy) → EqlDispatch::playerUpdateOther → SpawnShell::moveSpawn.
+  # 24B S>C other-spawn position broadcast. eql's playerSpawnPosStruct is now 24B
+  # (19-bit ×8 packed, coord in each word's LOW bits) — same SIZE as Live's stock
+  # struct but a DIFFERENT packing; the size (24) is declared by
+  # seq-backend-eql::size_overrides (PAYLOAD_LEN), so SZC_Match validates the real
+  # struct name (no uint8_t placeholder). Decode is Rust (decode_player_spawn_pos,
+  # eql's own 24B copy) → EqlDispatch::playerUpdateOther → SpawnShell::moveSpawn.
   [[zone.payloads]]
   dir           = "server"
   typename      = "playerSpawnPosStruct"
   sizechecktype = "match"
 
 [[zone]]
-id      = "4606"
+id      = "144f"
 name    = "OP_ZoneEntry"
-updated = "2026-07-09"
+updated = "2026-07-14"
 comment = "EQ Legends per-spawn zone stream (S>C, one spawn per payload): null-term name + variable block; position = three u32 words at the block tail (Z/Y/X @ len-95/-91/-87), each a signed 19-bit fixed-point (x8) coord in the word's low bits — same packing as Live spawnStruct position words. NAMED OP_ZoneEntry per stock SEQ: the s2c OP_ZoneEntry has carried the per-spawn payload (one fillSpawnStruct per packet) since 2008; OP_ZoneSpawns is the long-dead bulk-array opcode. Decoded by EqlDispatch::spawn. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
@@ -161,9 +163,9 @@ comment = "EQ Legends per-spawn zone stream (S>C, one spawn per payload): null-t
   sizechecktype = "none"
 
 [[zone]]
-id      = "7352"
+id      = "021e"
 name    = "OP_NpcMoveUpdate"
-updated = "2026-07-08"
+updated = "2026-07-14"
 comment = "EQ Legends per-NPC movement stream (S>C, variable 15-21B). Byte-identical bit format to Live OP_NpcMoveUpdate (16b BE spawnId + 16b pad + 6b fieldmask + 19/19/19 y/x/z sign-magnitude >>3 + 12b heading + optional deltas); decoded by the shared decode_npc_move_update. Confirmed 2026-07-08: all 51 ids + positions match the 0x67e0 OP_MobUpdate stream. Prior 917c was a dead mapping (never seen on the wire). See OPCODES_LEGENDS.md."
 
   [[zone.payloads]]
@@ -172,9 +174,9 @@ comment = "EQ Legends per-NPC movement stream (S>C, variable 15-21B). Byte-ident
   sizechecktype = "none"
 
 [[zone]]
-id      = "67e0"
+id      = "3348"
 name    = "OP_MobUpdate"
-updated = "2026-07-08"
+updated = "2026-07-14"
 comment = "EQ Legends per-mob position update (S>C, 14B). Byte-identical to Live spawnPositionUpdate (packed y:19/z:19/u3:7/x:19/heading:12 fixed-point x8, spawnId u16@0 + 2 zero bytes); decoded by the shared decode_mob_update. The earlier i16-offset read (Y@4/8, Z@6/64, X@10) was a truncated window of these bitfields — the source of the 8192-unit north<->south Y wrap. See OPCODES_LEGENDS.md."
 
   # Byte-identical to Live spawnPositionUpdate (sizeof==14) → size-gate on it
@@ -185,7 +187,7 @@ comment = "EQ Legends per-mob position update (S>C, 14B). Byte-identical to Live
   sizechecktype = "match"
 
 [[zone]]
-id      = "7477"
+id      = "ffff"
 name    = "OP_LoadoutSwap"
 updated = "2026-07-11"
 comment = "EQ Legends multiclass loadout swap (S>C, variable). Header u32 spawnId + u8 + u16 innerLen + ZoneEntry-format record (+ serialized inventory tail on the self variant). Self ~118KB (acting client's own refresh); broadcast ~490B (nearby player's swap, no tail). No OP_PlayerProfile follows a swap, so this is the sole source for the new class + level. Decoded by decode_loadout_swap (reuses the 0x4606 record parser); self -> Player::setIdentity, broadcast -> SpawnShell::updateSpawnIdentity. Confirmed firing 2026-07-11 (login-zone/levelup captures, 486-491B short variant). Credit: Xerxes (forums). See OPCODES_LEGENDS.md."
@@ -196,9 +198,9 @@ comment = "EQ Legends multiclass loadout swap (S>C, variable). Header u32 spawnI
   sizechecktype = "none"
 
 [[zone]]
-id      = "59a1"
+id      = "0e2c"
 name    = "OP_DeleteSpawn"
-updated = "2026-07-08"
+updated = "2026-07-14"
 comment = "EQ Legends spawn removal / death (S>C, 4B {u32 spawnId}, deleteSpawnStruct). CONFIRMED 2026-07-08 by time-correlation: 8/9 ids stop receiving OP_MobUpdate position updates at/after this event (mobs killed over a combat session). Lights up the already-wired SpawnShell::deleteSpawn. NOTE: 0x67a8 is the LOOK-ALIKE 4B {id} op but is combat engage/disengage (ids keep moving after; id=0 clears) — NOT despawn. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
@@ -207,9 +209,9 @@ comment = "EQ Legends spawn removal / death (S>C, 4B {u32 spawnId}, deleteSpawnS
   sizechecktype = "match"
 
 [[zone]]
-id      = "71ad"
+id      = "483c"
 name    = "OP_RemoveSpawn"
-updated = "2026-07-09"
+updated = "2026-07-14"
 comment = "07/07 rotation (community f-patch id, daemon-confirmed): S>C 5B + C>S 4B removeSpawnStruct, none-gated. Present 78×5B in upperguk capture. Wired SpawnShell::removeSpawn."
 
   [[zone.payloads]]
@@ -218,9 +220,9 @@ comment = "07/07 rotation (community f-patch id, daemon-confirmed): S>C 5B + C>S
   sizechecktype = "none"
 
 [[zone]]
-id      = "66cb"
+id      = "36bf"
 name    = "OP_Death"
-updated = "2026-07-08"
+updated = "2026-07-14"
 comment = "EQ Legends death/corpse (S>C, 40B = newCorpseStruct, n=8). CONFIRMED 2026-07-08: decodes field-for-field — victim u32@0 (all 8 ∈ the OP_DeleteSpawn 0x59a1 set), killer u32@4 (=player 13167 every kill), corpse type i32@12, killing-blow spellId u32@16 (-1=melee), damage u32@24 (9-80). Lights up the already-wired SpawnShell::killSpawn → SpawnKilled. Fires just before the matching OP_DeleteSpawn. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
@@ -229,9 +231,9 @@ comment = "EQ Legends death/corpse (S>C, 40B = newCorpseStruct, n=8). CONFIRMED 
   sizechecktype = "match"
 
 [[zone]]
-id      = "5c62"
+id      = "2874"
 name    = "OP_WearChange"
-updated = "2026-07-10"
+updated = "2026-07-14"
 comment = "EQ Legends equip-change broadcast (32B), decoded but wired INERT (l-patch addendum 3). Layout: {u32 spawnId, u32 wearSlot (7=primary/8=secondary/9), u32 material, u8[20] 0}. S>C = other spawns' equip changes; C>S = the client's own. Stock ShowEQ's WearChange handler only acts on an HP subcommand (shows nothing for wear), so this is NAMED-but-INERT: NO handler is wired. The Live SpawnUpdateStruct/updateSpawnInfo bindings (still in wire_live.cpp) were REMOVED from wire_eql.cpp because sizeof(SpawnUpdateStruct)==32==this packet's size, so binding them would SZC_Match and mis-decode wear bytes as a spawn update (spawn-state corruption). Each wear event is preceded by a 0x2575/0x2a0a appearance-refresh pair (value 0x40=wear, 0x04=combat/death); own changes are echoed by 0x7820 (~1.1KB item). Live equipment tracking would build on this layout. Named per addendum 3 so it stops showing as unknown in --opcode-stats. See OPCODES_LEGENDS.md."
 
   [[zone.payloads]]
@@ -251,9 +253,9 @@ comment = "SpawnAppearanceCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "1bdc"
+id      = "4170"
 name    = "OP_SpawnAppearance2"
-updated = "2026-07-08"
+updated = "2026-07-14"
 comment = "EQ Legends extended appearance (24B) — byte-identical to Live spawnAppearance2Struct {u32 spawnId, u32 type, u32 value, u8[12] pad}. Confirmed 2026-07-08: 55 spawn ids, type set {5,6,8,22,26,...} matches Live's {5,6,8,22,26,36,42}; type->value fits (type 6->100/110/115, type 43->0/1/2 flag). Wired S>C to the neutral SpawnShell::updateSpawnLock (acts on type 0x2c mob-lock; no-op on other types). C>S half (ClickBuffOff, type 0x24) acknowledged, unwired. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
@@ -278,9 +280,9 @@ comment = "Server updating on hunger/thirst"
   sizechecktype = "match"
 
 [[zone]]
-id      = "2735"
+id      = "a5c0"
 name    = "OP_HPUpdate"
-updated = "2026-07-09"
+updated = "2026-07-14"
 comment = "07/07 rotation; multiplexed stat channel (subtype byte @4). 6B subtype-0x02 = HP-bar feed (u16 id, u16 0, 0x02, u8 hp%); decoded by EqlDispatch::hpUpdate. Other sizes/subtypes are cur/max i64 stat pairs (dropped)"
 
   [[zone.payloads]]
@@ -300,7 +302,7 @@ comment = "Info regarding guild members"
   sizechecktype = "match"
 
 [[zone]]
-id      = "04d1"
+id      = "ffff"
 name    = "OP_ClickObject"
 updated = "2026-07-09"
 comment = "07/07 rotation (community f-patch id, wire-verified drop+pickup): stock remDropStruct byte-perfect (u16 dropId matches ground-spawn id, u16 spawnId=player). Match-gated. Wired SpawnShell::removeGroundItem. Not in current fixtures — community-verified."
@@ -311,9 +313,9 @@ comment = "07/07 rotation (community f-patch id, wire-verified drop+pickup): sto
   sizechecktype = "match"
 
 [[zone]]
-id      = "73de"
+id      = "76e5"
 name    = "OP_Action"
-updated = "2026-07-08"
+updated = "2026-07-14"
 comment = "EQ Legends spell/special action (S>C). Live paired send: 64B actionStruct (n=97/117) + 88B actionAltStruct (n=22/43); target/source u16@0/@2, spell u16@4 (real ids 502/445/821). Sole 64B/88B op. Lights up the already-wired SpellShell::action (both payloads). See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
@@ -327,9 +329,9 @@ comment = "EQ Legends spell/special action (S>C). Live paired send: 64B actionSt
   sizechecktype = "match"
 
 [[zone]]
-id      = "1734"
+id      = "5446"
 name    = "OP_Action2"
-updated = "2026-07-08"
+updated = "2026-07-14"
 comment = "EQ Legends melee combat / damage-resolution stream (S>C, 48B fixed, n=481/968). Byte-identical to Live action2Struct: target u16@0, source u16@2, damage i32@8, spell i32@20 (-1=melee), type u8@40; @24-39 = knockback floats. Sole 48B S>C op; cross-val upperguk+fulllogin. Lights up the already-wired CombatRouter::action2. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
@@ -338,9 +340,9 @@ comment = "EQ Legends melee combat / damage-resolution stream (S>C, 48B fixed, n
   sizechecktype = "match"
 
 [[zone]]
-id      = "4212"
+id      = "1f81"
 name    = "OP_Consider"
-updated = "2026-07-09"
+updated = "2026-07-14"
 comment = "EQ Legends /consider (post-2026-07-07 re-map). 24B {u32 self, u32 target, u32 faction, u32 =7} both directions: C>S request has faction=0, S>C reply fills faction (2=warmly, 4=amiably; level comes from the spawn, not here). considerStruct is eql's OWN 24B struct (seq-backend-eql owns it; Live's is 32B) — size-gated on it via the backend size table (struct_size_overrides), decoded by parse_consider into the shared Consider, then the neutral SpawnShell::consMessage. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
@@ -349,9 +351,9 @@ comment = "EQ Legends /consider (post-2026-07-07 re-map). 24B {u32 self, u32 tar
   sizechecktype = "match"
 
 [[zone]]
-id      = "2867"
+id      = "3ef7"
 name    = "OP_TargetMouse"
-updated = "2026-07-07"
+updated = "2026-07-14"
 comment = "EQ Legends C>S target select. Payload is byte-identical to Live's clientTargetStruct ({u32 spawn_id}, 0 = clear/untarget), so it wires straight to the neutral SpawnShell::clientTarget — no Legends-specific decode. Confirmed 2026-07-07 across fight + Nektulos locclip captures (every payload resolves to a 0x7475 spawn id or 0). See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
@@ -547,9 +549,9 @@ comment = "S>C buff broadcast — variable length, no legacy 168b buffStruct fit
   sizechecktype = "none"
 
 [[zone]]
-id      = "77ae"
+id      = "713a"
 name    = "OP_BuffList"
-updated = "2026-07-10"
+updated = "2026-07-14"
 comment = "07/09 l-patch: authoritative per-spawn active-buff list, resent at zone-in + on every buff change, carrying REAL server-side remaining durations (the patch's 'one that makes it work'). Variable size (VALIDATED 26/26 upperguk, cursor lands on packet end): u32 spawnId, u32 (seq/ts), u8 flag=1, u8 count, u8[5] pad, then count records {u32 spellId, u32=1, i32 remainingTicks, u32=0} + NUL caster name + slot (u32 between records, u16 on the final). remainingTicks<=0 = permanent. Wired → SpellShell::buffList (player-only); mob lists dropped."
 
   [[zone.payloads]]
@@ -569,9 +571,9 @@ comment = "BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 c
   sizechecktype = "match"
 
 [[zone]]
-id      = "10b5"
+id      = "7a2f"
 name    = "OP_CastSpell"
-updated = "2026-07-09"
+updated = "2026-07-14"
 comment = "07/09 l-patch: the player's own cast request (C>S, 40B) = stock startCastStruct {i32 gemSlot@0, u32 spellId@4, u8[10]@8, u32 targetId@18, ...} + 1 trailing byte. Carries the target, so casts show in the spell-timer window immediately with the target. Wired → SpellShell::selfStartSpellCast; 40B via a startCastStruct size override (see seq-backend-eql size_overrides)."
 
   [[zone.payloads]]
@@ -580,7 +582,7 @@ comment = "07/09 l-patch: the player's own cast request (C>S, 40B) = stock start
   sizechecktype = "match"
 
 [[zone]]
-id      = "0fa0"
+id      = "ffff"
 name    = "OP_SwapSpell"
 updated = "2026-07-09"
 comment = "07/07 rotation (community f-patch id, wire-verified): stock tradeSpellBookSlotsStruct (slot1 u32@0, slot2 u32@4) 8B exact. Match-gated. NOT wired yet — named for logs; not in current fixtures."
@@ -602,7 +604,7 @@ comment = "Bidirectional 16B: {u32 gem_slot, u32 spellId, int16 action, int16 pa
   sizechecktype = "match"
 
 [[zone]]
-id      = "17af"
+id      = "ffff"
 name    = "OP_InspectAnswer"
 updated = "2026-07-09"
 comment = "07/07 rotation (community f-patch id): stock inspectDataStruct byte-perfect incl. 1956B total size (3/3 community inspects). Match-gated (dark if size differs). Wired MessageShell::inspectData. Not in current fixtures — community-verified."
@@ -613,7 +615,7 @@ comment = "07/07 rotation (community f-patch id): stock inspectDataStruct byte-p
   sizechecktype = "match"
 
 [[zone]]
-id      = "1cde"
+id      = "ffff"
 name    = "OP_Emote"
 updated = "2026-07-09"
 comment = "07/09 EQL (community f-patch id): 4B header (ffffffff) + emote text; client is a fixed 1028B buffer, server dir is variable, so none-gated. NOT wired yet — named for logs (emote also rides OP_FormattedMessage which is handled)."
@@ -624,7 +626,7 @@ comment = "07/09 EQL (community f-patch id): 4B header (ffffffff) + emote text; 
   sizechecktype = "none"
 
 [[zone]]
-id      = "50a7"
+id      = "ffff"
 name    = "OP_SimpleMessage"
 updated = "2026-07-12"
 comment = "EQL 07/12 rotation; single general SimpleMessage channel (12B server: u32 eqstrId, u32 color, u32 0). Wire-verified via the fast-camp-refusal string (eqstr 10031, color 13); replay opcodestats show it as 12B S>C across every system-message capture. Was pinned to the dead live opcode ffff; the MessageShell/SpellShell handlers were already correct"
@@ -646,9 +648,9 @@ comment = "EQL 0x3c0a, wire-verified (corpsepin, 750 pkts): layout diverges from
   sizechecktype = "none"
 
 [[zone]]
-id      = "55eb"
+id      = "7015"
 name    = "OP_CommonMessage"
-updated = "2026-07-09"
+updated = "2026-07-14"
 comment = "07/07 rotation (community f-patch id, daemon-confirmed): /tell /ooc /shout etc, channelMessageStruct none. Present both dirs (63/71B) in captures. Wired MessageShell::channelMessage."
 
   [[zone.payloads]]
@@ -657,7 +659,7 @@ comment = "07/07 rotation (community f-patch id, daemon-confirmed): /tell /ooc /
   sizechecktype = "none"
 
 [[zone]]
-id      = "22e1"
+id      = "ffff"
 name    = "OP_SpecialMesg"
 updated = "2026-07-09"
 comment = "07/07 rotation (community f-patch id, daemon-confirmed): NPC speech / hail responses, specialMessageStruct none. Present 8×(59/60B) in upperguk capture. Wired MessageShell::specialMessage."
@@ -668,7 +670,7 @@ comment = "07/07 rotation (community f-patch id, daemon-confirmed): NPC speech /
   sizechecktype = "none"
 
 [[zone]]
-id      = "08cb"
+id      = "ffff"
 name    = "OP_RandomReq"
 updated = "2026-07-09"
 comment = "07/07 rotation (community f-patch id, wire-verified /random): stock randomReqStruct {u32 bottom, u32 top}, BUT both 8B and 9B forms on the wire (trailing byte optional) so none-gated. NOT wired yet — named for logs."
@@ -679,7 +681,7 @@ comment = "07/07 rotation (community f-patch id, wire-verified /random): stock r
   sizechecktype = "none"
 
 [[zone]]
-id      = "6589"
+id      = "ffff"
 name    = "OP_RandomReply"
 updated = "2026-07-09"
 comment = "07/07 rotation (community f-patch id, wire-verified /random 1 100 = 63): stock randomStruct {u32 bottom, u32 top, u32 result, char name[64]} 76B exact. Match-gated. NOT wired yet — named for logs."
@@ -712,9 +714,9 @@ comment = "Server replying with deny information after /deny"
   sizechecktype = "match"
 
 [[zone]]
-id      = "07c9"
+id      = "2255"
 name    = "OP_ManaChange"
-updated = "2026-07-08"
+updated = "2026-07-14"
 comment = "Resource update after spell/ability use (S>C, 20b): {i32 curMana, i32 curEndurance, i32 spellOrAbilityId, u8[8]}. Fires once per cast or combat ability; spellId@8 cross-refs OP_CastSpell. field4 = current endurance, NOT max mana (legacy label wrong) — confirmed 2026-05-26 by cross-ref against OP_EndUpdate cur. EQ Legends id=0x07c9 confirmed 2026-07-08 by value-match (curMana 282-930, endurance ~800, spellId 445/821 cross-ref OP_Action) — byte-identical to manaDecrementStruct; lights up the already-wired Player::manaChange. See OPCODES_LEGENDS.md."
 
   [[zone.payloads]]
@@ -761,7 +763,7 @@ comment = "MoneyOnCorpseCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "6982"
+id      = "ffff"
 name    = "OP_SkillUpdate"
 updated = "2026-07-09"
 comment = "07/07 rotation (community f-patch id, daemon-confirmed): stock skillIncStruct byte-perfect (12B: skillId u32, value i32, +4). Present 15×12B in upperguk capture. Wired Player::increaseSkill."
@@ -876,9 +878,9 @@ comment = "old CorpseLocCode:"
   sizechecktype = "match"
 
 [[zone]]
-id      = "6805"
+id      = "0b66"
 name    = "OP_ItemPacket"
-updated = "2026-07-05"
+updated = "2026-07-14"
 comment = "EQ Legends bulk item transfer (S>C, ~1.1KB-19KB, sent on zone-in). u32@4 = item count N, then N item records ~1122-1130b each (16-char serial + name×2 + Trophy/Benefit descriptor + stats; item-id candidate = first u32). IDENTIFIED, NOT DECODED — the record layout (3-class fields etc.) is future work, and the Legends format differs from Live's itemPacketStruct, so this is intentionally NOT wired to the itemCache sink. See OPCODES_LEGENDS.md."
 
   [[zone.payloads]]
@@ -1249,9 +1251,9 @@ comment = "List of available titles - 1520 bytes"
   sizechecktype = "none"
 
 [[zone]]
-id      = "1293"
+id      = "4ecf"
 name    = "OP_Animation"
-updated = "2026-07-08"
+updated = "2026-07-14"
 comment = "EQ Legends spawn animation broadcast (S>C, 4B, n=354/718). Byte-identical to Live animationStruct: spawnId u16@0, action u8@2 (1-46), speed u8@3 (=10 across all 354). No handler wired (animation not surfaced) — id remapped so it resolves cleanly in opcode-stats. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
@@ -1282,7 +1284,7 @@ comment = "WhoAllOutputCode - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "2cc0"
+id      = "ffff"
 name    = "OP_InspectRequest"
 updated = "2026-07-09"
 comment = "07/09 EQL (community f-patch id, wire-verified): C>S 8B {u32 targetId, u32 selfId}. Identification-only, no consumer. Named for logs."
@@ -1667,7 +1669,7 @@ comment = "C>S: {u32 buff_slot, u32 self_spawn_id} (8 bytes). Client requests se
   sizechecktype = "none"
 
 [[zone]]
-id      = "18e0"
+id      = "ffff"
 name    = "OP_BuffWindow"
 updated = "2026-07-08"
 comment = "EQ Legends buff-window init (S>C, 12B = buffWindowSlotStruct, fires 10x/zone-in for slots 0-9). CONFIRMED 2026-07-08: 10 fires, slot u32@0 = 0..9, spellid u32@4 = 0xffffffff (empty), pad u32@8 = 0 — byte-identical to Live. NOTE: no OP_BuffWindow handler is wired on eql yet (id-only; resolves in opcode-stats but not surfaced). Layout: {u32 slot, u32 spellid=0xffffffff_empty, u32 pad}; long-duration buffs come via OP_Buff / the buff-bar sync; never fires mid-session."
@@ -2180,7 +2182,7 @@ updated = "2026-05-25"
 comment = "Server response to OP_AAAction; carries 12B records (ability_id, rank, _) for player's full AA list incl. auto-grants and purchased ranks"
 
 [[zone]]
-id      = "1ede"
+id      = "ffff"
 name    = "OP_HideCorpse"
 updated = "2026-07-09"
 comment = "07/07 rotation (community f-patch id, daemon-confirmed): C>S 4B corpse-hide toggle. Present 18×4B C>S in upperguk capture. Identification-only, no consumer. Named for logs."
@@ -2191,7 +2193,7 @@ comment = "07/07 rotation (community f-patch id, daemon-confirmed): C>S 4B corps
   sizechecktype = "none"
 
 [[world]]
-id      = "bc01"
+id      = "ffff"
 name    = "OP_GuildList"
 comment = "GuildListCode - S>C ~14KB at login, full server guild roster (list of guild-name strings). Confirmed 2026-05-27 (login-charmgmt): inline guild names in a 14176b login packet."
 
@@ -2201,7 +2203,7 @@ comment = "GuildListCode - S>C ~14KB at login, full server guild roster (list of
   sizechecktype = "none"
 
 [[world]]
-id      = "f8e0"
+id      = "ffff"
 name    = "OP_MOTD"
 comment = "MOTDCode - server message of the day, S>C world-stream post-EnterWorld. Confirmed 2026-05-27 (login-charmgmt): 154b payload = readable MOTD text (\"Greetings Norrathians! ...\")."
 
@@ -2211,28 +2213,28 @@ comment = "MOTDCode - server message of the day, S>C world-stream post-EnterWorl
   sizechecktype = "none"
 
 [[world]]
-id      = "7b6a"
+id      = "ffff"
 name    = "OP_SendLoginInfo"
 updated = "2026-05-25"
 comment = "Client starting world session by asking for login information. Live: 464b C>S, first packet of every world session (5/5 confirmations)."
 
 [[world]]
-id      = "b537"
+id      = "ffff"
 updated = "2026-05-25"
 name    = "OP_LogServer"
 comment = "Live candidate: S>C 24b (0x7f8e), fires immediately after OP_SendLoginInfo in the handshake band."
 
 [[world]]
-id      = "b8cc"
+id      = "ffff"
 updated = "2026-05-25"
 name    = "OP_ApproveWorld"
 comment = "Live candidate: small S>C in handshake band; not isolated yet."
 
 [[world]]
-id      = "26bf"
+id      = "0935"
 name    = "OP_EnterWorld"
-updated = "2026-07-08"
-comment = "Client tells world server to enter world with selected char. EQ Legends: 72b C>S, BYTE-IDENTICAL to Live's layout — char name (zero-padded) at offset 0 + 64b zeros + 0xffffffff trailer; server reuses the opcode for a 1b S>C ack. Confirmed 2/2 login captures (fulllogin-20260708, login-zone-20260707) via dump-payload; name matches the known char. Mapping this id makes NamePromoter fire on eql (it matches by opcode name + 72b len), naming the box at the WORLD handshake — earlier than the own-spawn adoption fallback. Prior id 9bdc was a stale pre-2026-07-07-patch guess (never on the wire)."
+updated = "2026-07-16"
+comment = "Client tells world server to enter world with selected char. EQ Legends: 72b C>S, char name (zero-padded) at offset 0. Re-found 2026-07-16 after the 07/14 rotation left it unmapped (ffff): dump-payload of a 12-zone capture gave 0x0935 = 11×72B C>S (one per same-socket zone re-entry) + 11×5B S>C ack, and all 11 carry the SAME constant char-name @0 (NUL-term) — clinched. NOTE the trailer is no longer 0xffffffff (now a small value ~0x0b), so no struct is cast; the handler only needs the trigger. Prior ids 9bdc/26bf were stale pre-rotation guesses (never on the current wire). Mapping this makes NamePromoter fire on eql (matches by opcode name + 72b len), naming the box at the WORLD handshake — earlier than the own-spawn adoption fallback."
 
   # C>S 72B enter-world (login + every in-place session re-entry). Bound so
   # EqlDispatch::enterWorld can reset the box + re-snapshot on a private-instance
@@ -2250,57 +2252,57 @@ comment = "Client tells world server to enter world with selected char. EQ Legen
   sizechecktype = "none"
 
 [[world]]
-id      = "6bcf"
+id      = "ffff"
 name    = "OP_ExpansionInfo"
 updated = "2026-05-25"
 comment = "Which expansions user has. Live: 64b fixed S>C in the post-LogServer / pre-ApproveWorld handshake band (5/5 confirmations)."
 
 [[world]]
-id      = "84f6"
+id      = "ffff"
 name    = "OP_SendCharInfo"
 updated = "2026-05-25"
 comment = "Send all chars visible @ char select. Live: 14176b S>C (variable with character roster size), fires once early in world handshake."
 
 [[world]]
-id      = "2de1"
+id      = "ffff"
 name    = "OP_SendSpellChecksum"
 updated = "2026-05-25"
 comment = "Contains a snippet of spell data. Live: 2056b C>S, payload tail shows caret-delimited spell-data text (matches spells_us.txt format). Capture-order position 2 of 4 in the post-handshake checksum burst."
 
 [[world]]
-id      = "44d9"
+id      = "ffff"
 name    = "OP_SendExeChecksum"
 updated = "2026-05-25"
 comment = "Client-side eqgame.exe checksum sample. Live: 2056b C>S, payload tail shows binary code-style content. Capture-order position 1 of 4 in the post-handshake checksum burst."
 
 [[world]]
-id      = "289c"
+id      = "ffff"
 name    = "OP_SendBaseDataChecksum"
 updated = "2026-05-25"
 comment = "Client-side base-data file sample. Live: 2056b C>S, payload tail shows caret-delimited text records. Capture-order position 3 of 4 in the post-handshake checksum burst. Mapping to BaseData (vs another text-format file) inferred by elimination + position."
 
 [[world]]
-id      = "a958"
+id      = "ffff"
 name    = "OP_SendSkillCapsChecksum"
 updated = "2026-05-25"
 comment = "Client-side skillcaps checksum. Live: 64b C>S, opaque hash-style payload. Capture-order position 4 of 4 in the post-handshake checksum burst — the only one not at 2056b, fits the smaller skillcaps data table."
 
 [[world]]
-id      = "bb67"
-updated = "2026-05-25"
+id      = "8eaa"
+updated = "2026-07-14"
 name    = "OP_SetChatServer"
 comment = "Legacy chatserver tuple. May be obsolete on Live — handshake capture shows only the SetChatServer2 catalog (no 56b S>C tuple observed, unlike Test)."
 
 [[world]]
-id      = "f22b"
+id      = "ffff"
 name    = "OP_SetChatServer2"
 updated = "2026-05-25"
 comment = "Secondary chat / account / commerce service catalog. Live: 1464b S>C in handshake band (3/3 confirmations); ~18 plaintext Daybreak service URLs."
 
 [[world]]
-id      = "35d4"
+id      = "0861"
 name    = "OP_ZoneServerInfo"
-updated = "2026-05-25"
+updated = "2026-07-14"
 comment = "Zone server connection info. Live: 130b S>C, fires on world->zone handoff (zone server hostname + port). 2/2 confirmations."
 
   [[world.payloads]]
@@ -2309,25 +2311,25 @@ comment = "Zone server connection info. Live: 130b S>C, fires on world->zone han
   sizechecktype = "match"
 
 [[world]]
-id      = "fc46"
+id      = "ffff"
 name    = "OP_WorldComplete"
 updated = "2026-05-25"
 comment = "Client telling world server it is done. Live: 0b C>S, last C>S packet of session immediately after OP_ZoneServerInfo. World replies by disconnecting. 2/2 confirmations."
 
 [[world]]
-id      = "48f9"
+id      = "ffff"
 name    = "OP_DeleteCharacter"
 updated = "2026-05-27"
 comment = "Delete character @ char select. Live: 68b C>S world, name@offset 0. Re-confirmed post-2026-05-22 patch (login-charmgmt): 1 C>S fire carrying the deleted char name."
 
 [[world]]
-id      = "0634"
+id      = "ffff"
 name    = "OP_CharacterCreate"
 updated = "2026-05-27"
 comment = "Create character @ char select. Live: 168b C>S world (name[64] + gender/race/class/deity/appearance fields), fires once per submitted creation right after OP_ApproveName response. Re-confirmed post-2026-05-22 patch (login-charmgmt)."
 
 [[world]]
-id      = "a24a"
+id      = "ffff"
 name    = "OP_ApproveName"
 updated = "2026-05-27"
 comment = "Approving new character name @ char creation. Live: 84b C>S name candidate, 1b S>C status (taken vs available). Re-confirmed post-2026-05-22 patch (login-charmgmt): fires right before OP_CharacterCreate."

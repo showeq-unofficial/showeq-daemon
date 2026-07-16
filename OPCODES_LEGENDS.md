@@ -32,6 +32,89 @@ Server topology (Daybreak netblock `69.174.201.x`): login `:15900`, world
   class-data blocks — don't assume the single-`class_` layout of Live
   `charProfileStruct`. Watch for triplicated class/level fields.
 
+## ⚠ PATCHED 2026-07-14 — SECOND full opcode re-map (IDs rotated AGAIN), IN PROGRESS
+
+EQL patched again 2026-07-14 and did **another full app-opcode id rotation** — every
+id in the tables below (the 2026-07-07 set) now reads `unknown` against a post-patch
+capture. Stream layer unchanged. **62 mapped opcodes** (43 zone + 19 world) need new ids.
+
+Post-patch login+zone capture: `tests/replay/eql/eqlegends-patch20260714.vpk` (valid;
+`.opcodestats.txt` has a payload-samples byte-prefix section for content anchoring, no
+re-replay needed). Re-map is **IN PROGRESS** — working notes + full candidate table live
+in the gitignored `captures/eql-remap-20260714-WIP.md` (kept out of git: capture-derived
+spawn/player names).
+
+**Method: content/value-match, NOT size** (sizes shift across patches too).
+
+### ✅ Batch 1 — 11 re-mapped + wired (2026-07-14; content-confirmed, replay-verified)
+
+All 11 were **pure id-swaps**: each opcode's decoder + struct binding is unchanged from
+the 2026-07-07 set, only the id moved. Content-confirmed from the capture's payload-sample
+bytes, then verified by replaying the patch capture — every one reads `known` at the
+expected count/size with **no SZC struct-drop warnings**, daemon exit 0.
+
+| new id | was | opcode | content anchor that confirmed it |
+|--------|-----|--------|-----------------------------------|
+| `0x65dd` | 0x1dbf | OP_NewZone | zone short + long name in payload |
+| `0x144f` | 0x4606 | OP_ZoneEntry | S>C ~340-480B spawn-name blob; 92B C>S request both fit |
+| `0x0b66` | 0x6805 | OP_ItemPacket | item `Benefit:` descriptor text + item count @4 |
+| `0x713a` | 0x77ae | OP_BuffList | spawnId@0 + count@9 + `{spellId,1,remainTicks,0}` records + caster name |
+| `0x021e` | 0x7352 | OP_NpcMoveUpdate | 18B movement bitstream, highest-freq (1203×), incl. its own 19B variant |
+| `0xa5c0` | 0x2735 | OP_HPUpdate | multiplexed stat-sync channel, self-id@0 (6/21/37/53B) |
+| `0x3348` | 0x67e0 | OP_MobUpdate | 14B spawnId@0 + packed position (`spawnPositionUpdate`) |
+| `0x76e5` | 0x73de | OP_Action | spell id @4 = real ids (1448/734/700); 64B + 88B alt |
+| `0x5446` | 0x1734 | OP_Action2 | 48B, paired with OP_Action for the same spell id |
+| `0x2874` | 0x5c62 | OP_WearChange | wearSlot @4 = 7/8, material @8 (INERT, no handler) |
+| `0x36bf` | 0x66cb | OP_Death | victim@0 / killer@4 / spellId@16 = `ffffffff` (melee) |
+
+### 🔧 `0x5188` OP_ClientUpdate — S>C spawn positions WIRED (2026-07-14); C>S self deferred
+
+The position channel rotated id (0x7171→0x5188) **and** wire size in both directions.
+
+- **S>C 24B (other-spawn broadcast) — WIRED.** Re-cracked against the OP_MobUpdate
+  ground-truth stream + self-trajectory smoothness. New packing (19-bit ×8, coord in the
+  LOW bits of each word): **Z = `(u32@8 >> 13) & 0x7FFFF`**, **Y = `u32@16 & 0x7FFFF`**,
+  **X = `u32@20 & 0x7FFFF`** (all signed; daemon applies `>>3`). `playerSpawnPosStruct`
+  size override → 24 (PAYLOAD_LEN); `parse_player_spawn_pos` rewritten; unchanged handler
+  path `EqlDispatch::playerUpdateOther → SpawnShell::moveSpawn`. Replay-verified: 0x5188
+  reads `known` (680× S>C), no SZC drops, exit 0. **Confidence: Y & Z locked vs MobUpdate
+  ground truth; X strong (smooth self walk + close spawns match) but not yet pinned to a
+  `/loc` — final X confirmation + a possible X/Y transpose check pending a ground-truth
+  capture.** Because it's derived by matching MobUpdate, spawns place consistently with
+  the MobUpdate stream regardless.
+- **C>S 38B (self-position report) — CRACKED + WIRED 2026-07-14.** Confirmed against a
+  Lavastorm `/loc` ground-truth capture (`eql-locref.vpk`), 3 known points, exact match.
+  **IEEE floats: gameX = `float@14`, gameY = `float@26`, gameZ = `float@10`; heading =
+  `(u32@18) & 0xFFF`** (12-bit, N=0/W≈1024/S≈2048, verified vs the walk); `@0` is a float
+  counter (~16640, +0.1/tick). Rewrote eql `parse_player_self_pos` for the 38B; size
+  override → 38; `playerUpdateSelf` now applies straight to `m_player` (C>S is always
+  self), gated only on `id()!=0`, dropping the defunct spawnId adoption/gate;
+  `applySelfPosition` heading conv → `>>12` (12-bit). Deltas not yet located → speed reads
+  0 (position + heading authoritative).
+  **Two known gaps (both patch-induced, follow-ups):** (1) the 38B carries **no spawnId**
+  (old 42B had `spawnId@2`), so the self-id must come from `SpawnShell::zoneEntry`
+  name-match — which needs OP_PlayerProfile for `realName()`; a capture/session without the
+  profile never adopts a self-id, so the self marker stays hidden (correct, but the
+  self-pos can't bootstrap the id anymore). (2) eql's in-zone death respawn sends no self
+  OP_ZoneEntry, so post-death self-id recovery has no source post-patch (`death()`/
+  `enterWorld()` still sever; `m_awaitingRespawnFromId` is now dormant).
+
+- **`0x6cbd`** (19B S>C) — first guessed an NpcMoveUpdate alt, but its layout is
+  `u32@0 + spawnId@4`, not the movement bitstream (whose 19B variant already lives in
+  `0x021e`). Different, still-unidentified opcode.
+- **`0x2b30`** — a **zone-stream** C>S 2400B XML `<SystemFingerprint …>` hardware-
+  attestation blob, NOT the world OP_SendLoginInfo handshake. Wrong stream + wrong shape.
+
+### Still open
+
+Ambiguous small-payload clusters (4B / 8B / 12B / 24B), the chat trio, spell casts,
+group/guild, and the rest of the ~40 unmapped opcodes — see the WIP doc. The new
+OP_FormattedMessage (`0x3c0a`) was handled separately (addendum-11 work against the
+pre-patch fixtures — left as-is). Next: resolve the clusters → finish the table →
+record a golden for `eqlegends-patch20260714` once the table is stable → check.sh.
+(Pre-07/14 eql goldens exercise the old ids and will diverge until the table is done +
+regenerated — expected during the rotation.)
+
 ## ⚠ PATCHED 2026-07-07 — full opcode re-map (IDs shuffled + some layouts changed)
 
 EQL patched 2026-07-07. **Every app opcode ID moved** (stream layer unchanged), and
