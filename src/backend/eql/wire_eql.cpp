@@ -121,12 +121,13 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     connect(ms.zoneMgr, SIGNAL(playerProfile(const charProfileStruct*)),
             ms.player,  SLOT(player(const charProfileStruct*)));
 
-    // EQ Legends OP_ClientUpdate (0x7171): C>S self-position (42B float).
-    // Wired DIR_Client here; the 28B S>C other-spawn variant is wired separately
-    // below (playerUpdateOther), at the Live playerUpdate slot for fire order.
-    // Size-gated on playerSelfPosStruct (sizeof==42); decode is Rust
-    // (decode_player_self_pos). The eql self-pos layout differs from Live's but
-    // the size matches, so this is a size-gate only, not a struct cast.
+    // EQ Legends OP_ClientUpdate (0x5188): C>S 38B self-position (was 42B pre-07/14).
+    // Re-cracked 2026-07-14 against a /loc ground-truth capture: IEEE floats
+    // gameX@14 / gameY@26 / gameZ@10 + heading@18 (13-bit @ bit 8), no spawnId. Size-gated
+    // on playerSelfPosStruct (override = 38 = PAYLOAD_LEN); decode is Rust
+    // (parse_player_self_pos, eql's own 38B copy). The 24B S>C other-spawn variant
+    // is wired separately below (playerUpdateOther), at the Live playerUpdate slot
+    // for fire order.
     wire("OP_ClientUpdate", SP_Zone, DIR_Client,
          "playerSelfPosStruct", SZC_Match,
          seqBind(eql, &EqlDispatch::playerUpdateSelf));
@@ -298,14 +299,14 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_NpcMoveUpdate", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(ms.spawnShell, &SpawnShell::npcMoveUpdate));
-    // EQ Legends OP_ClientUpdate (0x7171) S>C, 28B: the position broadcast for
-    // OTHER spawns. eql's playerSpawnPosStruct is 28B (19-bit ×8 packed, coord in
+    // EQ Legends OP_ClientUpdate (0x5188) S>C, 24B: the position broadcast for
+    // OTHER spawns. eql's playerSpawnPosStruct is now 24B (was 28B pre-07/14; 19-bit ×8 packed, coord in
     // the LOW bits) vs Live's 24B, so it's size-gated via the backend size table
-    // (struct_size_overrides declares 28) — SZC_Match with the real struct name,
-    // no uint8_t placeholder. Decoded by eql's own parse_player_spawn_pos (28B)
+    // (struct_size_overrides declares 24 = PAYLOAD_LEN)— SZC_Match with the real struct name,
+    // no uint8_t placeholder. Decoded by eql's own parse_player_spawn_pos (24B)
     // → EqlDispatch → the neutral SpawnShell::moveSpawn, the same primitive
     // OP_MobUpdate uses (this is the exact slot Live wires SpawnShell::playerUpdate
-    // — keep here for fire order). Position cracked 2026-07-10; see OPCODES_LEGENDS.md.
+    // — keep here for fire order). Position re-cracked 2026-07-14; see OPCODES_LEGENDS.md.
     wire("OP_ClientUpdate", SP_Zone, DIR_Server,
          "playerSpawnPosStruct", SZC_Match,
          seqBind(eql, &EqlDispatch::playerUpdateOther));

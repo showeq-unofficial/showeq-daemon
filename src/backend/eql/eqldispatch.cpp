@@ -13,7 +13,9 @@
  */
 #include "eqldispatch.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 #include <QString>
 
@@ -96,36 +98,31 @@ void EqlDispatch::expUpdate(const uint8_t* data, size_t len, uint8_t dir)
 
 void EqlDispatch::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_ClientUpdate C>S, 42B: IEEE-float position + deltas (parser validates len).
+    // OP_ClientUpdate (0x5188) C>S 38B self-position. Re-cracked 2026-07-14 vs a
+    // /loc ground-truth capture: IEEE floats gameX@14 / gameY@26 / gameZ@10 +
+    // the 13-bit heading@18 bit-8 (re-cracked 2026-07-15 vs a stationary 360-spin;
+    // the earlier "low 12b" read was wrong). Unlike the pre-07/14 42B form it carries NO spawnId,
+    // so this can no longer adopt/re-adopt the self-id — that comes from
+    // SpawnShell::zoneEntry name-match (fires on real zone-ins / EnterWorld
+    // re-entry). Consequence: eql's in-zone death respawn (which sends no self
+    // OP_ZoneEntry) has no self-id recovery source post-patch — a known gap (the
+    // death()/enterWorld() severs below still run; m_awaitingRespawnFromId is now
+    // dormant). A C>S packet is by definition the local player, so once we hold a
+    // self-id we apply straight to m_player. See OPCODES_LEGENDS.md.
+    if (dir != DIR_Client)
+        return;
     auto out = seq::rust::decode_player_self_pos(
         rust::Slice<const uint8_t>{data, len});
     if (!out.ok)
         return;
+    if (m_player->id() == 0)
+        return;   // self-id not adopted yet (awaiting zoneEntry name-match)
 
-    // Adopt the self-spawn id when we don't have one yet: at zone-in (id 0), and
-    // after the player's own death severed it — an in-zone respawn brings a
-    // BRAND-NEW self-id (see death() below). Never adopt a transient spawn_id==0,
-    // and never re-adopt the dead id off a trailing corpse-side update; wait for
-    // the genuine respawn id.
-    if (dir == DIR_Client && m_player->id() == 0 &&
-        out.spawn_id != 0 && out.spawn_id != m_awaitingRespawnFromId)
-    {
-        m_player->setPlayerID(out.spawn_id);
-        m_awaitingRespawnFromId = 0;
-    }
-    if (out.spawn_id != m_player->id())
-        return;   // controlling another spawn (Eye of Zomm / boat) — not mapped
-
-    // newSpeed uses the float deltas before the int16 cast so sub-unit velocity
-    // survives.
-    const float speed = std::hypot(std::hypot(out.delta_x * 80.0f,
-                                              out.delta_y * 80.0f),
-                                   out.delta_z * 80.0f) / 119.46664f;
-
+    // Deltas aren't located in the 38B form yet (parser surfaces 0), so the speed
+    // indicator reads 0; position + the 13-bit heading are authoritative on every
+    // packet (turning included — see player_self_pos.rs).
     m_player->applySelfPosition(int16_t(out.x), int16_t(out.y), int16_t(out.z),
-                                int16_t(out.delta_x), int16_t(out.delta_y),
-                                int16_t(out.delta_z),
-                                out.heading, speed);
+                                0, 0, 0, out.heading, 0.0f);
 }
 
 void EqlDispatch::death(const uint8_t* data, size_t len, uint8_t dir)
@@ -201,8 +198,8 @@ void EqlDispatch::enterWorld(const uint8_t*, size_t, uint8_t dir)
 
 void EqlDispatch::playerUpdateOther(const uint8_t* data, size_t len, uint8_t dir)
 {
-    // OP_ClientUpdate S>C, 28B: the position broadcast for spawns OTHER than the
-    // local player (players + some NPCs). Distinct from Live's 24B
+    // OP_ClientUpdate (0x5188) S>C, 24B: the position broadcast for spawns OTHER
+    // than the local player (players + some NPCs). Same size as Live's 24B
     // playerSpawnPosStruct — eql packs each coord in the LOW 19 bits of a u32
     // (×8 fixed-point), decoded by this backend's own parse_player_spawn_pos.
     // The parser surfaces raw 19-bit values; apply >> 3 here for the 1/8-unit →
@@ -237,9 +234,34 @@ void EqlDispatch::newZone(const uint8_t* data, size_t len, uint8_t dir)
     if (!out.ok)
         return;
     m_zoneMgr->setZoneByName(latin1(out.short_name), latin1(out.long_name));
+
     // A zone has now resolved: any LATER OP_EnterWorld is a genuine re-entry
     // (see enterWorld()).
     m_sessionEstablished = true;
+}
+
+bool EqlDispatch::consumeSelfSpawn(const QString& name, uint16_t id)
+{
+    // eql sends the local player's OWN ZoneEntry TWICE per zone — a live copy that
+    // moves and a static phantom the client hides — each under a fresh per-zone id
+    // (the phantom's is a few higher). Neither should become a spawns[] entry: the
+    // self is owned by Player, whose identity comes from OP_PlayerProfile and whose
+    // position/heading come from the C>S self-report. We adopt the FIRST self-named
+    // record of a zone (== the live copy: it's first on the wire in every capture,
+    // /loc-confirmed to be the one that moves) and swallow the rest.
+    if (id == 0 || name.isEmpty() || name != m_player->realName())
+        return false;   // not us — let it through to the spawn list
+
+    // Adopt when we have no self-id yet (fresh login / post-death sever) or the id
+    // jumped zones (a stale id is hundreds/thousands off — the live+phantom pair of
+    // one zone stays within a few ids). Re-homing runs playerChangedID, which drops
+    // any stray copy from the list and re-snapshots the client. A later record
+    // within kSameBatch of the current self-id is the phantom twin — just swallow it.
+    constexpr int kSameBatch = 16;
+    if (m_player->id() == 0 ||
+        std::abs(static_cast<int>(id) - static_cast<int>(m_player->id())) > kSameBatch)
+        m_player->setPlayerID(id);
+    return true;
 }
 
 void EqlDispatch::spawn(const uint8_t* data, size_t len, uint8_t dir)
@@ -254,7 +276,12 @@ void EqlDispatch::spawn(const uint8_t* data, size_t len, uint8_t dir)
     auto out = seq::rust::decode_spawn(rust::Slice<const uint8_t>{data, len});
     if (!out.ok)
         return;
-    m_spawnShell->upsertSpawn((uint16_t)out.spawn_id, latin1(out.name), latin1(out.last_name),
+    const QString name = latin1(out.name);
+    // Keep the local player's own ZoneEntry (and its phantom twin) out of the
+    // spawn list; adopt/re-home the self-id from it instead.
+    if (consumeSelfSpawn(name, (uint16_t)out.spawn_id))
+        return;
+    m_spawnShell->upsertSpawn((uint16_t)out.spawn_id, name, latin1(out.last_name),
                               out.x, out.y, out.z, out.heading,
                               out.level, out.cur_hp, out.max_hp,
                               (uint16_t)out.race, (uint8_t)out.class_, (uint16_t)out.deity,

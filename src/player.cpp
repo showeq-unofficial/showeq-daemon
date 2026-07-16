@@ -1144,6 +1144,12 @@ void Player::setPlayerName(const QString& name)
   // changeItem(tSpawnChangedALL) that carries it to the frontend — and signals
   // DaemonApp to promote/merge the box under this name in the picker.
   setName(name);
+  // Also set realName: SpawnShell::zoneEntry adopts the self-spawn id by matching
+  // spawn->name against m_player->realName(). On Live that field is populated from
+  // the charProfileStruct path (setRealName(player->name)); eql only reaches this
+  // neutral primitive, so without this the name-match never fires and the self-id
+  // (hence the self marker + C>S self-position) is never adopted.
+  setRealName(name);
   emit identityNameResolved(name);
 }
 
@@ -1153,11 +1159,14 @@ void Player::applySelfPosition(int16_t px, int16_t py, int16_t pz,
 {
   setPos(px, py, pz, showeq_params->walkpathrecord, showeq_params->walkpathlength);
   setDeltas(pdeltaX, pdeltaY, pdeltaZ);
-  setHeading(heading, 0);   // deltaHeading not split from the packed word
   m_validPos = true;
   updateLast();
 
-  m_headingDegrees = 360 - ((heading * 360) >> 11);   // 11-bit heading (Legends)
+  // heading is the 13-bit wire facing (8192 per circle); m_heading is an 8-bit
+  // compass, so scale down (>>5). Degrees per the Legends 0x5188 C>S @18 bit-8
+  // field, /loc-verified S=180/W=270 and a stationary 360-spin capture.
+  setHeading((int8_t)((heading >> 5) & 0xFF), 0);
+  m_headingDegrees = 360 - ((heading * 360) >> 13);
   emit headingChanged(m_headingDegrees);
 
   emit posChanged(x(), y(), z(),

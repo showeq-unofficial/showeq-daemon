@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 
+class QString;
 class ZoneMgr;
 class SpawnShell;
 class Player;
@@ -73,6 +74,12 @@ public:
     void enterWorld(const uint8_t* data, size_t len, uint8_t dir);
 
 private:
+    // True if (name,id) is the local player's own ZoneEntry — adopt/re-home the
+    // self-id from it and keep it (and its per-zone phantom twin) out of the spawn
+    // list. eql sends the self's ZoneEntry twice per zone under fresh ids; this is
+    // an eql-only wire quirk, so the decision lives here, not in core.
+    bool consumeSelfSpawn(const QString& name, uint16_t id);
+
     ZoneMgr*    m_zoneMgr;
     SpawnShell* m_spawnShell;
     Player*     m_player;

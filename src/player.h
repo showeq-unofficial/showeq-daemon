@@ -185,6 +185,8 @@ public:
    // live/test). setIdentity applies a decoded race/class/level; applySelfPos
    // applies a decoded position+heading. See src/backend/eql/eqldispatch.cpp.
    void setIdentity(uint16_t race, uint8_t classVal, uint8_t level);
+   // heading is eql's 13-bit facing (0..8191, 8192 per circle); valid on every
+   // packet, turning included. See seq-backend-eql/src/player_self_pos.rs.
    void applySelfPosition(int16_t x, int16_t y, int16_t z,
                           int16_t deltaX, int16_t deltaY, int16_t deltaZ,
                           uint16_t heading, float speed);
