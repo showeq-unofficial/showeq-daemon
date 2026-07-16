@@ -23,8 +23,8 @@
         <comment>07/07 rotation (community f-patch id, daemon-confirmed bulk door array 1452/2376B). eql door rows are 132B (1452=11*132, 2376=18*132) vs Live doorStruct 136B: first 88B byte-identical to Live's layout (name[32], y/x/z/heading floats + incline u32 @32, 20B field copy, size u32 @72, doorId/opentype/spawnstate/invertstate @80, zonePoint u32 @84), trailing unknown 44B vs Live's 48B. WIRED 2026-07-13: seq-backend-eql owns a 132B parse_door + the doorStruct size override, and newDoorSpawns strides via door_stride(); modulus gates on 132.</comment>
         <payload dir="server" typename="doorStruct" sizechecktype="modulus"/>
     </opcode>
-    <opcode id="6360" name="OP_GroundSpawn" updated="07/14/26" priority="9">
-        <comment>07/07 rotation (community f-patch id, daemon-confirmed): ground-item defs, makeDropStruct none. Present 19×(62/63B) in upperguk capture. Wired SpawnShell::newGroundItem (wire szt aligned none).</comment>
+    <opcode id="7e02" name="OP_GroundSpawn" updated="07/16/26" priority="9">
+        <comment>07/14 id 0x7e02 (adopted from legacy showeqlegends; the old 0x6360 32B record is superseded). S>C broadcast that spawns the zone's GROUND OBJECTS: static interactable placeables (forge/tradeskill containers, decorative racks, rocks) AND pickup-able ground-loot items you walk over and loot (the earring). 47x across the fight's 12 zones (e.g. IT66=Forge, IT11068=BrownRock) — NOT personal combat loot, which is instanced in EQL and never hits the ground. Variable 61-65B: {u32 dropId, NUL-term actorDef model @4 e.g. IT63_ACTORDEF, fields, f32 x/y/z at nul+29, u32}. C>S copy = the mouse-drop request, filtered by DIR_Server. Decoded by seq-backend-eql parse_ground_spawn -> SpawnShell::newGroundItem. id_file = actorDef model; the readable item name (via OP_ItemPacket 0x4d7e correlation) + tagging static objects vs pickup-loot are future refinements.</comment>
         <payload dir="server" typename="makeDropStruct" sizechecktype="none"/>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>

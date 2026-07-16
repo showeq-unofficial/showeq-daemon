@@ -62,11 +62,11 @@ comment = "07/07 rotation (community f-patch id, daemon-confirmed bulk door arra
   sizechecktype = "modulus"
 
 [[zone]]
-id      = "6360"
+id      = "7e02"
 name    = "OP_GroundSpawn"
 priority = 9
-updated = "2026-07-14"
-comment = "07/07 rotation (community f-patch id, daemon-confirmed): ground-item defs, makeDropStruct none. Present 19×(62/63B) in upperguk capture. Wired SpawnShell::newGroundItem (wire szt aligned none)."
+updated = "2026-07-16"
+comment = "07/14 id 0x7e02 (adopted from legacy showeqlegends; the old 0x6360 32B record is superseded). S>C broadcast that spawns the zone's GROUND OBJECTS: static interactable placeables (forge/tradeskill containers, decorative racks, rocks) AND pickup-able ground-loot items you walk over and loot (the earring). 47x across the fight's 12 zones (e.g. IT66=Forge, IT11068=BrownRock) — NOT personal combat loot, which is instanced in EQL and never hits the ground. Variable 61-65B: {u32 dropId, NUL-term actorDef model @4 e.g. IT63_ACTORDEF, fields, f32 x/y/z at nul+29, u32}. C>S copy = the mouse-drop request, filtered by DIR_Server. Decoded by seq-backend-eql parse_ground_spawn -> SpawnShell::newGroundItem. id_file = actorDef model; the readable item name (via OP_ItemPacket 0x4d7e correlation) + tagging static objects vs pickup-loot are future refinements."
 
   [[zone.payloads]]
   dir           = "server"
