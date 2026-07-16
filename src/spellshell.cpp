@@ -337,7 +337,7 @@ void SpellShell::buff(const uint8_t* data, size_t size, uint8_t dir)
 
 void SpellShell::buffList(const uint8_t* data, size_t size, uint8_t dir)
 {
-  // EQ Legends OP_BuffList (0x77ae): authoritative per-spawn buff list, resent
+  // EQ Legends OP_BuffList (0x713a): authoritative per-spawn buff list, resent
   // at zone-in and on every buff change. We surface the LOCAL PLAYER's buffs
   // (the showeq-web buff panel already renders personal buffs from the buffs
   // proto); mob buff lists are dropped for now.
@@ -349,8 +349,33 @@ void SpellShell::buffList(const uint8_t* data, size_t size, uint8_t dir)
     return;
 
   const uint32_t spawnId = entries.front().spawn_id;
-  if (m_player->id() == 0 || spawnId != m_player->id())
+  // eql keys the local player's own buff list to the PROFILE/BUFF self-id
+  // (Player::altId), which differs from the MOVEMENT self-id (id()) it adopted;
+  // accept either so own buffs aren't dropped onto the discarded twin. Buffs are
+  // always applied under the player's real id below.
+  if (m_player->id() == 0 ||
+      (spawnId != m_player->id() &&
+       (m_player->altId() == 0 || spawnId != m_player->altId())))
     return;   // another spawn's buff list — not surfaced
+
+  // eql re-adopts a FRESH self-id every zone and OP_BuffList re-sends the
+  // player's full buff set keyed to the new id (applied under m_player->id()
+  // below). Drop any player-owned buff still carrying a PRIOR zone's self-id
+  // FIRST — before re-adding — so buffs don't pile up across zones under stale
+  // ids AND an intermediate BuffsUpdate emitted mid-apply never mixes the old
+  // and new self-ids (one snapshot was seen carrying 168 buffs across 11 dead
+  // self-ids). deleteSpell() emits delSpell so the frontend prunes in step.
+  const QString playerName = m_player->name();
+  if (!playerName.isEmpty())
+  {
+    QList<SpellItem*> orphans;
+    for (SpellItem* si : m_spellList)
+      if (si && si->targetName() == playerName &&
+          si->targetId() != m_player->id())
+        orphans.append(si);
+    for (SpellItem* si : orphans)
+      deleteSpell(si);
+  }
 
   // remainingTicks <= 0 is a permanent buff. Encode it as duration -1: the
   // timer sweep skips negative durations (never counts down, never expires) and

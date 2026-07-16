@@ -1224,6 +1224,7 @@ void Player::setPlayerID(uint16_t playerID)
   {
      uint16_t old_id = id();
      seqInfo("Your player's id is %i", playerID);
+     m_altId = 0;   // a new movement self-id; the zone's profile/buff twin re-sets it
      setID(playerID);
      emit changedID(old_id, id());
      updateLastChanged();

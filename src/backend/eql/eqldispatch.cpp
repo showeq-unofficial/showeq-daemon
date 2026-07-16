@@ -261,6 +261,11 @@ bool EqlDispatch::consumeSelfSpawn(const QString& name, uint16_t id)
     if (m_player->id() == 0 ||
         std::abs(static_cast<int>(id) - static_cast<int>(m_player->id())) > kSameBatch)
         m_player->setPlayerID(id);
+    else if (id != m_player->id())
+        // The near-id twin. eql keys the self's MOVEMENT to the adopted id but its
+        // PROFILE/BUFF data (OP_BuffList, profile) to this second id — remember it
+        // so that character data routes to the player instead of a dropped spawn.
+        m_player->setAltId(id);
     return true;
 }
 

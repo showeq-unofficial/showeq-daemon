@@ -358,7 +358,7 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_Buff", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(ms.spellShell, &SpellShell::buff));
-    // OP_BuffList (0x77ae): authoritative per-spawn active-buff list with real
+    // OP_BuffList (0x713a): authoritative per-spawn active-buff list with real
     // remaining durations — preloads the player's buffs at zone-in and keeps the
     // spell-timer window accurate. Player-only (mob lists dropped).
     wire("OP_BuffList", SP_Zone, DIR_Server,

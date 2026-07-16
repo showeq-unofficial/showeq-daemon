@@ -137,6 +137,12 @@ public:
 
    // ZBTEMP: compatibility code
    uint16_t getPlayerID() const { return id(); }
+   // Alternate self spawn-id. eql keys the self's MOVEMENT to one id (== id())
+   // but its PROFILE/BUFF data to a second, near-value id in the same zone; this
+   // holds that second id so per-spawn character data (e.g. OP_BuffList) routes
+   // to the player. 0 = none (always 0 on live/test).
+   uint16_t altId() const { return m_altId; }
+   void setAltId(uint16_t altId) { m_altId = altId; }
    int16_t headingDegrees() const { return m_headingDegrees; }
    bool validPos() const { return m_validPos; }
 
@@ -270,6 +276,7 @@ public:
   QString m_defaultName;
   QString m_defaultLastName;
   QString m_realName;
+  uint16_t m_altId = 0;   // eql profile/buff self-id alias (see altId())
   uint16_t m_mana;
   uint16_t m_defaultRace;
   uint16_t m_defaultDeity;
