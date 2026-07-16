@@ -40,7 +40,7 @@
         <comment>07/09 l-patch correction: the regular exp bar rides 0x6801 (16B expUpdateStruct), NOT 0x42d1 — the ids were CROSS-WIRED with OP_AAExpUpdate. eql layout matches expUpdateStruct: u32 exp (0-100000 permille, in-game-calibrated against the exp bar), u32 0, u32 aaUnspent (@8, not Live's type), u32 0. exp@0 feeds Player::updateExp directly — the daemon already works in 0-100000, so NO scale conversion. Verified: exp wraps once at the level-up in the death-respawn capture (99.459%->3.622%).</comment>
         <payload dir="server" typename="expUpdateStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_GuildMOTD" updated="07/09/26" priority="2">
+    <opcode id="5924" name="OP_GuildMOTD" updated="07/16/26" priority="2">
         <comment>07/07 rotation (community f-patch id, daemon-confirmed): stock guildMOTDStruct byte-perfect (target@8, sender@72, message@140; 656B = header + msg buffer). Present 1×656B in captures. NOT wired yet — named for logs; handler wiring is guild-tier work.</comment>
         <payload dir="server" typename="guildMOTDStruct" sizechecktype="none"/>
     </opcode>
@@ -101,7 +101,7 @@
         <comment>07/07 rotation; multiplexed stat channel (subtype byte @4). 6B subtype-0x02 = HP-bar feed (u16 id, u16 0, 0x02, u8 hp%); decoded by EqlDispatch::hpUpdate. Other sizes/subtypes are cur/max i64 stat pairs (dropped)</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GuildMemberUpdate" updated="05/20/26" priority="3">
+    <opcode id="0717" name="OP_GuildMemberUpdate" updated="07/16/26" priority="3">
         <comment>Info regarding guild members</comment>
         <payload dir="server" typename="GuildMemberUpdate" sizechecktype="match"/>
     </opcode>
@@ -144,7 +144,7 @@
         <priorityNote>server never sends it; handler only sets m_zoning</priorityNote>
         <payload dir="both" typename="zoneChangeStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupInvite" updated="05/25/26" priority="4">
+    <opcode id="7869" name="OP_GroupInvite" updated="07/16/26" priority="4">
         <comment>You invite someone while ungrouped or get invited by someone ungrouped</comment>
         <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
     </opcode>
@@ -153,12 +153,12 @@
         <priorityNote>deadOnLegends: era duplicate - the non-2 group opcodes are mapped and working on Legends</priorityNote>
         <payload dir="both" typename="groupInviteStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupCancelInvite" updated="05/27/26" priority="4">
+    <opcode id="0ff2" name="OP_GroupCancelInvite" updated="07/16/26" priority="4">
         <comment>Client-side decline-invite OR leave/disband-group request (168 bytes; name fields = self+self when leaving). C>S only in observed captures. Re-confirmed post-2026-05-22 patch (group-2variants: only C>S group-action unknown, fires before disband, self+self).</comment>
         <priorityNote>single sample; reason byte unverified</priorityNote>
         <payload dir="client" typename="groupDeclineStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupFollow" updated="05/25/26" priority="4">
+    <opcode id="41d7" name="OP_GroupFollow" updated="07/16/26" priority="4">
         <comment>Member added (modern: 68 bytes, name at offset 0).</comment>
         <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
     </opcode>
@@ -192,7 +192,7 @@
         <comment>S>C broadcast to remaining members when any member leaves. 168 bytes. Fires only when ≥2 members remain after departure; name at offset 64 encodes updated group state.</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GroupLeader" updated="05/25/26" priority="4">
+    <opcode id="4546" name="OP_GroupLeader" updated="07/16/26" priority="4">
         <comment>Group leader change (modern: 80 bytes)</comment>
         <priorityNote>single sample; unconfirmed on /makeleader</priorityNote>
         <payload dir="server" typename="groupLeaderChangeStruct" sizechecktype="none"/>
@@ -206,7 +206,7 @@
         <comment>07/09 l-patch: authoritative per-spawn active-buff list, resent at zone-in + on every buff change, carrying REAL server-side remaining durations (the patch's 'one that makes it work'). Variable size (VALIDATED 26/26 upperguk, cursor lands on packet end): u32 spawnId, u32 (seq/ts), u8 flag=1, u8 count, u8[5] pad, then count records {u32 spellId, u32=1, i32 remainingTicks, u32=0} + NUL caster name + slot (u32 between records, u16 on the final). remainingTicks&lt;=0 = permanent. Wired → SpellShell::buffList (player-only); mob lists dropped.</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_BeginCast" updated="05/26/26" priority="5">
+    <opcode id="6cbd" name="OP_BeginCast" updated="07/16/26" priority="5">
         <comment>BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad}. Re-confirmed post-2026-05-22 patch (castTime decodes to real ms: 4000/6500/9000).</comment>
         <payload dir="server" typename="beginCastStruct" sizechecktype="match"/>
     </opcode>
@@ -214,7 +214,7 @@
         <comment>07/09 l-patch: the player's own cast request (C>S, 40B) = stock startCastStruct {i32 gemSlot@0, u32 spellId@4, u8[10]@8, u32 targetId@18, ...} + 1 trailing byte. Carries the target, so casts show in the spell-timer window immediately with the target. Wired → SpellShell::selfStartSpellCast; 40B via a startCastStruct size override (see seq-backend-eql size_overrides).</comment>
         <payload dir="client" typename="startCastStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_SwapSpell" updated="07/09/26" priority="3">
+    <opcode id="6f46" name="OP_SwapSpell" updated="07/16/26" priority="3">
         <comment>07/07 rotation (community f-patch id, wire-verified): stock tradeSpellBookSlotsStruct (slot1 u32@0, slot2 u32@4) 8B exact. Match-gated. NOT wired yet — named for logs; not in current fixtures.</comment>
         <payload dir="both" typename="tradeSpellBookSlotsStruct" sizechecktype="match"/>
     </opcode>
@@ -227,7 +227,7 @@
         <comment>07/07 rotation (community f-patch id): stock inspectDataStruct byte-perfect incl. 1956B total size (3/3 community inspects). Match-gated (dark if size differs). Wired MessageShell::inspectData. Not in current fixtures — community-verified.</comment>
         <payload dir="server" typename="inspectDataStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_Emote" updated="07/09/26" priority="4">
+    <opcode id="61a5" name="OP_Emote" updated="07/16/26" priority="4">
         <comment>07/09 EQL (community f-patch id): 4B header (ffffffff) + emote text; client is a fixed 1028B buffer, server dir is variable, so none-gated. NOT wired yet — named for logs (emote also rides OP_FormattedMessage which is handled).</comment>
         <payload dir="both" typename="emoteTextStruct" sizechecktype="none"/>
     </opcode>
@@ -247,19 +247,19 @@
         <comment>07/07 rotation (community f-patch id, daemon-confirmed): NPC speech / hail responses, specialMessageStruct none. Present 8×(59/60B) in upperguk capture. Wired MessageShell::specialMessage.</comment>
         <payload dir="server" typename="specialMessageStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_RandomReq" updated="07/09/26" priority="2">
+    <opcode id="5e9e" name="OP_RandomReq" updated="07/16/26" priority="2">
         <comment>07/07 rotation (community f-patch id, wire-verified /random): stock randomReqStruct {u32 bottom, u32 top}, BUT both 8B and 9B forms on the wire (trailing byte optional) so none-gated. NOT wired yet — named for logs.</comment>
         <payload dir="client" typename="randomReqStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_RandomReply" updated="07/09/26" priority="2">
+    <opcode id="77bd" name="OP_RandomReply" updated="07/16/26" priority="2">
         <comment>07/07 rotation (community f-patch id, wire-verified /random 1 100 = 63): stock randomStruct {u32 bottom, u32 top, u32 result, char name[64]} 76B exact. Match-gated. NOT wired yet — named for logs.</comment>
         <payload dir="server" typename="randomStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_ConsentResponse" updated="02/17/21" priority="3">
+    <opcode id="2265" name="OP_ConsentResponse" updated="07/16/26" priority="3">
         <comment>Server replying with consent information after /consent</comment>
         <payload dir="server" typename="consentResponseStruct" sizechecktype="match"/>
     </opcode>
-    <opcode id="ffff" name="OP_DenyResponse" updated="02/17/21" priority="3">
+    <opcode id="05fc" name="OP_DenyResponse" updated="07/16/26" priority="3">
         <comment>Server replying with deny information after /deny</comment>
         <payload dir="server" typename="consentResponseStruct" sizechecktype="match"/>
     </opcode>
@@ -347,7 +347,7 @@
         <priorityNote>noHandler</priorityNote>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_Logout" updated="12/12/12" priority="3">
+    <opcode id="2ac8" name="OP_Logout" updated="07/16/26" priority="3">
         <priorityNote>handler wired DIR_Client only</priorityNote>
         <payload dir="server" typename="uint8_t" sizechecktype="match"/>
     </opcode>
@@ -365,7 +365,7 @@
         <priorityNote>noHandler</priorityNote>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GuildMemberList" updated="05/20/26" priority="3">
+    <opcode id="591d" name="OP_GuildMemberList" updated="07/16/26" priority="3">
         <comment>List of guild members - Variable length</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
@@ -439,7 +439,7 @@
         <priorityNote>noHandler</priorityNote>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_ExpandedGuildInfo" updated="05/20/26" priority="0">
+    <opcode id="729e" name="OP_ExpandedGuildInfo" updated="07/16/26" priority="0">
         <comment>Guild ranks and other misc guild data - Variable length</comment>
         <priorityNote>noHandler</priorityNote>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
@@ -514,7 +514,7 @@
         <priorityNote>noHandler</priorityNote>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_InspectRequest" updated="07/09/26" priority="0">
+    <opcode id="0cdf" name="OP_InspectRequest" updated="07/16/26" priority="0">
         <comment>07/09 EQL (community f-patch id, wire-verified): C>S 8B {u32 targetId, u32 selfId}. Identification-only, no consumer. Named for logs.</comment>
         <priorityNote>noHandler</priorityNote>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
@@ -649,11 +649,11 @@
         <priorityNote>noHandler</priorityNote>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_GuildsInZoneList" updated="05/20/26" priority="8">
+    <opcode id="3959" name="OP_GuildsInZoneList" updated="07/16/26" priority="8">
         <comment>Listing of guild names present in the current zone.  Generally seen on zoning</comment>
         <payload dir="server" typename="guildsInZoneListStruct" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_NewGuildInZone" updated="07/19/23" priority="8">
+    <opcode id="6c4c" name="OP_NewGuildInZone" updated="07/16/26" priority="8">
         <comment>An additional guild name has appeared in the current zone. Seen when a guilded player enters the current zone</comment>
         <payload dir="server" typename="newGuildInZoneStruct" sizechecktype="none"/>
     </opcode>
@@ -721,7 +721,7 @@
         <priorityNote>noHandler</priorityNote>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="ffff" name="OP_Find" updated="05/20/26" priority="0">
+    <opcode id="1a0b" name="OP_Find" updated="07/16/26" priority="0">
         <comment>Find window data - variable length, 24 min</comment>
         <priorityNote>noHandler</priorityNote>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
@@ -762,7 +762,7 @@
     <opcode id="ffff" name="OP_VeteranRewards" updated="04/18/11" priority="-1">
         <priorityNote>noHandler</priorityNote>
     </opcode>
-    <opcode id="ffff" name="OP_SendAATable" updated="05/25/26" priority="5">
+    <opcode id="31ae" name="OP_SendAATable" updated="07/16/26" priority="5">
         <comment>Static AA ability-definition menu sent S>C on zone-in. Variable-length: u32 count + count records of base 44B + per-record prereq trailer.</comment>
     </opcode>
     <opcode id="ffff" name="OP_SendAAStats" updated="08/12/09" priority="-1">
@@ -978,7 +978,7 @@
         <comment>Server response to OP_AAAction; carries 12B records (ability_id, rank, _) for player's full AA list incl. auto-grants and purchased ranks</comment>
         <priorityNote>noHandler</priorityNote>
     </opcode>
-    <opcode id="ffff" name="OP_HideCorpse" updated="07/09/26" priority="0">
+    <opcode id="1ce7" name="OP_HideCorpse" updated="07/16/26" priority="0">
         <comment>07/07 rotation (community f-patch id, daemon-confirmed): C>S 4B corpse-hide toggle. Present 18×4B C>S in upperguk capture. Identification-only, no consumer. Named for logs.</comment>
         <priorityNote>noHandler</priorityNote>
         <payload dir="client" typename="uint8_t" sizechecktype="none"/>
