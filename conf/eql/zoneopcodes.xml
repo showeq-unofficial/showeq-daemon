@@ -235,6 +235,10 @@
         <comment>EQL 07/12 rotation; single general SimpleMessage channel (12B server: u32 eqstrId, u32 color, u32 0). Wire-verified via the fast-camp-refusal string (eqstr 10031, color 13); replay opcodestats show it as 12B S>C across every system-message capture. Was pinned to the dead live opcode ffff; the MessageShell/SpellShell handlers were already correct</comment>
         <payload dir="server" typename="simpleMessageStruct" sizechecktype="match"/>
     </opcode>
+    <opcode id="6768" name="OP_LootDrops" updated="07/16/26" priority="4">
+        <comment>eql corpse loot window: {u16, u32=900, u32 corpseId@6, u32 count@10, NUL-term corpse name@14, then `count` item entries each with a 0x12 item link}. Decoded by parse_loot_drops (item name = link past 197-hex header) -> MessageShell::lootDrops -> LootDrops proto.</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+    </opcode>
     <opcode id="4d77" name="OP_MoneyUpdate" updated="07/16/26" priority="4">
         <comment>eql running total money: 12B {u32 copper@0, u32=1, u32=42} (re-broadcast). Decoded by parse_money_update -> Player::moneyUpdate -> PlayerStats.money_copper.</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>

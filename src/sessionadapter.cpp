@@ -465,6 +465,10 @@ void SessionAdapter::connectPerBox()
                 SIGNAL(inspectReceived(const inspectDataStruct*)),
                 this,
                 SLOT(onInspectAnswer(const inspectDataStruct*)));
+        connect(m_messageShell,
+                SIGNAL(lootDropsReceived(uint32_t, const QString&, const QStringList&)),
+                this,
+                SLOT(onLootDrops(uint32_t, const QString&, const QStringList&)));
     }
 
     if (m_groupMgr) {
@@ -1323,5 +1327,17 @@ void SessionAdapter::onInspectAnswer(const inspectDataStruct* data)
     if (!data) return;
     seq::v1::Envelope env;
     seq::encode::fillInspectAnswer(env.mutable_inspect_answer(), *data);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onLootDrops(uint32_t corpseId, const QString& corpseName,
+                                 const QStringList& items)
+{
+    seq::v1::Envelope env;
+    auto* ld = env.mutable_loot_drops();
+    ld->set_corpse_id(corpseId);
+    ld->set_corpse_name(corpseName.toStdString());
+    for (const auto& it : items)
+        ld->add_item_names(it.toStdString());
     sendOrBuffer(std::move(env));
 }

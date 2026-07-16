@@ -332,6 +332,10 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_LootMessage", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(ms.messageShell, &MessageShell::lootMessage));
+    // OP_LootDrops (0x6768): corpse loot window.
+    wire("OP_LootDrops", SP_Zone, DIR_Server,
+         "uint8_t", SZC_None,
+         seqBind(ms.messageShell, &MessageShell::lootDrops));
     wire("OP_SimpleMessage", SP_Zone, DIR_Server,
          "simpleMessageStruct", SZC_Match,
          seqBind(ms.messageShell, &MessageShell::simpleMessage));

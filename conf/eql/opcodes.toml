@@ -696,6 +696,18 @@ comment = "EQL 07/12 rotation; single general SimpleMessage channel (12B server:
   sizechecktype = "match"
 
 [[zone]]
+id      = "6768"
+name    = "OP_LootDrops"
+priority = 4
+updated = "2026-07-16"
+comment = "eql corpse loot window: {u16, u32=900, u32 corpseId@6, u32 count@10, NUL-term corpse name@14, then `count` item entries each with a 0x12 item link}. Decoded by parse_loot_drops (item name = link past 197-hex header) -> MessageShell::lootDrops -> LootDrops proto."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
 id      = "4d77"
 name    = "OP_MoneyUpdate"
 priority = 4

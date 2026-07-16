@@ -297,6 +297,25 @@ void MessageShell::lootMessage(const uint8_t* data, size_t len, uint8_t dir)
                    text, out.message_color);
 }
 
+// OP_LootDrops (0x6768): corpse loot window -> LootDrops proto (via SessionAdapter).
+void MessageShell::lootDrops(const uint8_t* data, size_t len, uint8_t dir)
+{
+  if (dir == DIR_Client)
+    return;
+  auto out = seq::rust::decode_loot_drops(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok)
+    return;
+  QStringList items;
+  items.reserve(static_cast<int>(out.item_names.size()));
+  for (const auto& n : out.item_names)
+    items.push_back(QString::fromUtf8(n.data(), n.size()));
+  emit lootDropsReceived(out.corpse_id,
+                         QString::fromUtf8(out.corpse_name.data(),
+                                           out.corpse_name.size()),
+                         items);
+}
+
 void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)
 {
   // avoid client chatter and do nothing if not viewing channel messages

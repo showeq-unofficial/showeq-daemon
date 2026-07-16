@@ -68,6 +68,7 @@ class MessageShell : public QObject
    // id @9, spell id @0, pre-split caret args); decoded + routed separately.
    void formattedMessageEQL(const uint8_t* cmsg, size_t, uint8_t);
    void lootMessage(const uint8_t* lmsg, size_t, uint8_t);
+   void lootDrops(const uint8_t* data, size_t, uint8_t);
    void simpleMessage(const uint8_t* cmsg, size_t, uint8_t);
    void specialMessage(const uint8_t* smsg, size_t, uint8_t);
    // EQ Legends UCS cross-zone chat: one raw port-9877 server->client payload
@@ -151,6 +152,8 @@ class MessageShell : public QObject
    // Emitted when OP_InspectAnswer arrives. SessionAdapter listens and
    // forwards to clients as seq.v1.InspectAnswer.
    void inspectReceived(const inspectDataStruct* data);
+   void lootDropsReceived(uint32_t corpseId, const QString& corpseName,
+                          const QStringList& items);
 
  protected:
    Messages* m_messages;
