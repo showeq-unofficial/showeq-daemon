@@ -15,10 +15,10 @@ comment = "07/14 rotation (was 0x62f0): the ~43KB char profile S>C, once at ente
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "0b7f"
 name    = "OP_TimeOfDay"
 priority = 3
-updated = "2026-07-09"
+updated = "2026-07-16"
 comment = "07/07 rotation; 8B stock timeOfDayStruct byte-identical (wire-verified 8B); advances at EQ game rate"
 
   [[zone.payloads]]
@@ -79,10 +79,10 @@ comment = "07/07 rotation (community f-patch id, daemon-confirmed): ground-item 
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "5926"
 name    = "OP_SendZonePoints"
 priority = 5
-updated = "2026-05-20"
+updated = "2026-07-16"
 comment = "Coords in a zone that will port you to another zone"
 
   [[zone.payloads]]
@@ -91,10 +91,10 @@ comment = "Coords in a zone that will port you to another zone"
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "7830"
 name    = "OP_AAExpUpdate"
 priority = 4
-updated = "2026-07-13"
+updated = "2026-07-16"
 comment = "07/09 l-patch correction: the AA-exp bar rides 0x42d1 (12B altExpUpdateStruct), NOT 0x6801 — the ids were CROSS-WIRED with OP_ExpUpdate (the 12B/16B sizes now match their structs). eql layout: u32 altexp (0-100000 per-AA-point progress), u32 aapoints (unspent AA), u32 tail (Live carries u8 percent + pad there; handler reads neither). WIRED 2026-07-13 straight to Player::updateAltExp — the handler is 0-100000-native since ac918ec, so the old 'needs a ->330 conversion' deferral was stale. Size gate declared in seq-backend-eql size_overrides()."
 
   [[zone.payloads]]
@@ -103,10 +103,10 @@ comment = "07/09 l-patch correction: the AA-exp bar rides 0x42d1 (12B altExpUpda
   sizechecktype = "match"
 
 [[zone]]
-id      = "ffff"
+id      = "53b7"
 name    = "OP_ExpUpdate"
 priority = 4
-updated = "2026-07-09"
+updated = "2026-07-16"
 comment = "07/09 l-patch correction: the regular exp bar rides 0x6801 (16B expUpdateStruct), NOT 0x42d1 — the ids were CROSS-WIRED with OP_AAExpUpdate. eql layout matches expUpdateStruct: u32 exp (0-100000 permille, in-game-calibrated against the exp bar), u32 0, u32 aaUnspent (@8, not Live's type), u32 0. exp@0 feeds Player::updateExp directly — the daemon already works in 0-100000, so NO scale conversion. Verified: exp wraps once at the level-up in the death-respawn capture (99.459%->3.622%)."
 
   [[zone.payloads]]
@@ -402,10 +402,10 @@ comment = "Spawns getting renamed after initial NewSpawn"
   sizechecktype = "match"
 
 [[zone]]
-id      = "ffff"
+id      = "2e7d"
 name    = "OP_Illusion"
 priority = 8
-updated = "2023-07-19"
+updated = "2026-07-16"
 comment = "Spawn being illusioned (changing forms)"
 
   [[zone.payloads]]
@@ -503,10 +503,10 @@ comment = "Player joins your group (168 bytes; member name at offset 64, leading
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "d305"
 name    = "OP_GroupUpdate"
 priority = 6
-updated = "2026-05-25"
+updated = "2026-07-16"
 comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow."
 
   [[zone.payloads]]
@@ -515,10 +515,10 @@ comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Hand
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "227d"
 name    = "OP_GroupDisband"
 priority = 4
-updated = "2026-05-25"
+updated = "2026-07-16"
 comment = "Your group dissolved (modern: 168 bytes; membername=self at offset 64)"
 
   [[zone.payloads]]
@@ -660,10 +660,10 @@ comment = "Bidirectional 16B: {u32 gem_slot, u32 spellId, int16 action, int16 pa
   sizechecktype = "match"
 
 [[zone]]
-id      = "ffff"
+id      = "6a04"
 name    = "OP_InspectAnswer"
 priority = 3
-updated = "2026-07-09"
+updated = "2026-07-16"
 comment = "07/07 rotation (community f-patch id): stock inspectDataStruct byte-perfect incl. 1956B total size (3/3 community inspects). Match-gated (dark if size differs). Wired MessageShell::inspectData. Not in current fixtures — community-verified."
 
   [[zone.payloads]]
@@ -684,10 +684,10 @@ comment = "07/09 EQL (community f-patch id): 4B header (ffffffff) + emote text; 
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "7b92"
 name    = "OP_SimpleMessage"
 priority = 4
-updated = "2026-07-12"
+updated = "2026-07-16"
 comment = "EQL 07/12 rotation; single general SimpleMessage channel (12B server: u32 eqstrId, u32 color, u32 0). Wire-verified via the fast-camp-refusal string (eqstr 10031, color 13); replay opcodestats show it as 12B S>C across every system-message capture. Was pinned to the dead live opcode ffff; the MessageShell/SpellShell handlers were already correct"
 
   [[zone.payloads]]
@@ -720,10 +720,10 @@ comment = "07/07 rotation (community f-patch id, daemon-confirmed): /tell /ooc /
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "2189"
 name    = "OP_SpecialMesg"
 priority = 4
-updated = "2026-07-09"
+updated = "2026-07-16"
 comment = "07/07 rotation (community f-patch id, daemon-confirmed): NPC speech / hail responses, specialMessageStruct none. Present 8×(59/60B) in upperguk capture. Wired MessageShell::specialMessage."
 
   [[zone.payloads]]
