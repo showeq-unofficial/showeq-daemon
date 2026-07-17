@@ -370,12 +370,14 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_Buff", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(ms.spellShell, &SpellShell::buff));
-    // OP_BuffList (0x713a): authoritative per-spawn active-buff list with real
-    // remaining durations — preloads the player's buffs at zone-in and keeps the
-    // spell-timer window accurate. Player-only (mob lists dropped).
-    wire("OP_BuffList", SP_Zone, DIR_Server,
-         "uint8_t", SZC_None,
-         seqBind(ms.spellShell, &SpellShell::buffList));
+    // OP_BuffList/2/3 (73e2/713a/5c47, Xerxes 07/14 map): authoritative per-spawn
+    // active-buff lists with real remaining durations. Same format + handler; the
+    // handler resolves the owner by findability (self → buff panel, findable mob
+    // → target effects).
+    for (const char* op : {"OP_BuffList", "OP_BuffList2", "OP_BuffList3"})
+      wire(op, SP_Zone, DIR_Server,
+           "uint8_t", SZC_None,
+           seqBind(ms.spellShell, &SpellShell::buffList));
     wire("OP_Action", SP_Zone, DIR_Server | DIR_Client,
          "actionStruct", SZC_Match,
          seqBind(ms.spellShell, &SpellShell::action));

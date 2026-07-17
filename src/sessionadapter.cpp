@@ -4,6 +4,7 @@
 #include <QDateTime>
 #include <QLoggingCategory>
 #include <QSet>
+#include <QTimer>
 #include <algorithm>
 #include <vector>
 
@@ -1020,7 +1021,16 @@ void SessionAdapter::onBuffsChanged()
 void SessionAdapter::onEffectsChanged()
 {
     if (!m_spellShell) return;
-    sendEffectsUpdate();
+    // A mob's OP_BuffList emits one add/changeEffect per buff; sending the full
+    // list on each would flood the client. Coalesce a burst into one emit per
+    // event-loop turn. Golden mode stays synchronous so output is reproducible.
+    if (m_deterministic) { sendEffectsUpdate(); return; }
+    if (m_effectsDirty) return;
+    m_effectsDirty = true;
+    QTimer::singleShot(0, this, [this] {
+        m_effectsDirty = false;
+        if (m_spellShell) sendEffectsUpdate();
+    });
 }
 
 void SessionAdapter::sendEffectsUpdate()

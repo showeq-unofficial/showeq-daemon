@@ -339,9 +339,9 @@ void SpellShell::buff(const uint8_t* data, size_t size, uint8_t dir)
 void SpellShell::buffList(const uint8_t* data, size_t size, uint8_t dir)
 {
   // EQ Legends OP_BuffList (0x713a): authoritative per-spawn buff list, resent
-  // at zone-in and on every buff change. We surface the LOCAL PLAYER's buffs
-  // (the showeq-web buff panel already renders personal buffs from the buffs
-  // proto); mob buff lists are dropped for now.
+  // at zone-in and on every buff change. Player buffs go to the buff panel
+  // (m_spellList); a mob's own buffs go to the target-effects list keyed by its
+  // spawn id (below), for the target window.
   if (dir == DIR_Client)
     return;
   auto entries =
@@ -350,14 +350,67 @@ void SpellShell::buffList(const uint8_t* data, size_t size, uint8_t dir)
     return;
 
   const uint32_t spawnId = entries.front().spawn_id;
-  // eql keys the local player's own buff list to the PROFILE/BUFF self-id
-  // (Player::altId), which differs from the MOVEMENT self-id (id()) it adopted;
-  // accept either so own buffs aren't dropped onto the discarded twin. Buffs are
-  // always applied under the player's real id below.
-  if (m_player->id() == 0 ||
-      (spawnId != m_player->id() &&
-       (m_player->altId() == 0 || spawnId != m_player->altId())))
-    return;   // another spawn's buff list — not surfaced
+  // Owner resolution (Xerxes's OP_BuffList handler): the player when the id
+  // matches OR the spawn can't be found (stale-id self during zone-in). A
+  // findable non-self spawn is a mob, whose buffs go to target effects.
+  const uint16_t mobId = uint16_t(spawnId);
+  const Item* mob = spawnId == m_player->id()
+                        ? nullptr
+                        : m_spawnShell->findID(tSpawn, mobId);
+  if (mob)
+  {
+    // Mob's own buffs -> target effects keyed by its spawn id. Player-cast DoTs
+    // on the mob (caster == us) stay owned by action()/the timer.
+    const QString mobName = mob->name();
+    bool addedEff = false;
+    for (const auto& e : entries)
+    {
+      if (e.spell_id == 0 || e.spell_id == 0xffffffff)
+        continue;
+      const bool perm = e.remaining_ticks <= 0;
+      const int dur = perm ? SpellItem::PERMANENT_DURATION : e.remaining_ticks * 6;
+      SpellItem* eff = findEffect(e.spell_id, mobId);
+      if (eff)
+      {
+        eff->setDuration(dur);
+        eff->setPermanent(perm);
+        eff->setBuffSlot(e.slot);
+        emit changeEffect(eff);
+      }
+      else
+      {
+        eff = new SpellItem();
+        eff->update(e.spell_id, m_spells->spell(e.spell_id), dur, 0, "Buff",
+                    mobId, mobName);
+        eff->setPermanent(perm);
+        eff->setBuffSlot(e.slot);
+        m_targetEffects.append(eff);
+        emit addEffect(eff);
+        addedEff = true;
+      }
+    }
+    // Authoritative for the mob's own buffs: drop ones no longer listed.
+    QList<SpellItem*> gone;
+    for (SpellItem* si : m_targetEffects)
+    {
+      if (!si || si->targetId() != mobId || si->casterId() == m_player->id())
+        continue;
+      bool present = false;
+      for (const auto& e : entries)
+        if (e.spell_id == si->spellId()) { present = true; break; }
+      if (!present)
+        gone.append(si);
+    }
+    for (SpellItem* si : gone)
+    {
+      m_targetEffects.removeOne(si);
+      emit delEffect(si);
+      delete si;
+    }
+    if (addedEff && !m_timer->isActive())
+      m_timer->start(1000 * pSEQPrefs->getPrefInt("SpellTimer", "SpellList", 6));
+    return;
+  }
 
   // eql re-adopts a FRESH self-id every zone and OP_BuffList re-sends the
   // player's full buff set keyed to the new id (applied under m_player->id()

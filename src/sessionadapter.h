@@ -273,6 +273,10 @@ private:
     bool                         m_subscribed = false;
     bool                         m_liveTailing = false;
     bool                         m_deterministic = false;
+    // Coalesces bursts of SpellShell effect signals (a mob's OP_BuffList fires
+    // one signal per buff) into a single SpawnEffectsUpdate per event-loop turn.
+    // Live only — deterministic (golden) mode emits synchronously.
+    bool                         m_effectsDirty = false;
     uint64_t                     m_seq = 0;
     QList<seq::v1::Envelope>     m_buffered;
 

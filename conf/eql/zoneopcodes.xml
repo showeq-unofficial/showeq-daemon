@@ -202,8 +202,16 @@
         <priorityNote>client dir = memorize/forget, consumed silently</priorityNote>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
-    <opcode id="713a" name="OP_BuffList" updated="07/14/26" priority="6">
-        <comment>07/09 l-patch: authoritative per-spawn active-buff list, resent at zone-in + on every buff change, carrying REAL server-side remaining durations (the patch's 'one that makes it work'). Variable size (VALIDATED 26/26 upperguk, cursor lands on packet end): u32 spawnId, u32 (seq/ts), u8 flag=1, u8 count, u8[5] pad, then count records {u32 spellId, u32=1, i32 remainingTicks, u32=0} + NUL caster name + slot (u32 between records, u16 on the final). remainingTicks&lt;=0 = permanent. Wired → SpellShell::buffList (player-only); mob lists dropped.</comment>
+    <opcode id="73e2" name="OP_BuffList" updated="07/14/26" priority="6">
+        <comment>Per-spawn active-buff list, resent at zone-in + on every buff change with REAL server-side remaining durations. Xerxes 07/14 map: OP_BuffList/2/3 = 73e2/713a/5c47, all the same format + handler. Variable size: u32 spawnId, u32 (seq/ts), u8 flag=1, u8 count, u8[5] pad, then count records {u32 spellId, u32=1, i32 remainingTicks, u32=0} + NUL caster name + slot (u32 between records, u16 on the final). remainingTicks&lt;=0 = permanent. Wired → SpellShell::buffList; owner by findability (self → buff panel, findable mob → target effects).</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+    </opcode>
+    <opcode id="713a" name="OP_BuffList2" updated="07/14/26" priority="6">
+        <comment>Buff-list variant — same format + handler as OP_BuffList (73e2); see it for the record layout.</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+    </opcode>
+    <opcode id="5c47" name="OP_BuffList3" updated="07/14/26" priority="6">
+        <comment>Buff-list variant — same format + handler as OP_BuffList (73e2); see it for the record layout.</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="6cbd" name="OP_BeginCast" updated="07/16/26" priority="5">
