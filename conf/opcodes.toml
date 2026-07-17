@@ -3,9 +3,9 @@
 # from this file by tools/toml_to_xml.py (run via CMake on build).
 
 [[zone]]
-id      = "e284"
+id      = "d4b8"
 name    = "OP_PlayerProfile"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "CharProfileCode"
 
   [[zone.payloads]]
@@ -14,9 +14,9 @@ comment = "CharProfileCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "a5bf"
+id      = "abdb"
 name    = "OP_ZoneEntry"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "ZoneEntryCode"
 
   [[zone.payloads]]
@@ -30,9 +30,9 @@ comment = "ZoneEntryCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "7e22"
+id      = "4968"
 name    = "OP_TimeOfDay"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "TimeOfDayCode"
 
   [[zone.payloads]]
@@ -41,9 +41,9 @@ comment = "TimeOfDayCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "a923"
+id      = "1a58"
 name    = "OP_NewZone"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "NewZoneCode"
 
   [[zone.payloads]]
@@ -52,9 +52,9 @@ comment = "NewZoneCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "33ec"
+id      = "cb57"
 name    = "OP_SpawnDoor"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "DoorSpawnsCode"
 
   [[zone.payloads]]
@@ -63,9 +63,9 @@ comment = "DoorSpawnsCode"
   sizechecktype = "modulus"
 
 [[zone]]
-id      = "92dc"
+id      = "66a8"
 name    = "OP_GroundSpawn"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "MakeDropCode"
 
   [[zone.payloads]]
@@ -79,9 +79,9 @@ comment = "MakeDropCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "ad5c"
+id      = "57f6"
 name    = "OP_SendZonePoints"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Coords in a zone that will port you to another zone"
 
   [[zone.payloads]]
@@ -90,9 +90,9 @@ comment = "Coords in a zone that will port you to another zone"
   sizechecktype = "none"
 
 [[zone]]
-id      = "0c97"
+id      = "b10f"
 name    = "OP_AAExpUpdate"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Receiving AA experience. Also when percent to AA changes."
 
   [[zone.payloads]]
@@ -101,9 +101,9 @@ comment = "Receiving AA experience. Also when percent to AA changes."
   sizechecktype = "match"
 
 [[zone]]
-id      = "cf53"
+id      = "ffff"
 name    = "OP_ExpUpdate"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "ExpUpdateCode"
 
   [[zone.payloads]]
@@ -112,9 +112,9 @@ comment = "ExpUpdateCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "9f2b"
+id      = "3425"
 name    = "OP_GuildMOTD"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "GuildMOTD"
 
   [[zone.payloads]]
@@ -123,9 +123,9 @@ comment = "GuildMOTD"
   sizechecktype = "none"
 
 [[zone]]
-id      = "f8d1"
+id      = "76e4"
 name    = "OP_ClientUpdate"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Position updates"
 
   [[zone.payloads]]
@@ -139,9 +139,9 @@ comment = "Position updates"
   sizechecktype = "match"
 
 [[zone]]
-id      = "917c"
+id      = "612e"
 name    = "OP_NpcMoveUpdate"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Position updates"
 
   [[zone.payloads]]
@@ -150,9 +150,9 @@ comment = "Position updates"
   sizechecktype = "none"
 
 [[zone]]
-id      = "4a4f"
+id      = "6a5a"
 name    = "OP_MobUpdate"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "MobUpdateCode"
 
   [[zone.payloads]]
@@ -161,9 +161,9 @@ comment = "MobUpdateCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "94d4"
+id      = "18c6"
 name    = "OP_DeleteSpawn"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "DeleteSpawnCode"
 
   [[zone.payloads]]
@@ -172,9 +172,9 @@ comment = "DeleteSpawnCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "eb88"
+id      = "d631"
 name    = "OP_RemoveSpawn"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Remove spawn from zone"
 
   [[zone.payloads]]
@@ -183,9 +183,9 @@ comment = "Remove spawn from zone"
   sizechecktype = "none"
 
 [[zone]]
-id      = "1eb2"
+id      = "75b4"
 name    = "OP_Death"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "old NewCorpseCode"
 
   [[zone.payloads]]
@@ -194,9 +194,9 @@ comment = "old NewCorpseCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "0ecf"
+id      = "ffff"
 name    = "OP_WearChange"
-updated = "2026-05-27"
+updated = "2026-07-17"
 comment = "Spawn-state / appearance broadcast (multi-slot). Header=wearChangeStruct(11B), then slotCount*wearChangeSlotStruct(16B+varname), then 2B pad. count=0→13B (hash refresh), count=N→header+N slots (~+23B/slot incl short name). slotCount@9 correlates with size; unk8=1 in equipment samples. Re-confirmed equipment form 2026-05-27 (wearchange-clean: 30 fires on equip/remove, 13B refresh, field@4=material code). POLYMORPHIC: this same wire opcode also carries buff-icon arrays (21B blocks: {spellID, value, caster-name\\0}) as a spawn-state broadcast — multiple spawn ids, fires on zone-in and around buff events. Those variants don't match SpawnUpdateStruct (SZC_Match) so they're unhandled, but appear in --list-events/--dump-payload — do NOT mistake them for a buff/BuffQuery opcode (cost a full 2026-05-27 hunt). Dedicated buff broadcast is OP_Buff 0x18b4 (trailing flag distinguishes)."
 
   [[zone.payloads]]
@@ -205,9 +205,9 @@ comment = "Spawn-state / appearance broadcast (multi-slot). Header=wearChangeStr
   sizechecktype = "none"
 
 [[zone]]
-id      = "9826"
+id      = "9f7c"
 name    = "OP_SpawnAppearance"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "SpawnAppearanceCode"
 
   [[zone.payloads]]
@@ -216,9 +216,9 @@ comment = "SpawnAppearanceCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "60e7"
+id      = "ffff"
 name    = "OP_Stamina"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Server updating on hunger/thirst"
 
   [[zone.payloads]]
@@ -227,9 +227,9 @@ comment = "Server updating on hunger/thirst"
   sizechecktype = "match"
 
 [[zone]]
-id      = "652f"
+id      = "ffff"
 name    = "OP_HPUpdate"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "NpcHpUpdateCode Update HP % of a PC or NPC"
 
   [[zone.payloads]]
@@ -238,9 +238,9 @@ comment = "NpcHpUpdateCode Update HP % of a PC or NPC"
   sizechecktype = "match"
 
 [[zone]]
-id      = "9abe"
+id      = "0ad8"
 name    = "OP_GuildMemberUpdate"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Info regarding guild members"
 
   [[zone.payloads]]
@@ -249,9 +249,9 @@ comment = "Info regarding guild members"
   sizechecktype = "match"
 
 [[zone]]
-id      = "ab5e"
+id      = "d84f"
 name    = "OP_ClickObject"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Items dropped on the ground"
 
   [[zone.payloads]]
@@ -260,9 +260,9 @@ comment = "Items dropped on the ground"
   sizechecktype = "match"
 
 [[zone]]
-id      = "049e"
+id      = "dda7"
 name    = "OP_Action"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Spells cast etc"
 
   [[zone.payloads]]
@@ -276,9 +276,9 @@ comment = "Spells cast etc"
   sizechecktype = "match"
 
 [[zone]]
-id      = "32a9"
+id      = "ffff"
 name    = "OP_Action2"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Combat actions i.e. bash, kick etc"
 
   [[zone.payloads]]
@@ -287,9 +287,9 @@ comment = "Combat actions i.e. bash, kick etc"
   sizechecktype = "match"
 
 [[zone]]
-id      = "a1e7"
+id      = "7a5b"
 name    = "OP_Consider"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "ConsiderCode"
 
   [[zone.payloads]]
@@ -298,9 +298,9 @@ comment = "ConsiderCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "1994"
+id      = "12e2"
 name    = "OP_TargetMouse"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Targeting a person - old ClientTargetCode"
 
   [[zone.payloads]]
@@ -342,9 +342,9 @@ comment = "Server putting players into shroud form"
   sizechecktype = "none"
 
 [[zone]]
-id      = "9148"
+id      = "4068"
 name    = "OP_ZoneChange"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "old ZoneChangeCode"
 
   [[zone.payloads]]
@@ -353,9 +353,9 @@ comment = "old ZoneChangeCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "ee64"
+id      = "ffff"
 name    = "OP_GroupInvite"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "You invite someone while ungrouped or get invited by someone ungrouped"
 
   [[zone.payloads]]
@@ -364,9 +364,9 @@ comment = "You invite someone while ungrouped or get invited by someone ungroupe
   sizechecktype = "none"
 
 [[zone]]
-id      = "7237"
+id      = "ffff"
 name    = "OP_GroupInvite2"
-updated = "2026-05-27"
+updated = "2026-07-17"
 comment = "Invite into an EXISTING group (inviter already grouped); OP_GroupInvite (ee64) is used to form a NEW group. Same groupInviteStruct layout (invitee@0, inviter@64), C>S 168B. Re-confirmed post-2026-05-22 patch (group-invite2: fired only when adding a 3rd member, naming the same inviter + new invitee)."
 
   [[zone.payloads]]
@@ -375,9 +375,9 @@ comment = "Invite into an EXISTING group (inviter already grouped); OP_GroupInvi
   sizechecktype = "none"
 
 [[zone]]
-id      = "7ee2"
+id      = "ffff"
 name    = "OP_GroupCancelInvite"
-updated = "2026-05-27"
+updated = "2026-07-17"
 comment = "Client-side decline-invite OR leave/disband-group request (168 bytes; name fields = self+self when leaving). C>S only in observed captures. Re-confirmed post-2026-05-22 patch (group-2variants: only C>S group-action unknown, fires before disband, self+self)."
 
   [[zone.payloads]]
@@ -386,9 +386,9 @@ comment = "Client-side decline-invite OR leave/disband-group request (168 bytes;
   sizechecktype = "none"
 
 [[zone]]
-id      = "01dc"
+id      = "ffff"
 name    = "OP_GroupFollow"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Member added (modern: 68 bytes, name at offset 0)."
 
   [[zone.payloads]]
@@ -397,9 +397,9 @@ comment = "Member added (modern: 68 bytes, name at offset 0)."
   sizechecktype = "none"
 
 [[zone]]
-id      = "4396"
+id      = "ffff"
 name    = "OP_GroupFollow2"
-updated = "2026-05-27"
+updated = "2026-07-17"
 comment = "Player joins your group (168 bytes; member name at offset 64, leading 64 bytes zero, lean tail w/ level field). Re-confirmed post-2026-05-22 patch (group-2variants: fires per form, S>C, simplest of the two form-time structs)."
 
   [[zone.payloads]]
@@ -408,9 +408,9 @@ comment = "Player joins your group (168 bytes; member name at offset 64, leading
   sizechecktype = "none"
 
 [[zone]]
-id      = "ccfc"
+id      = "ffff"
 name    = "OP_GroupUpdate"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow."
 
   [[zone.payloads]]
@@ -419,9 +419,9 @@ comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Hand
   sizechecktype = "none"
 
 [[zone]]
-id      = "8a85"
+id      = "ffff"
 name    = "OP_GroupDisband"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Your group dissolved (modern: 168 bytes; membername=self at offset 64)"
 
   [[zone.payloads]]
@@ -430,9 +430,9 @@ comment = "Your group dissolved (modern: 168 bytes; membername=self at offset 64
   sizechecktype = "none"
 
 [[zone]]
-id      = "2c76"
+id      = "ffff"
 name    = "OP_GroupDisband2"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "S>C to all STAYERS when any member departs (not leader-only). 168 bytes; membername=peer at offset 64."
 
   [[zone.payloads]]
@@ -474,9 +474,9 @@ comment = "S>C broadcast to remaining members when any member leaves. 168 bytes.
   sizechecktype = "none"
 
 [[zone]]
-id      = "b269"
+id      = "ffff"
 name    = "OP_GroupLeader"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Group leader change (modern: 80 bytes)"
 
   [[zone.payloads]]
@@ -485,9 +485,9 @@ comment = "Group leader change (modern: 80 bytes)"
   sizechecktype = "none"
 
 [[zone]]
-id      = "18b4"
+id      = "ffff"
 name    = "OP_Buff"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "S>C buff broadcast — variable length, no legacy 168b buffStruct fit. Observed forms: 13b (likely fade: {u32 spawnID, u32 spellID, u16=0x0001, u8=0, u8 slot, u8=0}); 30b (single self-buff add, no caster); 34/51/53/59b (one or two embedded blocks each carrying {tag=0x036a u32, counter u32, padding, caster-name\\0}); 85b (3-block form). Pre-patch OP_Buff 0x55b9 no longer fires; this slot carries all buff broadcasts. Confirmed across 53 fires (3 captures) — only opcode firing this variable-size buff-shaped pattern."
 
   [[zone.payloads]]
@@ -496,9 +496,9 @@ comment = "S>C buff broadcast — variable length, no legacy 168b buffStruct fit
   sizechecktype = "none"
 
 [[zone]]
-id      = "e6dd"
+id      = "ffff"
 name    = "OP_BeginCast"
-updated = "2026-05-26"
+updated = "2026-07-17"
 comment = "BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad}. Re-confirmed post-2026-05-22 patch (castTime decodes to real ms: 4000/6500/9000)."
 
   [[zone.payloads]]
@@ -507,9 +507,9 @@ comment = "BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 c
   sizechecktype = "match"
 
 [[zone]]
-id      = "ead6"
+id      = "ffff"
 name    = "OP_CastSpell"
-updated = "2026-05-26"
+updated = "2026-07-17"
 comment = "StartCastCode - C>S 39B: {i32 gemSlot, u32 spellId, u8[10] 0xff, u32 targetId, ...}. Re-confirmed post-2026-05-22 patch."
 
   [[zone.payloads]]
@@ -529,9 +529,9 @@ comment = "TradeSpellBookSlotsCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "904f"
+id      = "ffff"
 name    = "OP_MemorizeSpell"
-updated = "2026-05-26"
+updated = "2026-07-17"
 comment = "Bidirectional 16B: {u32 gem_slot, u32 spellId, int16 action, int16 pad, u8[4] unknown}. action=1 C>S begin memorizing (no ack); action=2 C>S+S>C memorize complete (client shows 'You have finished memorizing'); action=3 C>S+S>C zone-in spell sync (declare existing spell in slot); action=4 observed post-patch (gem clear/forget, semantics TBD). Re-confirmed post-2026-05-22 patch: 11 C>S + 11 S>C balanced."
 
   [[zone.payloads]]
@@ -540,9 +540,9 @@ comment = "Bidirectional 16B: {u32 gem_slot, u32 spellId, int16 action, int16 pa
   sizechecktype = "match"
 
 [[zone]]
-id      = "57f1"
+id      = "ffff"
 name    = "OP_InspectAnswer"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "InspectDataCode"
 
   [[zone.payloads]]
@@ -562,9 +562,9 @@ comment = "EmoteTextCode"
   sizechecktype = "none"
 
 [[zone]]
-id      = "44a0"
+id      = "2892"
 name    = "OP_SimpleMessage"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "SimpleMessageCode"
 
   [[zone.payloads]]
@@ -573,9 +573,9 @@ comment = "SimpleMessageCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "5b40"
+id      = "1d0d"
 name    = "OP_FormattedMessage"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "FormattedMessageCode i.e. pet dismissed etc"
 
   [[zone.payloads]]
@@ -584,9 +584,9 @@ comment = "FormattedMessageCode i.e. pet dismissed etc"
   sizechecktype = "none"
 
 [[zone]]
-id      = "498b"
+id      = "547a"
 name    = "OP_CommonMessage"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "ChannelMessageCode i.e. /tell /ooc /shout etc"
 
   [[zone.payloads]]
@@ -595,9 +595,9 @@ comment = "ChannelMessageCode i.e. /tell /ooc /shout etc"
   sizechecktype = "none"
 
 [[zone]]
-id      = "7162"
+id      = "b8f3"
 name    = "OP_SpecialMesg"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Communicate textual info to client including hail responses etc"
 
   [[zone.payloads]]
@@ -606,9 +606,9 @@ comment = "Communicate textual info to client including hail responses etc"
   sizechecktype = "none"
 
 [[zone]]
-id      = "c71c"
+id      = "ffff"
 name    = "OP_RandomReq"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "RandomReqCode - C>S 8 bytes: {u32 bottom, u32 top}"
 
   [[zone.payloads]]
@@ -617,9 +617,9 @@ comment = "RandomReqCode - C>S 8 bytes: {u32 bottom, u32 top}"
   sizechecktype = "match"
 
 [[zone]]
-id      = "4939"
+id      = "ffff"
 name    = "OP_RandomReply"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "RandomCode - S>C 76 bytes broadcast: {u32 bottom, u32 top, u32 result, char name[64]}"
 
   [[zone.payloads]]
@@ -650,9 +650,9 @@ comment = "Server replying with deny information after /deny"
   sizechecktype = "match"
 
 [[zone]]
-id      = "08fb"
+id      = "ffff"
 name    = "OP_ManaChange"
-updated = "2026-05-26"
+updated = "2026-07-17"
 comment = "Resource update after spell/ability use (S>C, 20b): {i32 curMana, i32 curEndurance, i32 spellOrAbilityId, u8[8]}. Fires once per cast or combat ability; spellId@8 cross-refs OP_CastSpell. field4 = current endurance, NOT max mana (legacy label wrong) — confirmed 2026-05-26 by cross-ref against OP_EndUpdate cur. Re-confirmed post-2026-05-22 patch."
 
   [[zone.payloads]]
@@ -699,9 +699,9 @@ comment = "MoneyOnCorpseCode"
   sizechecktype = "match"
 
 [[zone]]
-id      = "6a60"
+id      = "ffff"
 name    = "OP_SkillUpdate"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Skill up code"
 
   [[zone.payloads]]
@@ -710,9 +710,9 @@ comment = "Skill up code"
   sizechecktype = "match"
 
 [[zone]]
-id      = "9426"
+id      = "ffff"
 name    = "OP_LevelUpdate"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "LevelUpUpdateCode"
 
   [[zone.payloads]]
@@ -814,9 +814,9 @@ comment = "old CorpseLocCode:"
   sizechecktype = "match"
 
 [[zone]]
-id      = "e8bc"
+id      = "ffff"
 name    = "OP_ItemPacket"
-updated = "2026-05-26"
+updated = "2026-07-17"
 comment = "S>C variable-length serialized item delivery (~946-1011b/item). Wrapper unchanged post-patch: {u32 packetType(0x74/0x76/0x78), char[16] instanceId, u8 nul, u32 stack, u32 mainSlot, u16 subSlot}, then serialized item blob with inline ASCII name. Per-item, fires on slot move and zone-in pickup; legacy bulk OP_ItemPlayerPacket obsolete on current Live. Re-confirmed post-2026-05-22 patch via inline item names + instance-id wrapper."
 
   [[zone.payloads]]
@@ -836,9 +836,9 @@ comment = "Leadership AA Exp Update"
   sizechecktype = "match"
 
 [[zone]]
-id      = "9e21"
+id      = "ffff"
 name    = "OP_MovementHistory"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Movement history for speed/movement hack detection"
 
   [[zone.payloads]]
@@ -879,9 +879,9 @@ comment = "Recipient-only group event notification (modern: 168 bytes; recipient
   sizechecktype = "none"
 
 [[zone]]
-id      = "312a"
+id      = "ffff"
 name    = "OP_GroupMemberList"
-updated = "2026-05-28"
+updated = "2026-07-17"
 comment = "Modern group roster broadcast. Variable length (54-301b observed: 1-2 members at 54-107b, 6-member group at 301b). Wire layout: {u32 groupId, u32 memberCount} header, then a slot-0 leader extended record (2 null-padded name fields + u32 level/class + flags), then (memberCount-1) regular slot records each prefixed with u32 slotIdx (1, 2, …) and a null-padded name. Fires S>C at zone-in (existing roster recovery) AND on every roster mutation. Confirmed against groupbuff-repro.vpk (6-member, leader name + 5 slot markers found at 48-byte intervals starting at offset 0x42) and group-2variants.vpk (1- and 2-member cases)."
 
   [[zone.payloads]]
@@ -890,9 +890,9 @@ comment = "Modern group roster broadcast. Variable length (54-301b observed: 1-2
   sizechecktype = "none"
 
 [[zone]]
-id      = "4058"
+id      = "5af5"
 name    = "OP_GuildMemberList"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "List of guild members - Variable length"
 
   [[zone.payloads]]
@@ -901,9 +901,9 @@ comment = "List of guild members - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "36d1"
+id      = "ffff"
 name    = "OP_ManaUpdate"
-updated = "2026-05-26"
+updated = "2026-07-17"
 comment = "Mana bar update - 10 bytes (spawn_id u16, cur u32, max u32). Per-spawn broadcast (not just local player); local player shows +10/tick regen. Same wire shape as OP_EndUpdate. Re-confirmed post-2026-05-22 patch."
 
   [[zone.payloads]]
@@ -912,9 +912,9 @@ comment = "Mana bar update - 10 bytes (spawn_id u16, cur u32, max u32). Per-spaw
   sizechecktype = "match"
 
 [[zone]]
-id      = "f96e"
+id      = "ffff"
 name    = "OP_EndUpdate"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Endurance Update opcode - 10 bytes (spawn_id u16, cur u32, max u32)"
 
   [[zone.payloads]]
@@ -1055,9 +1055,9 @@ comment = "Fellowship information - 2576 bytes"
   sizechecktype = "none"
 
 [[zone]]
-id      = "8d86"
+id      = "3ef7"
 name    = "OP_ExpandedGuildInfo"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Guild ranks and other misc guild data - Variable length"
 
   [[zone.payloads]]
@@ -1187,9 +1187,9 @@ comment = "List of available titles - 1520 bytes"
   sizechecktype = "none"
 
 [[zone]]
-id      = "6dba"
+id      = "ffff"
 name    = "OP_Animation"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Combat animation, emote animations etc - 4 bytes"
 
   [[zone.payloads]]
@@ -1220,9 +1220,9 @@ comment = "WhoAllOutputCode - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "14b6"
+id      = "ffff"
 name    = "OP_InspectRequest"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "InspectRequestCode - 8 bytes C>S: {u32 target_spawn_id, u32 self_spawn_id}"
 
   [[zone.payloads]]
@@ -1385,9 +1385,9 @@ comment = "Tracking data - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "b27d"
+id      = "ffff"
 name    = "OP_AutoAttack"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires first of the paired AutoAttack+AutoAttack2 sends."
 
   [[zone.payloads]]
@@ -1396,9 +1396,9 @@ comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires first of
   sizechecktype = "none"
 
 [[zone]]
-id      = "4c14"
+id      = "ffff"
 name    = "OP_AutoAttack2"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires second, paired with OP_AutoAttack on every toggle."
 
   [[zone.payloads]]
@@ -1429,9 +1429,9 @@ comment = "DoorClickCode response from server - 2 bytes"
   sizechecktype = "none"
 
 [[zone]]
-id      = "dee3"
+id      = "ffff"
 name    = "OP_MoveItem"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Client moving an item from one slot to another - 28 bytes. Resolved via inventory.opcodestats.txt: 30 C>S fires at exactly 28 bytes during a slot-swap session, no competing unknown opcode at that size+direction. Wire layout: two 12-byte invSlotStruct descriptors + uint32 stack count."
 
   [[zone.payloads]]
@@ -1517,9 +1517,9 @@ comment = "Listing of all guilds. Can be triggered by /lfg search?"
   sizechecktype = "none"
 
 [[zone]]
-id      = "d5e8"
+id      = "68f4"
 name    = "OP_GuildsInZoneList"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Listing of guild names present in the current zone.  Generally seen on zoning"
 
   [[zone.payloads]]
@@ -1605,9 +1605,9 @@ comment = "C>S: {u32 buff_slot, u32 self_spawn_id} (8 bytes). Client requests se
   sizechecktype = "none"
 
 [[zone]]
-id      = "0a37"
+id      = "ffff"
 name    = "OP_BuffWindow"
-updated = "2026-05-27"
+updated = "2026-07-17"
 comment = "S>C: fires 10x per zone-in (slots 0-9), one packet per slot. Payload: {u32 slot, u32 spellid=0xffffffff_empty, u32 pad} (12 bytes). Initializes the short-duration buff window at zone-in. Field2 always 0xffffffff in all observed captures — long-duration buffs come via OP_Buff / the buff-bar sync instead. Never fires mid-session. Re-confirmed 2026-05-27 (buffquery-fresh2: 30 fires = 10 slots × 3 zone-ins, byte-exact). The prior 0x3f37 assignment (2026-05-25) was a misidentification — 0x3f37 does not fire at all in clean buff captures."
 
   [[zone.payloads]]
@@ -1693,9 +1693,9 @@ comment = "Free to play nags and other data - Variable length"
   sizechecktype = "none"
 
 [[zone]]
-id      = "695f"
+id      = "2e60"
 name    = "OP_Find"
-updated = "2026-05-20"
+updated = "2026-07-15"
 comment = "Find window data - variable length, 24 min"
 
   [[zone.payloads]]
@@ -1780,9 +1780,9 @@ name    = "OP_VeteranRewards"
 updated = "2011-04-18"
 
 [[zone]]
-id      = "ce3d"
+id      = "ffff"
 name    = "OP_SendAATable"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Static AA ability-definition menu sent S>C on zone-in. Variable-length: u32 count + count records of base 44B + per-record prereq trailer."
 
 [[zone]]
@@ -1821,9 +1821,9 @@ updated = "2007-03-14"
 comment = "Both directions. Negotiating sending of exp info."
 
 [[zone]]
-id      = "14dc"
+id      = "ffff"
 name    = "OP_AAAction"
-updated = "2026-05-27"
+updated = "2026-07-17"
 comment = "Dual-form: C>S 16b aaActionStruct {action, ability, unknown, exp_value} for buy/activate (action=3=buy), plus S>C 12b companion server messages (fire frequently). Re-confirmed post-2026-05-22 patch (aaaction-spend): the single C>S 16b buy fire decoded action=3 ability=224 (Mental Clarity rank purchase) alongside ~100 S>C 12b companions."
 
 [[zone]]
@@ -1862,9 +1862,9 @@ updated = "2012-06-27"
 comment = "Initial health sent when a player clicks on the mob. Subsequent updated will be OP_MobHealth"
 
 [[zone]]
-id      = "8d24"
+id      = "ffff"
 name    = "OP_MobHealth"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "health sent when a player clicks on the mob"
 
   [[zone.payloads]]
@@ -2123,13 +2123,13 @@ updated = "2007-02-13"
 comment = "Tribute information"
 
 [[zone]]
-id      = "fb0a"
+id      = "ffff"
 name    = "OP_RespondAA"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Server response to OP_AAAction; carries 12B records (ability_id, rank, _) for player's full AA list incl. auto-grants and purchased ranks"
 
 [[world]]
-id      = "bc01"
+id      = "ffff"
 name    = "OP_GuildList"
 comment = "GuildListCode - S>C ~14KB at login, full server guild roster (list of guild-name strings). Confirmed 2026-05-27 (login-charmgmt): inline guild names in a 14176b login packet."
 
@@ -2139,7 +2139,7 @@ comment = "GuildListCode - S>C ~14KB at login, full server guild roster (list of
   sizechecktype = "none"
 
 [[world]]
-id      = "f8e0"
+id      = "ffff"
 name    = "OP_MOTD"
 comment = "MOTDCode - server message of the day, S>C world-stream post-EnterWorld. Confirmed 2026-05-27 (login-charmgmt): 154b payload = readable MOTD text (\"Greetings Norrathians! ...\")."
 
@@ -2149,81 +2149,81 @@ comment = "MOTDCode - server message of the day, S>C world-stream post-EnterWorl
   sizechecktype = "none"
 
 [[world]]
-id      = "7b6a"
+id      = "ffff"
 name    = "OP_SendLoginInfo"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Client starting world session by asking for login information. Live: 464b C>S, first packet of every world session (5/5 confirmations)."
 
 [[world]]
-id      = "b537"
-updated = "2026-05-25"
+id      = "ffff"
+updated = "2026-07-17"
 name    = "OP_LogServer"
 comment = "Live candidate: S>C 24b (0x7f8e), fires immediately after OP_SendLoginInfo in the handshake band."
 
 [[world]]
-id      = "b8cc"
-updated = "2026-05-25"
+id      = "ffff"
+updated = "2026-07-17"
 name    = "OP_ApproveWorld"
 comment = "Live candidate: small S>C in handshake band; not isolated yet."
 
 [[world]]
-id      = "9bdc"
+id      = "ffff"
 name    = "OP_EnterWorld"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Client tells world server to enter world with selected char. Live: 72b C>S, char name (zero-padded) at offset 0 + 64b zeros + 0xffffffff trailer. 4/4 confirmations across char-create + login flows. Server reuses 0x0839 with shorter S>C variants (1b ack, 7b name echo) — XML maps the opcode to OP_EnterWorld for log naming."
 
 [[world]]
-id      = "6bcf"
+id      = "ffff"
 name    = "OP_ExpansionInfo"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Which expansions user has. Live: 64b fixed S>C in the post-LogServer / pre-ApproveWorld handshake band (5/5 confirmations)."
 
 [[world]]
-id      = "84f6"
+id      = "ffff"
 name    = "OP_SendCharInfo"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Send all chars visible @ char select. Live: 14176b S>C (variable with character roster size), fires once early in world handshake."
 
 [[world]]
-id      = "2de1"
+id      = "ffff"
 name    = "OP_SendSpellChecksum"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Contains a snippet of spell data. Live: 2056b C>S, payload tail shows caret-delimited spell-data text (matches spells_us.txt format). Capture-order position 2 of 4 in the post-handshake checksum burst."
 
 [[world]]
-id      = "44d9"
+id      = "ffff"
 name    = "OP_SendExeChecksum"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Client-side eqgame.exe checksum sample. Live: 2056b C>S, payload tail shows binary code-style content. Capture-order position 1 of 4 in the post-handshake checksum burst."
 
 [[world]]
-id      = "289c"
+id      = "ffff"
 name    = "OP_SendBaseDataChecksum"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Client-side base-data file sample. Live: 2056b C>S, payload tail shows caret-delimited text records. Capture-order position 3 of 4 in the post-handshake checksum burst. Mapping to BaseData (vs another text-format file) inferred by elimination + position."
 
 [[world]]
-id      = "a958"
+id      = "ffff"
 name    = "OP_SendSkillCapsChecksum"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Client-side skillcaps checksum. Live: 64b C>S, opaque hash-style payload. Capture-order position 4 of 4 in the post-handshake checksum burst — the only one not at 2056b, fits the smaller skillcaps data table."
 
 [[world]]
-id      = "bb67"
-updated = "2026-05-25"
+id      = "ffff"
+updated = "2026-07-17"
 name    = "OP_SetChatServer"
 comment = "Legacy chatserver tuple. May be obsolete on Live — handshake capture shows only the SetChatServer2 catalog (no 56b S>C tuple observed, unlike Test)."
 
 [[world]]
-id      = "f22b"
+id      = "ffff"
 name    = "OP_SetChatServer2"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Secondary chat / account / commerce service catalog. Live: 1464b S>C in handshake band (3/3 confirmations); ~18 plaintext Daybreak service URLs."
 
 [[world]]
-id      = "f21f"
+id      = "ffff"
 name    = "OP_ZoneServerInfo"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Zone server connection info. Live: 130b S>C, fires on world->zone handoff (zone server hostname + port). 2/2 confirmations."
 
   [[world.payloads]]
@@ -2232,27 +2232,27 @@ comment = "Zone server connection info. Live: 130b S>C, fires on world->zone han
   sizechecktype = "match"
 
 [[world]]
-id      = "fc46"
+id      = "ffff"
 name    = "OP_WorldComplete"
-updated = "2026-05-25"
+updated = "2026-07-17"
 comment = "Client telling world server it is done. Live: 0b C>S, last C>S packet of session immediately after OP_ZoneServerInfo. World replies by disconnecting. 2/2 confirmations."
 
 [[world]]
-id      = "48f9"
+id      = "ffff"
 name    = "OP_DeleteCharacter"
-updated = "2026-05-27"
+updated = "2026-07-17"
 comment = "Delete character @ char select. Live: 68b C>S world, name@offset 0. Re-confirmed post-2026-05-22 patch (login-charmgmt): 1 C>S fire carrying the deleted char name."
 
 [[world]]
-id      = "0634"
+id      = "ffff"
 name    = "OP_CharacterCreate"
-updated = "2026-05-27"
+updated = "2026-07-17"
 comment = "Create character @ char select. Live: 168b C>S world (name[64] + gender/race/class/deity/appearance fields), fires once per submitted creation right after OP_ApproveName response. Re-confirmed post-2026-05-22 patch (login-charmgmt)."
 
 [[world]]
-id      = "a24a"
+id      = "ffff"
 name    = "OP_ApproveName"
-updated = "2026-05-27"
+updated = "2026-07-17"
 comment = "Approving new character name @ char creation. Live: 84b C>S name candidate, 1b S>C status (taken vs available). Re-confirmed post-2026-05-22 patch (login-charmgmt): fires right before OP_CharacterCreate."
 
 [[world]]
