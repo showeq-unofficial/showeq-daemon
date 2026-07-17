@@ -512,6 +512,12 @@ void SessionAdapter::connectPerBox()
                                    uint32_t, const QString&,
                                    uint32_t, int32_t,
                                    uint32_t, const QString&)));
+        connect(m_combatRouter,
+                SIGNAL(spawnCast(uint32_t, const QString&,
+                                 uint32_t, const QString&, uint32_t)),
+                this,
+                SLOT(onSpawnCast(uint32_t, const QString&,
+                                 uint32_t, const QString&, uint32_t)));
     }
 
     if (m_spawnMonitor) {
@@ -1076,6 +1082,20 @@ void SessionAdapter::onCombatEvent(uint32_t sourceId, const QString& sourceName,
     ev->set_damage(damage);
     ev->set_spell_id(spellId);
     ev->set_spell_name(spellName.toStdString());
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::onSpawnCast(uint32_t casterId, const QString& casterName,
+                                 uint32_t spellId, const QString& spellName,
+                                 uint32_t castTimeMs)
+{
+    seq::v1::Envelope env;
+    auto* ev = env.mutable_spawn_cast();
+    ev->set_caster_id(casterId);
+    ev->set_caster_name(casterName.toStdString());
+    ev->set_spell_id(spellId);
+    ev->set_spell_name(spellName.toStdString());
+    ev->set_cast_time_ms(castTimeMs);
     sendOrBuffer(std::move(env));
 }
 

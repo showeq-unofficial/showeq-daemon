@@ -55,3 +55,27 @@ void CombatRouter::action2(const uint8_t* data, size_t len, uint8_t /*dir*/)
                      out.damage,
                      static_cast<uint32_t>(out.spell), spellName);
 }
+
+void CombatRouter::beginCast(const uint8_t* data, size_t len, uint8_t /*dir*/)
+{
+    if (!data || len < 8) return;
+    auto out = seq::rust::decode_begin_cast(
+        rust::Slice<const uint8_t>{data, len});
+    if (!out.ok) return;
+
+    QString casterName = lookupSpawnName(m_spawnShell,
+                                         static_cast<uint16_t>(out.caster_id));
+
+    // eql spell ids exceed uint16 (e.g. 74023) — spell() takes uint32_t, so
+    // pass the id verbatim (decode_begin_cast reads a clean u32, no Live-style
+    // int16 sign-extension to mask).
+    QString spellName;
+    if (out.spell_id > 0 && m_spells) {
+        if (const Spell* sp = m_spells->spell(out.spell_id)) {
+            spellName = sp->name();
+        }
+    }
+
+    emit spawnCast(out.caster_id, casterName,
+                   out.spell_id, spellName, out.cast_time_ms);
+}

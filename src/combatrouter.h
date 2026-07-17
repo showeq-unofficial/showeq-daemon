@@ -23,11 +23,19 @@ public slots:
     // action2Struct in everquest.h:2042.
     void action2(const uint8_t* data, size_t len, uint8_t dir);
 
+    // Wired to eql OP_BeginCast (0x6cbd) by wire_eql.cpp. A spawn started
+    // casting; emitted as a transient spawnCast event (NOT a buff insertion).
+    void beginCast(const uint8_t* data, size_t len, uint8_t dir);
+
 signals:
     void combatEvent(uint32_t sourceId, const QString& sourceName,
                      uint32_t targetId, const QString& targetName,
                      uint32_t type, int32_t damage,
                      uint32_t spellId, const QString& spellName);
+
+    void spawnCast(uint32_t casterId, const QString& casterName,
+                   uint32_t spellId, const QString& spellName,
+                   uint32_t castTimeMs);
 
 private:
     SpawnShell* m_spawnShell;

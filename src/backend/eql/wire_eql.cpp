@@ -392,4 +392,11 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_Action2", SP_Zone, DIR_Client | DIR_Server,
          "action2Struct", SZC_Match,
          seqBind(ms.combatRouter, &CombatRouter::action2));
+    // OP_BeginCast (0x6cbd, S>C, 19B): a spawn started casting. Surfaced as a
+    // transient cast indicator on the target (NOT a buff — cast-start buff
+    // insertion was deliberately dropped, see OP_CastSpell note above). Gate
+    // size 19 is eql-owned via seq-backend-eql size_overrides(beginCastStruct).
+    wire("OP_BeginCast", SP_Zone, DIR_Server,
+         "beginCastStruct", SZC_Match,
+         seqBind(ms.combatRouter, &CombatRouter::beginCast));
 }

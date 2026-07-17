@@ -154,6 +154,10 @@ private slots:
                        uint32_t targetId, const QString& targetName,
                        uint32_t type, int32_t damage,
                        uint32_t spellId, const QString& spellName);
+    // Forwards a CombatRouter spawnCast signal as a SpawnCast envelope (eql).
+    void onSpawnCast(uint32_t casterId, const QString& casterName,
+                     uint32_t spellId, const QString& spellName,
+                     uint32_t castTimeMs);
     // Re-emits the full category list on any CategoryMgr change.
     void onCategoriesChanged();
     // Re-emits the full filter rule set on any FilterMgr filtersChanged.
