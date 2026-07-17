@@ -102,17 +102,20 @@ The position channel rotated id (0x7171→0x5188) **and** wire size in both dire
   OP_ZoneEntry, so post-death self-id recovery has no source post-patch (`death()`/
   `enterWorld()` still sever; `m_awaitingRespawnFromId` is now dormant).
 
-- **`0x4fb6` OP_SelfPosEQL (variable C>S) — SECOND self-pos opcode = position-history
-  breadcrumb (characterized 2026-07-17, NOT wired).** Distinct from the 38B live 0x5188:
+- **`0x4fb6` OP_SelfPos (variable C>S) — SECOND self-pos opcode = position-history
+  breadcrumb (characterized 2026-07-17; decoded, not surfaced).** Distinct from the 38B live 0x5188:
   a batched movement journal. Layout = **N × 17-byte record + 1 trailing byte**: `f32 y@0`
   / `f32 x@4` / `f32 z@8` (plain floats, /loc order) / `u8 seq@12` (1..2) / `u32 ts@13`
   (monotonic hi-res timer, ~65543/sample). Sizes 18B=1 rec (settled) … 2415B=142 recs;
   timestamps monotonic, samples trace a smooth walk (XY step ≤0.7); all 3 /loc points match
   exactly. **Xerxes maps this as `OP_SelfPosEQL=0x4fb6`** — correct id, but his
   `playerSelfState` gates on `len==38` so it never parses the 17B-record form; his self-pos
-  (like ours) rides 0x5188. Documented, not decoded (redundant with 0x5188 for live
-  tracking; a clean absolute anchor if ever needed). Recon: `--dump-payload 0x4fb6:PATH` →
-  one .bin/fire → float-scan the 18B ones, then the 17-byte stride reveals the record array.
+  (like ours) rides 0x5188. **Decoder kept, feature dropped:** a Rust decoder exists
+  (`parse_self_pos_breadcrumb` + the `decode_self_pos_breadcrumb` FFI) and the id is mapped
+  as `OP_SelfPos` in the eql toml, but it is NOT wired to a handler — a movement-trail
+  overlay was built end-to-end (proto SelfPath + daemon emit + web polyline) then removed as
+  laggy / low-value (redundant with 0x5188 for position). Recon: `--dump-payload 0x4fb6:PATH`
+  → one .bin/fire → float-scan the 18B ones, then the 17-byte stride reveals the record array.
 
 - **`0x6cbd`** (19B S>C) — first guessed an NpcMoveUpdate alt, but its layout is
   `u32@0 + spawnId@4`, not the movement bitstream (whose 19B variant already lives in
