@@ -104,6 +104,9 @@ public:
    void updateStamina(const uint8_t* stam);
    void moneyUpdate(const uint8_t* data, size_t, uint8_t);
    uint32_t money() const { return m_money; }
+   // Hunger/thirst from OP_Stamina: "ticks till next eat", ~6000 full -> 0 hungry.
+   uint16_t food() const { return m_food; }
+   uint16_t water() const { return m_water; }
    void updateEndurance(const uint8_t* end);
    void setLastKill(const QString& name, int level);
    void zoneChanged(void);

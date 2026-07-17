@@ -279,6 +279,8 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
     out->set_aa_points(mp.getCurrentAApts());
     out->set_aa_unspent(mp.getCurrentAAUnspent());
     out->set_money_copper(mp.money());
+    out->set_food(mp.food());
+    out->set_water(mp.water());
 
     out->set_name(mp.name().toStdString());
     out->set_class_(mp.classVal());
