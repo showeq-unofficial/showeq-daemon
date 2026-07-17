@@ -284,6 +284,7 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
 
     out->set_name(mp.name().toStdString());
     out->set_class_(mp.classVal());
+    out->set_class_mask(mp.classMask());
     out->set_race(mp.race());
 
     out->set_str(mp.getMaxSTR());

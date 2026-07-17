@@ -107,6 +107,9 @@ public:
    // Hunger/thirst from OP_Stamina: "ticks till next eat", ~6000 full -> 0 hungry.
    uint16_t food() const { return m_food; }
    uint16_t water() const { return m_water; }
+   // EQL multiclass bitmask (bit N = class N); classVal() is only the primary.
+   uint32_t classMask() const { return m_classMask; }
+   void setClassMask(uint32_t m) { m_classMask = m; }
    void updateEndurance(const uint8_t* end);
    void setLastKill(const QString& name, int level);
    void zoneChanged(void);
@@ -309,6 +312,7 @@ public:
   
   uint16_t m_food;
   uint16_t m_water;
+  uint32_t m_classMask = 0;   // EQL multiclass bitmask (bit N = class N)
   uint32_t m_money = 0;   // total copper (eql OP_MoneyUpdate)
   uint16_t m_fatigue;
   uint32_t m_enduranceCur;

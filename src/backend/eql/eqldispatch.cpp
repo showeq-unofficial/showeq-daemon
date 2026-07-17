@@ -65,6 +65,7 @@ void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
     if (!name.isEmpty())
         m_player->setPlayerName(name);
     m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
+    m_player->setClassMask(out.class_mask);   // EQL multiclass (bit N = class N)
 }
 
 void EqlDispatch::expUpdate(const uint8_t* data, size_t len, uint8_t dir)
