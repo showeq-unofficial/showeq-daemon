@@ -335,6 +335,11 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
         auto* e = out->add_purchased_aa();
         e->set_ability_id(aa.abilityId);
         e->set_rank(aa.rank);
+        // AA title resolved from OP_SendAATable (eql; titleSID -> dbstr type-1).
+        // Empty on live/test or before the table arrives -> web keeps "#<id>".
+        const QString nm = p.aaName(aa.abilityId);
+        if (!nm.isEmpty())
+            e->set_name(nm.toStdString());
     }
 }
 

@@ -34,8 +34,15 @@ class DbStrings
   // (id1, *) entry for it; otherwise returns an empty QString.
   QString uniqueText(uint32_t id1) const;
 
+  // Returns the type-1 (id2==1) "display name" text for `id`, or an empty
+  // QString if absent. Type-1 holds AA titles, spell names, etc. — the id space
+  // OP_SendAATable's titleSID indexes. Stored raw (no tooltip filtering), so a
+  // titleSID resolves directly to its name.
+  QString nameById(uint32_t id) const;
+
  private:
-  QHash<uint32_t, QString> m_uniqueText;
+  QHash<uint32_t, QString> m_uniqueText;  // id2==0 (free-form chat/system text)
+  QHash<uint32_t, QString> m_names;       // id2==1 (display names: AA/spell/…)
   bool m_loaded = false;
 };
 

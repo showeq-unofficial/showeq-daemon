@@ -23,8 +23,10 @@
 #ifndef EQPLAYER_H
 #define EQPLAYER_H
 
+#include <QHash>
 #include <QObject>
 #include <QMetaType>
+#include <QString>
 #include <QVector>
 
 #include <vector>
@@ -198,6 +200,12 @@ public:
    // entries (value=0) are filtered out. Empty until the first PP arrives.
    struct PurchasedAA { uint32_t abilityId; uint32_t rank; };
    const QVector<PurchasedAA>& getPurchasedAA() const { return m_purchasedAA; }
+   // AA display names resolved from OP_SendAATable (eql): descID -> title.
+   // Filled by EqlDispatch::sendAATable (titleSID -> dbstr type-1); read by
+   // protoencoder to populate AAEntry.name. Empty on live/test (no such table
+   // wired), so those clients keep the "#<id>" fallback. Neutral: no eql type.
+   void setAAName(uint32_t descID, const QString& name) { m_aaNames.insert(descID, name); }
+   QString aaName(uint32_t descID) const { return m_aaNames.value(descID); }
    uint16_t getFatigue() const { return m_fatigue; }
    uint32_t getEnduranceCur() const { return m_enduranceCur; }
    uint32_t getEnduranceMax() const { return m_enduranceMax; }
@@ -322,6 +330,7 @@ public:
   uint32_t m_playerSkills[MAX_KNOWN_SKILLS];
   uint8_t m_playerLanguages[MAX_KNOWN_LANGS];
   QVector<PurchasedAA> m_purchasedAA;
+  QHash<uint32_t, QString> m_aaNames;   // eql: descID -> AA title (OP_SendAATable)
   
   uint16_t m_plusMana;
   uint16_t m_plusHP;

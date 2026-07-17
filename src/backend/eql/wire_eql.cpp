@@ -70,7 +70,8 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     // managers — see eqldispatch.h). Owned by a shared_ptr the wired closures
     // capture, so it lives as long as this box's stream dispatchers reference
     // it — no QObject parent needed.
-    auto eql = std::make_shared<EqlDispatch>(ms.zoneMgr, ms.spawnShell, ms.player);
+    auto eql = std::make_shared<EqlDispatch>(ms.zoneMgr, ms.spawnShell, ms.player,
+                                             m_dbStrings);
 
     // --- ZoneMgr: zone transitions + player profile.
     // (EQ Legends has no separate c2s OP_ZoneEntry: the 4606 c2s 92B is a
@@ -263,6 +264,14 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_AAExpUpdate", SP_Zone, DIR_Server,
          "altExpUpdateStruct", SZC_Match,
          seqBind(ms.player, &Player::updateAltExp));
+    // OP_SendAATable (0x31ae, S>C): static AA ability-definition burst at zone-in
+    // (one variable-length record per packet). EqlDispatch::sendAATable resolves
+    // each record's descID -> titleSID -> dbstr type-1 name and records descID ->
+    // name on Player, so protoencoder fills AAEntry.name (web AA window shows real
+    // titles instead of "#<id>"). Variable size -> uint8_t/none. See eqldispatch.cpp.
+    wire("OP_SendAATable", SP_Zone, DIR_Server,
+         "uint8_t", SZC_None,
+         seqBind(eql, &EqlDispatch::sendAATable));
     // OP_LevelUpdate stays mapped to `ffff` in conf/eql/opcodes.toml — eql has no
     // discrete level packet (exhaustively confirmed 2026-07-10, OPCODES_LEGENDS.md),
     // so this never fires; kept wired in case a future patch introduces one.

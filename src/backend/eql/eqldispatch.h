@@ -29,11 +29,13 @@ class QString;
 class ZoneMgr;
 class SpawnShell;
 class Player;
+class DbStrings;
 
 class EqlDispatch
 {
 public:
-    EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player);
+    EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player,
+                DbStrings* dbStrings);
 
     // OP_PlayerProfile (0x62f0) S>C: identity header (race/class/level).
     void profile(const uint8_t* data, size_t len, uint8_t dir);
@@ -69,6 +71,11 @@ public:
     // to a display name (backend-only table) stored on Player -> PlayerStats.
     void stance(const uint8_t* data, size_t len, uint8_t dir);
     void invocation(const uint8_t* data, size_t len, uint8_t dir);
+    // OP_SendAATable (0x31ae) S>C: one AA ability-rank definition per packet,
+    // burst at zone-in. Resolves descID -> titleSID -> dbstr type-1 name and
+    // records descID -> name on Player so protoencoder can fill AAEntry.name
+    // for purchased AAs (web AA window shows the title instead of "#<id>").
+    void sendAATable(const uint8_t* data, size_t len, uint8_t dir);
     // OP_EnterWorld (0x26bf) C>S: the world handshake, fired at login AND on
     // every in-place session re-entry (private instance, or any zone that reuses
     // the world socket — same BoxRegistry box, so no active-box roll re-primes
@@ -88,6 +95,7 @@ private:
     ZoneMgr*    m_zoneMgr;
     SpawnShell* m_spawnShell;
     Player*     m_player;
+    DbStrings*  m_dbStrings;   // AA titleSID -> name (dbstr type-1); may be empty
     // Last regular-exp permille seen (−1 = unseeded); a decrease is a ding.
     int64_t     m_lastExp = -1;
     // While awaiting the in-zone respawn after the local player's own death,

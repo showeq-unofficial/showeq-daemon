@@ -796,8 +796,9 @@
     <opcode id="ffff" name="OP_VeteranRewards" updated="04/18/11" priority="-1">
         <priorityNote>noHandler</priorityNote>
     </opcode>
-    <opcode id="31ae" name="OP_SendAATable" updated="07/16/26" priority="5">
-        <comment>Static AA ability-definition menu sent S>C on zone-in. Variable-length: u32 count + count records of base 44B + per-record prereq trailer.</comment>
+    <opcode id="31ae" name="OP_SendAATable" updated="07/17/26" priority="5">
+        <comment>Static AA ability-definition burst sent S>C on zone-in — ONE record per packet (fires once per AA rank; ~1008x in the fight capture across resends). Variable-length 130..346B = a 37B fixed head (matches Live aaInfoStruct: descID@0, titleSID@13, cost@25, aaID@29, rank@33) + a variable prereq/effect tail. EqlDispatch::sendAATable reads descID@0 + titleSID@13; titleSID -> dbstr_us.txt type-1 = the AA display name. See eqldispatch.cpp / OPCODES_LEGENDS.md.</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_SendAAStats" updated="08/12/09" priority="-1">
         <priorityNote>noHandler</priorityNote>

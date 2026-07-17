@@ -29,6 +29,7 @@ bool looksLikeTooltip(const QString& text)
 bool DbStrings::load(const QString& path)
 {
   m_uniqueText.clear();
+  m_names.clear();
   m_loaded = false;
 
   QFile f(path);
@@ -51,7 +52,7 @@ bool DbStrings::load(const QString& path)
       continue;
 
     const QStringList fields = line.split('^');
-    if (fields.size() < 3 || fields[1] != QStringLiteral("0"))
+    if (fields.size() < 3)
       continue;
 
     bool ok = false;
@@ -60,19 +61,33 @@ bool DbStrings::load(const QString& path)
       continue;
 
     const QString& text = fields[2];
-    if (text.isEmpty() || looksLikeTooltip(text))
+    if (text.isEmpty())
       continue;
 
-    m_uniqueText.insert(id1, text);
+    if (fields[1] == QStringLiteral("1")) {
+      // type-1: display names (AA titles, spell names). Kept raw — these are
+      // clean single-line strings the caller resolves by exact id (e.g.
+      // OP_SendAATable titleSID). Last entry wins on a duplicate id.
+      m_names.insert(id1, text);
+    } else if (fields[1] == QStringLiteral("0")) {
+      if (looksLikeTooltip(text))
+        continue;
+      m_uniqueText.insert(id1, text);
+    }
   }
-  m_loaded = !m_uniqueText.isEmpty();
+  m_loaded = !m_uniqueText.isEmpty() || !m_names.isEmpty();
   if (m_loaded)
-    seqInfo("Loaded %d id2=0 dbstr entries from '%s'",
-            m_uniqueText.size(), path.toLatin1().data());
+    seqInfo("Loaded %d id2=0 + %d id2=1 dbstr entries from '%s'",
+            m_uniqueText.size(), m_names.size(), path.toLatin1().data());
   return m_loaded;
 }
 
 QString DbStrings::uniqueText(uint32_t id1) const
 {
   return m_uniqueText.value(id1, QString());
+}
+
+QString DbStrings::nameById(uint32_t id) const
+{
+  return m_names.value(id, QString());
 }

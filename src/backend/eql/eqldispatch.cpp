@@ -22,6 +22,7 @@
 
 #include "seq-bridge-cxx/lib.h"
 
+#include "dbstrings.h"
 #include "diagnosticmessages.h"
 #include "packetcommon.h"   // DIR_Client / DIR_Server
 #include "player.h"
@@ -73,10 +74,12 @@ QString invocationName(uint32_t id)
 }
 }
 
-EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player)
+EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player,
+                         DbStrings* dbStrings)
     : m_zoneMgr(zoneMgr)
     , m_spawnShell(spawnShell)
     , m_player(player)
+    , m_dbStrings(dbStrings)
 {
 }
 
@@ -410,6 +413,27 @@ void EqlDispatch::invocation(const uint8_t* data, size_t len, uint8_t dir)
     if (name.isEmpty())
         name = QStringLiteral("#%1").arg(out.ability_id);
     m_player->setInvocation(name);
+}
+
+void EqlDispatch::sendAATable(const uint8_t* data, size_t len, uint8_t dir)
+{
+    // OP_SendAATable (0x31ae) S>C: one AA ability-rank definition per packet,
+    // burst at zone-in. Layout matches Live's aaInfoStruct: descID@0 (== the
+    // profile's aa_array id) and titleSID@13 (a dbstr type-1 id shared by every
+    // rank of an AA). Resolve titleSID -> name and record descID -> name so
+    // protoencoder fills AAEntry.name for the purchased AAs. A missing name
+    // (no dbstr, or an unknown titleSID) leaves the map untouched, so the web
+    // keeps its "#<id>" fallback. Silent (no signal): names surface on the next
+    // coalesced PlayerStats snapshot, same as the stance/invocation echoes.
+    if (dir != DIR_Server || !m_player || !m_dbStrings)
+        return;
+    auto out = seq::rust::decode_aa_table_entry(
+        rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
+        return;
+    const QString name = m_dbStrings->nameById(out.title_sid);
+    if (!name.isEmpty())
+        m_player->setAAName(out.desc_id, name);
 }
 
 void EqlDispatch::mobUpdate(const uint8_t* data, size_t len, uint8_t dir)
