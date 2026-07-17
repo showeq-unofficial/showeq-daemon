@@ -635,6 +635,18 @@ comment = "Buff-list variant — same format + handler as OP_BuffList (73e2); se
   sizechecktype = "none"
 
 [[zone]]
+id      = "7d73"
+name    = "OP_Damage"
+priority = 6
+updated = "2026-07-16"
+comment = "Combat floating-text feed (S>C), NAMED-INERT — NOT wired: the combat log already comes from OP_Action2 (0x5446, structured); this is the client's display-text subset and would duplicate it. Layout: {u32 sourceSpawn@0, u8 type@4, u32 targetSpawn@5, u32 msgCategory@9, NUL-terminated tail}. type table: 5=normal damage (tail=amount 5-413), 6=CRITICAL (big/rare, up to ~1020), 7=fixed-value damage ~197 (DoT tick), 8=misc damage, 3/4=non-damage (empty tail — miss/absorb), 0/1=spell event (tail=spell link + name). @9 is a filter/color id keyed to event KIND (15566=damage, 15562=miss, spell=12478/439/…), constant within damage — so crit is the TYPE byte (6), not @9. Kept for a future floating-combat-text overlay."
+
+  [[zone.payloads]]
+  dir           = "server"
+  typename      = "uint8_t"
+  sizechecktype = "none"
+
+[[zone]]
 id      = "6cbd"
 name    = "OP_BeginCast"
 priority = 5
