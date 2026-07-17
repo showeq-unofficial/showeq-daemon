@@ -179,6 +179,8 @@ Spell::Spell(const QString& spells_enLine)
   // "Good effect" flag: 1 = beneficial (buff/heal), 0 = detrimental. .value()
   // is bounds-safe against a short/malformed line (defaults to detrimental).
   m_beneficial = spellInfo.value(28).toUShort() != 0;
+  // Spell icon id: field 75 on the modern/EQL layout (was 44 pre-2018).
+  m_icon = spellInfo.value(75).toUShort();
 
   for (size_t i = 0; i < playerClasses; i++)
     m_classLevels[i] = uint8_t(spellInfo[38 + i].toUShort());	//spells_us.txt layout changed December 2018

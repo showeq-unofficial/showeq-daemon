@@ -414,6 +414,7 @@ void fillBuff(seq::v1::Buff* out, const SpellItem& s)
     out->set_target_name(s.targetName().toStdString());
     out->set_is_song(s.isSong());
     out->set_beneficial(s.beneficial());
+    out->set_icon(s.icon());
 }
 
 void fillItem(seq::v1::Item* out, const ItemTemplate& in)

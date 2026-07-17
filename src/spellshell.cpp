@@ -103,6 +103,7 @@ void SpellItem::update(uint32_t spellId, const Spell* spell, int duration,
        setSpellName(spell->name());
        m_isSong = spell->isSong();
        m_beneficial = spell->beneficial();
+       m_icon = spell->icon();
 
        if (spell->targetType() != 0x06)
 	 setTargetId(targetId);

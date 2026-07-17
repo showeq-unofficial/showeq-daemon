@@ -83,6 +83,8 @@ class SpellItem
   // Beneficial (buff/heal) vs detrimental (debuff/DoT), from the spell DB.
   // Unknown spells default to beneficial so real buffs are never suppressed.
   bool beneficial() const { return m_beneficial; }
+  uint16_t icon() const { return m_icon; }
+  void setIcon(uint16_t icon) { m_icon = icon; }
   const QString spellName() const;
   const QString targetName() const;
   const QString casterName() const;
@@ -116,6 +118,7 @@ class SpellItem
   int m_buffSlot;
   bool m_isSong;
   bool m_beneficial;
+  uint16_t m_icon = 0;
   bool m_permanent;
 
   struct startCastStruct m_cast; // Needed?

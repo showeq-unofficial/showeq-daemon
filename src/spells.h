@@ -59,6 +59,9 @@ class Spell
   // beneficial spells (buffs/heals), 0 for detrimental (debuffs/nukes/DoTs).
   // Verified against both the Live (166-field) and EQL (173-field) files.
   bool beneficial() const { return m_beneficial; }
+  // Spell icon id (spells_us.txt field 75 on the modern/EQL layout), for the
+  // web's spell-icon atlas. 0 = unknown.
+  uint16_t icon() const { return m_icon; }
 
   QString spellField(uint8_t field) const;
 
@@ -71,6 +74,7 @@ class Spell
   int16_t m_buffDurationArgument;
   uint8_t m_targetType;
   bool m_beneficial;
+  uint16_t m_icon;
   uint8_t m_classLevels[playerClasses];
 };
 
