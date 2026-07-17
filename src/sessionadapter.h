@@ -195,7 +195,7 @@ private slots:
     // to the client with item names and bio for the inspected spawn.
     void onInspectAnswer(const inspectDataStruct* data);
     void onLootDrops(uint32_t corpseId, const QString& corpseName,
-                     const QStringList& items);
+                     const QStringList& names, const QVector<uint32_t>& icons);
 
     // Player::expGained handler. Pushes an ExperienceTick envelope for each
     // kill-attributed XP gain.

@@ -306,14 +306,19 @@ void MessageShell::lootDrops(const uint8_t* data, size_t len, uint8_t dir)
       rust::Slice<const uint8_t>{data, len});
   if (!out.ok)
     return;
-  QStringList items;
-  items.reserve(static_cast<int>(out.item_names.size()));
-  for (const auto& n : out.item_names)
-    items.push_back(QString::fromUtf8(n.data(), n.size()));
+  QStringList names;
+  QVector<uint32_t> icons;
+  names.reserve(static_cast<int>(out.items.size()));
+  icons.reserve(static_cast<int>(out.items.size()));
+  for (const auto& it : out.items)
+  {
+    names.push_back(QString::fromUtf8(it.name.data(), it.name.size()));
+    icons.push_back(it.icon);
+  }
   emit lootDropsReceived(out.corpse_id,
                          QString::fromUtf8(out.corpse_name.data(),
                                            out.corpse_name.size()),
-                         items);
+                         names, icons);
 }
 
 void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)

@@ -466,9 +466,9 @@ void SessionAdapter::connectPerBox()
                 this,
                 SLOT(onInspectAnswer(const inspectDataStruct*)));
         connect(m_messageShell,
-                SIGNAL(lootDropsReceived(uint32_t, const QString&, const QStringList&)),
+                SIGNAL(lootDropsReceived(uint32_t, const QString&, const QStringList&, const QVector<uint32_t>&)),
                 this,
-                SLOT(onLootDrops(uint32_t, const QString&, const QStringList&)));
+                SLOT(onLootDrops(uint32_t, const QString&, const QStringList&, const QVector<uint32_t>&)));
     }
 
     if (m_groupMgr) {
@@ -1331,13 +1331,18 @@ void SessionAdapter::onInspectAnswer(const inspectDataStruct* data)
 }
 
 void SessionAdapter::onLootDrops(uint32_t corpseId, const QString& corpseName,
-                                 const QStringList& items)
+                                 const QStringList& names,
+                                 const QVector<uint32_t>& icons)
 {
     seq::v1::Envelope env;
     auto* ld = env.mutable_loot_drops();
     ld->set_corpse_id(corpseId);
     ld->set_corpse_name(corpseName.toStdString());
-    for (const auto& it : items)
-        ld->add_item_names(it.toStdString());
+    for (int i = 0; i < names.size(); ++i)
+    {
+        auto* it = ld->add_items();
+        it->set_name(names[i].toStdString());
+        it->set_icon(i < icons.size() ? icons[i] : 0u);
+    }
     sendOrBuffer(std::move(env));
 }
