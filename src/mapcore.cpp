@@ -1159,9 +1159,9 @@ void MapData::loadSOEMap(const QString& fileName, bool import)
 		filelines, count, (const char*)*lit);
 #endif
 	
-	if (count != 8)
+	if (count < 8)
 	{
-	  seqWarn("Error reading L line %d on map '%s'! %d is an incorrect field count!",
+	  seqWarn("Error reading P line %d on map '%s'! %d is an incorrect field count!",
 		  filelines, fileName.toLatin1().data(), count);
 	  continue;
 	}
@@ -1174,8 +1174,12 @@ void MapData::loadSOEMap(const QString& fileName, bool import)
 	g = (*fit++).toUShort();
 	b = (*fit++).toUShort();
 	fit++; // skip unknown
-	name = (*fit); // Location name, conver
-	
+	// UPSTREAM (Xerxes/legacy): labels can contain the field separator,
+	// e.g. "Nerissa_(Armor,Roam)", so rejoin remaining fields as the name.
+	name.clear();
+	for (; fit != fields.end(); ++fit)
+	  name += (name.isEmpty() ? QString() : QString(",")) + *fit;
+
 	// convert underscores to spaces.
 	name.replace("_", " ");
 
