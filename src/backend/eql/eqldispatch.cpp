@@ -291,7 +291,7 @@ void EqlDispatch::spawn(const uint8_t* data, size_t len, uint8_t dir)
                               out.x, out.y, out.z, out.heading,
                               out.level, out.cur_hp, out.max_hp,
                               (uint16_t)out.race, (uint8_t)out.class_, (uint16_t)out.deity,
-                              (uint16_t)out.guild_id, out.npc);
+                              (uint16_t)out.guild_id, out.npc, out.class_mask);
 }
 
 void EqlDispatch::loadoutSwap(const uint8_t* data, size_t len, uint8_t dir)

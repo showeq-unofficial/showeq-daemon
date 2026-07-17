@@ -102,6 +102,7 @@ void fillSpawn(seq::v1::Spawn* out, const Item& it,
         out->set_level(sp->level());
         out->set_race(sp->race());
         out->set_class_(sp->classVal());
+        out->set_class_mask(sp->classMask());   // EQL multiclass; 0 on live
         out->set_deity(sp->deity());
         out->set_hp_cur(sp->HP());
         out->set_hp_max(sp->maxHP());

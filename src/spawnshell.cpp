@@ -67,7 +67,9 @@
 
 //----------------------------------------------------------------------
 // constants
-static const char magicStr[5] = "spn4"; // magic is the size of uint32_t + a null
+static const char magicStr[5] = "spn5"; // magic is the size of uint32_t + a null
+                                        // (bumped spn4->spn5: Spawn gained the
+                                        // persisted m_classMask, changing layout)
 static const uint32_t* magic = (uint32_t*)magicStr;
 static const char * Spawn_Corpse_Designator = "'s corpse";
 
@@ -797,7 +799,7 @@ void SpawnShell::upsertSpawn(uint16_t id, const QString& name, const QString& la
                              int16_t x, int16_t y, int16_t z, uint16_t heading,
                              uint8_t level, uint8_t curHpPct, uint8_t maxHpPct,
                              uint16_t race, uint8_t classVal, uint16_t deity,
-                             uint16_t guildID, uint8_t npc)
+                             uint16_t guildID, uint8_t npc, uint32_t classMask)
 {
   // The player's own spawn is owned by Player, never a spawns[] entry. (On eql the
   // self-id is adopted in EqlDispatch::consumeSelfSpawn before this is reached; on
@@ -822,6 +824,7 @@ void SpawnShell::upsertSpawn(uint16_t id, const QString& name, const QString& la
     spawn->setMaxHP(maxHpPct);
     spawn->setRace(race);
     spawn->setClassVal(classVal);
+    spawn->setClassMask(classMask);   // EQL multiclass (bit N = class N); 0 on live
     spawn->setDeity(deity);
     spawn->setGuildID(guildID);
     spawn->setNPC(npc);

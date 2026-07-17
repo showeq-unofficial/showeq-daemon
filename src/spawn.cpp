@@ -460,6 +460,7 @@ Spawn::Spawn(Spawn* s, uint16_t id) : Item(tSpawn, id)
     setDeity(s->deity());
     setRace(s->race());
     setClassVal(s->classVal());
+    setClassMask(s->classMask());
     setHP(s->HP());
     setMaxHP(s->maxHP());
     setGuildID(s->guildID());

@@ -113,7 +113,7 @@ public:
                     int16_t x, int16_t y, int16_t z, uint16_t heading,
                     uint8_t level, uint8_t curHpPct, uint8_t maxHpPct,
                     uint16_t race, uint8_t classVal, uint16_t deity,
-                    uint16_t guildID, uint8_t npc);
+                    uint16_t guildID, uint8_t npc, uint32_t classMask = 0);
    void moveSpawn(uint16_t id, int16_t x, int16_t y, int16_t z);
    void updateSpawnHP(uint16_t id, int32_t curHp, int32_t maxHp);
    void updateSpawnIdentity(uint16_t id, uint8_t level, uint8_t classVal);

@@ -276,6 +276,11 @@ class Spawn : public Item
   virtual QString filterString() const;
   virtual QString dumpString() const;
 
+  // EQL multiclass bitmask (bit N = class N); classVal() is only the primary.
+  // 0 on live/single-class. Mirrors Player::classMask().
+  uint32_t classMask() const { return m_classMask; }
+  void setClassMask(uint32_t mask) { m_classMask = mask; }
+
   // convenience test methods
   bool isSelf() const { return (m_NPC == SPAWN_SELF); }
   bool isCorpse() const 
@@ -388,6 +393,7 @@ class Spawn : public Item
   int m_level;
   uint8_t m_gender;
   uint8_t m_class;
+  uint32_t m_classMask = 0;   // EQL multiclass bitmask (bit N = class N); 0 on live
   uint8_t m_light;
   uint8_t m_typeflag;
   uint8_t m_animation;
