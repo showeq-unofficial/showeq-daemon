@@ -179,11 +179,14 @@ void EqlDispatch::playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir)
     if (m_player->id() == 0)
         return;   // self-id not adopted yet (awaiting zoneEntry name-match)
 
-    // Deltas aren't located in the 38B form yet (parser surfaces 0), so the speed
-    // indicator reads 0; position + the 13-bit heading are authoritative on every
-    // packet (turning included — see player_self_pos.rs).
+    // Position, 13-bit heading, and velocity are authoritative on every packet.
+    // Deltas cracked 2026-07-17 (run-south-then-west /loc capture): deltaY@6,
+    // deltaX@22, deltaZ@30, ±~2.26 units/tick = full run speed — see
+    // player_self_pos.rs. delta_heading (turn rate) is still 0: its bits sit in
+    // the heading word (turnrate:11) but aren't extracted yet.
     m_player->applySelfPosition(int16_t(out.x), int16_t(out.y), int16_t(out.z),
-                                0, 0, 0, out.heading, 0.0f);
+                                int16_t(out.delta_x), int16_t(out.delta_y),
+                                int16_t(out.delta_z), out.heading, 0.0f);
 }
 
 void EqlDispatch::death(const uint8_t* data, size_t len, uint8_t dir)
