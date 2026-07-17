@@ -5,6 +5,7 @@
 [[zone]]
 id      = "d4b8"
 name    = "OP_PlayerProfile"
+priority = 10
 updated = "2026-07-15"
 comment = "CharProfileCode"
 
@@ -16,6 +17,7 @@ comment = "CharProfileCode"
 [[zone]]
 id      = "abdb"
 name    = "OP_ZoneEntry"
+priority = 10
 updated = "2026-07-15"
 comment = "ZoneEntryCode"
 
@@ -32,6 +34,7 @@ comment = "ZoneEntryCode"
 [[zone]]
 id      = "4968"
 name    = "OP_TimeOfDay"
+priority = 3
 updated = "2026-07-15"
 comment = "TimeOfDayCode"
 
@@ -43,6 +46,7 @@ comment = "TimeOfDayCode"
 [[zone]]
 id      = "1a58"
 name    = "OP_NewZone"
+priority = 10
 updated = "2026-07-15"
 comment = "NewZoneCode"
 
@@ -54,6 +58,7 @@ comment = "NewZoneCode"
 [[zone]]
 id      = "cb57"
 name    = "OP_SpawnDoor"
+priority = 9
 updated = "2026-07-15"
 comment = "DoorSpawnsCode"
 
@@ -65,6 +70,7 @@ comment = "DoorSpawnsCode"
 [[zone]]
 id      = "66a8"
 name    = "OP_GroundSpawn"
+priority = 9
 updated = "2026-07-15"
 comment = "MakeDropCode"
 
@@ -81,6 +87,7 @@ comment = "MakeDropCode"
 [[zone]]
 id      = "57f6"
 name    = "OP_SendZonePoints"
+priority = 5
 updated = "2026-07-15"
 comment = "Coords in a zone that will port you to another zone"
 
@@ -92,6 +99,7 @@ comment = "Coords in a zone that will port you to another zone"
 [[zone]]
 id      = "b10f"
 name    = "OP_AAExpUpdate"
+priority = 4
 updated = "2026-07-15"
 comment = "Receiving AA experience. Also when percent to AA changes."
 
@@ -103,6 +111,7 @@ comment = "Receiving AA experience. Also when percent to AA changes."
 [[zone]]
 id      = "ffff"
 name    = "OP_ExpUpdate"
+priority = 4
 updated = "2026-07-17"
 comment = "ExpUpdateCode"
 
@@ -114,6 +123,7 @@ comment = "ExpUpdateCode"
 [[zone]]
 id      = "3425"
 name    = "OP_GuildMOTD"
+priority = 2
 updated = "2026-07-15"
 comment = "GuildMOTD"
 
@@ -125,6 +135,7 @@ comment = "GuildMOTD"
 [[zone]]
 id      = "76e4"
 name    = "OP_ClientUpdate"
+priority = 10
 updated = "2026-07-15"
 comment = "Position updates"
 
@@ -141,6 +152,7 @@ comment = "Position updates"
 [[zone]]
 id      = "612e"
 name    = "OP_NpcMoveUpdate"
+priority = 10
 updated = "2026-07-15"
 comment = "Position updates"
 
@@ -152,6 +164,7 @@ comment = "Position updates"
 [[zone]]
 id      = "6a5a"
 name    = "OP_MobUpdate"
+priority = 10
 updated = "2026-07-15"
 comment = "MobUpdateCode"
 
@@ -163,6 +176,7 @@ comment = "MobUpdateCode"
 [[zone]]
 id      = "18c6"
 name    = "OP_DeleteSpawn"
+priority = 10
 updated = "2026-07-15"
 comment = "DeleteSpawnCode"
 
@@ -174,6 +188,7 @@ comment = "DeleteSpawnCode"
 [[zone]]
 id      = "d631"
 name    = "OP_RemoveSpawn"
+priority = 10
 updated = "2026-07-15"
 comment = "Remove spawn from zone"
 
@@ -185,6 +200,7 @@ comment = "Remove spawn from zone"
 [[zone]]
 id      = "75b4"
 name    = "OP_Death"
+priority = 7
 updated = "2026-07-15"
 comment = "old NewCorpseCode"
 
@@ -196,6 +212,7 @@ comment = "old NewCorpseCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_WearChange"
+priority = 2
 updated = "2026-07-17"
 comment = "Spawn-state / appearance broadcast (multi-slot). Header=wearChangeStruct(11B), then slotCount*wearChangeSlotStruct(16B+varname), then 2B pad. count=0→13B (hash refresh), count=N→header+N slots (~+23B/slot incl short name). slotCount@9 correlates with size; unk8=1 in equipment samples. Re-confirmed equipment form 2026-05-27 (wearchange-clean: 30 fires on equip/remove, 13B refresh, field@4=material code). POLYMORPHIC: this same wire opcode also carries buff-icon arrays (21B blocks: {spellID, value, caster-name\\0}) as a spawn-state broadcast — multiple spawn ids, fires on zone-in and around buff events. Those variants don't match SpawnUpdateStruct (SZC_Match) so they're unhandled, but appear in --list-events/--dump-payload — do NOT mistake them for a buff/BuffQuery opcode (cost a full 2026-05-27 hunt). Dedicated buff broadcast is OP_Buff 0x18b4 (trailing flag distinguishes)."
 
@@ -207,6 +224,7 @@ comment = "Spawn-state / appearance broadcast (multi-slot). Header=wearChangeStr
 [[zone]]
 id      = "9f7c"
 name    = "OP_SpawnAppearance"
+priority = 10
 updated = "2026-07-15"
 comment = "SpawnAppearanceCode"
 
@@ -218,6 +236,7 @@ comment = "SpawnAppearanceCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_Stamina"
+priority = 4
 updated = "2026-07-17"
 comment = "Server updating on hunger/thirst"
 
@@ -229,6 +248,7 @@ comment = "Server updating on hunger/thirst"
 [[zone]]
 id      = "ffff"
 name    = "OP_HPUpdate"
+priority = 10
 updated = "2026-07-17"
 comment = "NpcHpUpdateCode Update HP % of a PC or NPC"
 
@@ -240,6 +260,7 @@ comment = "NpcHpUpdateCode Update HP % of a PC or NPC"
 [[zone]]
 id      = "0ad8"
 name    = "OP_GuildMemberUpdate"
+priority = 3
 updated = "2026-07-15"
 comment = "Info regarding guild members"
 
@@ -251,6 +272,7 @@ comment = "Info regarding guild members"
 [[zone]]
 id      = "d84f"
 name    = "OP_ClickObject"
+priority = 9
 updated = "2026-07-15"
 comment = "Items dropped on the ground"
 
@@ -262,6 +284,7 @@ comment = "Items dropped on the ground"
 [[zone]]
 id      = "dda7"
 name    = "OP_Action"
+priority = 7
 updated = "2026-07-15"
 comment = "Spells cast etc"
 
@@ -278,6 +301,7 @@ comment = "Spells cast etc"
 [[zone]]
 id      = "ffff"
 name    = "OP_Action2"
+priority = 7
 updated = "2026-07-17"
 comment = "Combat actions i.e. bash, kick etc"
 
@@ -289,6 +313,7 @@ comment = "Combat actions i.e. bash, kick etc"
 [[zone]]
 id      = "7a5b"
 name    = "OP_Consider"
+priority = 9
 updated = "2026-07-15"
 comment = "ConsiderCode"
 
@@ -300,6 +325,7 @@ comment = "ConsiderCode"
 [[zone]]
 id      = "12e2"
 name    = "OP_TargetMouse"
+priority = 9
 updated = "2026-07-15"
 comment = "Targeting a person - old ClientTargetCode"
 
@@ -311,6 +337,7 @@ comment = "Targeting a person - old ClientTargetCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_SpawnRename"
+priority = 6
 updated = "2023-07-19"
 comment = "Spawns getting renamed after initial NewSpawn"
 
@@ -322,6 +349,7 @@ comment = "Spawns getting renamed after initial NewSpawn"
 [[zone]]
 id      = "ffff"
 name    = "OP_Illusion"
+priority = 8
 updated = "2023-07-19"
 comment = "Spawn being illusioned (changing forms)"
 
@@ -333,6 +361,7 @@ comment = "Spawn being illusioned (changing forms)"
 [[zone]]
 id      = "ffff"
 name    = "OP_Shroud"
+priority = -1
 updated = "2023-07-19"
 comment = "Server putting players into shroud form"
 
@@ -344,6 +373,7 @@ comment = "Server putting players into shroud form"
 [[zone]]
 id      = "4068"
 name    = "OP_ZoneChange"
+priority = 10
 updated = "2026-07-15"
 comment = "old ZoneChangeCode"
 
@@ -355,6 +385,7 @@ comment = "old ZoneChangeCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_GroupInvite"
+priority = 4
 updated = "2026-07-17"
 comment = "You invite someone while ungrouped or get invited by someone ungrouped"
 
@@ -366,6 +397,7 @@ comment = "You invite someone while ungrouped or get invited by someone ungroupe
 [[zone]]
 id      = "ffff"
 name    = "OP_GroupInvite2"
+priority = -1
 updated = "2026-07-17"
 comment = "Invite into an EXISTING group (inviter already grouped); OP_GroupInvite (ee64) is used to form a NEW group. Same groupInviteStruct layout (invitee@0, inviter@64), C>S 168B. Re-confirmed post-2026-05-22 patch (group-invite2: fired only when adding a 3rd member, naming the same inviter + new invitee)."
 
@@ -377,6 +409,7 @@ comment = "Invite into an EXISTING group (inviter already grouped); OP_GroupInvi
 [[zone]]
 id      = "ffff"
 name    = "OP_GroupCancelInvite"
+priority = 4
 updated = "2026-07-17"
 comment = "Client-side decline-invite OR leave/disband-group request (168 bytes; name fields = self+self when leaving). C>S only in observed captures. Re-confirmed post-2026-05-22 patch (group-2variants: only C>S group-action unknown, fires before disband, self+self)."
 
@@ -388,6 +421,7 @@ comment = "Client-side decline-invite OR leave/disband-group request (168 bytes;
 [[zone]]
 id      = "ffff"
 name    = "OP_GroupFollow"
+priority = 4
 updated = "2026-07-17"
 comment = "Member added (modern: 68 bytes, name at offset 0)."
 
@@ -399,6 +433,7 @@ comment = "Member added (modern: 68 bytes, name at offset 0)."
 [[zone]]
 id      = "ffff"
 name    = "OP_GroupFollow2"
+priority = -1
 updated = "2026-07-17"
 comment = "Player joins your group (168 bytes; member name at offset 64, leading 64 bytes zero, lean tail w/ level field). Re-confirmed post-2026-05-22 patch (group-2variants: fires per form, S>C, simplest of the two form-time structs)."
 
@@ -410,6 +445,7 @@ comment = "Player joins your group (168 bytes; member name at offset 64, leading
 [[zone]]
 id      = "ffff"
 name    = "OP_GroupUpdate"
+priority = 6
 updated = "2026-07-17"
 comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow."
 
@@ -421,6 +457,7 @@ comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Hand
 [[zone]]
 id      = "ffff"
 name    = "OP_GroupDisband"
+priority = 4
 updated = "2026-07-17"
 comment = "Your group dissolved (modern: 168 bytes; membername=self at offset 64)"
 
@@ -432,6 +469,7 @@ comment = "Your group dissolved (modern: 168 bytes; membername=self at offset 64
 [[zone]]
 id      = "ffff"
 name    = "OP_GroupDisband2"
+priority = -1
 updated = "2026-07-17"
 comment = "S>C to all STAYERS when any member departs (not leader-only). 168 bytes; membername=peer at offset 64."
 
@@ -476,6 +514,7 @@ comment = "S>C broadcast to remaining members when any member leaves. 168 bytes.
 [[zone]]
 id      = "ffff"
 name    = "OP_GroupLeader"
+priority = 4
 updated = "2026-07-17"
 comment = "Group leader change (modern: 80 bytes)"
 
@@ -487,6 +526,7 @@ comment = "Group leader change (modern: 80 bytes)"
 [[zone]]
 id      = "ffff"
 name    = "OP_Buff"
+priority = 6
 updated = "2026-07-17"
 comment = "S>C buff broadcast — variable length, no legacy 168b buffStruct fit. Observed forms: 13b (likely fade: {u32 spawnID, u32 spellID, u16=0x0001, u8=0, u8 slot, u8=0}); 30b (single self-buff add, no caster); 34/51/53/59b (one or two embedded blocks each carrying {tag=0x036a u32, counter u32, padding, caster-name\\0}); 85b (3-block form). Pre-patch OP_Buff 0x55b9 no longer fires; this slot carries all buff broadcasts. Confirmed across 53 fires (3 captures) — only opcode firing this variable-size buff-shaped pattern."
 
@@ -498,6 +538,7 @@ comment = "S>C buff broadcast — variable length, no legacy 168b buffStruct fit
 [[zone]]
 id      = "ffff"
 name    = "OP_BeginCast"
+priority = 5
 updated = "2026-07-17"
 comment = "BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 castTime_ms, u8[7] pad}. Re-confirmed post-2026-05-22 patch (castTime decodes to real ms: 4000/6500/9000)."
 
@@ -509,6 +550,7 @@ comment = "BeginCastCode - S>C broadcast: {u32 spellId, u16 casterSpawnId, u16 c
 [[zone]]
 id      = "ffff"
 name    = "OP_CastSpell"
+priority = 5
 updated = "2026-07-17"
 comment = "StartCastCode - C>S 39B: {i32 gemSlot, u32 spellId, u8[10] 0xff, u32 targetId, ...}. Re-confirmed post-2026-05-22 patch."
 
@@ -520,6 +562,7 @@ comment = "StartCastCode - C>S 39B: {i32 gemSlot, u32 spellId, u8[10] 0xff, u32 
 [[zone]]
 id      = "ffff"
 name    = "OP_SwapSpell"
+priority = 3
 updated = "2023-07-19"
 comment = "TradeSpellBookSlotsCode"
 
@@ -531,6 +574,7 @@ comment = "TradeSpellBookSlotsCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_MemorizeSpell"
+priority = -1
 updated = "2026-07-17"
 comment = "Bidirectional 16B: {u32 gem_slot, u32 spellId, int16 action, int16 pad, u8[4] unknown}. action=1 C>S begin memorizing (no ack); action=2 C>S+S>C memorize complete (client shows 'You have finished memorizing'); action=3 C>S+S>C zone-in spell sync (declare existing spell in slot); action=4 observed post-patch (gem clear/forget, semantics TBD). Re-confirmed post-2026-05-22 patch: 11 C>S + 11 S>C balanced."
 
@@ -542,6 +586,7 @@ comment = "Bidirectional 16B: {u32 gem_slot, u32 spellId, int16 action, int16 pa
 [[zone]]
 id      = "ffff"
 name    = "OP_InspectAnswer"
+priority = 3
 updated = "2026-07-17"
 comment = "InspectDataCode"
 
@@ -553,6 +598,7 @@ comment = "InspectDataCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_Emote"
+priority = 4
 updated = "2023-07-19"
 comment = "EmoteTextCode"
 
@@ -564,6 +610,7 @@ comment = "EmoteTextCode"
 [[zone]]
 id      = "2892"
 name    = "OP_SimpleMessage"
+priority = 4
 updated = "2026-07-15"
 comment = "SimpleMessageCode"
 
@@ -575,6 +622,7 @@ comment = "SimpleMessageCode"
 [[zone]]
 id      = "1d0d"
 name    = "OP_FormattedMessage"
+priority = 4
 updated = "2026-07-15"
 comment = "FormattedMessageCode i.e. pet dismissed etc"
 
@@ -586,6 +634,7 @@ comment = "FormattedMessageCode i.e. pet dismissed etc"
 [[zone]]
 id      = "547a"
 name    = "OP_CommonMessage"
+priority = 9
 updated = "2026-07-15"
 comment = "ChannelMessageCode i.e. /tell /ooc /shout etc"
 
@@ -597,6 +646,7 @@ comment = "ChannelMessageCode i.e. /tell /ooc /shout etc"
 [[zone]]
 id      = "b8f3"
 name    = "OP_SpecialMesg"
+priority = 4
 updated = "2026-07-15"
 comment = "Communicate textual info to client including hail responses etc"
 
@@ -608,6 +658,7 @@ comment = "Communicate textual info to client including hail responses etc"
 [[zone]]
 id      = "ffff"
 name    = "OP_RandomReq"
+priority = 2
 updated = "2026-07-17"
 comment = "RandomReqCode - C>S 8 bytes: {u32 bottom, u32 top}"
 
@@ -619,6 +670,7 @@ comment = "RandomReqCode - C>S 8 bytes: {u32 bottom, u32 top}"
 [[zone]]
 id      = "ffff"
 name    = "OP_RandomReply"
+priority = 2
 updated = "2026-07-17"
 comment = "RandomCode - S>C 76 bytes broadcast: {u32 bottom, u32 top, u32 result, char name[64]}"
 
@@ -630,6 +682,7 @@ comment = "RandomCode - S>C 76 bytes broadcast: {u32 bottom, u32 top, u32 result
 [[zone]]
 id      = "ffff"
 name    = "OP_ConsentResponse"
+priority = 3
 updated = "2021-02-17"
 comment = "Server replying with consent information after /consent"
 
@@ -641,6 +694,7 @@ comment = "Server replying with consent information after /consent"
 [[zone]]
 id      = "ffff"
 name    = "OP_DenyResponse"
+priority = 3
 updated = "2021-02-17"
 comment = "Server replying with deny information after /deny"
 
@@ -652,6 +706,7 @@ comment = "Server replying with deny information after /deny"
 [[zone]]
 id      = "ffff"
 name    = "OP_ManaChange"
+priority = 5
 updated = "2026-07-17"
 comment = "Resource update after spell/ability use (S>C, 20b): {i32 curMana, i32 curEndurance, i32 spellOrAbilityId, u8[8]}. Fires once per cast or combat ability; spellId@8 cross-refs OP_CastSpell. field4 = current endurance, NOT max mana (legacy label wrong) — confirmed 2026-05-26 by cross-ref against OP_EndUpdate cur. Re-confirmed post-2026-05-22 patch."
 
@@ -668,6 +723,7 @@ comment = "Resource update after spell/ability use (S>C, 20b): {i32 curMana, i32
 [[zone]]
 id      = "ffff"
 name    = "OP_BazaarSearchRequest"
+priority = -1
 updated = "2023-07-19"
 comment = "Bazaar search request"
 
@@ -679,6 +735,7 @@ comment = "Bazaar search request"
 [[zone]]
 id      = "ffff"
 name    = "OP_BazaarSearchResponse"
+priority = -1
 updated = "2023-07-19"
 comment = "Bazaar search Response - Struct incorrect"
 
@@ -690,6 +747,7 @@ comment = "Bazaar search Response - Struct incorrect"
 [[zone]]
 id      = "ffff"
 name    = "OP_MoneyOnCorpse"
+priority = 4
 updated = "2023-07-19"
 comment = "MoneyOnCorpseCode"
 
@@ -701,6 +759,7 @@ comment = "MoneyOnCorpseCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_SkillUpdate"
+priority = 5
 updated = "2026-07-17"
 comment = "Skill up code"
 
@@ -712,6 +771,7 @@ comment = "Skill up code"
 [[zone]]
 id      = "ffff"
 name    = "OP_LevelUpdate"
+priority = 8
 updated = "2026-07-17"
 comment = "LevelUpUpdateCode"
 
@@ -723,6 +783,7 @@ comment = "LevelUpUpdateCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_DzSwitchInfo"
+priority = -1
 updated = "2023-07-19"
 comment = "Expedition compass etc"
 
@@ -734,6 +795,7 @@ comment = "Expedition compass etc"
 [[zone]]
 id      = "ffff"
 name    = "OP_DzInfo"
+priority = -1
 updated = "2023-07-19"
 comment = "Expedition Information"
 
@@ -745,6 +807,7 @@ comment = "Expedition Information"
 [[zone]]
 id      = "ffff"
 name    = "OP_EnvDamage"
+priority = -1
 updated = "2021-02-17"
 comment = "Environmental Damage"
 
@@ -756,6 +819,7 @@ comment = "Environmental Damage"
 [[zone]]
 id      = "ffff"
 name    = "OP_SetRunMode"
+priority = -1
 updated = "2023-07-19"
 comment = "old cRunToggleCode"
 
@@ -767,6 +831,7 @@ comment = "old cRunToggleCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_Trader"
+priority = -1
 updated = "2023-07-19"
 comment = "PC's turning trader on and off"
 
@@ -778,6 +843,7 @@ comment = "PC's turning trader on and off"
 [[zone]]
 id      = "ffff"
 name    = "OP_ItemLinkResponse"
+priority = -1
 updated = "2019-06-19"
 comment = "ItemInfoCode"
 
@@ -794,6 +860,7 @@ comment = "ItemInfoCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_BuffFadeMsg"
+priority = -1
 updated = "2015-11-20"
 comment = "SpellFadeCode"
 
@@ -805,6 +872,7 @@ comment = "SpellFadeCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_CorpseLocResponse"
+priority = 2
 updated = "2012-12-12"
 comment = "old CorpseLocCode:"
 
@@ -816,6 +884,7 @@ comment = "old CorpseLocCode:"
 [[zone]]
 id      = "ffff"
 name    = "OP_ItemPacket"
+priority = -1
 updated = "2026-07-17"
 comment = "S>C variable-length serialized item delivery (~946-1011b/item). Wrapper unchanged post-patch: {u32 packetType(0x74/0x76/0x78), char[16] instanceId, u8 nul, u32 stack, u32 mainSlot, u16 subSlot}, then serialized item blob with inline ASCII name. Per-item, fires on slot move and zone-in pickup; legacy bulk OP_ItemPlayerPacket obsolete on current Live. Re-confirmed post-2026-05-22 patch via inline item names + instance-id wrapper."
 
@@ -827,6 +896,7 @@ comment = "S>C variable-length serialized item delivery (~946-1011b/item). Wrapp
 [[zone]]
 id      = "ffff"
 name    = "OP_LeaderExpUpdate"
+priority = -1
 updated = "2013-12-11"
 comment = "Leadership AA Exp Update"
 
@@ -838,6 +908,7 @@ comment = "Leadership AA Exp Update"
 [[zone]]
 id      = "ffff"
 name    = "OP_MovementHistory"
+priority = -1
 updated = "2026-07-17"
 comment = "Movement history for speed/movement hack detection"
 
@@ -849,6 +920,7 @@ comment = "Movement history for speed/movement hack detection"
 [[zone]]
 id      = "ffff"
 name    = "OP_Logout"
+priority = 3
 updated = "2012-12-12"
 
   [[zone.payloads]]
@@ -859,6 +931,7 @@ updated = "2012-12-12"
 [[zone]]
 id      = "ffff"
 name    = "OP_UIUpdate"
+priority = -1
 updated = "2014-05-21"
 comment = "Seems to be sent to handle a variety of UI updates - Variable length"
 
@@ -881,6 +954,7 @@ comment = "Recipient-only group event notification (modern: 168 bytes; recipient
 [[zone]]
 id      = "ffff"
 name    = "OP_GroupMemberList"
+priority = -1
 updated = "2026-07-17"
 comment = "Modern group roster broadcast. Variable length (54-301b observed: 1-2 members at 54-107b, 6-member group at 301b). Wire layout: {u32 groupId, u32 memberCount} header, then a slot-0 leader extended record (2 null-padded name fields + u32 level/class + flags), then (memberCount-1) regular slot records each prefixed with u32 slotIdx (1, 2, …) and a null-padded name. Fires S>C at zone-in (existing roster recovery) AND on every roster mutation. Confirmed against groupbuff-repro.vpk (6-member, leader name + 5 slot markers found at 48-byte intervals starting at offset 0x42) and group-2variants.vpk (1- and 2-member cases)."
 
@@ -892,6 +966,7 @@ comment = "Modern group roster broadcast. Variable length (54-301b observed: 1-2
 [[zone]]
 id      = "5af5"
 name    = "OP_GuildMemberList"
+priority = 3
 updated = "2026-07-15"
 comment = "List of guild members - Variable length"
 
@@ -903,6 +978,7 @@ comment = "List of guild members - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_ManaUpdate"
+priority = -1
 updated = "2026-07-17"
 comment = "Mana bar update - 10 bytes (spawn_id u16, cur u32, max u32). Per-spawn broadcast (not just local player); local player shows +10/tick regen. Same wire shape as OP_EndUpdate. Re-confirmed post-2026-05-22 patch."
 
@@ -914,6 +990,7 @@ comment = "Mana bar update - 10 bytes (spawn_id u16, cur u32, max u32). Per-spaw
 [[zone]]
 id      = "ffff"
 name    = "OP_EndUpdate"
+priority = -1
 updated = "2026-07-17"
 comment = "Endurance Update opcode - 10 bytes (spawn_id u16, cur u32, max u32)"
 
@@ -925,6 +1002,7 @@ comment = "Endurance Update opcode - 10 bytes (spawn_id u16, cur u32, max u32)"
 [[zone]]
 id      = "ffff"
 name    = "OP_Marketplace"
+priority = -1
 updated = "2012-11-28"
 comment = "Marketplace data - Guessing variable length 11444 bytes as of 11/28/12"
 
@@ -936,6 +1014,7 @@ comment = "Marketplace data - Guessing variable length 11444 bytes as of 11/28/1
 [[zone]]
 id      = "ffff"
 name    = "OP_MarketplaceSelect"
+priority = -1
 updated = "2012-11-28"
 comment = "Sent when highlighting an item in Marketplace - 80 bytes"
 
@@ -947,6 +1026,7 @@ comment = "Sent when highlighting an item in Marketplace - 80 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_DzMembers"
+priority = -1
 updated = "2012-11-28"
 comment = "Expedition Members - Variable length"
 
@@ -958,6 +1038,7 @@ comment = "Expedition Members - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_Campfire"
+priority = -1
 updated = "2012-11-28"
 comment = "Fellowship campfire information - 1076 bytes"
 
@@ -969,6 +1050,7 @@ comment = "Fellowship campfire information - 1076 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_SelectCampfire"
+priority = -1
 updated = "2013-01-16"
 comment = "Fellowship campfire Choices - Guessing variable length"
 
@@ -980,6 +1062,7 @@ comment = "Fellowship campfire Choices - Guessing variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_Claims"
+priority = -1
 updated = "2012-11-28"
 comment = "Contents of claims window. /claim then refresh to capture packet - Guessing variable length"
 
@@ -991,6 +1074,7 @@ comment = "Contents of claims window. /claim then refresh to capture packet - Gu
 [[zone]]
 id      = "ffff"
 name    = "OP_VoiceChat"
+priority = -1
 updated = "2015-11-20"
 comment = "Voice chat server info - Variable length (Data sent when joining group,raid etc)"
 
@@ -1002,6 +1086,7 @@ comment = "Voice chat server info - Variable length (Data sent when joining grou
 [[zone]]
 id      = "ffff"
 name    = "OP_PollQuestions"
+priority = -1
 updated = "2015-11-20"
 comment = "SOE in-game player poll questions - Variable length"
 
@@ -1013,6 +1098,7 @@ comment = "SOE in-game player poll questions - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_PollResponses"
+priority = -1
 updated = "2015-11-20"
 comment = "Poll response choices - Variable length"
 
@@ -1024,6 +1110,7 @@ comment = "Poll response choices - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_ShroudProgression"
+priority = -1
 updated = "2015-11-20"
 comment = "Unlocked shrouds - 293 bytes"
 
@@ -1035,6 +1122,7 @@ comment = "Unlocked shrouds - 293 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_ShroudTemplates"
+priority = -1
 updated = "2012-10-23"
 comment = "Shroud templates to choose from on shroud NPC - 18983 bytes"
 
@@ -1046,6 +1134,7 @@ comment = "Shroud templates to choose from on shroud NPC - 18983 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_Fellowship"
+priority = -1
 updated = "2019-03-13"
 comment = "Fellowship information - 2576 bytes"
 
@@ -1057,6 +1146,7 @@ comment = "Fellowship information - 2576 bytes"
 [[zone]]
 id      = "3ef7"
 name    = "OP_ExpandedGuildInfo"
+priority = 0
 updated = "2026-07-15"
 comment = "Guild ranks and other misc guild data - Variable length"
 
@@ -1068,6 +1158,7 @@ comment = "Guild ranks and other misc guild data - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_GuildBank"
+priority = -1
 updated = "2015-11-20"
 comment = "Guild bank contents - Variable length"
 
@@ -1079,6 +1170,7 @@ comment = "Guild bank contents - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_OpenTradeskillContainer"
+priority = -1
 updated = "2012-11-28"
 comment = "Opens forge, kiln etc - 92 Bytes"
 
@@ -1090,6 +1182,7 @@ comment = "Opens forge, kiln etc - 92 Bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_TradeskillRecipes"
+priority = -1
 updated = "2012-11-28"
 comment = "Learned recipes - 84 Bytes"
 
@@ -1101,6 +1194,7 @@ comment = "Learned recipes - 84 Bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_TradeSkillCombine"
+priority = -1
 updated = "2012-11-28"
 comment = "Tradeskill combine using new tradeskill window - 40 Bytes"
 
@@ -1112,6 +1206,7 @@ comment = "Tradeskill combine using new tradeskill window - 40 Bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_TradeSkillResult"
+priority = -1
 updated = "2012-11-28"
 comment = "Packets sent when tradeskill combine successful equals # of ingredients used in combine?- 12 Bytes"
 
@@ -1123,6 +1218,7 @@ comment = "Packets sent when tradeskill combine successful equals # of ingredien
 [[zone]]
 id      = "ffff"
 name    = "OP_TradeSkillCombineOld"
+priority = -1
 updated = "2012-11-28"
 comment = "Tradeskill combine using old tradeskill window - 24 Bytes"
 
@@ -1134,6 +1230,7 @@ comment = "Tradeskill combine using old tradeskill window - 24 Bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_ItemPlayerPacket"
+priority = -1
 updated = "2015-11-20"
 comment = "Inventory/bank items coming over during zone - Variable length"
 
@@ -1145,6 +1242,7 @@ comment = "Inventory/bank items coming over during zone - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_TaskDescription"
+priority = -1
 updated = "2015-11-20"
 comment = "Task descriptions coming down for task window - Variable length"
 
@@ -1156,6 +1254,7 @@ comment = "Task descriptions coming down for task window - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_TaskActivity"
+priority = -1
 updated = "2015-11-20"
 comment = "Task activity descriptions coming down for task window - Variable length"
 
@@ -1167,6 +1266,7 @@ comment = "Task activity descriptions coming down for task window - Variable len
 [[zone]]
 id      = "ffff"
 name    = "OP_CompletedTasks"
+priority = -1
 updated = "2015-11-20"
 comment = "Task history for task window - Variable length"
 
@@ -1178,6 +1278,7 @@ comment = "Task history for task window - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_CustomTitles"
+priority = -1
 updated = "2015-11-20"
 comment = "List of available titles - 1520 bytes"
 
@@ -1189,6 +1290,7 @@ comment = "List of available titles - 1520 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_Animation"
+priority = 0
 updated = "2026-07-17"
 comment = "Combat animation, emote animations etc - 4 bytes"
 
@@ -1200,6 +1302,7 @@ comment = "Combat animation, emote animations etc - 4 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_WhoAllRequest"
+priority = -1
 updated = "2012-11-28"
 comment = "WhoAllReqCode - 156 bytes"
 
@@ -1211,6 +1314,7 @@ comment = "WhoAllReqCode - 156 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_WhoAllResponse"
+priority = -1
 updated = "2012-11-28"
 comment = "WhoAllOutputCode - Variable length"
 
@@ -1222,6 +1326,7 @@ comment = "WhoAllOutputCode - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_InspectRequest"
+priority = 0
 updated = "2026-07-17"
 comment = "InspectRequestCode - 8 bytes C>S: {u32 target_spawn_id, u32 self_spawn_id}"
 
@@ -1233,6 +1338,7 @@ comment = "InspectRequestCode - 8 bytes C>S: {u32 target_spawn_id, u32 self_spaw
 [[zone]]
 id      = "ffff"
 name    = "OP_GetGuildMOTD"
+priority = -1
 updated = "2012-11-28"
 comment = "Request guildMOTD - 648 Bytes"
 
@@ -1244,6 +1350,7 @@ comment = "Request guildMOTD - 648 Bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_TradeRequest"
+priority = -1
 updated = "2012-11-28"
 comment = "You request trade session - 8 bytes"
 
@@ -1255,6 +1362,7 @@ comment = "You request trade session - 8 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_TradeDeny"
+priority = -1
 updated = "2012-11-28"
 comment = "Target not ready to trade - 12 bytes"
 
@@ -1266,6 +1374,7 @@ comment = "Target not ready to trade - 12 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_TradeRequestAck"
+priority = -1
 updated = "2012-11-28"
 comment = "Trade request recipient is acknowledging they are able to trade - 8 bytes"
 
@@ -1277,6 +1386,7 @@ comment = "Trade request recipient is acknowledging they are able to trade - 8 b
 [[zone]]
 id      = "ffff"
 name    = "OP_CancelTrade"
+priority = -1
 updated = "2012-11-28"
 comment = "Cancel a trade window - 8 bytes"
 
@@ -1288,6 +1398,7 @@ comment = "Cancel a trade window - 8 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_FinishTrade"
+priority = -1
 updated = "2012-11-28"
 comment = "Trade is over - 12 bytes"
 
@@ -1299,6 +1410,7 @@ comment = "Trade is over - 12 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_TradeCoins"
+priority = -1
 updated = "2012-11-28"
 comment = "You put coins put in a trade window - 20 bytes"
 
@@ -1310,6 +1422,7 @@ comment = "You put coins put in a trade window - 20 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_TradeCoins2"
+priority = -1
 updated = "2012-11-28"
 comment = "Someone else puts coins put in your trade window - 12 bytes"
 
@@ -1321,6 +1434,7 @@ comment = "Someone else puts coins put in your trade window - 12 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_TradeAcceptClick"
+priority = -1
 updated = "2012-11-28"
 comment = "One side clicks Accept on the trade 8 bytes"
 
@@ -1332,6 +1446,7 @@ comment = "One side clicks Accept on the trade 8 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_ItemLinkClick"
+priority = -1
 updated = "2012-11-28"
 comment = "Click on itemlinks - 52 bytes"
 
@@ -1343,6 +1458,7 @@ comment = "Click on itemlinks - 52 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_LootRequest"
+priority = -1
 updated = "2012-11-28"
 comment = "LootCorpseCode - 4 bytes"
 
@@ -1354,6 +1470,7 @@ comment = "LootCorpseCode - 4 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_LootItem"
+priority = -1
 updated = "2012-11-28"
 comment = "Loot item from corpse - 20 bytes"
 
@@ -1365,6 +1482,7 @@ comment = "Loot item from corpse - 20 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_EndLootRequest"
+priority = -1
 updated = "2012-11-28"
 comment = "DoneLootingCode - 4 bytes"
 
@@ -1376,6 +1494,7 @@ comment = "DoneLootingCode - 4 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_Track"
+priority = -1
 updated = "2012-11-28"
 comment = "Tracking data - Variable length"
 
@@ -1387,6 +1506,7 @@ comment = "Tracking data - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_AutoAttack"
+priority = -1
 updated = "2026-07-17"
 comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires first of the paired AutoAttack+AutoAttack2 sends."
 
@@ -1398,6 +1518,7 @@ comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires first of
 [[zone]]
 id      = "ffff"
 name    = "OP_AutoAttack2"
+priority = -1
 updated = "2026-07-17"
 comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires second, paired with OP_AutoAttack on every toggle."
 
@@ -1409,6 +1530,7 @@ comment = "Attack on/off - C>S 4 bytes: {u32 mode} (1=on, 0=off). Fires second, 
 [[zone]]
 id      = "ffff"
 name    = "OP_ClickDoor"
+priority = -1
 updated = "2012-11-28"
 comment = "DoorOpenCode click request from client - 16 bytes"
 
@@ -1420,6 +1542,7 @@ comment = "DoorOpenCode click request from client - 16 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_MoveDoor"
+priority = -1
 updated = "2012-11-28"
 comment = "DoorClickCode response from server - 2 bytes"
 
@@ -1431,6 +1554,7 @@ comment = "DoorClickCode response from server - 2 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_MoveItem"
+priority = -1
 updated = "2026-07-17"
 comment = "Client moving an item from one slot to another - 28 bytes. Resolved via inventory.opcodestats.txt: 30 C>S fires at exactly 28 bytes during a slot-swap session, no competing unknown opcode at that size+direction. Wire layout: two 12-byte invSlotStruct descriptors + uint32 stack count."
 
@@ -1442,6 +1566,7 @@ comment = "Client moving an item from one slot to another - 28 bytes. Resolved v
 [[zone]]
 id      = "ffff"
 name    = "OP_Jump"
+priority = -1
 updated = "2012-11-28"
 comment = "JumpCode - 0 bytes"
 
@@ -1453,6 +1578,7 @@ comment = "JumpCode - 0 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_TGB"
+priority = -1
 updated = "2012-11-28"
 comment = "Client telling server to set targetgroupbuff - 4 bytes"
 
@@ -1464,6 +1590,7 @@ comment = "Client telling server to set targetgroupbuff - 4 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_Lockouts"
+priority = -1
 updated = "2014-10-28"
 comment = "Expedition lockouts"
 
@@ -1475,6 +1602,7 @@ comment = "Expedition lockouts"
 [[zone]]
 id      = "ffff"
 name    = "OP_RaidInvite"
+priority = -1
 updated = "2012-11-28"
 comment = "Client side raid invite requests 140 bytes"
 
@@ -1486,6 +1614,7 @@ comment = "Client side raid invite requests 140 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_RaidJoin"
+priority = -1
 updated = "2014-02-21"
 comment = "Server side raid information - Variable length"
 
@@ -1497,6 +1626,7 @@ comment = "Server side raid information - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_Feedback"
+priority = -1
 updated = "2012-07-18"
 comment = "Client sending feedback to server - 1148 bytes"
 
@@ -1508,6 +1638,7 @@ comment = "Client sending feedback to server - 1148 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_GuildsList"
+priority = -1
 updated = "2012-11-28"
 comment = "Listing of all guilds. Can be triggered by /lfg search?"
 
@@ -1519,6 +1650,7 @@ comment = "Listing of all guilds. Can be triggered by /lfg search?"
 [[zone]]
 id      = "68f4"
 name    = "OP_GuildsInZoneList"
+priority = 8
 updated = "2026-07-15"
 comment = "Listing of guild names present in the current zone.  Generally seen on zoning"
 
@@ -1530,6 +1662,7 @@ comment = "Listing of guild names present in the current zone.  Generally seen o
 [[zone]]
 id      = "ffff"
 name    = "OP_NewGuildInZone"
+priority = 8
 updated = "2023-07-19"
 comment = "An additional guild name has appeared in the current zone. Seen when a guilded player enters the current zone"
 
@@ -1541,6 +1674,7 @@ comment = "An additional guild name has appeared in the current zone. Seen when 
 [[zone]]
 id      = "ffff"
 name    = "OP_LFGGetMatchesRequest"
+priority = -1
 updated = "2012-11-28"
 comment = "LFG/LFP client request - 16 bytes"
 
@@ -1552,6 +1686,7 @@ comment = "LFG/LFP client request - 16 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_LFGGetMatchesResponse"
+priority = -1
 updated = "2012-11-28"
 comment = "LFG/LFP server response - Variable length"
 
@@ -1563,6 +1698,7 @@ comment = "LFG/LFP server response - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_MercenaryList"
+priority = -1
 updated = "2015-11-20"
 comment = "Listing of hired mercenaries - 648 bytes"
 
@@ -1574,6 +1710,7 @@ comment = "Listing of hired mercenaries - 648 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_ClickInventory"
+priority = -1
 updated = "2012-11-28"
 comment = "Click items from inventory or armor - 16 bytes 5th byte is Slot ID"
 
@@ -1585,6 +1722,7 @@ comment = "Click items from inventory or armor - 16 bytes 5th byte is Slot ID"
 [[zone]]
 id      = "ffff"
 name    = "OP_ClickInventoryAck"
+priority = -1
 updated = "2012-11-28"
 comment = "Server acknowledges click from inventory or armor - 20 bytes"
 
@@ -1607,6 +1745,7 @@ comment = "C>S: {u32 buff_slot, u32 self_spawn_id} (8 bytes). Client requests se
 [[zone]]
 id      = "ffff"
 name    = "OP_BuffWindow"
+priority = -1
 updated = "2026-07-17"
 comment = "S>C: fires 10x per zone-in (slots 0-9), one packet per slot. Payload: {u32 slot, u32 spellid=0xffffffff_empty, u32 pad} (12 bytes). Initializes the short-duration buff window at zone-in. Field2 always 0xffffffff in all observed captures — long-duration buffs come via OP_Buff / the buff-bar sync instead. Never fires mid-session. Re-confirmed 2026-05-27 (buffquery-fresh2: 30 fires = 10 slots × 3 zone-ins, byte-exact). The prior 0x3f37 assignment (2026-05-25) was a misidentification — 0x3f37 does not fire at all in clean buff captures."
 
@@ -1629,6 +1768,7 @@ comment = "Extended 24-byte bidirectional appearance update — spawnAppearance2
 [[zone]]
 id      = "ffff"
 name    = "OP_HouseAddress"
+priority = -1
 updated = "2015-11-20"
 comment = "House and guildhall address information - Variable length"
 
@@ -1640,6 +1780,7 @@ comment = "House and guildhall address information - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_HouseContents"
+priority = -1
 updated = "2015-11-20"
 comment = "Server sending house information and contents - variable length"
 
@@ -1651,6 +1792,7 @@ comment = "Server sending house information and contents - variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_FriendsList"
+priority = -1
 updated = "2012-11-28"
 comment = "Server sending friends list contents - variable length (Sent when choosing \"Welcome\" from EQ button)"
 
@@ -1662,6 +1804,7 @@ comment = "Server sending friends list contents - variable length (Sent when cho
 [[zone]]
 id      = "ffff"
 name    = "OP_FriendsOnline"
+priority = -1
 updated = "2012-11-28"
 comment = "Friends currently online - variable length (Sent when choosing \"Welcome\" form EQ button)"
 
@@ -1673,6 +1816,7 @@ comment = "Friends currently online - variable length (Sent when choosing \"Welc
 [[zone]]
 id      = "ffff"
 name    = "OP_Rewards"
+priority = -1
 updated = "2012-11-28"
 comment = "Server sending pending rewards - variable length"
 
@@ -1684,6 +1828,7 @@ comment = "Server sending pending rewards - variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_FTPNags"
+priority = -1
 updated = "2015-11-20"
 comment = "Free to play nags and other data - Variable length"
 
@@ -1695,6 +1840,7 @@ comment = "Free to play nags and other data - Variable length"
 [[zone]]
 id      = "2e60"
 name    = "OP_Find"
+priority = 0
 updated = "2026-07-15"
 comment = "Find window data - variable length, 24 min"
 
@@ -1706,6 +1852,7 @@ comment = "Find window data - variable length, 24 min"
 [[zone]]
 id      = "ffff"
 name    = "OP_ConsiderCorpse"
+priority = -1
 updated = "2012-11-28"
 comment = "ConCorpseCode - 20 bytes"
 
@@ -1717,6 +1864,7 @@ comment = "ConCorpseCode - 20 bytes"
 [[zone]]
 id      = "ffff"
 name    = "OP_TributeUpdate"
+priority = -1
 updated = "2012-11-28"
 comment = "Tribute and trophy skills - Variable length"
 
@@ -1728,6 +1876,7 @@ comment = "Tribute and trophy skills - Variable length"
 [[zone]]
 id      = "ffff"
 name    = "OP_Unknown1"
+priority = -1
 updated = "2013-04-17"
 comment = "3 byte opcode that spam logs seemingly only when you have someone targeted. Marked here to make reading logs easier"
 
@@ -1739,6 +1888,7 @@ comment = "3 byte opcode that spam logs seemingly only when you have someone tar
 [[zone]]
 id      = "ffff"
 name    = "OP_Unknown2"
+priority = -1
 updated = "2013-04-17"
 comment = "3 byte opcode that spam logs seemingly only when you have someone targeted. Marked here to make reading logs easier"
 
@@ -1750,6 +1900,7 @@ comment = "3 byte opcode that spam logs seemingly only when you have someone tar
 [[zone]]
 id      = "ffff"
 name    = "OP_Unknown3"
+priority = -1
 updated = "2013-04-17"
 comment = "3 byte opcode that spam logs seemingly only when you have someone targeted. Marked here to make reading logs easier"
 
@@ -1761,6 +1912,7 @@ comment = "3 byte opcode that spam logs seemingly only when you have someone tar
 [[zone]]
 id      = "ffff"
 name    = "OP_RequestZoneChange"
+priority = -1
 updated = "2007-10-20"
 comment = "Send by server when a click causes zone. Also, origin"
 
@@ -1772,98 +1924,115 @@ comment = "Send by server when a click causes zone. Also, origin"
 [[zone]]
 id      = "ffff"
 name    = "OP_WelcomeScreenTitle"
+priority = -1
 updated = "2011-05-16"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_VeteranRewards"
+priority = -1
 updated = "2011-04-18"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_SendAATable"
+priority = 5
 updated = "2026-07-17"
 comment = "Static AA ability-definition menu sent S>C on zone-in. Variable-length: u32 count + count records of base 44B + per-record prereq trailer."
 
 [[zone]]
 id      = "ffff"
 name    = "OP_SendAAStats"
+priority = -1
 updated = "2009-08-12"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_AckPacket"
+priority = -1
 updated = "2007-03-14"
 comment = "Appears to be generic ack at the presentation level"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Weather"
+priority = -1
 updated = "2007-03-14"
 comment = "old WeatherCode"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_ReqNewZone"
+priority = -1
 updated = "2007-03-14"
 comment = "Client requesting NewZone_Struct"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_ReqClientSpawn"
+priority = -1
 updated = "2007-03-14"
 comment = "Client requesting spawn data"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_SendExpZonein"
+priority = -1
 updated = "2007-03-14"
 comment = "Both directions. Negotiating sending of exp info."
 
 [[zone]]
 id      = "ffff"
 name    = "OP_AAAction"
+priority = -1
 updated = "2026-07-17"
 comment = "Dual-form: C>S 16b aaActionStruct {action, ability, unknown, exp_value} for buy/activate (action=3=buy), plus S>C 12b companion server messages (fire frequently). Re-confirmed post-2026-05-22 patch (aaaction-spend): the single C>S 16b buy fire decoded action=3 ability=224 (Mental Clarity rank purchase) alongside ~100 S>C 12b companions."
 
 [[zone]]
 id      = "ffff"
 name    = "OP_SetServerFilter"
+priority = -1
 updated = "2007-03-14"
 comment = "Client telling server /filter information"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_ClientReady"
+priority = -1
 updated = "2007-03-14"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_GuildTributeStatus"
+priority = -1
 updated = "2007-03-14"
 comment = "Guild tribute stats send on zone"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_GuildTributeInfo"
+priority = -1
 updated = "2006-06-13"
 comment = "Guild tribute loadout, only if on"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_RespawnWindow"
+priority = -1
 updated = "2007-03-14"
 comment = "Server telling client enough to populate the respawn window when you die"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_InitialMobHealth"
+priority = -1
 updated = "2012-06-27"
 comment = "Initial health sent when a player clicks on the mob. Subsequent updated will be OP_MobHealth"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_MobHealth"
+priority = -1
 updated = "2026-07-17"
 comment = "health sent when a player clicks on the mob"
 
@@ -1875,23 +2044,27 @@ comment = "health sent when a player clicks on the mob"
 [[zone]]
 id      = "ffff"
 name    = "OP_DeltaCheck"
+priority = -1
 updated = "2007-03-14"
 comment = "Client sending server delta information."
 
 [[zone]]
 id      = "ffff"
 name    = "OP_LoadSpellSet"
+priority = -1
 updated = "2007-02-13"
 comment = "/mem spellsetname"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Dye"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Consume"
+priority = -1
 updated = "2005-12-07"
 comment = "Client force feeding food/drink"
 
@@ -1903,51 +2076,60 @@ comment = "Client force feeding food/drink"
 [[zone]]
 id      = "ffff"
 name    = "OP_Begging"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_LFGCommand"
+priority = -1
 updated = "2005-10-27"
 comment = "old LFGReqCode"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Bug"
+priority = -1
 updated = "2005-10-27"
 comment = "/bug"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Save"
+priority = -1
 updated = "2006-04-19"
 comment = "Client asking server to save user state"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Camp"
+priority = -1
 updated = "2007-02-13"
 comment = "old cStartCampingCode"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_ShopPlayerSell"
+priority = -1
 updated = "2005-10-27"
 comment = "old SellItemCode"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_PetCommands"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_SaveOnZoneReq"
+priority = -1
 updated = "2007-03-14"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_ShopEnd"
+priority = -1
 updated = "2005-10-27"
 comment = "old CloseVendorCode"
 
@@ -1959,33 +2141,39 @@ comment = "old CloseVendorCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_SenseTraps"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_SenseHeading"
+priority = -1
 updated = "2005-10-27"
 comment = "old cSenseHeadingCode"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_LootComplete"
+priority = -1
 updated = "2005-12-07"
 comment = "old sDoneLootingCode"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Split"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Surname"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_ShopRequest"
+priority = -1
 updated = "2005-10-27"
 comment = "old OpenVendorCode"
 
@@ -1997,134 +2185,158 @@ comment = "old OpenVendorCode"
 [[zone]]
 id      = "ffff"
 name    = "OP_FaceChange"
+priority = -1
 updated = "2005-10-27"
 comment = "/face"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Sneak"
+priority = -1
 updated = "2005-06-29"
 comment = "Clicked sneak"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Hide"
+priority = -1
 updated = "2005-06-29"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_DisarmTraps"
+priority = -1
 updated = "2005-05-11"
 comment = "Clicked disarm traps"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Forage"
+priority = -1
 updated = "2005-10-27"
 comment = "old ForageCode"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_BoardBoat"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_LeaveBoat"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_LFPGetMatchesRequest"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_GMKill"
+priority = -1
 updated = "2005-10-27"
 comment = "GM /kill - Insta kill mob/pc"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_GuildPublicNote"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_YellForHelp"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_ShopPlayerBuy"
+priority = -1
 updated = "2005-05-11"
 comment = "old BuyItemCode"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_LFPCommand"
+priority = -1
 updated = "2005-10-27"
 comment = "looking for players"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_ConfirmDelete"
+priority = -1
 updated = "2005-10-27"
 comment = "Client sends this to server to confirm op_deletespawn"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Report"
+priority = -1
 updated = "2005-06-29"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_TargetCommand"
+priority = -1
 updated = "2007-02-13"
 comment = "Target user"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_LFPGetMatchesResponse"
+priority = -1
 updated = "2007-02-13"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_FindPersonRequest"
+priority = -1
 updated = "2007-02-13"
 comment = "Control-F Find"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_FindResponse"
+priority = -1
 updated = "2007-02-13"
 comment = "Response to control-F"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_GMLastName"
+priority = -1
 updated = "2005-10-27"
 comment = "GM /lastname - Change user lastname"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_Mend"
+priority = -1
 updated = "2005-10-27"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_MendHPUpdate"
+priority = -1
 updated = "2005-05-11"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_TributeInfo"
+priority = -1
 updated = "2007-02-13"
 comment = "Tribute information"
 
 [[zone]]
 id      = "ffff"
 name    = "OP_RespondAA"
+priority = -1
 updated = "2026-07-17"
 comment = "Server response to OP_AAAction; carries 12B records (ability_id, rank, _) for player's full AA list incl. auto-grants and purchased ranks"
 
