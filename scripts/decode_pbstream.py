@@ -360,14 +360,14 @@ def iter_records(data):
 
 
 def envelope_kind_num(data, start, end):
-    """Return the oneof payload field number (10..41), or None. Cheap: only
-    scans top-level tags until the payload field is reached."""
+    """Return the oneof payload field number (schema-derived, see PAYLOAD_NUMS),
+    or None. Cheap: only scans top-level tags until the payload field is reached."""
     pos = start
     while pos < end:
         tag, pos = read_varint(data, pos)
         fnum = tag >> 3
         wt = tag & 7
-        if 10 <= fnum <= 41:
+        if fnum in PAYLOAD_NUMS:
             return fnum
         if wt == 0:
             _, pos = read_varint(data, pos)
@@ -801,6 +801,7 @@ def summarize(schema, kind, p):
 
 DATA_PATH = None
 PB_MOD = None
+PAYLOAD_NUMS = set()  # payload field numbers, set from the schema in main()
 
 
 def main():
@@ -831,9 +832,14 @@ def main():
     if "Envelope" not in schema.messages:
         sys.exit("Envelope message not found in schema")
 
+    # Payload kinds = the message-typed Envelope fields (the `oneof payload`
+    # members); scalars like `seq` are not kinds. Derived from the schema so new
+    # proto messages work with no edit here.
+    global PAYLOAD_NUMS
     env_fields = schema.messages["Envelope"]
-    num_to_name = {f.number: f.name for f in env_fields if 10 <= f.number <= 41}
+    num_to_name = {f.number: f.name for f in env_fields if f.ptype not in SCALAR_TYPES}
     name_to_num = {v: k for k, v in num_to_name.items()}
+    PAYLOAD_NUMS = set(num_to_name)
 
     if not args.no_codegen and (args.full or args.grep):
         PB_MOD = maybe_load_pb(proto_srcs)
