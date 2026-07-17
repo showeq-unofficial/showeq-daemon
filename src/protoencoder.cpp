@@ -264,13 +264,17 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
 
     const uint16_t curMana = mp.getMana();
     out->set_mana_cur(curMana);
-    // Max mana isn't on the wire. The peak of observed current mana is the
-    // exact max once the player has regen'd to full (a monotonic lower bound
-    // before that) — better than the +1-prone calcMaxMana estimate. Fall back
-    // to the estimate only before any mana has been observed.
-    uint16_t maxMana = mp.observedMaxMana();
-    if (curMana > maxMana) maxMana = curMana;
-    if (maxMana == 0) maxMana = mp.getMaxMana();
+    // eql sends the real gear+buff-inclusive max via the stat-sync wide form
+    // (captured into m_wireMaxMana, which the calcMaxMana estimate never
+    // clobbers) — prefer it, exact, and it fixes the long-standing off-by-one.
+    // Fall back to the observed current-mana peak, then the estimate, only when
+    // no wire max ever arrived (Live never sends max mana).
+    uint16_t maxMana = mp.wireMaxMana();
+    if (maxMana == 0) {
+      maxMana = mp.observedMaxMana();
+      if (curMana > maxMana) maxMana = curMana;
+      if (maxMana == 0) maxMana = mp.getMaxMana();
+    }
     out->set_mana_max(maxMana);
     out->set_endurance_cur(mp.getEnduranceCur());
     out->set_endurance_max(mp.getEnduranceMax());

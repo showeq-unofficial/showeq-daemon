@@ -684,6 +684,7 @@ void Player::setMana(uint32_t cur, uint32_t max)
   // channel; coexists with manaChange() (OP_ManaChange) — last writer wins.
   m_mana = cur;
   m_maxMana = max;
+  m_wireMaxMana = max;   // authoritative eql wire max — calcMaxMana can't clobber it
   m_validMana = true;
 
   emit manaChanged(m_mana, m_maxMana);

@@ -110,9 +110,13 @@ public:
    // EQL multiclass bitmask (bit N = class N); classVal() is only the primary.
    uint32_t classMask() const { return m_classMask; }
    void setClassMask(uint32_t m) { m_classMask = m; }
-   // Highest current-mana ever seen — EQ never sends max mana, but you can't
-   // hold more current than your max, so this equals the exact max once the
-   // player has regen'd to full (beats the calcMaxMana estimate).
+   // Exact, gear+buff-inclusive max mana from the eql stat-sync wide form
+   // (OP_HPUpdate 0xa5c0) — the server's own value, so it tracks equip/unequip
+   // and buffs. 0 on Live, which never sends max mana.
+   uint16_t wireMaxMana() const { return m_wireMaxMana; }
+   // Fallback when the wire max is absent (Live): highest current-mana ever
+   // seen. You can't hold more current than your max, so this equals the exact
+   // max once the player has regen'd to full (beats the calcMaxMana estimate).
    uint16_t observedMaxMana() const { return m_observedMaxMana; }
    void updateEndurance(const uint8_t* end);
    void setLastKill(const QString& name, int level);
@@ -318,6 +322,7 @@ public:
   uint16_t m_water;
   uint32_t m_classMask = 0;   // EQL multiclass bitmask (bit N = class N)
   uint16_t m_observedMaxMana = 0;   // peak current mana = exact max once full
+  uint16_t m_wireMaxMana = 0;       // eql: exact gear+buff max from stat-sync wide form
   uint32_t m_money = 0;   // total copper (eql OP_MoneyUpdate)
   uint16_t m_fatigue;
   uint32_t m_enduranceCur;
