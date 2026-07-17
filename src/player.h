@@ -27,6 +27,8 @@
 #include <QMetaType>
 #include <QVector>
 
+#include <vector>
+
 #include "seqcolor.h"
 
 #include "everquest.h"
@@ -223,6 +225,17 @@ public:
    // name, located by the Rust anchor-scan). Stores it (setName) + emits
    // identityNameResolved so DaemonApp can authoritatively name/merge the box.
    void setPlayerName(const QString& name);
+   // Bulk-seed the player's skill values from a decoded profile (eql: the
+   // OP_PlayerProfile skill array, walked in seq-backend-eql). Writes
+   // m_playerSkills[id] for each id < MAX_KNOWN_SKILLS then emits ONE changeSkill
+   // so the whole set surfaces in a single coalesced PlayerStats snapshot at
+   // zone-in (instead of ticking up one skill at a time via OP_SkillUpdate).
+   // Neutral primitive: unused on live/test (they seed via loadProfile).
+   void seedSkills(const std::vector<uint32_t>& skills);
+   // eql: seed the purchased-AA list (parallel id/value arrays walked from
+   // OP_PlayerProfile) + spent points, so the AA window populates at zone-in.
+   void seedPurchasedAA(const std::vector<uint32_t>& ids,
+                        const std::vector<uint32_t>& values, uint32_t spent);
 
  signals:
    void newPlayer(void);

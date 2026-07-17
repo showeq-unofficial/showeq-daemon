@@ -1168,6 +1168,50 @@ void Player::setPlayerName(const QString& name)
   emit identityNameResolved(name);
 }
 
+void Player::seedSkills(const std::vector<uint32_t>& skills)
+{
+  // eql: the player's whole skill array arrives in OP_PlayerProfile (walked in
+  // seq-backend-eql). Seed it in bulk so the Skills window populates at zone-in
+  // rather than one skill at a time via OP_SkillUpdate. Write silently — do NOT
+  // emit per-skill (that would fire onPlayerStatsChanged ~100x, re-serializing
+  // partial snapshots, the exact spam SessionAdapter warns about) — then emit a
+  // SINGLE changeSkill so the full set rides one coalesced PlayerStats snapshot.
+  // The web's skill-up log ignores first-appearances (old==undefined||0), so a
+  // whole-array seed synthesizes no bogus "0->N" entries.
+  const size_t n = std::min(skills.size(), (size_t)MAX_KNOWN_SKILLS);
+  for (size_t i = 0; i < n; ++i)
+    m_playerSkills[i] = skills[i];
+
+  if (n)
+    emit changeSkill((int)(n - 1), (int)m_playerSkills[n - 1]);
+
+  if (showeq_params->savePlayerState)
+    savePlayerState();
+}
+
+void Player::seedPurchasedAA(const std::vector<uint32_t>& ids,
+                             const std::vector<uint32_t>& values, uint32_t spent)
+{
+  // eql: the purchased-AA list arrives as parallel id/value arrays in
+  // OP_PlayerProfile (walked in seq-backend-eql), mirroring Live's aa_array.
+  // value is the points spent on the ability; filter empty slots (id==0) and
+  // auto-grants (value==0), exactly like loadProfile. Names come over
+  // OP_SendAATable (unresolved) — clients show #<id> until then. No signal
+  // here: EqlDispatch::profile calls this before setIdentity, whose
+  // levelChanged drives the one coalesced PlayerStats snapshot that carries
+  // purchased_aa + aa_points.
+  m_currentAApts = (uint16_t)spent;
+  m_purchasedAA.clear();
+  const size_t n = std::min(ids.size(), values.size());
+  for (size_t i = 0; i < n; ++i) {
+    if (ids[i] == 0 || values[i] == 0) continue;
+    m_purchasedAA.push_back({ids[i], values[i]});
+  }
+
+  if (showeq_params->savePlayerState)
+    savePlayerState();
+}
+
 void Player::applySelfPosition(int16_t px, int16_t py, int16_t pz,
                                int16_t pdeltaX, int16_t pdeltaY, int16_t pdeltaZ,
                                uint16_t heading, float speed)

@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <vector>
 
 #include <QString>
 
@@ -102,6 +103,24 @@ void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
     QString name = latin1(out.name);
     if (!name.isEmpty())
         m_player->setPlayerName(name);
+    // Seed the whole skill array (walked out of the profile in seq-backend-eql)
+    // BEFORE setIdentity: setIdentity's levelChanged triggers the coalesced
+    // PlayerStats snapshot, so the seeded skills ride that first snapshot and the
+    // Skills window is populated at zone-in. Empty on a short-read (skills then
+    // fall back to incremental OP_SkillUpdate).
+    if (!out.skills.empty())
+    {
+        std::vector<uint32_t> skills(out.skills.begin(), out.skills.end());
+        m_player->seedSkills(skills);
+    }
+    // Seed the purchased-AA list + spent points from the same profile walk
+    // (parallel aa_ids/aa_values) so the AA window populates at zone-in.
+    if (!out.aa_ids.empty())
+    {
+        std::vector<uint32_t> aaIds(out.aa_ids.begin(), out.aa_ids.end());
+        std::vector<uint32_t> aaVals(out.aa_values.begin(), out.aa_values.end());
+        m_player->seedPurchasedAA(aaIds, aaVals, out.aa_spent);
+    }
     m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
     m_player->setClassMask(out.class_mask);   // EQL multiclass (bit N = class N)
 }

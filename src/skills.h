@@ -96,5 +96,12 @@
     "Berserking",              // 72
     "Taunt",                   // 73
     "Frenzy",                  // 74
+    "Triple Attack",           // 75  standard modern-EQ addition after Frenzy
+    "2H Piercing",             // 76  standard modern-EQ addition
+    // eql skill ids 77-82 are real (77/79/80/82 observed nonzero, scaling with
+    // level; 75/78/81 read 0 for the sampled multiclass char) but have no
+    // authoritative enum->name mapping yet (eqstr_us.txt keys names by string id,
+    // not skill index). Left unnamed — skill_name() returns the numeric id for
+    // any slot past this array; web mirrors via the `Skill N` fallback.
 #endif /* DOXYGEN_SHOULD_SKIP_THIS */
 
