@@ -85,12 +85,15 @@ The position channel rotated id (0x7171→0x5188) **and** wire size in both dire
 - **C>S 38B (self-position report) — CRACKED + WIRED 2026-07-14.** Confirmed against a
   Lavastorm `/loc` ground-truth capture (`eql-locref.vpk`), 3 known points, exact match.
   **IEEE floats: gameX = `float@14`, gameY = `float@26`, gameZ = `float@10`; heading =
-  `(u32@18) & 0xFFF`** (12-bit, N=0/W≈1024/S≈2048, verified vs the walk); `@0` is a float
+  `(u32@18 >> 8) & 0x1FFF`** (13-bit, 8192/circle; re-cracked 2026-07-15 vs a 360° spin —
+  the low 8 bits are a sub-fraction, the 11 bits above are NOT a turn rate); `@0` is a float
   counter (~16640, +0.1/tick). Rewrote eql `parse_player_self_pos` for the 38B; size
   override → 38; `playerUpdateSelf` now applies straight to `m_player` (C>S is always
   self), gated only on `id()!=0`, dropping the defunct spawnId adoption/gate;
-  `applySelfPosition` heading conv → `>>12` (12-bit). Deltas not yet located → speed reads
-  0 (position + heading authoritative).
+  `applySelfPosition` heading conv → `360 - ((h*360)>>13)`. **Velocity cracked 2026-07-17**
+  vs a run-south-then-west `/loc`: deltaY@6 / deltaX@22 / deltaZ@30 (f32, ±~2.26 = full
+  run), now applied. No turn-rate field (spin capture: facing sweeps while every delta
+  reads 0 → EQL sends the absolute heading each frame).
   **Two known gaps (both patch-induced, follow-ups):** (1) the 38B carries **no spawnId**
   (old 42B had `spawnId@2`), so the self-id must come from `SpawnShell::zoneEntry`
   name-match — which needs OP_PlayerProfile for `realName()`; a capture/session without the
@@ -98,6 +101,18 @@ The position channel rotated id (0x7171→0x5188) **and** wire size in both dire
   self-pos can't bootstrap the id anymore). (2) eql's in-zone death respawn sends no self
   OP_ZoneEntry, so post-death self-id recovery has no source post-patch (`death()`/
   `enterWorld()` still sever; `m_awaitingRespawnFromId` is now dormant).
+
+- **`0x4fb6` OP_SelfPosEQL (variable C>S) — SECOND self-pos opcode = position-history
+  breadcrumb (characterized 2026-07-17, NOT wired).** Distinct from the 38B live 0x5188:
+  a batched movement journal. Layout = **N × 17-byte record + 1 trailing byte**: `f32 y@0`
+  / `f32 x@4` / `f32 z@8` (plain floats, /loc order) / `u8 seq@12` (1..2) / `u32 ts@13`
+  (monotonic hi-res timer, ~65543/sample). Sizes 18B=1 rec (settled) … 2415B=142 recs;
+  timestamps monotonic, samples trace a smooth walk (XY step ≤0.7); all 3 /loc points match
+  exactly. **Xerxes maps this as `OP_SelfPosEQL=0x4fb6`** — correct id, but his
+  `playerSelfState` gates on `len==38` so it never parses the 17B-record form; his self-pos
+  (like ours) rides 0x5188. Documented, not decoded (redundant with 0x5188 for live
+  tracking; a clean absolute anchor if ever needed). Recon: `--dump-payload 0x4fb6:PATH` →
+  one .bin/fire → float-scan the 18B ones, then the 17-byte stride reveals the record array.
 
 - **`0x6cbd`** (19B S>C) — first guessed an NpcMoveUpdate alt, but its layout is
   `u32@0 + spawnId@4`, not the movement bitstream (whose 19B variant already lives in
