@@ -124,6 +124,14 @@ void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
         std::vector<uint32_t> aaVals(out.aa_values.begin(), out.aa_values.end());
         m_player->seedPurchasedAA(aaIds, aaVals, out.aa_spent);
     }
+    // Seed the initial EQL stance / invocation from the profile (fixed offset,
+    // read in seq-backend-eql). OP_Stance/OP_Invocation only echo on a SWAP, so
+    // without this the readout stays blank until the player swaps. Only set when
+    // the id resolves to a known ability (0 / out-of-range = none, or drift).
+    if (QString sn = stanceName(out.stance); !sn.isEmpty())
+        m_player->setStance(sn);
+    if (QString invName = invocationName(out.invocation); !invName.isEmpty())
+        m_player->setInvocation(invName);
     m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
     m_player->setClassMask(out.class_mask);   // EQL multiclass (bit N = class N)
 }
