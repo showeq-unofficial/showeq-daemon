@@ -262,9 +262,15 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
     out->set_hp_max(curHP > calcHPMax ? curHP : calcHPMax);
 
     const uint16_t curMana = mp.getMana();
-    const uint16_t calcManaMax = mp.getMaxMana();
     out->set_mana_cur(curMana);
-    out->set_mana_max(curMana > calcManaMax ? curMana : calcManaMax);
+    // Max mana isn't on the wire. The peak of observed current mana is the
+    // exact max once the player has regen'd to full (a monotonic lower bound
+    // before that) — better than the +1-prone calcMaxMana estimate. Fall back
+    // to the estimate only before any mana has been observed.
+    uint16_t maxMana = mp.observedMaxMana();
+    if (curMana > maxMana) maxMana = curMana;
+    if (maxMana == 0) maxMana = mp.getMaxMana();
+    out->set_mana_max(maxMana);
     out->set_endurance_cur(mp.getEnduranceCur());
     out->set_endurance_max(mp.getEnduranceMax());
 

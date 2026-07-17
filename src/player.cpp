@@ -644,6 +644,9 @@ void Player::manaChange(const uint8_t* data)
   if (!out.ok) return;
   // update the players mana
   m_mana = out.new_mana;
+  // EQ never sends max mana; the peak of current mana is the exact max once
+  // the player regens to full.
+  if (m_mana > m_observedMaxMana) m_observedMaxMana = m_mana;
 
   m_validMana = true;
 
