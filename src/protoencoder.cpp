@@ -296,6 +296,9 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
     out->set_name(mp.name().toStdString());
     out->set_class_(mp.classVal());
     out->set_class_mask(mp.classMask());
+    // EQL active stance/invocation display names (empty on live/single-class).
+    out->set_stance(mp.stance().toStdString());
+    out->set_invocation(mp.invocation().toStdString());
     out->set_race(mp.race());
 
     out->set_str(mp.getMaxSTR());

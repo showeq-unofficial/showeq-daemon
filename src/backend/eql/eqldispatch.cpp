@@ -32,6 +32,44 @@ inline QString latin1(const rust::String& s)
 {
     return QString::fromLatin1(s.data(), int(s.size()));
 }
+
+// Resolve an EQ Legends STANCE ability id to its display name. The id is a
+// stable client enum (eqgame.exe GetAbilityName switch); the OPCODE id is
+// patch-volatile and lives in the toml. Unknown ids fall through to the caller.
+QString stanceName(uint32_t id)
+{
+    switch (id) {
+    case 117: return QStringLiteral("Offense");
+    case 118: return QStringLiteral("Defense");
+    case 119: return QStringLiteral("Evasive");
+    case 120: return QStringLiteral("Balanced");
+    case 121: return QStringLiteral("Mage Hunter");
+    case 122: return QStringLiteral("Striker");
+    case 123: return QStringLiteral("Berserker");
+    case 124: return QStringLiteral("Ranged");
+    case 135: return QStringLiteral("Channeler");
+    default:  return QString();
+    }
+}
+
+// Resolve an EQ Legends INVOCATION ability id to its display name (same stable
+// eqgame.exe GetAbilityName enum). Unknown ids fall through to the caller.
+QString invocationName(uint32_t id)
+{
+    switch (id) {
+    case 125: return QStringLiteral("Recover");
+    case 126: return QStringLiteral("Empower");
+    case 127: return QStringLiteral("Inversion");
+    case 128: return QStringLiteral("Spell Blade");
+    case 129: return QStringLiteral("Over Channel");
+    case 130: return QStringLiteral("Inviolable");
+    case 131: return QStringLiteral("Divine");
+    case 132: return QStringLiteral("Chained");
+    case 133: return QStringLiteral("Arcane Mastery");
+    case 134: return QStringLiteral("Unyielding");
+    default:  return QString();
+    }
+}
 }
 
 EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player)
@@ -319,6 +357,40 @@ void EqlDispatch::loadoutSwap(const uint8_t* data, size_t len, uint8_t dir)
     // (no position/HP — the spawn list / con display is the consumer), so it
     // doesn't read stale until that spawn's next regular OP_ZoneEntry.
     m_spawnShell->updateSpawnIdentity((uint16_t)out.spawn_id, out.level, (uint8_t)out.class_);
+}
+
+void EqlDispatch::stance(const uint8_t* data, size_t len, uint8_t dir)
+{
+    // OP_Stance (0x0fab) S>C echo (authoritative): the player's active stance
+    // changed. 4B {u32 abilityId}; resolve the id to a display name and store it
+    // on Player -> PlayerStats.stance. Unknown id → "#<id>" so it stays visible.
+    if (dir != DIR_Server || !m_player)
+        return;
+    auto out = seq::rust::decode_activate_ability(
+        rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
+        return;
+    QString name = stanceName(out.ability_id);
+    if (name.isEmpty())
+        name = QStringLiteral("#%1").arg(out.ability_id);
+    m_player->setStance(name);
+}
+
+void EqlDispatch::invocation(const uint8_t* data, size_t len, uint8_t dir)
+{
+    // OP_Invocation (0x3b12) S>C echo (authoritative): the player's active
+    // invocation changed. Same 4B {u32 abilityId} as OP_Stance; resolve via the
+    // invocation table and store on Player -> PlayerStats.invocation.
+    if (dir != DIR_Server || !m_player)
+        return;
+    auto out = seq::rust::decode_activate_ability(
+        rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
+        return;
+    QString name = invocationName(out.ability_id);
+    if (name.isEmpty())
+        name = QStringLiteral("#%1").arg(out.ability_id);
+    m_player->setInvocation(name);
 }
 
 void EqlDispatch::mobUpdate(const uint8_t* data, size_t len, uint8_t dir)

@@ -1254,3 +1254,41 @@ a Python offset scan is the fast path.
   instrumentation suppresses it. Not a decode bug — a flappy golden would false-fail the
   pre-push hook, so it stays ungoldened until the harness is made wallclock-deterministic
   (would also fix the `buffs` skip). See memory `project_eql_golden_spawn_order_flap`.
+
+## OP_Stance (0x0fab) + OP_Invocation (0x3b12) — active stance/invocation (2026-07-16)
+
+A Legends character has one active **STANCE** and one active **INVOCATION** at a
+time (swappable). Activating one fires a 4-byte opcode carrying a single
+`u32 abilityId` little-endian @0 (`activateAbilityStruct`). The client sends the
+activation request C>S and the server echoes it back **S>C (authoritative)** — the
+daemon wires only the S>C echo (the C>S copy is acked `uint8_t`/`none` so it
+doesn't warn). Both opcodes share the identical 4-byte struct; the **opcode id**
+distinguishes stance from invocation.
+
+**Ability id → name** (the `abilityId` is a **stable client enum** from the
+`eqgame.exe` `GetAbilityName` switch; the **opcode ids are capture-RE'd and
+patch-volatile**, so they live in `conf/eql/opcodes.toml`, not hard-coded):
+
+- **OP_Stance (0x0fab):** 117 Offense · 118 Defense · 119 Evasive · 120 Balanced ·
+  121 Mage Hunter · 122 Striker · 123 Berserker · 124 Ranged · 135 Channeler.
+- **OP_Invocation (0x3b12):** 125 Recover · 126 Empower · 127 Inversion ·
+  128 Spell Blade · 129 Over Channel · 130 Inviolable · 131 Divine · 132 Chained ·
+  133 Arcane Mastery · 134 Unyielding.
+
+The eqstr display strings carry a " Stance" suffix; we store the **bare** names
+above (e.g. "Defense", "Recover"). Unknown id → `#<id>` fallback so it stays visible.
+
+**Pipeline** (mirrors OP_BeginCast + PlayerStats.class_mask): `parse_activate_ability`
+(seq-backend-eql, `("activateAbilityStruct", 4)` in `size_overrides()`) → cxx
+`decode_activate_ability` → `EqlDispatch::stance`/`invocation` resolve the id to a
+name via backend-only `stanceName`/`invocationName` tables → `Player::setStance`/
+`setInvocation` (neutral QStrings) → `PlayerStats.stance` (30) / `.invocation` (31)
+→ web PlayerPanel ("Stance: Defense · Invocation: Recover"). Struct declared in
+`backend/live/everquest.h` + `s_everquest.h` size registry; SZC_Match gate.
+
+**Verified 2026-07-16** against `eql-stancedance.vpk`: `--opcode-stats` shows both
+`known` (S>C 4 / C>S 4, size 4), **0 "doesn't match"** warnings; the handlers decode
++ resolve correctly (stance 117→Offense, 118→Defense; invocation 127→Inversion,
+125→Recover). The capture is mid-session, so `player_stats` may not re-emit after the
+stance packets (setStance fires no signal — the value surfaces on the next
+stat-driven `PlayerStats`); in a live session that is near-immediate.

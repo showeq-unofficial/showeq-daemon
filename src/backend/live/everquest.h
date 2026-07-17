@@ -2141,6 +2141,20 @@ struct staminaStruct
 };
 
 /*
+** Activate Ability (EQ Legends)
+** Length: 4 Octets
+** OpCode: OP_Stance (0x0fab) / OP_Invocation (0x3b12)
+**
+** S>C echo when a swappable stance or invocation is activated. One 32-bit
+** ability id (stable client enum); the opcode picks stance vs invocation.
+*/
+struct activateAbilityStruct
+{
+/*0000*/ uint32_t abilityId;                     // active stance/invocation ability id
+/*0004*/
+};
+
+/*
 ** Endurance Update (run/jump bar)
 ** Length: 10 Octets
 ** OpCode: OP_EndUpdate

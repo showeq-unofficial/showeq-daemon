@@ -97,6 +97,16 @@
         <comment>07/14 id 0x3b0c (adopted from legacy showeqlegends, capture-verified): stock 8B staminaStruct {u32 food, u32 water} — 'ticks till next eat'. Fires 71x S>C at 8B in the fight capture; food/water tick DOWN together (3396->3364->3332, 4596->4564->4532, step 32). Wired Player::updateStamina; size eql-owned in seq-backend-eql size_overrides().</comment>
         <payload dir="server" typename="staminaStruct" sizechecktype="match"/>
     </opcode>
+    <opcode id="0fab" name="OP_Stance" updated="07/16/26" priority="4">
+        <comment>EQ Legends active-stance echo (S>C, 4B activateAbilityStruct {u32 abilityId}). One stance active at a time; the server echoes this on each swap (authoritative). Ability ids (stable eqgame.exe GetAbilityName enum): 117 Offense, 118 Defense, 119 Evasive, 120 Balanced, 121 Mage Hunter, 122 Striker, 123 Berserker, 124 Ranged, 135 Channeler. Decoded by decode_activate_ability -> EqlDispatch::stance -> Player::setStance -> PlayerStats.stance. Size eql-owned in seq-backend-eql size_overrides(activateAbilityStruct=4). The C>S 4B copy is the client's activation request (echoed authoritatively S>C); acked uint8_t/none so it doesn't warn. See OPCODES_LEGENDS.md</comment>
+        <payload dir="server" typename="activateAbilityStruct" sizechecktype="match"/>
+        <payload dir="client" typename="uint8_t" sizechecktype="none"/>
+    </opcode>
+    <opcode id="3b12" name="OP_Invocation" updated="07/16/26" priority="4">
+        <comment>EQ Legends active-invocation echo (S>C, 4B activateAbilityStruct {u32 abilityId}). One invocation active at a time; the server echoes this on each swap (authoritative). Ability ids (stable eqgame.exe GetAbilityName enum): 125 Recover, 126 Empower, 127 Inversion, 128 Spell Blade, 129 Over Channel, 130 Inviolable, 131 Divine, 132 Chained, 133 Arcane Mastery, 134 Unyielding. Decoded by decode_activate_ability -> EqlDispatch::invocation -> Player::setInvocation -> PlayerStats.invocation. Same 4B struct as OP_Stance; opcode id picks stance vs invocation. The C>S 4B copy is the client's activation request (echoed authoritatively S>C); acked uint8_t/none so it doesn't warn. See OPCODES_LEGENDS.md</comment>
+        <payload dir="server" typename="activateAbilityStruct" sizechecktype="match"/>
+        <payload dir="client" typename="uint8_t" sizechecktype="none"/>
+    </opcode>
     <opcode id="a5c0" name="OP_HPUpdate" updated="07/14/26" priority="10">
         <comment>07/07 rotation; multiplexed stat channel (subtype byte @4). 6B subtype-0x02 = HP-bar feed (u16 id, u16 0, 0x02, u8 hp%); decoded by EqlDispatch::hpUpdate. Other sizes/subtypes are cur/max i64 stat pairs (dropped)</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>

@@ -226,6 +226,16 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_Stamina", SP_Zone, DIR_Server,
          "staminaStruct", SZC_Match,
          seqBind(ms.player, &Player::updateStamina));
+    // OP_Stance (0x0fab) / OP_Invocation (0x3b12) S>C echo: the player's active
+    // swappable stance / invocation. 4B {u32 abilityId}, size-gated on the
+    // shared activateAbilityStruct (size eql-owned via size_overrides). Resolved
+    // to a display name in EqlDispatch and surfaced through PlayerStats.
+    wire("OP_Stance", SP_Zone, DIR_Server,
+         "activateAbilityStruct", SZC_Match,
+         seqBind(eql, &EqlDispatch::stance));
+    wire("OP_Invocation", SP_Zone, DIR_Server,
+         "activateAbilityStruct", SZC_Match,
+         seqBind(eql, &EqlDispatch::invocation));
     wire("OP_EndUpdate", SP_Zone, DIR_Server,
          "endUpdateStruct", SZC_Match,
          seqBind(ms.player, &Player::updateEndurance));

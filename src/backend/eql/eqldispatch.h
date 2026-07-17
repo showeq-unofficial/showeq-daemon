@@ -64,6 +64,11 @@ public:
     // class + level, no profile resend). Self refreshes the PC identity; the
     // broadcast variant updates a nearby tracked spawn's class/level.
     void loadoutSwap(const uint8_t* data, size_t len, uint8_t dir);
+    // OP_Stance (0x0fab) / OP_Invocation (0x3b12) S>C echo (authoritative): the
+    // player's active stance / invocation. 4B {u32 abilityId}; the id resolves
+    // to a display name (backend-only table) stored on Player -> PlayerStats.
+    void stance(const uint8_t* data, size_t len, uint8_t dir);
+    void invocation(const uint8_t* data, size_t len, uint8_t dir);
     // OP_EnterWorld (0x26bf) C>S: the world handshake, fired at login AND on
     // every in-place session re-entry (private instance, or any zone that reuses
     // the world socket — same BoxRegistry box, so no active-box roll re-primes
