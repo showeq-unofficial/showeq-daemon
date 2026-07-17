@@ -2314,6 +2314,16 @@ struct beginCastStruct
 /*0015*/
 };
 
+// EQ Legends active stance/invocation ability id. Test never decodes
+// OP_Stance/OP_Invocation, but s_everquest.h registers activateAbilityStruct
+// unconditionally (AddStruct), so it must be defined on every target's
+// everquest.h for the shared size registry to compile.
+struct activateAbilityStruct
+{
+/*0000*/ uint32_t abilityId;                     // active stance/invocation ability id
+/*0004*/
+};
+
 /*
 ** Spell Action Struct
 ** Length: 16 Octets
