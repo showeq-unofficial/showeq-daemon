@@ -86,7 +86,7 @@ Box* BoxRegistry::observe(in_addr_t client_ip,
     // First non-merged Box becomes active by default. Subsequent
     // creations only fire changed() — active stays put until a client
     // explicitly switches via SetActiveBox.
-    if (m_activeBoxId.isEmpty()) m_activeBoxId = raw->box_id;
+    if (m_activeCharacterId.isEmpty()) m_activeCharacterId = raw->box_id;
 
     emit changed();
     return raw;
@@ -101,14 +101,14 @@ Box* BoxRegistry::findById(const QString& box_id)
     return nullptr;
 }
 
-bool BoxRegistry::setActiveBoxId(const QString& box_id)
+bool BoxRegistry::setActiveCharacterId(const QString& box_id)
 {
     Box* target = findById(box_id);
     if (!target) return false;
-    if (m_activeBoxId == box_id) return true;
-    Box* old = findById(m_activeBoxId);
-    m_activeBoxId = box_id;
-    emit activeBoxChanged(old, target);
+    if (m_activeCharacterId == box_id) return true;
+    Box* old = findById(m_activeCharacterId);
+    m_activeCharacterId = box_id;
+    emit activeCharacterChanged(old, target);
     emit changed();
     return true;
 }
@@ -116,10 +116,10 @@ bool BoxRegistry::setActiveBoxId(const QString& box_id)
 void BoxRegistry::onPromoted(Box* box, const QString& old_box_id)
 {
     if (!box) return;
-    if (m_activeBoxId == old_box_id)
-        m_activeBoxId = box->box_id;
+    if (m_activeCharacterId == old_box_id)
+        m_activeCharacterId = box->box_id;
     // If the promoted box turned out to be a merge target, its box_id
-    // collides with an existing one; m_activeBoxId may point at the
+    // collides with an existing one; m_activeCharacterId may point at the
     // pre-existing parent already — leave it as-is, the changed()
     // re-emit gives the client a fresh picture either way.
 
@@ -144,7 +144,7 @@ int BoxRegistry::evictStale(qint64 now_ms, qint64 ttl_ms)
 {
     if (ttl_ms <= 0) return 0;
     const qint64 cutoff = now_ms - ttl_ms;
-    const QString activeId = m_activeBoxId;
+    const QString activeId = m_activeCharacterId;
 
     // Collect victims one character group at a time. A group is a
     // non-merged parent plus every Box merged into it; processing whole
@@ -287,9 +287,9 @@ Box* BoxRegistry::promoteByName(Box* box, const QString& name)
     // SessionAdapter would stream an empty box while the real data lives in
     // a non-primary box.
     if (!parent) {
-        Box* active = findById(m_activeBoxId);
+        Box* active = findById(m_activeCharacterId);
         if (!active || active->display_name.isEmpty()) {
-            m_activeBoxId = box->box_id;
+            m_activeCharacterId = box->box_id;
         }
     }
 
@@ -300,8 +300,8 @@ Box* BoxRegistry::promoteByName(Box* box, const QString& name)
     // If this box belongs to the ACTIVE character, the current decode box just
     // rolled to it (newest zone session) — nudge SessionAdapter to rebind so the
     // live view follows the character into its new zone.
-    if (m_activeBoxId == charId) {
-        emit activeBoxChanged(nullptr, box);
+    if (m_activeCharacterId == charId) {
+        emit activeCharacterChanged(nullptr, box);
     }
 
     // SCAFFOLD (state machine): reclassify this character's sessions — the live

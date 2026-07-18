@@ -68,7 +68,7 @@ void BoxRegistryTest::observeCreatesPrimary()
   QCOMPARE(reg.distinctCount(), size_t(1));
   QVERIFY(b->display_name.isEmpty());           // not promoted yet
   QVERIFY(b->box_id.startsWith(QStringLiteral("p-")));  // placeholder id
-  QCOMPARE(reg.activeBoxId(), b->box_id);        // first box is active
+  QCOMPARE(reg.activeCharacterId(), b->box_id);        // first box is active
 }
 
 void BoxRegistryTest::observeSameTupleUpdates()
@@ -154,14 +154,14 @@ void BoxRegistryTest::adoptActiveFromStalePlaceholder()
   // First box is a partial/dead session that never resolves a character
   // (daemon started mid-session) — it's active but stays a placeholder.
   Box* stale = reg.observe(kClientIp, cport(1000), kSrvPort, 1);
-  QCOMPARE(reg.activeBoxId(), stale->box_id);
+  QCOMPARE(reg.activeCharacterId(), stale->box_id);
 
   // A real distinct character then decodes on another box. Because the
   // active box is an unpromoted placeholder, the registry adopts the newly
   // decoded character as active (else SessionAdapter streams an empty box).
   Box* real = reg.observe(kClientIp, cport(1001), kSrvPort, 2);
   reg.promoteByName(real, QStringLiteral("Beta"));
-  QCOMPARE(reg.activeBoxId(), real->box_id);
+  QCOMPARE(reg.activeCharacterId(), real->box_id);
 }
 
 void BoxRegistryTest::setActiveBoxEmitsChange()
@@ -175,21 +175,21 @@ void BoxRegistryTest::setActiveBoxEmitsChange()
   Box* spyOld = nullptr;
   Box* spyNew = nullptr;
   int  changes = 0;
-  QObject::connect(&reg, &BoxRegistry::activeBoxChanged,
+  QObject::connect(&reg, &BoxRegistry::activeCharacterChanged,
                    [&](Box* o, Box* n) { spyOld = o; spyNew = n; ++changes; });
 
-  QVERIFY(reg.setActiveBoxId(b->box_id));
-  QCOMPARE(reg.activeBoxId(), b->box_id);
+  QVERIFY(reg.setActiveCharacterId(b->box_id));
+  QCOMPARE(reg.activeCharacterId(), b->box_id);
   QCOMPARE(changes, 1);
   QCOMPARE(spyOld, a);
   QCOMPARE(spyNew, b);
 
   // Re-selecting the same box is a no-op (returns true, no new signal).
-  QVERIFY(reg.setActiveBoxId(b->box_id));
+  QVERIFY(reg.setActiveCharacterId(b->box_id));
   QCOMPARE(changes, 1);
 
   // Unknown id fails.
-  QVERIFY(!reg.setActiveBoxId(QStringLiteral("b-nope")));
+  QVERIFY(!reg.setActiveCharacterId(QStringLiteral("b-nope")));
 }
 
 void BoxRegistryTest::lookupBoundZoneMatches()
@@ -352,7 +352,7 @@ void BoxRegistryTest::evictStaleProtectsPrimaryActiveFresh()
   Box* prim = addSession(reg, 1000, QStringLiteral("Primary"), 1000);
   Box* act  = addSession(reg, 2000, QStringLiteral("Active"), 2000);
   Box* fresh= addSession(reg, 3000, QStringLiteral("Fresh"), 3000);
-  QVERIFY(reg.setActiveBoxId(act->box_id));
+  QVERIFY(reg.setActiveCharacterId(act->box_id));
 
   const qint64 now = 1'000'000, ttl = 10'000;
   prim->last_seen_ms  = 1000;          // primary stale...

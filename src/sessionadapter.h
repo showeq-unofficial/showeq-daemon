@@ -238,10 +238,10 @@ private:
     // box and muted for everyone else).
     // Deterministic character-follow (character-registry Increment 3): re-resolve
     // the pinned character's CURRENT session on any BoxRegistry change and rebind
-    // if it moved. Replaces reliance on the narrow activeBoxChanged roll, which
+    // if it moved. Replaces reliance on the narrow activeCharacterChanged roll, which
     // fires only at promotion time under one condition and was leaving the web on
     // the old zone after a zone-in (EQL opens a fresh world socket = a new box per
-    // zone). Wired to BOTH activeBoxChanged and changed() in the ctor.
+    // zone). Wired to BOTH activeCharacterChanged and changed() in the ctor.
     void followActiveCharacter();
     void sendMapPackages();
     void emitEnvelope(seq::v1::Envelope&& env);

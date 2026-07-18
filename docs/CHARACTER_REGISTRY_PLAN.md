@@ -64,6 +64,46 @@ OP_EnterWorld/OP_PlayerProfile) — only the *durable-entity choice* inverts.
    simplified lifecycle legitimately shifts (esp. the multibox live goldens,
    currently golden-uncovered).
 
+## MODEL-B PIVOT (2026-07-18, supersedes the model-A endgame in steps 4-5)
+
+Decision (user): the refactor keeps a per-box ManagerSet + a web REBIND on every
+zone-in (model A, shipped Inc 3). The `--single-session` experiment showed the
+better model: the active character's decode context PERSISTS across its zones and
+the web never rebinds (model B). Pivot the endgame to model B.
+
+**Target — one persistent ManagerSet PER CHARACTER** (not one global set; that
+would merge Live multibox's distinct characters). The web binds to a character's
+set ONCE and never rebinds on that character's zone-ins.
+
+**The crux — the name binds late.** A new zone box starts decoding its zone
+BEFORE it promotes (name at OP_EnterWorld/profile). So the mechanism is
+*attach-on-promote*:
+- Box created (anonymous) → decodes into a temp ManagerSet (as today).
+- Box promotes → resolve its Character:
+  - NEW character → the temp set BECOMES the character's persistent set.
+  - EXISTING character (a re-zone) → **ATTACH**: repoint the box's stream
+    handlers to the character's EXISTING persistent set, refresh it (the
+    `enterWorld` clear + re-adopt = the Q2 handoff), and discard the temp set.
+    The web stays bound to the same set → no rebind.
+
+**Retire, once model B lands:** `followActiveCharacter`'s rebind (the set now
+persists — no rebind needed), the per-zone new-set churn (where the golden-balloon
++ rare eviction crash lived), and `--single-session` (now the default).
+
+**Increments:**
+- **B1 (truebox win, low-risk):** route non-primary boxes into the ACTIVE
+  character's persistent set by default (evolve the `--single-session` path);
+  keep model A (per-box) as an explicit multibox opt-out. Delivers EQL seamless
+  zoning, reuses working code. (For truebox = one character, "active character's
+  set" is always the right set, so no attach-on-promote needed yet.)
+- **B2 (multibox-correct):** attach-on-promote — a box that promotes to an
+  EXISTING character repoints its streams onto that character's set. Retire the
+  follow rebind + the per-box set build; delete `--single-session`. Regenerate
+  the (currently uncovered) multibox live goldens.
+
+Steps 4 (evictStale simplify) + 5 (delete merged_into) still apply as cleanup and
+fold in after B1/B2 (evict is needed in both models).
+
 ## Verification gates per sub-step
 - `ctest -R "boxregistry|namepromoter"` → 19/19.
 - `SEQ_CHECK_TARGET=eql check.sh` → green (chat golden is large but stable;

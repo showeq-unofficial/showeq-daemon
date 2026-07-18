@@ -83,6 +83,11 @@ bool DaemonApp::start()
     } else {
         qInfo("--no-listen: WebSocket server disabled");
     }
+    if (m_cfg.multibox)
+        qInfo("--multibox: per-box ManagerSet + active-box rebind (Live multibox)");
+    else
+        qInfo("box model: one persistent decode context per character "
+              "(truebox default; --multibox for Live same-host multibox)");
 
     // DataLocationMgr resolves file paths against the per-target writable root
     // SEQ_DATA_NAMESPACE (user) and PKGDATADIR (install prefix). The namespace
@@ -527,7 +532,7 @@ bool DaemonApp::start()
         // runs before any per-client SessionAdapter::followActiveCharacter (those
         // attach when a ws client connects, strictly later), so sendSnapshot
         // reads fresh geometry.
-        connect(&m_packet->boxRegistry(), &BoxRegistry::activeBoxChanged,
+        connect(&m_packet->boxRegistry(), &BoxRegistry::activeCharacterChanged,
                 this, [this](Box* old, Box* target) {
             // Only a genuine switch needs this. The first box becoming active
             // (old == nullptr, e.g. adopt-first-character) loads its map via
@@ -740,10 +745,35 @@ void DaemonApp::onBoxCreated(Box* box)
         // wired to the active ManagerSet in start(). Just record the
         // mapping so SessionAdapter can resolve it.
         m_boxManagers.insert(box, m_activeManagers);
+    } else if (!m_cfg.multibox) {
+        // Model B DEFAULT (truebox / single character): every zone opens a fresh
+        // world socket → a new Box, but feed them ALL into the ONE persistent
+        // m_activeManagers instead of building a per-box set. Because every Box
+        // resolves to the same ManagerSet, the active-box roll's
+        // SessionAdapter::followActiveCharacter no-ops ("already on this
+        // session") — the web client never rebinds, so a zoned-in map never
+        // blanks until refresh. Clear the persistent state for the new zone but
+        // keep the Player identity; the self-id re-adopts from the new zone's own
+        // OP_ZoneEntry (EqlDispatch::consumeSelfSpawn). Return early: the primary
+        // box already wired the shared promote/map hooks below onto this same
+        // ManagerSet, so per-box duplicates would only re-fire them.
+        m_boxManagers.insert(box, m_activeManagers);
+        wireBoxPipeline(box->world_c2s, box->world_s2c,
+                        box->zone_c2s, box->zone_s2c, m_activeManagers,
+                        /*wireGlobalSinks=*/false);
+        if (m_activeManagers.spawnShell)
+            m_activeManagers.spawnShell->clear();
+        if (m_activeManagers.player)
+            m_activeManagers.player->setID(0);
+        if (m_cfg.dumpAllSessions && m_cfg.onlySession.isEmpty())
+            relayReconTaps(box);
+        return;
     } else {
-        // Every non-primary box decodes continuously into its OWN ManagerSet
-        // (no mute gate), wired onto its own streams — so switching the
-        // active box is a rebind, not a clear+resnapshot.
+        // Model A (--multibox): every non-primary box decodes continuously into
+        // its OWN ManagerSet (no mute gate), wired onto its own streams — so
+        // switching the active box is a rebind, not a clear+resnapshot. Needed
+        // for Live same-host multibox, where distinct characters must not share
+        // a set (the default model B collapses them into one).
         const ManagerSet ms = buildManagerSet();
         m_boxManagers.insert(box, ms);
         // Reparent the set's managers under one per-box root so eviction
@@ -846,7 +876,7 @@ void DaemonApp::onBoxCreated(Box* box)
         if (ZoneMgr* zm = m_boxManagers[box].zoneMgr) {
             auto reloadIfActive = [this, box](const QString& zone) {
                 BoxRegistry& reg = m_packet->boxRegistry();
-                if (reg.currentBoxFor(reg.activeBoxId()) == box)
+                if (reg.currentBoxFor(reg.activeCharacterId()) == box)
                     loadZoneMap(zone);
             };
             connect(zm, qOverload<const QString&>(&ZoneMgr::zoneChanged), this,
@@ -925,7 +955,7 @@ const ManagerSet* DaemonApp::managersForBox(const QString& boxId) const
     BoxRegistry& reg = m_packet->boxRegistry();
     // Resolve to the character's CURRENT (latest) decode box, so switching
     // to a character shows the zone it's in now, not a stale earlier one.
-    const QString id = boxId.isEmpty() ? reg.activeBoxId() : boxId;
+    const QString id = boxId.isEmpty() ? reg.activeCharacterId() : boxId;
     const Box* b = id.isEmpty() ? reg.primary() : reg.currentBoxFor(id);
     if (!b) return nullptr;
     const auto it = m_boxManagers.find(b);

@@ -206,6 +206,12 @@ int main(int argc, char** argv)
         "(default 600). Each zone change spawns a fresh per-character "
         "Box; the sweep retires the superseded/logged-off ones. 0 "
         "disables eviction.", "seconds");
+    QCommandLineOption multiboxOpt(QStringList{"multibox"},
+        "Live same-host multibox: build a per-box ManagerSet and rebind the web on "
+        "the active-box switch. The DEFAULT is the single-character / truebox model "
+        "— one persistent decode context per character, refreshed on zone-in, with "
+        "no rebind (removes the per-zone follow/rebind race that leaves a zoned-in "
+        "map blank until refresh).");
 
     parser.addOption(deviceOpt);
     parser.addOption(ipOpt);
@@ -227,6 +233,7 @@ int main(int argc, char** argv)
     parser.addOption(onlySessionOpt);
     parser.addOption(waitForClientOpt);
     parser.addOption(boxIdleTtlOpt);
+    parser.addOption(multiboxOpt);
     parser.process(app);
 
     DaemonApp::Config cfg;
@@ -260,6 +267,7 @@ int main(int argc, char** argv)
     cfg.dumpAllSessions = parser.isSet(dumpAllSessionsOpt);
     cfg.onlySession   = parser.value(onlySessionOpt);
     cfg.waitForClient = parser.isSet(waitForClientOpt);
+    cfg.multibox      = parser.isSet(multiboxOpt);
     if (parser.isSet(boxIdleTtlOpt)) {
         bool ok = false;
         const qint64 secs = parser.value(boxIdleTtlOpt).toLongLong(&ok);

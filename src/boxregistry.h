@@ -183,7 +183,7 @@ public:
     // Promote a box to a character name (hashed box_id + display_name) and,
     // if another box already holds that character (a zone-change
     // re-handshake), merge this box into it. Idempotent. Returns the parent
-    // if merged, else nullptr. Emits activeBoxChanged when the merge rolls
+    // if merged, else nullptr. Emits activeCharacterChanged when the merge rolls
     // the active character's CURRENT decode box to this newest one. The
     // caller must pass the authoritative name (charProfileStruct.name) — NOT
     // Player::name(), which returns the "You" default until the per-Player
@@ -223,22 +223,24 @@ public:
 
     QString dumpString() const;
 
-    // Active box drives which decode pipeline the SessionAdapter
-    // streams to its client. v1 (Stage 4 of docs/MULTIBOX_PLAN.md):
-    // cosmetic only — Stage 3 wires this to actual per-box state-
-    // manager decode. The first non-merged Box becomes active on
-    // creation; setActiveBoxId() emits changed().
-    const QString& activeBoxId() const { return m_activeBoxId; }
-    bool setActiveBoxId(const QString& box_id);
+    // The active CHARACTER — which identity the SessionAdapter streams to its
+    // client. The id is the character's stable hashed id once promoted (a
+    // placeholder box id before then); it does NOT change as that character
+    // re-handshakes across zones (only its live session does), so a zone-in is
+    // NOT an active-character change. The first box becomes active on creation;
+    // setActiveCharacterId() (the picker path) emits changed(). (Inc 4 step 3:
+    // renamed from activeBoxId — the value was always the character's id.)
+    const QString& activeCharacterId() const { return m_activeCharacterId; }
+    bool setActiveCharacterId(const QString& id);
 
     // Called by NamePromoter after it has overwritten box->box_id
-    // with the SHA-256 name hash. We replace m_activeBoxId if it was
+    // with the SHA-256 name hash. We replace m_activeCharacterId if it was
     // tracking the now-stale placeholder id, then emit changed().
     void onPromoted(Box* box, const QString& old_box_id);
 
     // Called by NamePromoter post-merge so subscribers (SessionAdapter)
     // can re-emit BoxListUpdated. Also fired by observe() on every new
-    // Box and by setActiveBoxId().
+    // Box and by setActiveCharacterId().
     void notifyChanged();
 
     // Reclaim boxes whose EQ session has gone idle (no packet seen for
@@ -277,15 +279,18 @@ signals:
     // boxCreated construction path. The Box* is still valid for the
     // duration of the slot; do not retain it past the call.
     void boxAboutToBeRemoved(Box* box);
-    // Fires when the active box pointer changes.
-    void activeBoxChanged(Box* oldBox, Box* newBox);
+    // Fires when the ACTIVE CHARACTER changes (a different identity becomes
+    // active — picker switch, or adopt-first-character), NOT when the active
+    // character re-handshakes into a new zone (its id is stable; the follow
+    // catches those via changed()). Args are the old/new active sessions.
+    void activeCharacterChanged(Box* oldSession, Box* newSession);
 
 private:
     // unique_ptr → stable Box* across vector growth. We hand pointers
     // out to lookup callers AND to per-box stream connect()s.
     std::vector<std::unique_ptr<Box>> m_boxes;
     BoxCreatedHook m_hook;
-    QString m_activeBoxId;
+    QString m_activeCharacterId;
 
     // Inc 4 (character-registry) step 1: authoritative Character store, keyed by
     // the character's anchor id. Maintained in promoteByName (upsert) + evictStale

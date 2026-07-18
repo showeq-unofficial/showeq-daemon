@@ -89,8 +89,8 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
         // any registry change (promotion / merge / eviction). currentSessionFor
         // re-resolves the pinned character's current session, so a zone-in that
         // spins up a fresh box is followed deterministically instead of being
-        // left to the narrow activeBoxChanged trigger.
-        connect(m_boxes, &BoxRegistry::activeBoxChanged,
+        // left to the narrow activeCharacterChanged trigger.
+        connect(m_boxes, &BoxRegistry::activeCharacterChanged,
                 this, [this](Box*, Box*) { followActiveCharacter(); });
         connect(m_boxes, &BoxRegistry::changed,
                 this, &SessionAdapter::followActiveCharacter);
@@ -321,20 +321,20 @@ void SessionAdapter::handleClientBinary(const QByteArray& bytes)
         if (!m_boxes) return;
         const QString id =
             QString::fromStdString(env.set_active_box().box_id());
-        const bool alreadyActive = (m_boxes->activeBoxId() == id);
-        // Re-pin to the picked character BEFORE the switch: setActiveBoxId emits
-        // activeBoxChanged/changed() SYNCHRONOUSLY, which fires followActiveCharacter
+        const bool alreadyActive = (m_boxes->activeCharacterId() == id);
+        // Re-pin to the picked character BEFORE the switch: setActiveCharacterId emits
+        // activeCharacterChanged/changed() SYNCHRONOUSLY, which fires followActiveCharacter
         // — it must already see the new pin so it resolves to the picked character,
         // not the previously-pinned one. Empty display_name (an unpromoted pick)
         // clears the pin → follow falls back to the active box.
         if (Box* tb = m_boxes->findById(id))
             m_pinnedCharacter = tb->display_name;
-        if (!m_boxes->setActiveBoxId(id)) {
+        if (!m_boxes->setActiveCharacterId(id)) {
             qInfo("set_active_box: unknown box_id %s",
                   qUtf8Printable(id));
             return;
         }
-        // setActiveBoxId emits changed() on success → sendBoxList() fires.
+        // setActiveCharacterId emits changed() on success → sendBoxList() fires.
         // If the box didn't switch (same ID), treat it as a manual refresh:
         // re-send the current snapshot so the client can resync without
         // having to do a box-swap dance.
@@ -553,7 +553,7 @@ void SessionAdapter::startStreaming()
     // haven't started streaming yet.
     if (m_managerProvider && m_boxes) {
         const ManagerSet* ns =
-            m_managerProvider->managersForBox(m_boxes->activeBoxId());
+            m_managerProvider->managersForBox(m_boxes->activeCharacterId());
         if (ns && ns->spawnShell && ns->spawnShell != m_spawnShell) {
             m_spawnShell   = ns->spawnShell;
             m_zoneMgr      = ns->zoneMgr;
@@ -1270,7 +1270,7 @@ void SessionAdapter::followActiveCharacter()
         ? nullptr
         : m_boxes->currentSessionFor(m_pinnedCharacter);
     if (!target)
-        target = m_boxes->currentBoxFor(m_boxes->activeBoxId());
+        target = m_boxes->currentBoxFor(m_boxes->activeCharacterId());
     if (!target) return;
 
     // Latch the pin from the resolved session's name the moment it's known, so
@@ -1348,7 +1348,7 @@ void SessionAdapter::sendBoxList()
             }
         }
     }
-    upd->set_active_box_id(m_boxes->activeBoxId().toStdString());
+    upd->set_active_box_id(m_boxes->activeCharacterId().toStdString());
     sendOrBuffer(std::move(env));
 }
 
