@@ -525,9 +525,9 @@ bool DaemonApp::start()
         // the PREVIOUS box's geometry — the re-snapshot would re-ship the old
         // map. Reload MapData for the new box's current zone here, resolving
         // the same managers SessionAdapter will. Connected at startup, this
-        // runs before any per-client SessionAdapter::followActiveCharacter (those
-        // attach when a ws client connects, strictly later), so sendSnapshot
-        // reads fresh geometry.
+        // runs before any per-client SessionAdapter Subscribe (those attach
+        // when a ws client connects, strictly later), so sendSnapshot reads
+        // fresh geometry.
         connect(&m_packet->boxRegistry(), &BoxRegistry::activeCharacterChanged,
                 this, [this](Box* old, Box* target) {
             // Only a genuine switch needs this. The first box becoming active
@@ -743,13 +743,12 @@ void DaemonApp::onBoxCreated(Box* box)
         m_boxManagers.insert(box, m_activeManagers);
     } else {
         // The ONLY non-primary path (B2: model-A per-box sets removed). Truebox /
-        // single character: every zone opens a fresh
-        // world socket → a new Box, but feed them ALL into the ONE persistent
-        // m_activeManagers instead of building a per-box set. Because every Box
-        // resolves to the same ManagerSet, the active-box roll's
-        // SessionAdapter::followActiveCharacter no-ops ("already on this
-        // session") — the web client never rebinds, so a zoned-in map never
-        // blanks until refresh. Clear the persistent state for the new zone but
+        // single character: every zone opens a fresh world socket → a new Box,
+        // but feed them ALL into the ONE persistent m_activeManagers instead of
+        // building a per-box set. Because every Box resolves to the same
+        // ManagerSet, a zone-in needs no manager re-bind at all — the web client
+        // stays wired to the shared managers, so a zoned-in map never blanks
+        // until refresh. Clear the persistent state for the new zone but
         // keep the Player identity; the self-id re-adopts from the new zone's own
         // OP_ZoneEntry (EqlDispatch::consumeSelfSpawn). Return early: the primary
         // box already wired the shared promote/map hooks below onto this same

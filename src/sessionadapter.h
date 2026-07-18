@@ -108,10 +108,10 @@ public:
     // unit tests / smoke-test modes (handlers then no-op gracefully).
     void setMapPackageHost(IMapPackageHost* host) { m_mapPackageHost = host; }
 
-    // Resolver for the active box's per-box ManagerSet. Set by WsServer
-    // on connect (and by DaemonApp for the golden adapter). Used by
-    // followActiveCharacter() to rebind to the newly-active box's managers.
-    // Null in unit tests / smoke modes — switching then no-ops.
+    // Resolver for the active character's ManagerSet. Set by WsServer on
+    // connect (and by DaemonApp for the golden adapter). Read once at Subscribe
+    // to re-point to the active character's managers if it was promoted between
+    // construction and Subscribe. Null in unit tests / smoke modes — no-ops.
     void setManagerProvider(ManagerSetProvider* p) { m_managerProvider = p; }
 
     // Deliver a daemon-broadcast Envelope to this client (emit if live-
@@ -208,16 +208,14 @@ private slots:
 
 private:
     void startStreaming();
-    // Connect / disconnect this adapter's slots to the eight per-box
-    // managers it currently points at (m_spawnShell, m_zoneMgr, m_player,
-    // m_messageShell, m_groupMgr, m_spellShell, m_combatRouter,
-    // m_spawnMonitor). startStreaming() calls connectPerBox() once;
-    // followActiveCharacter() disconnect→repoint→reconnect for a live,
-    // non-destructive box switch. The daemon-global managers (ItemCache,
-    // CategoryMgr, FilterMgr, PrefsBroker, DateTimeMgr, ZoneServerMgr) are
-    // wired directly in startStreaming() and never rebind.
+    // Connect this adapter's slots to the eight managers it points at
+    // (m_spawnShell, m_zoneMgr, m_player, m_messageShell, m_groupMgr,
+    // m_spellShell, m_combatRouter, m_spawnMonitor). startStreaming() calls
+    // connectPerBox() once. The daemon-global managers (ItemCache, CategoryMgr,
+    // FilterMgr, PrefsBroker, DateTimeMgr, ZoneServerMgr) are wired directly in
+    // startStreaming() and never rebind. Truebox model: the managers are the
+    // one persistent per-character ManagerSet, so there is no live re-bind.
     void connectPerBox();
-    void disconnectPerBox();
     void sendSnapshot();
     void sendPlayerStats();
     void sendGroupUpdate();
@@ -236,13 +234,6 @@ private:
     // populates as its traffic flows in (which started moments before
     // the switch, since per-box streams stay unmuted for the active
     // box and muted for everyone else).
-    // Deterministic character-follow (character-registry Increment 3): re-resolve
-    // the pinned character's CURRENT session on any BoxRegistry change and rebind
-    // if it moved. Replaces reliance on the narrow activeCharacterChanged roll, which
-    // fires only at promotion time under one condition and was leaving the web on
-    // the old zone after a zone-in (EQL opens a fresh world socket = a new box per
-    // zone). Wired to BOTH activeCharacterChanged and changed() in the ctor.
-    void followActiveCharacter();
     void sendMapPackages();
     void emitEnvelope(seq::v1::Envelope&& env);
     void sendOrBuffer(seq::v1::Envelope&& env);
@@ -264,12 +255,6 @@ private:
     DateTimeMgr*                 m_dateTimeMgr  = nullptr;
     ZoneServerMgr*               m_zoneServerMgr = nullptr;
     BoxRegistry*                 m_boxes         = nullptr;
-    // The character this session is pinned to, by NAME (character-registry
-    // Increment 3). Latched from the bound session's display_name; followed via
-    // BoxRegistry::currentSessionFor so the view tracks the one character across
-    // its zone sessions regardless of which world socket last zoned. Empty until
-    // the name resolves — falls back to the active box until then.
-    QString                      m_pinnedCharacter;
     IMapPackageHost*             m_mapPackageHost = nullptr;
     ManagerSetProvider*          m_managerProvider = nullptr;
 
