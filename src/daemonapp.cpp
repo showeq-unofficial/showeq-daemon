@@ -83,11 +83,7 @@ bool DaemonApp::start()
     } else {
         qInfo("--no-listen: WebSocket server disabled");
     }
-    if (m_cfg.multibox)
-        qInfo("--multibox: per-box ManagerSet + active-box rebind (Live multibox)");
-    else
-        qInfo("box model: one persistent decode context per character "
-              "(truebox default; --multibox for Live same-host multibox)");
+    qInfo("box model: one persistent decode context per character (truebox)");
 
     // DataLocationMgr resolves file paths against the per-target writable root
     // SEQ_DATA_NAMESPACE (user) and PKGDATADIR (install prefix). The namespace
@@ -745,8 +741,9 @@ void DaemonApp::onBoxCreated(Box* box)
         // wired to the active ManagerSet in start(). Just record the
         // mapping so SessionAdapter can resolve it.
         m_boxManagers.insert(box, m_activeManagers);
-    } else if (!m_cfg.multibox) {
-        // Model B DEFAULT (truebox / single character): every zone opens a fresh
+    } else {
+        // The ONLY non-primary path (B2: model-A per-box sets removed). Truebox /
+        // single character: every zone opens a fresh
         // world socket → a new Box, but feed them ALL into the ONE persistent
         // m_activeManagers instead of building a per-box set. Because every Box
         // resolves to the same ManagerSet, the active-box roll's
@@ -768,42 +765,6 @@ void DaemonApp::onBoxCreated(Box* box)
         if (m_cfg.dumpAllSessions && m_cfg.onlySession.isEmpty())
             relayReconTaps(box);
         return;
-    } else {
-        // Model A (--multibox): every non-primary box decodes continuously into
-        // its OWN ManagerSet (no mute gate), wired onto its own streams — so
-        // switching the active box is a rebind, not a clear+resnapshot. Needed
-        // for Live same-host multibox, where distinct characters must not share
-        // a set (the default model B collapses them into one).
-        const ManagerSet ms = buildManagerSet();
-        m_boxManagers.insert(box, ms);
-        // Reparent the set's managers under one per-box root so eviction
-        // (BoxRegistry::evictStale → onBoxAboutToBeRemoved) reclaims them
-        // with a single deleteLater. buildManagerSet() parents them to
-        // `this`; SpawnShell takes no parent, so adopt it here too.
-        auto* root = new QObject(this);
-        m_boxManagerRoots.insert(box, root);
-        for (QObject* m : {static_cast<QObject*>(ms.zoneMgr),
-                           static_cast<QObject*>(ms.player),
-                           static_cast<QObject*>(ms.spawnShell),
-                           static_cast<QObject*>(ms.spellShell),
-                           static_cast<QObject*>(ms.groupMgr),
-                           static_cast<QObject*>(ms.messageShell),
-                           static_cast<QObject*>(ms.combatRouter),
-                           static_cast<QObject*>(ms.spawnMonitor)}) {
-            if (m) m->setParent(root);
-        }
-        wireBoxPipeline(box->world_c2s, box->world_s2c,
-                        box->zone_c2s, box->zone_s2c, ms,
-                        /*wireGlobalSinks=*/false);
-
-        // Recon (--dump-all-sessions): relay this box's decoded packets onto
-        // the global recon signals so --dump-payload / --opcode-stats /
-        // --list-events observe EVERY session, not just the primary box (the
-        // documented primary-box limitation that hides later-zone opcodes).
-        // Recon-only; the manager pipeline is wired separately above.
-        // Suppressed under --only-session, which relays exactly one box below.
-        if (m_cfg.dumpAllSessions && m_cfg.onlySession.isEmpty())
-            relayReconTaps(box);
     }
 
     // --only-session, index selector: relay the Nth session in discovery

@@ -151,15 +151,10 @@ public:
         // it; 0 disables eviction entirely. Not applied to --replay runs
         // (their wall-clock last_seen stays fresh over a short playback).
         qint64       boxIdleTtlMs = 10 * 60 * 1000;
-        // Box->ManagerSet model. DEFAULT (model B, truebox / single character):
-        // every zone's Box wires into the ONE persistent m_activeManagers
-        // (refreshed at enterWorld), so the active character's decode context
-        // persists across its zones and the web never follows/rebinds. --multibox
-        // (model A) opts into a per-box ManagerSet + active-box rebind, for Live
-        // same-host multibox where distinct characters must NOT share a set.
-        // See onBoxCreated(). (Character-refactor B1: was --single-session,
-        // inverted to make the truebox model the default.)
-        bool         multibox = false;
+        // B2: the box->ManagerSet model is now SINGLE (model B / truebox): every
+        // non-primary Box wires into the ONE persistent m_activeManagers, refreshed
+        // at enterWorld (see onBoxCreated). The per-box-set + active-box-rebind path
+        // (model A / Live same-host multibox) and its --multibox flag are removed.
         QHostAddress listenHost;
         quint16      listenPort = 9090;
     };
