@@ -648,6 +648,7 @@ void SessionAdapter::sendSnapshot()
     if (m_zoneMgr) {
         snap->set_zone_short(m_zoneMgr->shortZoneName().toStdString());
         snap->set_zone_long(m_zoneMgr->longZoneName().toStdString());
+        m_lastSnapshotZone = m_zoneMgr->shortZoneName();
     }
     if (m_player) {
         snap->set_player_id(m_player->getPlayerID());
@@ -928,6 +929,17 @@ void SessionAdapter::onZoneBegin(const QString& shortName)
 void SessionAdapter::onZoneChanged(const QString& shortName)
 {
     onZoneBegin(shortName);
+    // A zone-in Snapshot may already have gone out (from onPlayerIdChanged, on
+    // self-id adoption) carrying the NEW player_id but the OLD zone name — the
+    // new name only resolves here (OP_NewZone). Re-send now that the zone is
+    // known so the client's zone_short matches and its zoneChanged handling
+    // doesn't discard the just-established spawns (incl. the player's own).
+    // Deduped on m_lastSnapshotZone so the eql double-signal (zoneChanged +
+    // zoneResolved) and same-zone map-package re-emits don't double-send.
+    if (m_subscribed && m_zoneMgr &&
+        m_zoneMgr->shortZoneName() != m_lastSnapshotZone) {
+        sendSnapshot();
+    }
 }
 
 void SessionAdapter::onPlayerStatsChanged()

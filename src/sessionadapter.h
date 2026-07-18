@@ -259,6 +259,11 @@ private:
     ManagerSetProvider*          m_managerProvider = nullptr;
 
     QString                      m_sessionId;
+    // Short name of the zone the last Snapshot carried. onZoneChanged re-sends a
+    // Snapshot once the new zone resolves (a zone-in Snapshot fires early, on
+    // self-id adoption, with the OLD zone name); this dedupes that so the eql
+    // double-signal + same-zone map-package re-emits don't double-send.
+    QString                      m_lastSnapshotZone;
     bool                         m_subscribed = false;
     bool                         m_liveTailing = false;
     bool                         m_deterministic = false;
