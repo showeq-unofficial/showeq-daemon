@@ -112,7 +112,6 @@ void BoxRegistryTest::promoteByNameStampsHashId()
   QCOMPARE(b->display_name, QStringLiteral("Alpha"));
   QVERIFY(b->box_id.startsWith(QStringLiteral("b-")));  // stable name hash
   QVERIFY(b->box_id != placeholder);
-  QVERIFY(!b->is_merged());
   QCOMPARE(reg.distinctCount(), size_t(1));
   // findById tracks the new id; the old placeholder is gone.
   QCOMPARE(reg.findById(b->box_id), b);
@@ -128,9 +127,9 @@ void BoxRegistryTest::promoteByNameMergesRelog()
 
   // Same character re-handshakes on a new world socket (zone change).
   Box* parent = reg.promoteByName(second, QStringLiteral("Alpha"));
-  QCOMPARE(parent, first);                        // merged into the first box
-  QVERIFY(second->is_merged());
-  QCOMPARE(second->merged_into, first->box_id);
+  QCOMPARE(parent, first);                        // re-handshake of the first
+  // A character's sessions share box_id (the name hash) — that IS the grouping.
+  QCOMPARE(second->box_id, first->box_id);
   QCOMPARE(reg.distinctCount(), size_t(1));       // one character, two boxes
   QCOMPARE(reg.size(), size_t(2));
 }
@@ -212,7 +211,7 @@ void BoxRegistryTest::lookupBoundZoneFindsMergedLiveBox()
   // burst and ongoing position updates that follow the profile. (Symptom on
   // the primary box: name+zone decode once, then no spawns / frozen position,
   // never recovers; the freed session got grabbed by another same-host box.)
-  // merged_into is identity-only; routing keys on the physical 5-tuple.
+  // Identity grouping is by shared box_id; routing keys on the physical 5-tuple.
   BoxRegistry reg;
   Box* first = reg.observe(kClientIp, cport(1000), kSrvPort, 1);
   first->first_seen_ms = 1;
@@ -225,9 +224,9 @@ void BoxRegistryTest::lookupBoundZoneFindsMergedLiveBox()
   zoned->zone_server_port_bound = cport(7000);
   QCOMPARE(reg.lookupBoundZone(kClientIp, cport(5555), cport(7000)), zoned);
 
-  // OP_PlayerProfile -> promote merges the new box into Alpha's parent.
+  // OP_PlayerProfile -> promote folds the new box into Alpha (shared box_id).
   reg.promoteByName(zoned, QStringLiteral("Alpha"));
-  QVERIFY(zoned->is_merged());
+  QCOMPARE(zoned->box_id, first->box_id);              // same character
   QCOMPARE(reg.currentBoxFor(first->box_id), zoned);   // it IS the live box
 
   // The merged-but-live box must STILL route by its zone 5-tuple.
@@ -292,31 +291,34 @@ void BoxRegistryTest::evictStaleReapsSupersededAlias()
 
   // A second character with three world sessions: parent (zone 1), an old
   // superseded alias (zone 2), and the live box (zone 3).
-  Box* p   = addSession(reg, 2000, QStringLiteral("Foo"), 2000);  // parent
+  Box* p   = addSession(reg, 2000, QStringLiteral("Foo"), 2000);  // first zone
   Box* old = addSession(reg, 3000, QStringLiteral("Foo"), 3000);  // superseded
   Box* cur = addSession(reg, 4000, QStringLiteral("Foo"), 4000);  // live
-  QVERIFY(old->is_merged());
-  QVERIFY(cur->is_merged());
+  QCOMPARE(old->box_id, p->box_id);                // Foo's sessions share the id
+  QCOMPARE(cur->box_id, p->box_id);
   QCOMPARE(reg.currentBoxFor(p->box_id), cur);
   QCOMPARE(reg.size(), size_t(4));
+  const QString fooId = p->box_id;                 // capture before p is freed
 
-  // Live box still talking; parent + old alias went silent at zone-out.
+  // Live box still talking; the two older zone sessions went silent at zone-out.
   const qint64 now = 1'000'000, ttl = 10'000;
   prim->last_seen_ms = now;            // active char fresh
   cur->last_seen_ms  = now;            // live box fresh
-  p->last_seen_ms    = 2000;           // stale, but the identity anchor
-  old->last_seen_ms  = 3000;           // stale + superseded -> reap
+  p->last_seen_ms    = 2000;           // stale old-zone session -> reap
+  old->last_seen_ms  = 3000;           // stale old-zone session -> reap
 
   const int n = reg.evictStale(now, ttl);
 
-  // Only the superseded alias is reclaimed; the parent (identity) and live
-  // box survive, so the character is intact and still resolves.
-  QCOMPARE(n, 1);
-  QCOMPARE(spy.count(), 1);
-  QCOMPARE(qvariant_cast<Box*>(spy.at(0).at(0)), old);
-  QCOMPARE(reg.size(), size_t(3));
+  // Both silent old-zone sessions are reclaimed; only the live box survives.
+  // Identity lives in the Character store (keyed by the shared id), so the
+  // character still resolves to its live session with no orphaned anchor box.
+  QCOMPARE(n, 2);
+  QCOMPARE(spy.count(), 2);
+  QCOMPARE(qvariant_cast<Box*>(spy.at(0).at(0)), p);    // pointer-value compare
+  QCOMPARE(qvariant_cast<Box*>(spy.at(1).at(0)), old);  // (no deref of freed Box)
+  QCOMPARE(reg.size(), size_t(2));                 // Primary + Foo's live box
   QCOMPARE(reg.distinctCount(), size_t(2));        // Primary + Foo
-  QCOMPARE(reg.currentBoxFor(p->box_id), cur);     // no orphan, live intact
+  QCOMPARE(reg.currentBoxFor(fooId), cur);         // no orphan, live intact
 }
 
 void BoxRegistryTest::evictStaleReapsLoggedOffGroup()

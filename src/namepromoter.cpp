@@ -63,19 +63,11 @@ void NamePromoter::onDecodedPacket(const uint8_t* data, size_t len,
     m_box->box_id =
         QStringLiteral("b-") + QString::fromLatin1(digest.left(8).toHex());
 
-    // Re-handshake detection: a single client opens a fresh world
-    // socket per zone change, producing N boxes for the same
-    // character. Mark this Box as merged into the earlier one so the
-    // registry view shows one entry per character.
-    if (Box* parent = m_registry->lookupByName(name, m_box)) {
-        m_box->merged_into = parent->box_id;
-        seqInfo("NamePromoter: box %s promoted, merged into %s",
-                qUtf8Printable(m_box->box_id),
-                qUtf8Printable(parent->box_id));
-    } else {
-        seqInfo("NamePromoter: box %s promoted from OP_EnterWorld",
-                qUtf8Printable(m_box->box_id));
-    }
-
+    // A single client opens a fresh world socket per zone change, producing N
+    // boxes for the same character; each promotes to the SAME box_id (the name
+    // hash), which is what groups them into one Character. onPromoted upserts
+    // that Character and points its live session at this newest box.
+    seqInfo("NamePromoter: box %s promoted from OP_EnterWorld",
+            qUtf8Printable(m_box->box_id));
     m_registry->onPromoted(m_box, old_box_id);
 }

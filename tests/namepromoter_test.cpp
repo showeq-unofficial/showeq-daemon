@@ -80,7 +80,6 @@ void NamePromoterTest::promotesFromEnterWorld()
 
   QCOMPARE(box->display_name, QStringLiteral("Alpha"));
   QVERIFY(box->box_id.startsWith(QStringLiteral("b-")));
-  QVERIFY(!box->is_merged());
 }
 
 void NamePromoterTest::ignoresWrongOpcodeName()
@@ -143,8 +142,8 @@ void NamePromoterTest::mergesRelogByName()
        enterWorldPayload("Alpha"), DIR_Client);
   QCOMPARE(first->display_name,  QStringLiteral("Alpha"));
   QCOMPARE(second->display_name, QStringLiteral("Alpha"));
-  QVERIFY(second->is_merged());
-  QCOMPARE(second->merged_into, first->box_id);
+  // Same character's sessions share box_id (the name hash) — that IS the group.
+  QCOMPARE(second->box_id, first->box_id);
   QCOMPARE(reg.distinctCount(), size_t(1));
 }
 

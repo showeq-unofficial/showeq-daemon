@@ -12,12 +12,14 @@
 //          remains primary-only (Stage 3+ work).
 //
 // Identity is two-layer:
-//   - wire routing key  (now)             : (client_ip,
+//   - wire routing key  (always)          : (client_ip,
 //                                             client_world_port,
 //                                             server_world_port)
-//   - stable id (post OP_EnterWorld)      : hash of charProfileStruct
-//                                             .name. Set by
-//                                             NamePromoter (Stage 2).
+//   - stable character id (post EnterWorld): hash of charProfileStruct.name,
+//                                             set by NamePromoter. Every zone
+//                                             session of one character shares
+//                                             it; the Character store owns the
+//                                             character->live-session mapping.
 
 #include <netinet/in.h>
 
@@ -30,11 +32,8 @@
 
 class EQPacketStream;
 
-// SCAFFOLD (character refactor — see docs / the BoxRegistry design note §07).
-// The lifecycle a session moves through in the target model. Today this is a
-// non-behavioral annotation stamped alongside the existing tuple+merge logic
-// (routing and decode still key on the wire tuple and merged_into); it makes
-// the state machine concrete so consumers can migrate onto it incrementally.
+// The lifecycle a session moves through. Routing always keys on the wire tuple;
+// this annotates where a session sits in its character's life.
 //   Pending    — observed by tuple, no character yet (the "Unknown" window)
 //   Attached   — the character's live session; decodes the zone
 //   Superseded — a newer session for the same character took over (detaching)
@@ -91,32 +90,23 @@ public:
     QString   box_id;
 
     // Set by NamePromoter from OP_EnterWorld payload @ offset 0
-    // (zero-padded char name, 64-byte slot). Empty until promoted.
+    // (zero-padded char name, 64-byte slot). Empty until promoted. Every
+    // session of one character promotes to the same box_id (the name hash),
+    // which is what groups them — there is no separate "merged" flag.
     QString   display_name;
 
-    // box_id of the first-seen Box that holds this character. Set by
-    // NamePromoter when promotion reveals a duplicate name (e.g. a
-    // single client's zone rehandshakes open new 5-tuples that all
-    // resolve to the same character). Merged boxes are hidden from
-    // dumpString() and counted as aliases of their parent.
-    QString   merged_into;
-
-    bool      is_merged() const { return !merged_into.isEmpty(); }
-
-    // SCAFFOLD (character refactor): where this session sits in the lifecycle
-    // (SessionState above). Set by observe/promoteByName/evictStale; not yet
-    // consulted by routing or decode.
+    // Where this session sits in the lifecycle (SessionState above). Set by
+    // observe / promoteByName / evictStale.
     SessionState state = SessionState::Pending;
 
     // Human-readable summary for --list-boxes output.
     QString   summary() const;
 };
 
-// SCAFFOLD (character refactor): the target-model read shape. A character is a
-// NAME (stable across zones) with exactly one live session — the box currently
-// decoding. Today this is a VIEW computed over the box storage
-// (BoxRegistry::characters); a later increment makes it the authoritative
-// entity and retires merged_into / currentBoxFor.
+// A character is a NAME (stable across zones) with exactly one live session —
+// the box currently decoding. The authoritative store (m_characters) maps a
+// character's id (name hash) to that live session; characters() is the read
+// view the picker consumes.
 struct Character {
     QString name;                 // display_name; empty for a still-anonymous box
     QString id;                   // stable id (the hashed box_id / anchor id)
@@ -152,7 +142,8 @@ public:
     // traffic via the existing global streams in EQPacket.
     Box* primary();
 
-    // O(N) by box_id (skips merged boxes).
+    // O(N) by box_id — returns the character's identity anchor (its
+    // earliest-observed session, since a character's sessions share box_id).
     Box* findById(const QString& box_id);
 
     // O(N) lookup by world 5-tuple. nullptr if not observed.
@@ -190,18 +181,17 @@ public:
     // auto-detect flags settle (long after OP_PlayerProfile's newPlayer).
     Box* promoteByName(Box* box, const QString& name);
 
-    // The CURRENT (latest-seen) box for a character, given any of its
-    // box_ids. A character accumulates one box per zone session
-    // (re-handshakes merge into the first); only the latest decodes the
-    // live zone, so SessionAdapter resolves managers through this.
+    // The CURRENT (latest-seen) box for a character, given its box_id. A
+    // character accumulates one box per zone session (all sharing the box_id);
+    // only the latest decodes the live zone, so DaemonApp resolves managers
+    // through this. Reads the Character store; falls back to findById for an
+    // unpromoted placeholder id.
     Box* currentBoxFor(const QString& box_id);
 
-    // SCAFFOLD (character refactor): the name-keyed read API the picker + the
-    // SessionAdapter will migrate onto. characters() is one entry per distinct
-    // identity — the new-model view of the box list. currentSessionFor resolves
-    // a character's live session by NAME: the "pin to the character, not the
-    // last-zoned session" primitive. Both are computed over the current storage
-    // for now; a later increment makes Character the storage and these O(1).
+    // The name-keyed read API. characters() is one entry per distinct identity
+    // (the picker's view of the box list). currentSessionFor resolves a
+    // character's live session by NAME — the "pin to the character, not the
+    // last-zoned session" primitive. Both resolve through the Character store.
     std::vector<Character> characters();
     Box* currentSessionFor(const QString& name);
 
@@ -211,8 +201,8 @@ public:
     // unique_ptr-of-Box vector; callers use `for (auto& up : ...)`.
     const std::vector<std::unique_ptr<Box>>& boxes() const { return m_boxes; }
 
-    // Count of distinct character identities — Boxes that aren't
-    // merged into another.
+    // Count of distinct character identities — distinct box_ids across all
+    // boxes (a character's sessions share one; anonymous boxes are unique).
     size_t distinctCount() const;
 
     // Iterate boxes (for --list-boxes dump).
@@ -228,8 +218,7 @@ public:
     // placeholder box id before then); it does NOT change as that character
     // re-handshakes across zones (only its live session does), so a zone-in is
     // NOT an active-character change. The first box becomes active on creation;
-    // setActiveCharacterId() (the picker path) emits changed(). (Inc 4 step 3:
-    // renamed from activeBoxId — the value was always the character's id.)
+    // setActiveCharacterId() (the picker path) emits changed().
     const QString& activeCharacterId() const { return m_activeCharacterId; }
     bool setActiveCharacterId(const QString& id);
 
@@ -238,23 +227,22 @@ public:
     // tracking the now-stale placeholder id, then emit changed().
     void onPromoted(Box* box, const QString& old_box_id);
 
-    // Called by NamePromoter post-merge so subscribers (SessionAdapter)
-    // can re-emit BoxListUpdated. Also fired by observe() on every new
-    // Box and by setActiveCharacterId().
+    // Called after a promotion so subscribers (SessionAdapter) can re-emit
+    // BoxListUpdated. Also fired by observe() on every new Box and by
+    // setActiveCharacterId().
     void notifyChanged();
 
-    // Reclaim boxes whose EQ session has gone idle (no packet seen for
-    // ttl_ms). Each zone change opens a fresh world socket, so a long
-    // multibox session accumulates one Box per character per zone; this
-    // reaps the superseded ones. Eviction is group-aware (a character =
-    // a non-merged parent + its merged re-handshake aliases):
-    //   - superseded, stale aliases are reaped individually;
-    //   - a whole character group is reaped once its LIVE decode box
-    //     (currentBoxFor) is itself stale (the character logged off);
-    //   - the primary box, the active character's live box, and every
-    //     still-active character's live box are never reaped — and a
-    //     non-merged parent is only removed when its whole group goes,
-    //     so a surviving alias never orphans its identity anchor.
+    // Reclaim boxes whose EQ session has gone idle (no packet seen for ttl_ms).
+    // Each zone change opens a fresh world socket, so a session accumulates one
+    // Box per zone; this reaps the ones that fell silent. Two boxes are always
+    // protected: the primary (its streams are the global ones) and the session
+    // the user is actively viewing (a parked character survives even when idle).
+    // Every other box is reclaimed once idle past the TTL — a character's
+    // superseded old-zone sessions the moment they go quiet, and the character
+    // itself (its live session) once even that is idle (logged off / camped),
+    // which also drops its Character store row. Since identity lives in the
+    // store (keyed by the box_id name hash), freeing a stale session never
+    // orphans a character that still has a live one.
     // Emits boxAboutToBeRemoved(box) for each victim BEFORE freeing it
     // (subscribers hold raw Box* and must release per-box resources
     // first), then a single changed(). Returns the number removed.
@@ -264,7 +252,7 @@ public:
 
 signals:
     // Fires every time the registry state changes (add, promote,
-    // merge, active-switch). SessionAdapter listens to re-emit
+    // active-switch, eviction). SessionAdapter listens to re-emit
     // BoxListUpdated.
     void changed();
     // Fires once per newly-created Box, AFTER the BoxCreatedHook has
@@ -280,9 +268,9 @@ signals:
     // duration of the slot; do not retain it past the call.
     void boxAboutToBeRemoved(Box* box);
     // Fires when the ACTIVE CHARACTER changes (a different identity becomes
-    // active — picker switch, or adopt-first-character), NOT when the active
-    // character re-handshakes into a new zone (its id is stable; the follow
-    // catches those via changed()). Args are the old/new active sessions.
+    // active — picker switch, or adopt-first-character), and when the active
+    // character re-handshakes into a new zone (so map/geometry reload for the
+    // new session). Args are the old/new active sessions.
     void activeCharacterChanged(Box* oldSession, Box* newSession);
 
 private:
@@ -292,11 +280,10 @@ private:
     BoxCreatedHook m_hook;
     QString m_activeCharacterId;
 
-    // Inc 4 (character-registry) step 1: authoritative Character store, keyed by
-    // the character's anchor id. Maintained in promoteByName (upsert) + evictStale
-    // (prune whole-group reaps). currentSessionFor() reads from it; characters()
-    // and currentBoxFor() still compute over the boxes this step (dual-maintained
-    // with merged_into until the later sub-steps retire the merge anchors).
+    // Authoritative Character store, keyed by the character's anchor id (the
+    // box_id name hash). Maintained in onPromoted (upsert the just-promoted
+    // session) + evictStale (drop a logged-off character). currentBoxFor /
+    // currentSessionFor / characters() all resolve the live session through it.
     std::vector<Character> m_characters;
 
     // Upsert the Character for anchor `id` with `name`, adopting `newSession` as

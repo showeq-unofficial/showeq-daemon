@@ -104,6 +104,27 @@ persists — no rebind needed), the per-zone new-set churn (where the golden-bal
 Steps 4 (evictStale simplify) + 5 (delete merged_into) still apply as cleanup and
 fold in after B1/B2 (evict is needed in both models).
 
+## DONE (2026-07-18) — B1, B2, steps 4-5 all landed
+
+- **B1** (`1dc2b99`): non-primary boxes route into the ONE persistent
+  `m_activeManagers`; model-A per-box sets + `--multibox` removed (EQL truebox).
+- **B2** (`ff1a730`): `followActiveCharacter` rebind retired — the set persists,
+  so a zone-in needs no re-bind. `m_pinnedCharacter` / `disconnectPerBox` / the
+  ctor follow wiring all gone. eql goldens byte-identical (proves it was inert).
+- **Steps 4-5** (this commit): `merged_into` / `is_merged` DELETED. A character's
+  sessions already share `box_id` (the name hash), so the `m_characters` store
+  (keyed by that id) owns identity outright — `merged_into` was redundant.
+  `evictStale` collapsed to "protect primary + the active character's live
+  session; reap every other idle box." This intentionally reaps a stale
+  old-zone anchor session that the old group-walk kept alive purely to anchor
+  `merged_into` — the only deliberate behavior change (multibox-only; unit-tested,
+  golden-uncovered). `distinctCount` kept (reimplemented over distinct `box_id`)
+  — it's used by `dumpString`, not dead as the step-5 sketch assumed.
+- Verified: `boxregistry`/`namepromoter` units green, full suite 10/10, eql
+  goldens 6/0 stable ×3, smoke replay clean.
+- Still open: record the multibox live goldens once Live is re-captured, so the
+  reap-stale-anchor behavior change gets golden coverage (currently unit-only).
+
 ## Verification gates per sub-step
 - `ctest -R "boxregistry|namepromoter"` → 19/19.
 - `SEQ_CHECK_TARGET=eql check.sh` → green (chat golden is large but stable;

@@ -7,9 +7,10 @@
 #include <QCryptographicHash>
 #include <QHash>
 #include <QHostAddress>
+#include <QSet>
 
 namespace {
-// SCAFFOLD (character refactor): stable label for --list-boxes / summary().
+// Stable label for --list-boxes / summary().
 const char* stateName(SessionState s)
 {
     switch (s) {
@@ -94,10 +95,10 @@ Box* BoxRegistry::observe(in_addr_t client_ip,
 
 Box* BoxRegistry::findById(const QString& box_id)
 {
-    for (auto& b : m_boxes) {
-        if (b->is_merged()) continue;
+    // A character's sessions all share box_id (the name hash), so the first
+    // match is its identity anchor (the earliest-observed session).
+    for (auto& b : m_boxes)
         if (b->box_id == box_id) return b.get();
-    }
     return nullptr;
 }
 
@@ -118,19 +119,15 @@ void BoxRegistry::onPromoted(Box* box, const QString& old_box_id)
     if (!box) return;
     if (m_activeCharacterId == old_box_id)
         m_activeCharacterId = box->box_id;
-    // If the promoted box turned out to be a merge target, its box_id
-    // collides with an existing one; m_activeCharacterId may point at the
-    // pre-existing parent already — leave it as-is, the changed()
-    // re-emit gives the client a fresh picture either way.
+    // A re-handshake promotes to a box_id that collides with an existing
+    // session of the same character; m_activeCharacterId may already point at
+    // it — leave it, the changed() re-emit gives the client a fresh picture.
 
-    // Inc 4: maintain the Character store here — this is the ONE hook both
-    // promotion paths funnel through (NamePromoter's OP_EnterWorld path sets
-    // box_id/display_name/merged_into then calls onPromoted; BoxRegistry::
-    // promoteByName does the same then calls onPromoted). charId = the anchor
-    // (merged_into if this session merged into an earlier one, else its own id).
-    // Runs BEFORE changed() so the SessionAdapter follow reads the fresh store.
-    const QString charId = box->is_merged() ? box->merged_into : box->box_id;
-    upsertCharacter(charId, box->display_name, box);
+    // Maintain the Character store here — the ONE hook both promotion paths
+    // funnel through (NamePromoter's OP_EnterWorld path and BoxRegistry::
+    // promoteByName each set box_id/display_name then call onPromoted). A
+    // character's sessions share box_id (the name hash), so it keys the store.
+    upsertCharacter(box->box_id, box->display_name, box);
 
     emit changed();
 }
@@ -144,49 +141,24 @@ int BoxRegistry::evictStale(qint64 now_ms, qint64 ttl_ms)
 {
     if (ttl_ms <= 0) return 0;
     const qint64 cutoff = now_ms - ttl_ms;
-    const QString activeId = m_activeCharacterId;
 
-    // Collect victims one character group at a time. A group is a
-    // non-merged parent plus every Box merged into it; processing whole
-    // groups is what keeps us from removing a parent (the identity anchor
-    // every alias' merged_into points at) while one of its aliases lives.
+    // Per-character session lifecycle. Two boxes are never reaped: the primary
+    // (its streams are the global ones) and the session the user is actively
+    // viewing (a parked character must survive even when idle). Every other box
+    // is reclaimed the moment it goes silent past the TTL — a character's
+    // superseded old-zone sessions as soon as they're idle, and the character
+    // itself (its live session) once even that is idle (logged off / camped).
+    // The Character store owns identity by the box_id name-hash, so freeing a
+    // stale session never orphans a character that still has a live one.
+    Box* activeLive = currentBoxFor(m_activeCharacterId);
+
     std::vector<Box*> victims;
     for (auto& up : m_boxes) {
-        Box* parent = up.get();
-        if (parent->is_merged()) continue;     // visited with its parent
-
-        std::vector<Box*> group{parent};
-        for (auto& a : m_boxes)
-            if (a->merged_into == parent->box_id) group.push_back(a.get());
-
-        // The live decode box of the character is the newest by first_seen
-        // (currentBoxFor's rule) — SessionAdapter binds here, so it must
-        // survive as long as the character is around.
-        Box* current = parent;
-        for (Box* b : group)
-            if (b->first_seen_ms >= current->first_seen_ms) current = b;
-
-        const bool isPrimaryGroup = parent->is_primary;  // primary never merges
-        const bool isActiveGroup  = (parent->box_id == activeId);
-        const bool currentFresh   = current->last_seen_ms >= cutoff;
-
-        // The character is gone (logged off / camped) once even its live
-        // box has been silent past the TTL. Reap the whole group then —
-        // unless it's the primary or the box the user is actively viewing.
-        const bool reapWholeGroup =
-            !isPrimaryGroup && !isActiveGroup && !currentFresh;
-
-        for (Box* b : group) {
-            if (b->is_primary) continue;       // the global-stream box: never
-            if (reapWholeGroup) { victims.push_back(b); continue; }
-            // Group survives: reap only its stale, superseded aliases.
-            // Keep the live box, any still-fresh box, and the parent (its
-            // box_id anchors the aliases that remain).
-            if (b == current) continue;
-            if (b == parent)  continue;
-            if (b->last_seen_ms >= cutoff) continue;
-            victims.push_back(b);
-        }
+        Box* b = up.get();
+        if (b->is_primary)             continue;   // the global-stream box: never
+        if (b == activeLive)           continue;   // actively-viewed: never
+        if (b->last_seen_ms >= cutoff) continue;   // still talking
+        victims.push_back(b);
     }
 
     if (victims.empty()) return 0;
@@ -195,7 +167,7 @@ int BoxRegistry::evictStale(qint64 now_ms, qint64 ttl_ms)
     // release their per-box resources while the Box is still valid.
     for (Box* v : victims) {
         seqInfo("BoxRegistry: evicting idle box %s", qUtf8Printable(v->box_id));
-        v->state = SessionState::Reaped;   // SCAFFOLD (state machine): terminal
+        v->state = SessionState::Reaped;   // state machine: terminal
         emit boxAboutToBeRemoved(v);
     }
 
@@ -208,10 +180,10 @@ int BoxRegistry::evictStale(qint64 now_ms, qint64 ttl_ms)
             m_boxes.end());
     }
 
-    // Inc 4 step 1: drop Characters whose live session was reaped. evictStale
-    // protects a character's current box, so its session is only a victim on a
-    // whole-group reap (the character logged off / camped). Pointer comparison
-    // only — the Box is freed but never dereferenced here.
+    // Drop Characters whose live session was reaped. evictStale protects a
+    // character's active-viewed session, and a still-fresh live session isn't
+    // idle, so this only fires when a character logged off / camped. Pointer
+    // comparison only — the Box is freed but never dereferenced here.
     m_characters.erase(
         std::remove_if(m_characters.begin(), m_characters.end(),
             [&victims](const Character& c) {
@@ -248,7 +220,6 @@ Box* BoxRegistry::lookupByName(const QString& name, const Box* exclude)
     if (name.isEmpty()) return nullptr;
     for (auto& b : m_boxes) {
         if (b.get() == exclude) continue;
-        if (b->is_merged()) continue;
         if (b->display_name == name) return b.get();
     }
     return nullptr;
@@ -261,24 +232,22 @@ Box* BoxRegistry::promoteByName(Box* box, const QString& name)
 
     const QString old_box_id = box->box_id;
     box->display_name = name;
-    // Stable, scrub-safe id = hash of the character name. The same
-    // character (a re-handshake) hashes to the same box_id, so the picker
-    // shows one entry; display_name carries the human-readable label.
+    // Stable, scrub-safe id = hash of the character name. Every session of the
+    // same character (a re-handshake) hashes to the SAME box_id, so the shared
+    // id groups them — one picker entry, one Character store row; display_name
+    // carries the human-readable label.
     const QByteArray digest = QCryptographicHash::hash(
         name.toLatin1(), QCryptographicHash::Sha256);
     box->box_id =
         QStringLiteral("b-") + QString::fromLatin1(digest.left(8).toHex());
 
-    Box* parent = lookupByName(name, box);
-    if (parent) {
-        box->merged_into = parent->box_id;
-        seqInfo("BoxRegistry: box promoted, merged into character %s",
-                qUtf8Printable(parent->box_id));
-    } else {
-        seqInfo("BoxRegistry: box promoted to character %s",
-                qUtf8Printable(box->box_id));
-    }
-    onPromoted(box, old_box_id);
+    // A prior session of this character already around => this is a zone-change
+    // re-handshake (the newest session); else a brand-new character.
+    Box* prior = lookupByName(name, box);
+    seqInfo(prior ? "BoxRegistry: box promoted, re-handshake of character %s"
+                  : "BoxRegistry: box promoted to character %s",
+            qUtf8Printable(box->box_id));
+    onPromoted(box, old_box_id);   // upserts the Character (keyed by box_id)
 
     // If the currently-active box is a stale, never-promoted placeholder
     // (the first-seen box was a partial/dead session that never resolved a
@@ -286,47 +255,42 @@ Box* BoxRegistry::promoteByName(Box* box, const QString& name)
     // this newly-decoded DISTINCT character as the active one. Otherwise
     // SessionAdapter would stream an empty box while the real data lives in
     // a non-primary box.
-    if (!parent) {
+    if (!prior) {
         Box* active = findById(m_activeCharacterId);
         if (!active || active->display_name.isEmpty()) {
             m_activeCharacterId = box->box_id;
         }
     }
 
-    // The Character store is maintained in onPromoted() (called above), so by
-    // here currentBoxFor/currentSessionFor already resolve the fresh session.
-    const QString charId = parent ? parent->box_id : box->box_id;
-
-    // If this box belongs to the ACTIVE character, the current decode box just
-    // rolled to it (newest zone session) — nudge SessionAdapter to rebind so the
-    // live view follows the character into its new zone.
-    if (m_activeCharacterId == charId) {
+    // If this box belongs to the ACTIVE character, its current decode box just
+    // rolled to this newest zone session — nudge listeners so map/geometry
+    // follow the character into its new zone.
+    if (m_activeCharacterId == box->box_id) {
         emit activeCharacterChanged(nullptr, box);
     }
 
-    // SCAFFOLD (state machine): reclassify this character's sessions — the live
-    // one (currentBoxFor) is ATTACHED, every other is SUPERSEDED.
-    Box* live = currentBoxFor(charId);
+    // State machine: reclassify this character's sessions (all share box_id) —
+    // the live one (currentBoxFor) is ATTACHED, every other is SUPERSEDED.
+    Box* live = currentBoxFor(box->box_id);
     for (auto& up : m_boxes) {
         Box* b = up.get();
-        if (b->box_id != charId && b->merged_into != charId) continue;
+        if (b->box_id != box->box_id) continue;   // a different character
         b->state = (b == live) ? SessionState::Attached : SessionState::Superseded;
     }
 
     emit changed();
-    return parent;
+    return prior;
 }
 
 Box* BoxRegistry::currentBoxFor(const QString& box_id)
 {
-    // Inc 4 step 2: Character-owned — the live session is the store's session.
-    // The old merge-scan (newest box with merged_into == anchor) is now
-    // maintained into c.session by upsertCharacter.
+    // Character-owned: the live session is the store's session (maintained by
+    // upsertCharacter as sessions promote — the newest zone session wins).
     for (const Character& c : m_characters)
         if (c.id == box_id)
             return c.session;
     // Not a promoted character (a Pending placeholder id, or unknown): resolve
-    // the box itself — matches the old findById + no-merged-children path.
+    // the box itself.
     return findById(box_id);
 }
 
@@ -335,16 +299,14 @@ Box* BoxRegistry::lookupBoundZone(in_addr_t client_ip,
                                   in_port_t server_zone_port)
 {
     for (auto& b : m_boxes) {
-        // Do NOT skip merged boxes here. `merged_into` is an IDENTITY/UI
-        // grouping (one picker entry per character); it says nothing about
-        // the physical session. A re-handshake/zone-change box is promoted —
-        // and thus merged into its character's parent — at OP_PlayerProfile,
-        // which lands moments after its zone session binds. That box keeps its
-        // OWN streams + ManagerSet and is still actively decoding; skipping it
-        // would make the just-bound session unroutable, so its spawn burst and
-        // ongoing position updates would be dropped (or grabbed by another
-        // same-host box via lookupByExpectedZone). Routing keys on the unique
-        // zone 5-tuple, which is identity-agnostic.
+        // Routing keys on the unique zone 5-tuple, NEVER on identity. A
+        // re-handshake/zone-change box is identified (named + folded into its
+        // character) at OP_PlayerProfile, moments after its zone session binds.
+        // That box keeps its OWN streams and is still actively decoding, so it
+        // must stay routable by its tuple — skipping it would drop the spawn
+        // burst and ongoing position updates that follow the profile (or hand
+        // the session to another same-host box). Identity grouping (one picker
+        // entry per character) is handled separately by the Character store.
         if (b->client_ip == client_ip &&
             b->zone_client_port == client_zone_port &&
             b->zone_server_port_bound == server_zone_port) {
@@ -367,13 +329,12 @@ Box* BoxRegistry::lookupByExpectedZone(in_addr_t client_ip,
     // grab every session and the others would never bind.
     Box* best = nullptr;
     for (auto& b : m_boxes) {
-        // Merged boxes are NOT skipped: a box can reuse its world socket on a
-        // re-zone (ZoneServerObserver clears its binding to await the next
-        // SessionRequest) after it's already been identified+merged. It must
+        // Identity grouping never gates routing: a box can reuse its world
+        // socket on a re-zone (ZoneServerObserver clears its binding to await
+        // the next SessionRequest) after it's already been identified. It must
         // still be able to rebind its own session. The `zone_client_port != 0`
         // guard below already excludes boxes bound to a live session, so this
-        // only ever re-binds a genuinely-available box. (Merge is identity,
-        // not routing — see lookupBoundZone.)
+        // only ever re-binds a genuinely-available box. (See lookupBoundZone.)
         if (b->client_ip != client_ip) continue;
         // Skip boxes already bound to a live zone session — ZoneServerObserver
         // clears the binding on a fresh OP_ZoneServerInfo so a re-zoning box
@@ -393,9 +354,11 @@ Box* BoxRegistry::lookupByExpectedZone(in_addr_t client_ip,
 
 size_t BoxRegistry::distinctCount() const
 {
-    size_t n = 0;
-    for (const auto& b : m_boxes) if (!b->is_merged()) ++n;
-    return n;
+    // A character's sessions share box_id (the name hash); an anonymous box has
+    // a unique placeholder id. So the distinct-id count IS the identity count.
+    QSet<QString> ids;
+    for (const auto& b : m_boxes) ids.insert(b->box_id);
+    return size_t(ids.size());
 }
 
 QString BoxRegistry::dumpString() const
@@ -403,21 +366,21 @@ QString BoxRegistry::dumpString() const
     if (m_boxes.empty())
         return QStringLiteral("BoxRegistry: empty");
 
-    // Count aliases per parent box_id so each parent line shows
-    // "(+N rehandshakes)".
-    QHash<QString, int> aliasCount;
-    for (const auto& b : m_boxes) {
-        if (b->is_merged()) ++aliasCount[b->merged_into];
-    }
+    // Sessions per character (they share box_id) so each anchor line can show
+    // "(+N re-handshakes)".
+    QHash<QString, int> perId;
+    for (const auto& b : m_boxes) ++perId[b->box_id];
 
     QString out = QStringLiteral(
         "BoxRegistry: %1 distinct, %2 total (*=primary, +N=re-handshakes)\n")
         .arg(distinctCount())
         .arg(m_boxes.size());
+    QSet<QString> shown;
     for (const auto& b : m_boxes) {
-        if (b->is_merged()) continue;
+        if (shown.contains(b->box_id)) continue;   // fold aliases into the anchor
+        shown.insert(b->box_id);
         out += QStringLiteral("  ") + b->summary();
-        const int extras = aliasCount.value(b->box_id, 0);
+        const int extras = perId.value(b->box_id, 1) - 1;
         if (extras > 0)
             out += QStringLiteral("  (+%1 re-handshakes)").arg(extras);
         out += QChar('\n');
@@ -425,22 +388,24 @@ QString BoxRegistry::dumpString() const
     return out;
 }
 
-// SCAFFOLD (character refactor): the new-model read API, computed over the
-// current box storage. One Character per distinct identity (non-merged box);
-// its live session is currentBoxFor. When storage flips to Character-owned this
-// becomes a direct walk of the character map and merged_into disappears.
+// The name-keyed read API for the picker. One Character per distinct box_id (a
+// character's sessions share it; an anonymous box has a unique placeholder id,
+// so it surfaces as its own still-nameless entry). The live session is
+// currentBoxFor; aliasCount is the character's other (superseded) sessions.
 std::vector<Character> BoxRegistry::characters()
 {
     std::vector<Character> out;
+    QSet<QString> seen;
     for (auto& up : m_boxes) {
         Box* b = up.get();
-        if (b->is_merged()) continue;          // aliases fold into their anchor
+        if (seen.contains(b->box_id)) continue;   // an already-emitted character
+        seen.insert(b->box_id);
         Character c;
         c.name    = b->display_name;
         c.id      = b->box_id;
-        c.session = currentBoxFor(b->box_id);  // the ATTACHED live session
+        c.session = currentBoxFor(b->box_id);     // the ATTACHED live session
         for (auto& a : m_boxes)
-            if (a->merged_into == b->box_id) ++c.aliasCount;
+            if (a.get() != b && a->box_id == b->box_id) ++c.aliasCount;
         out.push_back(std::move(c));
     }
     return out;
@@ -470,9 +435,8 @@ void BoxRegistry::upsertCharacter(const QString& id, const QString& name,
 Box* BoxRegistry::currentSessionFor(const QString& name)
 {
     if (name.isEmpty()) return nullptr;
-    // Inc 4 step 1: authoritative — resolve via the Character store (pin to the
-    // character, not the last-zoned box). Equivalent to the old anchor-scan +
-    // currentBoxFor, which is now maintained into c.session by upsertCharacter.
+    // Resolve via the Character store — pin to the character, not the last-zoned
+    // box. c.session is maintained (newest zone session wins) by upsertCharacter.
     for (const Character& c : m_characters)
         if (c.name == name)
             return c.session;

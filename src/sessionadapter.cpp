@@ -1229,12 +1229,10 @@ void SessionAdapter::sendBoxList()
     if (m_deterministic) return;
     seq::v1::Envelope env;
     auto* upd = env.mutable_box_list_updated();
-    // Character-refactor Inc 2: build the picker from the name-keyed view
-    // (BoxRegistry::characters) instead of walking boxes and filtering
-    // merged_into. One entry per distinct identity; its live session
-    // (c.session == currentBoxFor) supplies ip / packet count, so a character
-    // that has re-zoned shows its CURRENT session's activity rather than the
-    // dead first-seen anchor's. SessionAdapter no longer touches merged_into.
+    // Build the picker from the name-keyed view (BoxRegistry::characters): one
+    // entry per distinct identity. Its live session (c.session == currentBoxFor)
+    // supplies ip / packet count, so a character that has re-zoned shows its
+    // CURRENT session's activity rather than the dead first-seen anchor's.
     for (const Character& c : m_boxes->characters()) {
         auto* meta = upd->add_boxes();
         meta->set_box_id(c.id.toStdString());
