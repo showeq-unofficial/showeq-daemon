@@ -117,6 +117,9 @@ public:
    void moveSpawn(uint16_t id, int16_t x, int16_t y, int16_t z);
    void updateSpawnHP(uint16_t id, int32_t curHp, int32_t maxHp);
    void updateSpawnIdentity(uint16_t id, uint8_t level, uint8_t classVal);
+   // Stand/sit/duck pose only, for backends that broadcast it independently of
+   // a position update (the stock position path sets animation alongside coords).
+   void updateSpawnAnimation(uint16_t id, uint8_t animation);
 signals:
    // Fired when the player's own ZoneSpawns entry reveals the character name
    // during the playerChangedID reconcile (eql: the player id arrives late via

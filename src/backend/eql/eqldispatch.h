@@ -41,6 +41,9 @@ public:
     void profile(const uint8_t* data, size_t len, uint8_t dir);
     // OP_MoneyUpdate (0x6414) S>C, 20B: authoritative carried purse.
     void moneyUpdate(const uint8_t* data, size_t len, uint8_t dir);
+    // OP_SpawnAppearance2 (0x4170), 24B: pose/state broadcast. Type numbering
+    // is eql-specific, which is why it is decoded here and not in core.
+    void spawnAppearance(const uint8_t* data, size_t len, uint8_t dir);
     // OP_ClientUpdate (0x7171) C>S: this player's float position + heading.
     void playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir);
     // OP_ClientUpdate (0x7171) S>C, 28B: OTHER spawns' position broadcast

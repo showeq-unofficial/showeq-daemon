@@ -898,6 +898,19 @@ void SpawnShell::updateSpawnIdentity(uint16_t id, uint8_t level, uint8_t classVa
   emit changeItem(item, tSpawnChangedALL);
 }
 
+void SpawnShell::updateSpawnAnimation(uint16_t id, uint8_t animation)
+{
+  Item* item = m_spawns.value(id, nullptr);
+  if (item == NULL)
+    return;
+  Spawn* spawn = (Spawn*)item;
+  if (spawn->animation() == animation)   // don't re-encode an unchanged pose
+    return;
+  spawn->setAnimation(animation);
+  item->updateLastChanged();
+  emit changeItem(item, tSpawnChangedPosition);
+}
+
 void SpawnShell::playerUpdate2(const uint8_t* data, size_t len, uint8_t dir)
 {
   if (m_zoneMgr->isZoning())

@@ -209,6 +209,12 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_SpawnAppearance2", SP_Zone, DIR_Server,
          "spawnAppearance2Struct", SZC_Match,
          seqBind(ms.spawnShell, &SpawnShell::updateSpawnLock));
+    // Same opcode, eql-specific type numbering: type 6 = stand/sit/duck pose.
+    // Dispatch is a fan-out, so this runs alongside the lock handler above and
+    // each ignores the other's type.
+    wire("OP_SpawnAppearance2", SP_Zone, DIR_Server,
+         "spawnAppearance2Struct", SZC_Match,
+         seqBind(eql, &EqlDispatch::spawnAppearance));
     // OP_HPUpdate is eql's multiplexed stat-sync channel (u32 id + u8 flags +
     // per-stat payload), not Live's fixed hpNpcUpdateStruct — decode via
     // EqlDispatch, which passes the real packet length. Feeds spawn HP cur/max

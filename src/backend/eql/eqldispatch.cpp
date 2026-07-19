@@ -157,6 +157,33 @@ void EqlDispatch::moneyUpdate(const uint8_t* data, size_t len, uint8_t dir)
     m_player->setMoneyCoins(out.platinum, out.gold, out.silver, out.copper);
 }
 
+void EqlDispatch::spawnAppearance(const uint8_t* data, size_t len, uint8_t dir)
+{
+    // 24B {u32 spawnId, u32 type, u32 value, u8[12]}. Both directions carry the
+    // same struct. Type numbering is eql's own; only type 6 is confirmed —
+    // wire-verified against scripted pose toggles (110 sit / 100 stand / 111
+    // duck) and independently corroborated by legacy showeq's spawnEventEQL.
+    //
+    // Everything else is left alone deliberately. One 26-minute capture saw
+    // types 22 (193x, always 0 — periodic tick), 36 (51x, 0/1/3/4), 43 (47x,
+    // mostly 1), 11 (29x, always 0), 41 (22x, carries a unix timestamp), 26,
+    // 3, 7, 8, 5, 1, 15, 35 — none with a confirmed meaning or a spawn field to
+    // land in. Type 13 (anon, per legacy) did not appear at all. Guessing here
+    // would put wrong state on spawns, so they are consumed silently until a
+    // targeted capture pins them down.
+    //
+    // Type 0x2c (mob lock) is handled separately by SpawnShell::updateSpawnLock,
+    // which is wired to this same opcode and shared with Live.
+    (void)dir;
+    if (len < 12)
+        return;
+    const auto* sa = reinterpret_cast<const spawnAppearance2Struct*>(data);
+    if (sa->type != 6)
+        return;
+    m_spawnShell->updateSpawnAnimation((uint16_t)sa->spawnId,
+                                       (uint8_t)sa->value);
+}
+
 void EqlDispatch::expUpdate(const uint8_t* data, size_t len, uint8_t dir)
 {
     // OP_ExpUpdate (0x6801, 16B expUpdateStruct): the regular exp bar. eql sends
