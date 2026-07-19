@@ -66,6 +66,12 @@ class PacketCaptureProviderThread
         // offline file is exhausted (rc == 0). No-op semantics for live capture.
         void signalOfflineEof();
 
+        // Append a captured frame to the queue getPacket() drains: allocates a
+        // packetCache node, copies `data`, and links it under m_pcache_mutex
+        // (dropped if the cache is closed). The libpcap reader open-codes this in
+        // its callback for its own reasons; other providers should call this.
+        void enqueue(const unsigned char* data, uint32_t len, int64_t ts_ms);
+
         struct packetCache
         {
             struct packetCache *next;

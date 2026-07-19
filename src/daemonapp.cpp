@@ -199,7 +199,7 @@ bool DaemonApp::start()
     // CLI --device wins; otherwise consult the XML pref so the value the
     // user saved through the preferences UI persists across restarts.
     // Replay sessions ignore the device entirely.
-    if (m_cfg.device.isEmpty() && m_cfg.replay.isEmpty()) {
+    if (m_cfg.device.isEmpty() && m_cfg.replay.isEmpty() && m_cfg.agent.isEmpty()) {
         const QString xmlDev =
             pSEQPrefs->getPrefString("Device", "Network", QString());
         if (!xmlDev.isEmpty()) {
@@ -212,7 +212,7 @@ bool DaemonApp::start()
     // there's no device available. Skip capture setup entirely when the
     // user passed neither --device nor --replay; the daemon then serves
     // clients with an empty state — useful for smoke tests and local dev.
-    if (!m_cfg.device.isEmpty() || !m_cfg.replay.isEmpty()) {
+    if (!m_cfg.device.isEmpty() || !m_cfg.replay.isEmpty() || !m_cfg.agent.isEmpty()) {
         if (!startCapture()) {
             return false;
         }
@@ -568,7 +568,7 @@ bool DaemonApp::start()
             qInfo("capture pipeline running");
         }
     } else {
-        qInfo("no --device or --replay — capture pipeline idle");
+        qInfo("no --device, --agent or --replay — capture pipeline idle");
     }
     return true;
 }
@@ -625,6 +625,7 @@ bool DaemonApp::startCapture()
         zoneOpcodes.absoluteFilePath(),
         /*arqSeqGiveUp*/ 512,
         /*device*/ hasReplay ? QString() : m_cfg.device,
+        /*agent*/ hasReplay ? QString() : m_cfg.agent,
         /*ip*/ clientIp,
         /*mac*/ QStringLiteral("0"),
         /*realtime*/ false,

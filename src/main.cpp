@@ -132,6 +132,12 @@ int main(int argc, char** argv)
         "through the offline decode path, instead of a .vpk. A UDP filter is "
         "applied so mixed captures (TCP/HTTPS/etc.) decode cleanly. Mutually "
         "exclusive with --replay.", "file");
+    QCommandLineOption agentOpt(QStringList{"agent"},
+        "Capture from a remote seq-agent at host:port (default port 9099) "
+        "instead of a local device: the daemon dials the agent and asks it to "
+        "capture EQ UDP with a BPF filter (scoped by --ip). Needs no "
+        "cap_net_raw locally. Mutually exclusive with --device and --replay.",
+        "host:port");
     QCommandLineOption configDirOpt(QStringList{"c", "config-dir"},
         "Directory holding opcode XML and other shared read-only config. "
         "Overrides the compiled-in PKGDATADIR; the writable user dir "
@@ -212,6 +218,7 @@ int main(int argc, char** argv)
     parser.addOption(listenOpt);
     parser.addOption(replayOpt);
     parser.addOption(replayPcapOpt);
+    parser.addOption(agentOpt);
     parser.addOption(configDirOpt);
     parser.addOption(mapsDirOpt);
     parser.addOption(mapPackageOpt);
@@ -245,6 +252,17 @@ int main(int argc, char** argv)
     if (!replayPcap.isEmpty()) {
         cfg.replay       = replayPcap;
         cfg.replayIsPcap = true;
+    }
+    cfg.agent        = parser.value(agentOpt);
+    // The remote agent replaces the local capture device and is a live source,
+    // so it can't combine with a local --device or an offline --replay.
+    if (!cfg.agent.isEmpty() && !cfg.device.isEmpty()) {
+        qCritical("--agent and --device are mutually exclusive");
+        return 2;
+    }
+    if (!cfg.agent.isEmpty() && !cfg.replay.isEmpty()) {
+        qCritical("--agent and --replay/--replay-pcap are mutually exclusive");
+        return 2;
     }
     cfg.configDir    = parser.value(configDirOpt);
     cfg.mapsDir      = parser.value(mapsDirOpt);

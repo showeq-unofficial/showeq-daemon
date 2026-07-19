@@ -71,8 +71,9 @@ class EQPacket : public QObject
    
    EQPacket(const QString& worldopcodesxml,
 	    const QString& zoneopcodesxml,
-	    uint16_t m_arqSeqGiveUp, 
+	    uint16_t m_arqSeqGiveUp,
 	    QString m_device,
+	    QString m_agent_target,
 	    QString m_ip,
 	    QString m_mac_address,
 	    bool m_realtime,
@@ -220,6 +221,7 @@ class EQPacket : public QObject
 
    uint16_t m_arqSeqGiveUp;
    QString m_device;
+   QString m_agent;      // seq-agent "host:port" (remote capture source), or empty
    QString m_ip;
    QString m_mac;
    bool m_realtime;

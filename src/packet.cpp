@@ -43,6 +43,7 @@
 #include "zoneserverobserver.h"
 #include "packetcommon.h"
 #include "packetcapture.h"
+#include "remotecapture.h"
 #include "packetformat.h"
 #include "packetstream.h"
 #include "packetinfo.h"
@@ -94,8 +95,9 @@
 // Constructor
 EQPacket::EQPacket(const QString& worldopcodesxml,
 		   const QString& zoneopcodesxml,
-		   uint16_t arqSeqGiveUp, 
+		   uint16_t arqSeqGiveUp,
 		   QString device,
+		   QString agentTarget,
 		   QString ip,
 		   QString mac_address,
 		   bool realtime,
@@ -113,6 +115,7 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
     m_busy_decoding(false),
     m_arqSeqGiveUp(arqSeqGiveUp),
     m_device(device),
+    m_agent(agentTarget),
     m_ip(ip),
     m_mac(mac_address),
     m_realtime(realtime),
@@ -295,8 +298,13 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
 
   if (m_playbackPackets == PLAYBACK_OFF)
   {
-    // create the pcap object and initialize, either with MAC or IP
-    m_packetCapture = new PacketCaptureThread(m_snaplen, m_buffersize);
+    // Remote seq-agent source (--agent) or a local libpcap device. Both are
+    // real-time frame sources drained by the same processPackets() loop; the
+    // remote one ignores the device name and dials the agent instead.
+    if (!m_agent.isEmpty())
+      m_packetCapture = new RemoteCaptureThread(m_agent);
+    else
+      m_packetCapture = new PacketCaptureThread(m_snaplen, m_buffersize);
     if (m_mac.length() == 17)
     {
       seqInfo("Listening for client MAC: %s", m_mac.toLatin1().data());

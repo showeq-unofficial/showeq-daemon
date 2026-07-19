@@ -207,6 +207,7 @@ set(SEQ_DAEMON_EXTRACTED_SOURCES
 
 set(SEQ_DAEMON_CORE_NEW_SOURCES
   src/boxregistry.cpp
+  src/remotecapture.cpp
   src/namepromoter.cpp
   src/zoneserverobserver.cpp
   src/protoencoder.cpp

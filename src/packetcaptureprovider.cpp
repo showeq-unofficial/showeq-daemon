@@ -20,6 +20,9 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <cstdlib>
+#include <cstring>
+
 #include "packetcaptureprovider.h"
 
 
@@ -37,6 +40,32 @@ void PacketCaptureProviderThread::signalOfflineEof()
 {
     pthread_mutex_lock(&m_pcache_mutex);
     m_offline_eof = true;
+    pthread_mutex_unlock(&m_pcache_mutex);
+}
+
+void PacketCaptureProviderThread::enqueue(const unsigned char* data, uint32_t len,
+        int64_t ts_ms)
+{
+    struct packetCache* pc =
+        (struct packetCache*)malloc(sizeof(struct packetCache) + len);
+    pc->len = len;
+    pc->ts_ms = ts_ms;
+    memcpy(pc->data, data, len);
+    pc->next = NULL;
+
+    pthread_mutex_lock(&m_pcache_mutex);
+    if (!m_pcache_closed)
+    {
+        if (m_pcache_last)
+            m_pcache_last->next = pc;
+        m_pcache_last = pc;
+        if (!m_pcache_first)
+            m_pcache_first = pc;
+    }
+    else
+    {
+        free(pc);
+    }
     pthread_mutex_unlock(&m_pcache_mutex);
 }
 
