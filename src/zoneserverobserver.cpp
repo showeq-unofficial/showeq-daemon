@@ -9,13 +9,16 @@
 
 #include <QDateTime>
 
+#include <utility>
+
 namespace {
 constexpr size_t kZsiLen = sizeof(zoneServerInfoStruct); // 130
 }
 
 ZoneServerObserver::ZoneServerObserver(Box* box, EQPacketStream* world_s2c,
+                                       std::function<qint64()> nowFn,
                                        QObject* parent)
-    : QObject(parent), m_box(box)
+    : QObject(parent), m_box(box), m_nowFn(std::move(nowFn))
 {
     Q_ASSERT(box);
     Q_ASSERT(world_s2c);
@@ -48,7 +51,8 @@ void ZoneServerObserver::onDecodedPacket(const uint8_t* data, size_t len,
     // re-matching the first.
     m_box->zone_client_port = 0;
     m_box->zone_server_port_bound = 0;
-    m_box->zone_await_ms = QDateTime::currentMSecsSinceEpoch();
+    m_box->zone_await_ms = m_nowFn ? m_nowFn()
+                                   : QDateTime::currentMSecsSinceEpoch();
     // Hostname-to-IP resolution is async + costly; defer. dispatchPacket
     // matches on (client_ip, server_port) — for distinct ports per zone
     // it's enough. Two boxes zoning to the same server port simultaneously

@@ -116,6 +116,13 @@ class EQPacket : public QObject
    // capture, where consumers fall back to wall-clock.
    qint64 currentPacketTimeMs(void) const { return m_currentPacketTimeMs; }
 
+   // Deterministic "now" for identity/routing state (BoxRegistry timestamps):
+   // the packet's recorded time during --replay (so box creation/binding order
+   // is reproducible for goldens), wall-clock during live capture. Prefer this
+   // over QDateTime::currentMSecsSinceEpoch() anywhere a timestamp influences
+   // decode output, not just diagnostics.
+   qint64 nowMs(void) const;
+
    // Total opcodes flagged by the backend gate-size audit at opcode-DB load
    // (world + zone). Non-zero means a mapped SZC_Match opcode still gates on
    // an inherited Live sizeof; --strict-gate-sizes turns that into a fatal.

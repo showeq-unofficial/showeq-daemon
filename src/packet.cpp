@@ -264,7 +264,8 @@ EQPacket::EQPacket(const QString& worldopcodesxml,
     // Parent the observers under the box root (non-primary) so they're
     // torn down with the box on eviction; the primary's hang off EQPacket.
     QObject* observerParent = m_boxRoots.value(&box, this);
-    new ZoneServerObserver(&box, box.world_s2c, observerParent);
+    new ZoneServerObserver(&box, box.world_s2c,
+                           [this] { return nowMs(); }, observerParent);
     new NamePromoter(&box, &m_boxes, c2s, observerParent);
 
     // Per-box opcode wiring is owned by DaemonApp::onBoxCreated (it owns
@@ -628,6 +629,15 @@ void EQPacket::processPlaybackPackets (void)
   m_busy_decoding = false;
 }
 
+qint64 EQPacket::nowMs(void) const
+{
+  // During --replay m_currentPacketTimeMs is the packet's recorded time, so
+  // BoxRegistry identity/routing timestamps are reproducible (deterministic
+  // goldens); it's 0 in live capture, where wall-clock is correct.
+  return m_currentPacketTimeMs ? m_currentPacketTimeMs
+                               : QDateTime::currentMSecsSinceEpoch();
+}
+
 /////////////////////////////////////////////////////////
 // Connect the given stream's signals to the proper slots
 void EQPacket::disconnectReconTaps()
@@ -792,8 +802,7 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
                                                    : srcPortHost);
     const in_port_t server_port = htons(srcIsWorld ? srcPortHost
                                                    : dstPortHost);
-    m_boxes.observe(client_ip, client_port, server_port,
-                    QDateTime::currentMSecsSinceEpoch());
+    m_boxes.observe(client_ip, client_port, server_port, nowMs());
   }
 
   if (m_detectingClient && srcIsWorld)
@@ -941,7 +950,7 @@ void EQPacket::dispatchPacket(EQUDPIPPacketFormat& packet)
       // a zone talks exclusively on the zone stream, so without this its
       // last_seen would freeze at zone-in and BoxRegistry::evictStale would
       // reap an actively-playing box. Stamp the box that owns this session.
-      box->last_seen_ms = QDateTime::currentMSecsSinceEpoch();
+      box->last_seen_ms = nowMs();
       ++box->packet_count;
       // Route to THIS box's zone streams. The primary box's zone streams
       // alias the global ones, so its bound session still decodes through

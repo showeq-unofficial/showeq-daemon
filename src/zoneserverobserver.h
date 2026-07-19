@@ -12,6 +12,9 @@
 
 #include <QObject>
 
+#include <cstdint>
+#include <functional>
+
 class Box;
 class EQPacketOPCode;
 class EQPacketStream;
@@ -19,7 +22,12 @@ class EQPacketStream;
 class ZoneServerObserver : public QObject {
     Q_OBJECT
 public:
+    // nowFn supplies the timestamp for zone_await_ms — EQPacket::nowMs (packet
+    // time during --replay so the lookupByExpectedZone tiebreak is reproducible,
+    // wall-clock live). Passed in rather than read directly to keep the observer
+    // decoupled from EQPacket.
     ZoneServerObserver(Box* box, EQPacketStream* world_s2c,
+                       std::function<qint64()> nowFn,
                        QObject* parent = nullptr);
 
 private slots:
@@ -28,6 +36,7 @@ private slots:
 
 private:
     Box* m_box;
+    std::function<qint64()> m_nowFn;
 };
 
 #endif // ZONESERVEROBSERVER_H

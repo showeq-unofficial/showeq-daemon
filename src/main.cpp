@@ -1,4 +1,5 @@
 #include <QCoreApplication>
+#include <QHash>   // QHashSeed::setDeterministicGlobalSeed for reproducible goldens
 #include <QCommandLineParser>
 #include <QDateTime>
 #include <QDir>
@@ -280,6 +281,15 @@ int main(int argc, char** argv)
     if (!cfg.recordGolden.isEmpty() && QDir::isRelativePath(cfg.recordGolden)) {
         cfg.recordGolden = QFileInfo(cfg.recordGolden).absoluteFilePath();
     }
+    // Golden recording must be byte-reproducible across processes. Qt seeds
+    // QHash with a per-process random value, so QHash iteration order (e.g.
+    // SpawnShell's spawn maps, which the decode path both iterates and creates
+    // spawns from on position updates) varies run-to-run — flipping close-call
+    // add/update decisions and making tier-2 goldens flap. Pin the seed so a
+    // recording is deterministic. Record-golden only; live capture keeps Qt's
+    // hash randomization. Must run before any decode-path QHash is populated.
+    if (!cfg.recordGolden.isEmpty())
+        QHashSeed::setDeterministicGlobalSeed();
     if (!cfg.opcodeStats.isEmpty() && QDir::isRelativePath(cfg.opcodeStats)) {
         cfg.opcodeStats = QFileInfo(cfg.opcodeStats).absoluteFilePath();
     }
