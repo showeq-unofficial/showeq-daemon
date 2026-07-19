@@ -977,8 +977,25 @@ void DaemonApp::loadZoneMap(const QString& shortZoneName)
     // Mirrors showeq/src/map.cpp:370-423 — locate the base .map/.txt then
     // any numbered layer files (_1, _2, ...). import=true for layer files so
     // they accumulate into the same MapData rather than replacing it.
-    const QFileInfo baseMap = locateMap(dirs, shortZoneName + ".map");
-    const QFileInfo baseTxt = locateMap(dirs, shortZoneName + ".txt");
+    //
+    // EQL raid instances arrive named "<base>_solo" / "_multi" /
+    // "_eqlraidgroup" etc. and ship no per-instance map, so fall back to the
+    // base zone's map when the full instance name has none. The exact name is
+    // tried first, so any zone that ships its own map still wins; the base is
+    // whatever the server sent before the first '_' (so hateplane vs
+    // hateplaneb is decided by the wire, not a hardcoded table).
+    QString mapZoneName = shortZoneName;
+    QFileInfo baseMap = locateMap(dirs, mapZoneName + ".map");
+    QFileInfo baseTxt = locateMap(dirs, mapZoneName + ".txt");
+    const int us = shortZoneName.indexOf(QLatin1Char('_'));
+    if (!baseMap.exists() && !baseTxt.exists() && us > 0) {
+        mapZoneName = shortZoneName.left(us);
+        baseMap = locateMap(dirs, mapZoneName + ".map");
+        baseTxt = locateMap(dirs, mapZoneName + ".txt");
+        if (baseMap.exists() || baseTxt.exists())
+            qInfo("zone '%s' has no map of its own; using base map '%s'",
+                  qUtf8Printable(shortZoneName), qUtf8Printable(mapZoneName));
+    }
 
     QString extension;
     QStringList files;
@@ -997,7 +1014,7 @@ void DaemonApp::loadZoneMap(const QString& shortZoneName)
 
     for (int i = 1; i < 10; ++i) {
         const QFileInfo layerFile =
-            locateMap(dirs, shortZoneName + "_" + QString::number(i) + extension);
+            locateMap(dirs, mapZoneName + "_" + QString::number(i) + extension);
         if (layerFile.exists()) {
             files.append(layerFile.absoluteFilePath());
         }
