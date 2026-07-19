@@ -291,20 +291,46 @@ void SpellShell::buff(const uint8_t* data, size_t size, uint8_t dir)
   if (!out.ok)   // too short, or an unrecognized size form
     return;
 
-  if (m_player->id() != 0 && out.spawn_id != m_player->id())
+  // form 3 (24b compact) puts a buff SLOT at offset 0, not a spawn id, and
+  // always describes the local player's own buff window — the spawn filter
+  // below would discard every one of them.
+  const bool compact = (out.form == 3);
+  if (!compact && m_player->id() != 0 && out.spawn_id != m_player->id())
     return;   // groupmate / nearby-player broadcast noise
 
   // 0xffffffff is a legacy no-op marker; 0 is not a real spell.
   if (out.spell_id == 0xffffffff || out.spell_id == 0)
     return;
 
+  const uint16_t owner = compact ? m_player->id() : (uint16_t)out.spawn_id;
   const Spell* spell = m_spells->spell(out.spell_id);
-  SpellItem* item = findSpell(out.spell_id, out.spawn_id, QString());
+  SpellItem* item = findSpell(out.spell_id, owner, QString());
 
-  // form: 0=fade (13b), 1=initial-sync (30b), 2=live-update (34+b).
+  // form: 0=fade (13b), 1=initial-sync (30b), 2=live-update (34+b),
+  // 3=compact (24b).
   int duration = 0;
   uint8_t slot = 0xff;
-  if (out.form == 0) {
+  if (compact) {
+    // Slots 0-14 are the real buff window; 0xff marks a scribe/bar refresh.
+    if (out.slot == 0xff)
+      return;
+    if (out.change_type == 1) {         // faded / clicked off
+      if (item) deleteSpell(item);
+      return;
+    }
+    if (out.change_type != 4)           // only apply acts; other codes are no-ops
+      return;
+    // Applies carry no remaining time. The spell-DB formula is the only
+    // fallback and it yields 0 for the debuff-style spells seen on this channel
+    // (verified: "Chaotic Feedback" and "Word of Pain" both calcDuration()==0 at
+    // the captured level), so those are dropped rather than added as entries the
+    // 1s timer would immediately expire. OP_BuffList re-adds them moments later
+    // with the server's real remaining duration, which is the authoritative
+    // path — so in practice only the fade above changes anything here.
+    slot = out.slot;
+    if (spell) duration = spell->calcDuration(m_player->level()) * 6;
+    if (duration <= 0) return;
+  } else if (out.form == 0) {
     if (item) deleteSpell(item);
     return;
   } else if (out.form == 1) {
@@ -326,7 +352,7 @@ void SpellShell::buff(const uint8_t* data, size_t size, uint8_t dir)
   } else {
     item = new SpellItem();
     item->update(out.spell_id, spell, duration,
-                 0, QString(), out.spawn_id, QString());
+                 0, QString(), owner, QString());
     if (slot != 0xff) item->setBuffSlot(slot);
     m_spellList.append(item);
     if (!m_timer->isActive())

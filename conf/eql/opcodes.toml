@@ -633,12 +633,12 @@ comment = "Group leader change (modern: 80 bytes)"
   sizechecktype = "none"
 
 [[zone]]
-id      = "ffff"
+id      = "6c3c"
 name    = "OP_Buff"
 priority = 6
 priority_note = "client dir = memorize/forget, consumed silently"
-updated = "2026-05-25"
-comment = "SUPERSEDED on eql — leave unmapped. The variable-length forms described below are the SAME family OP_BuffList/2/3 (73e2/713a/5c47) already carry and decode with real durations: 73e2 fires at 13/52/54/81b (the 13b fade form included) and 713a at 38/63/79/84/102/104/105/145b in a 2026-07-19 capture. Nothing is missing, so mapping an id here only duplicates the buff path. Legacy showeq maps OP_Buff=0x6c3c, which is NOT this: that is a fixed 24B packet {u32, u32 spell-like, u32=1, u32 small, 0, 0} that parse_buff rejects as BadForm (it matches only 13/30/>=34) — see OP_Unknown5. Original notes: 13b (fade: {u32 spawnID, u32 spellID, u16=0x0001, u8=0, u8 slot, u8=0}); 30b (single self-buff add, no caster); 34/51/53/59b (embedded blocks carrying {tag=0x036a u32, counter u32, padding, caster-name\\0}); 85b (3-block form). Pre-patch OP_Buff 0x55b9 no longer fires."
+updated = "2026-07-19"
+comment = "S>C buff change. Two shapes ride this id. (a) 24B COMPACT buff-slot record, the common one: {u32 buffSlot@0, u32 spellId@4, u32=1@8, u32 changeType@12, 0, 0}, changeType 1=faded / 4=applied; slots 0-14 are real buff-window entries, higher values (331..339 seen) are scribe/bar refreshes to drop. NOTE offset 0 is a SLOT here, not a spawnId as in every other form, and it always describes the local player, so no spawn-id filter applies. Confirmed 2026-07-19 across 162 fires: 34 at slots 0-14 with changeType 4 x31 / 1 / 2. Layout credit: legacy showeq SpellShell::buffChange. (b) older variable-length forms: 13b fade {u32 spawnID, u32 spellID, u16=0x0001, u8=0, u8 slot, u8=0}; 30b single self-buff add; 34/51/53/59b embedded blocks {tag=0x036a u32, counter u32, padding, caster-name\\0}; 85b 3-block. Neither shape carries remaining time, so duration falls back to the spell DB; OP_BuffList/2/3 supply real remaining durations. Pre-patch OP_Buff 0x55b9 no longer fires."
 
   [[zone.payloads]]
   dir           = "server"
@@ -796,18 +796,6 @@ name    = "OP_Unknown4"
 priority = 4
 updated = "2026-07-19"
 comment = "NOT money — was misnamed OP_MoneyUpdate until 2026-07-19; the real one is 0x6414. 12B {u32 @0, u32=1, u32=42}, S>C, fires on a 60s timer (26 fires at 60.0s +/-0.9s across one 26min capture), so it is a heartbeat, not an event. Field @0 read 0 in 13 of 26 fires while the character carried 9,275,933 copper, and otherwise drifted in a narrow 11649..12098 band unrelated to the purse — it is not a coin total in any denomination. Deliberately UNWIRED. Meaning of @0 still unknown."
-
-  [[zone.payloads]]
-  dir           = "server"
-  typename      = "uint8_t"
-  sizechecktype = "none"
-
-[[zone]]
-id      = "6c3c"
-name    = "OP_Unknown5"
-priority = 4
-updated = "2026-07-19"
-comment = "Legacy showeq maps this id as OP_Buff; on the current wire it is NOT our OP_Buff and is deliberately left INERT (named for opcode-stats only, no payload binding). Fixed 24B S>C, 162 fires in one 26min capture, as 6x u32 LE: {f0, f1, f2=1, f3, 0, 0}. f1 looks spell-like (296 x30, 231 x4, then 243/307/304/41/4010/309 twice each) and f0 pairs 1:1 with it but mixes tiny values (0 x30, 2 x4) with spell-sized ones (389/379/376/331/365/375); f3 is 0 (126x) / 4 (33x) / 2 / 1. It does not fit parse_buff, which accepts only 13/30/>=34 byte forms. Buffs themselves are already fully covered by OP_BuffList/2/3, so this is not a gap — identifying it needs a targeted capture (cast a known spell, note the id, and see which field carries it)."
 
   [[zone.payloads]]
   dir           = "server"
