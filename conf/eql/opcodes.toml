@@ -792,10 +792,10 @@ comment = "eql corpse loot window: {u16, u32=900, u32 corpseId@6, u32 count@10, 
 
 [[zone]]
 id      = "4d77"
-name    = "OP_MoneyUpdate"
+name    = "OP_Unknown4"
 priority = 4
-updated = "2026-07-16"
-comment = "eql running total money: 12B {u32 copper@0, u32=1, u32=42} (re-broadcast). Decoded by parse_money_update -> Player::moneyUpdate -> PlayerStats.money_copper."
+updated = "2026-07-19"
+comment = "NOT money — was misnamed OP_MoneyUpdate until 2026-07-19. 12B {u32 @0, u32=1, u32=42}, S>C, fires on a 60s timer (26 fires at 60.0s +/-0.9s across one 26min capture), so it is a heartbeat, not an event. Field @0 read 0 in 13 of 26 fires while the character carried 9,275,933 copper, and otherwise drifted in a narrow 11649..12098 band unrelated to the purse — it is not a coin total in any denomination. Deliberately UNWIRED: money comes from OP_PlayerProfile. Meaning of @0 still unknown."
 
   [[zone.payloads]]
   dir           = "server"
