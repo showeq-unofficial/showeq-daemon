@@ -240,10 +240,10 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_EndUpdate", SP_Zone, DIR_Server,
          "endUpdateStruct", SZC_Match,
          seqBind(ms.player, &Player::updateEndurance));
-    // OP_MoneyUpdate (0x4d77): running total copper -> PlayerStats.money_copper.
-    wire("OP_MoneyUpdate", SP_Zone, DIR_Server,
-         "uint8_t", SZC_None,
-         seqBind(ms.player, &Player::moneyUpdate));
+    // 0x4d77 is NOT money — deliberately unwired. It is a 60s server heartbeat
+    // (26 fires at 60.0s +/-0.9s in one capture) whose leading u32 read 0 while
+    // the character carried 9,275,933 copper. Feeding it to money_copper is what
+    // put junk in the coin readout; money now comes from OP_PlayerProfile.
     // OP_ExpUpdate (0x6801, 16B expUpdateStruct): the regular exp bar. The ids
     // were cross-wired with OP_AAExpUpdate (0x42d1); corrected per the community
     // l-patch. exp@0 is 0-100000 permille — the same scale the daemon already

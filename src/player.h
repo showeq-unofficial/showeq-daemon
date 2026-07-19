@@ -106,7 +106,16 @@ public:
    void updateNpcHP(const uint8_t* hpupdate);
    void updateSpawnInfo(const uint8_t* su);
    void updateStamina(const uint8_t* stam);
-   void moneyUpdate(const uint8_t* data, size_t, uint8_t);
+   // Carried coin, seeded from OP_PlayerProfile at zone-in. EQL does not
+   // normalize denominations on the wire (101 silver / 281 copper observed),
+   // so the total is summed rather than assuming each is < 10.
+   void setMoneyFromProfile(uint32_t plat, uint32_t gold, uint32_t silver,
+                            uint32_t copper);
+   // Incremental coin delta between profiles. eql reports auto-sell proceeds
+   // only as chat text and has no money opcode, so income would otherwise stay
+   // invisible until the next zone-in. Runs optimistic — it sees income but not
+   // spending — and the profile resyncs the authoritative total at each zone.
+   void adjustMoney(int64_t deltaCopper);
    uint32_t money() const { return m_money; }
    // Hunger/thirst from OP_Stamina: "ticks till next eat", ~6000 full -> 0 hungry.
    uint16_t food() const { return m_food; }
@@ -354,7 +363,7 @@ public:
   QString m_invocation;       // EQL active invocation name (resolved); empty if none
   uint16_t m_observedMaxMana = 0;   // peak current mana = exact max once full
   uint16_t m_wireMaxMana = 0;       // eql: exact gear+buff max from stat-sync wide form
-  uint32_t m_money = 0;   // total copper (eql OP_MoneyUpdate)
+  uint32_t m_money = 0;   // carried coin as total copper (eql OP_PlayerProfile)
   uint16_t m_fatigue;
   uint32_t m_enduranceCur;
   uint32_t m_enduranceMax;

@@ -959,14 +959,32 @@ void Player::updateStamina(const uint8_t* data)
     savePlayerState();
 }
 
-void Player::moneyUpdate(const uint8_t* data, size_t len, uint8_t)
+void Player::setMoneyFromProfile(uint32_t plat, uint32_t gold, uint32_t silver,
+                                 uint32_t copper)
 {
-  auto out = seq::rust::decode_money_update(
-      rust::Slice<const uint8_t>{data, len});
-  // copper==0 fires are transient noise (the total flaps 0<->N in ms); ignore.
-  if (!out.ok || out.copper == 0 || out.copper == m_money)
+  // Ceiling is ~4.29M platinum (u32 copper); the proto field is u32 too, so
+  // widening the whole chain buys nothing until that field grows.
+  const uint64_t total = (uint64_t)plat * 1000 + (uint64_t)gold * 100 +
+                         (uint64_t)silver * 10 + copper;
+  const uint32_t clamped =
+      total > UINT32_MAX ? UINT32_MAX : (uint32_t)total;
+  if (clamped == m_money)
     return;
-  m_money = out.copper;
+  m_money = clamped;
+  emit moneyChanged(m_money);
+}
+
+void Player::adjustMoney(int64_t deltaCopper)
+{
+  if (deltaCopper == 0)
+    return;
+  const int64_t next = (int64_t)m_money + deltaCopper;
+  const uint32_t clamped =
+      next <= 0 ? 0
+                : (next > (int64_t)UINT32_MAX ? UINT32_MAX : (uint32_t)next);
+  if (clamped == m_money)
+    return;
+  m_money = clamped;
   emit moneyChanged(m_money);
 }
 

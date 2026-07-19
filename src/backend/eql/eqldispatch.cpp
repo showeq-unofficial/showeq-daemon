@@ -134,6 +134,12 @@ void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
         m_player->setInvocation(invName);
     m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
     m_player->setClassMask(out.class_mask);   // EQL multiclass (bit N = class N)
+    // Carried coin (fixed offset, read in seq-backend-eql). The profile is the
+    // ONLY source on the current wire. Must come AFTER setIdentity: moneyChanged
+    // fires its own PlayerStats snapshot, and emitting it earlier publishes one
+    // carrying the still-default identity ("You", level 1).
+    m_player->setMoneyFromProfile(out.platinum, out.gold, out.silver,
+                                  out.copper);
 }
 
 void EqlDispatch::expUpdate(const uint8_t* data, size_t len, uint8_t dir)
