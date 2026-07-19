@@ -194,7 +194,7 @@ void EQProtocolPacket::init()
     m_rawPayloadLength = m_length - 2 - 1 - (hasCRC() ? 2 : 0);
     m_bAllocedPayload = false;
 
-    if (! (m_flags & PROTOCOL_FLAG_COMPRESSED))
+    if (m_flags != PROTOCOL_FLAG_COMPRESSED)
     {
       // We have the packet here, let's finish the job.
       m_payloadLength = m_rawPayloadLength;
@@ -228,7 +228,7 @@ bool EQProtocolPacket::decode(uint32_t maxPayloadLength)
   }
 
   // Decoding is only necessary for compressed packets
-  if (hasFlags() && getFlags() & PROTOCOL_FLAG_COMPRESSED)
+  if (hasFlags() && getFlags() == PROTOCOL_FLAG_COMPRESSED)
   {
     // Compressed app opcode? If so, net op is half compressed. Align
     // the buffer we need to uncompress.
