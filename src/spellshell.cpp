@@ -320,16 +320,20 @@ void SpellShell::buff(const uint8_t* data, size_t size, uint8_t dir)
     }
     if (out.change_type != 4)           // only apply acts; other codes are no-ops
       return;
-    // Applies carry no remaining time. The spell-DB formula is the only
-    // fallback and it yields 0 for the debuff-style spells seen on this channel
-    // (verified: "Chaotic Feedback" and "Word of Pain" both calcDuration()==0 at
-    // the captured level), so those are dropped rather than added as entries the
-    // 1s timer would immediately expire. OP_BuffList re-adds them moments later
-    // with the server's real remaining duration, which is the authoritative
-    // path — so in practice only the fade above changes anything here.
-    slot = out.slot;
-    if (spell) duration = spell->calcDuration(m_player->level()) * 6;
-    if (duration <= 0) return;
+    // Applies carry no remaining time, and this server tiers spells — a
+    // levelled spell runs longer than its base entry — so the spell DB's
+    // level-scaled formula is NOT a valid stand-in here. Deliberately assert no
+    // duration: only record the buff-window slot on an entry OP_BuffList
+    // already owns, and never create one or overwrite a server-supplied
+    // duration. OP_BuffList is the single source of truth for both presence and
+    // remaining time; synthesising a number here produced a static value that
+    // never counted down (verified: spell 665 pinned at 54s across 20 updates
+    // while real list-sourced buffs moved 270->456).
+    if (!item)
+      return;
+    item->setBuffSlot(out.slot);
+    emit changeSpell(item);
+    return;
   } else if (out.form == 0) {
     if (item) deleteSpell(item);
     return;
