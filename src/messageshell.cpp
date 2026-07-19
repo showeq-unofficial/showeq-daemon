@@ -317,11 +317,13 @@ void MessageShell::lootMessage(const uint8_t* data, size_t len, uint8_t dir)
   if (!out.ok || out.message.empty())
     return;
   const QString text = QString::fromUtf8(out.message.data(), out.message.size());
-  if (const int64_t coin = soldCoinFromText(text); coin > 0)
+  const int64_t coin = soldCoinFromText(text);
+  if (coin > 0)
     m_player->adjustMoney(coin);
   m_messages->addMessage(MT_General, text);
   emit chatMessage(static_cast<uint32_t>(MT_General), QString(), QString(),
-                   text, out.message_color);
+                   text, out.message_color, QString(),
+                   static_cast<uint32_t>(coin));
 }
 
 // OP_LootDrops (0x6768): corpse loot window -> LootDrops proto (via SessionAdapter).

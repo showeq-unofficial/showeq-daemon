@@ -145,9 +145,12 @@ class MessageShell : public QObject
    // for cross-zone channels that don't map to a fixed MessageType; empty for
    // the typed channels enumerated in `channel`. Defaulted so the existing
    // typed-channel emitters below stay 5-arg.
+   // coinCopper carries sale proceeds stated in the message text (see
+   // ChatMessage.coin_copper); defaulted so the non-loot emitters stay short.
    void chatMessage(uint32_t channel, const QString& from,
                     const QString& target, const QString& text,
-                    uint32_t chatColor, const QString& channelName = QString());
+                    uint32_t chatColor, const QString& channelName = QString(),
+                    uint32_t coinCopper = 0);
 
    // Emitted when OP_InspectAnswer arrives. SessionAdapter listens and
    // forwards to clients as seq.v1.InspectAnswer.

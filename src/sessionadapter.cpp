@@ -426,11 +426,11 @@ void SessionAdapter::connectPerBox()
         connect(m_messageShell,
                 SIGNAL(chatMessage(uint32_t, const QString&,
                                    const QString&, const QString&,
-                                   uint32_t, const QString&)),
+                                   uint32_t, const QString&, uint32_t)),
                 this,
                 SLOT(onChatMessage(uint32_t, const QString&,
                                    const QString&, const QString&,
-                                   uint32_t, const QString&)));
+                                   uint32_t, const QString&, uint32_t)));
         connect(m_messageShell,
                 SIGNAL(inspectReceived(const inspectDataStruct*)),
                 this,
@@ -958,7 +958,8 @@ void SessionAdapter::onPlayerIdChanged()
 void SessionAdapter::onChatMessage(uint32_t channel, const QString& from,
                                    const QString& target, const QString& text,
                                    uint32_t chatColor,
-                                   const QString& channelName)
+                                   const QString& channelName,
+                                   uint32_t coinCopper)
 {
     seq::v1::Envelope env;
     auto* chat = env.mutable_chat();
@@ -969,6 +970,8 @@ void SessionAdapter::onChatMessage(uint32_t channel, const QString& from,
     chat->set_chat_color(chatColor);
     if (!channelName.isEmpty())
         chat->set_channel_name(channelName.toStdString());
+    if (coinCopper > 0)
+        chat->set_coin_copper(coinCopper);
     sendOrBuffer(std::move(env));
 }
 
