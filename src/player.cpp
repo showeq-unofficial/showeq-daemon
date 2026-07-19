@@ -959,7 +959,7 @@ void Player::updateStamina(const uint8_t* data)
     savePlayerState();
 }
 
-void Player::setMoneyFromProfile(uint32_t plat, uint32_t gold, uint32_t silver,
+void Player::setMoneyCoins(uint32_t plat, uint32_t gold, uint32_t silver,
                                  uint32_t copper)
 {
   // Ceiling is ~4.29M platinum (u32 copper); the proto field is u32 too, so

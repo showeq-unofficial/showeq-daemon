@@ -266,7 +266,11 @@
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="4d77" name="OP_Unknown4" updated="07/19/26" priority="4">
-        <comment>NOT money — was misnamed OP_MoneyUpdate until 2026-07-19. 12B {u32 @0, u32=1, u32=42}, S>C, fires on a 60s timer (26 fires at 60.0s +/-0.9s across one 26min capture), so it is a heartbeat, not an event. Field @0 read 0 in 13 of 26 fires while the character carried 9,275,933 copper, and otherwise drifted in a narrow 11649..12098 band unrelated to the purse — it is not a coin total in any denomination. Deliberately UNWIRED: money comes from OP_PlayerProfile. Meaning of @0 still unknown.</comment>
+        <comment>NOT money — was misnamed OP_MoneyUpdate until 2026-07-19; the real one is 0x6414. 12B {u32 @0, u32=1, u32=42}, S>C, fires on a 60s timer (26 fires at 60.0s +/-0.9s across one 26min capture), so it is a heartbeat, not an event. Field @0 read 0 in 13 of 26 fires while the character carried 9,275,933 copper, and otherwise drifted in a narrow 11649..12098 band unrelated to the purse — it is not a coin total in any denomination. Deliberately UNWIRED. Meaning of @0 still unknown.</comment>
+        <payload dir="server" typename="uint8_t" sizechecktype="none"/>
+    </opcode>
+    <opcode id="6414" name="OP_MoneyUpdate" updated="07/19/26" priority="4">
+        <comment>Carried purse, 20B S>C {u32 platinum@0, gold@4, silver@8, copper@12, u32=0@16}. Denominations are NOT normalized (9276p 33g 101s 281c captured), so sum rather than assuming each is &lt; 10. Values agree with OP_PlayerProfile's own coin block wherever both appear, verified on two characters. Mostly broadcasts near zone-in, but it DOES also report mid-session changes the profile never sees (one capture: purse moved +12804 while visible auto-sales accounted for only 3142), so it is the authoritative source — though it does not fire per coin-earning event, hence the OP_LootMessage accrual on top. NOTE when counting fires: recon follows the primary box unless --dump-all-sessions is passed. Layout credit: Xerxes (legacy moneyUpdateEQL); the id rotated from 0x4d77 in the 2026-07-14 patch, which is why this sat unmapped.</comment>
         <payload dir="server" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="7d46" name="OP_LootMessage" updated="07/16/26" priority="4">

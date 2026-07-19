@@ -39,6 +39,8 @@ public:
 
     // OP_PlayerProfile (0x62f0) S>C: identity header (race/class/level).
     void profile(const uint8_t* data, size_t len, uint8_t dir);
+    // OP_MoneyUpdate (0x6414) S>C, 20B: authoritative carried purse.
+    void moneyUpdate(const uint8_t* data, size_t len, uint8_t dir);
     // OP_ClientUpdate (0x7171) C>S: this player's float position + heading.
     void playerUpdateSelf(const uint8_t* data, size_t len, uint8_t dir);
     // OP_ClientUpdate (0x7171) S>C, 28B: OTHER spawns' position broadcast

@@ -134,12 +134,27 @@ void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
         m_player->setInvocation(invName);
     m_player->setIdentity((uint16_t)out.race, (uint8_t)out.class_, out.level);
     m_player->setClassMask(out.class_mask);   // EQL multiclass (bit N = class N)
-    // Carried coin (fixed offset, read in seq-backend-eql). The profile is the
-    // ONLY source on the current wire. Must come AFTER setIdentity: moneyChanged
-    // fires its own PlayerStats snapshot, and emitting it earlier publishes one
-    // carrying the still-default identity ("You", level 1).
-    m_player->setMoneyFromProfile(out.platinum, out.gold, out.silver,
-                                  out.copper);
+    // Carried coin (fixed offset, read in seq-backend-eql). Redundant with
+    // OP_MoneyUpdate, which carries the same values in a far more durable 20B
+    // struct — kept as a second source so a drifted profile offset or a missing
+    // money broadcast can't leave the readout empty. Must come AFTER
+    // setIdentity: moneyChanged fires its own PlayerStats snapshot, and emitting
+    // it earlier publishes one carrying the still-default identity.
+    m_player->setMoneyCoins(out.platinum, out.gold, out.silver, out.copper);
+}
+
+void EqlDispatch::moneyUpdate(const uint8_t* data, size_t len, uint8_t dir)
+{
+    // OP_MoneyUpdate (0x6414) S>C: the authoritative carried purse. Broadcast at
+    // zone-in and occasionally between, but never per coin-earning event — the
+    // between-zone accrual rides OP_LootMessage text instead.
+    if (dir != DIR_Server)
+        return;
+    auto out = seq::rust::decode_money_update(
+        rust::Slice<const uint8_t>{data, len});
+    if (!out.ok)
+        return;
+    m_player->setMoneyCoins(out.platinum, out.gold, out.silver, out.copper);
 }
 
 void EqlDispatch::expUpdate(const uint8_t* data, size_t len, uint8_t dir)

@@ -106,15 +106,15 @@ public:
    void updateNpcHP(const uint8_t* hpupdate);
    void updateSpawnInfo(const uint8_t* su);
    void updateStamina(const uint8_t* stam);
-   // Carried coin, seeded from OP_PlayerProfile at zone-in. EQL does not
-   // normalize denominations on the wire (101 silver / 281 copper observed),
-   // so the total is summed rather than assuming each is < 10.
-   void setMoneyFromProfile(uint32_t plat, uint32_t gold, uint32_t silver,
+   // Authoritative carried coin, from OP_MoneyUpdate or OP_PlayerProfile (they
+   // agree). EQL does not normalize denominations on the wire (101 silver / 281
+   // copper observed), so the total is summed rather than assuming each is < 10.
+   void setMoneyCoins(uint32_t plat, uint32_t gold, uint32_t silver,
                             uint32_t copper);
-   // Incremental coin delta between profiles. eql reports auto-sell proceeds
-   // only as chat text and has no money opcode, so income would otherwise stay
+   // Incremental coin delta between authoritative updates. Neither money source
+   // fires per coin-earning event, so auto-sell income would otherwise stay
    // invisible until the next zone-in. Runs optimistic — it sees income but not
-   // spending — and the profile resyncs the authoritative total at each zone.
+   // spending — and the next authoritative update resyncs the true total.
    void adjustMoney(int64_t deltaCopper);
    uint32_t money() const { return m_money; }
    // Hunger/thirst from OP_Stamina: "ticks till next eat", ~6000 full -> 0 hungry.
