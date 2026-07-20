@@ -529,7 +529,7 @@ id      = "41d7"
 name    = "OP_GroupFollow"
 priority = 4
 updated = "2026-07-16"
-comment = "Member added (modern: 68 bytes, name at offset 0)."
+comment = "A member joined (168B; invitee name at offset 64, level at 132). Roster identity rides this + OP_GroupDisband; OP_GroupMemberList is dead on Legends."
 
   [[zone.payloads]]
   dir           = "server"
@@ -554,7 +554,7 @@ id      = "d305"
 name    = "OP_GroupUpdate"
 priority = 6
 updated = "2026-07-16"
-comment = "Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow."
+comment = "Per-recipient status push (168B fixed, name at offset 64, no member roster); handler noops. Member identity rides OP_GroupFollow, departures OP_GroupDisband/2."
 
   [[zone.payloads]]
   dir           = "both"

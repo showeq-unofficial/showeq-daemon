@@ -380,13 +380,15 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
          "inspectDataStruct", SZC_Match,
          seqBind(ms.messageShell, &MessageShell::inspectData));
 
-    // --- GroupMgr.
+    // --- GroupMgr. On Legends the roster identity rides OP_GroupUpdate (the
+    // full authoritative roster), OP_GroupFollow (incremental join) and
+    // OP_GroupDisband/2 (leave/disband). OP_GroupMemberList is dead here.
     wire("OP_GroupUpdate", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(ms.groupMgr, &GroupMgr::groupUpdate));
-    wire("OP_GroupMemberList", SP_Zone, DIR_Server,
-         "uint8_t", SZC_None,
-         seqBind(ms.groupMgr, &GroupMgr::groupMemberList));
+    wire("OP_GroupFollow", SP_Zone, DIR_Server,
+         "groupFollowStruct", SZC_None,
+         seqBind(ms.groupMgr, &GroupMgr::addGroupMember));
     wire("OP_GroupDisband", SP_Zone, DIR_Server,
          "groupDisbandStruct", SZC_None,
          seqBind(ms.groupMgr, &GroupMgr::removeGroupMember));

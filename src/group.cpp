@@ -101,13 +101,38 @@ void GroupMgr::player(const charProfileStruct* player)
 
 void GroupMgr::groupUpdate(const uint8_t* /*data*/, size_t /*size*/)
 {
-  // Modern OP_GroupUpdate (opcode 0x6890, fixed 92 bytes) is a per-slot
-  // status push: each packet carries the *recipient's* own name at
-  // offset 0 + a slot index, but no peer identity. Member identity
-  // arrives via OP_GroupFollow (addGroupMember) and departures via
-  // OP_GroupDisband / OP_GroupDisband2 (removeGroupMember), so this
-  // handler currently noops. A future revision can read the slot index
-  // and reconcile m_members ordering if the UI ever needs it.
+  // OP_GroupUpdate on this wire is a fixed-168B per-recipient status push
+  // (name@64, no member roster — count field is 0), NOT the variable full
+  // roster the legends groupRosterEQL format carries. Member identity rides
+  // OP_GroupFollow (addGroupMember) and departures OP_GroupDisband/2
+  // (removeGroupMember), so this noops. (decode_group_roster stays available
+  // for a server that does send the variable roster on this id.)
+}
+
+void GroupMgr::addGroupMember(const uint8_t* data, size_t size)
+{
+  // OP_GroupFollow: one member joined — add to the first empty peer slot. Level
+  // comes from the Spawn when in zone (fillGroupUpdate); 0 otherwise.
+  auto out = seq::rust::decode_group_follow(
+      rust::Slice<const uint8_t>{data, size});
+  if (!out.ok) return;
+  const QString name = QString::fromLatin1(out.name.data(), int(out.name.size()));
+  if (name.isEmpty()) return;
+  if (m_player && name == m_player->name()) return;
+
+  for (int i = 0; i < MAX_GROUP_PEERS; i++)
+    if (m_members[i]->m_name == name) return;  // already tracked
+
+  for (int i = 0; i < MAX_GROUP_PEERS; i++) {
+    if (m_members[i]->m_name.isEmpty()) {
+      m_members[i]->m_name = name;
+      m_members[i]->m_spawn = m_spawnShell->findPlayerByDisplayName(name);
+      m_memberCount++;
+      if (m_members[i]->m_spawn) m_membersInZoneCount++;
+      emit added(name, m_members[i]->m_spawn);
+      break;
+    }
+  }
 }
 
 void GroupMgr::groupMemberList(const uint8_t* data, size_t size)

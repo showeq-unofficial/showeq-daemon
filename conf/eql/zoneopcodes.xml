@@ -173,7 +173,7 @@
         <payload dir="client" typename="groupDeclineStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="41d7" name="OP_GroupFollow" updated="07/16/26" priority="4">
-        <comment>Member added (modern: 68 bytes, name at offset 0).</comment>
+        <comment>A member joined (168B; invitee name at offset 64, level at 132). Roster identity rides this + OP_GroupDisband; OP_GroupMemberList is dead on Legends.</comment>
         <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="ffff" name="OP_GroupFollow2" updated="05/27/26" priority="-1">
@@ -182,7 +182,7 @@
         <payload dir="server" typename="groupFollowStruct" sizechecktype="none"/>
     </opcode>
     <opcode id="d305" name="OP_GroupUpdate" updated="07/16/26" priority="6">
-        <comment>Per-slot group status (modern: 92 bytes, recipient name + slot). Handler currently noops; member identity comes from OP_GroupFollow.</comment>
+        <comment>Per-recipient status push (168B fixed, name at offset 64, no member roster); handler noops. Member identity rides OP_GroupFollow, departures OP_GroupDisband/2.</comment>
         <payload dir="both" typename="uint8_t" sizechecktype="none"/>
     </opcode>
     <opcode id="227d" name="OP_GroupDisband" updated="07/16/26" priority="4">
