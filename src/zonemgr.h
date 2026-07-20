@@ -74,6 +74,11 @@ class ZoneMgr : public QObject
   // spawns and reset the just-set identity. zoneResolved drives only the map /
   // filter / web, never the clear/reset slots. See eqldispatch.cpp.
   void setZoneByName(const QString& shortName, const QString& longName);
+  // Raise the zoning flag without decoding a zone-change struct. For backends
+  // whose zone-change packet carries no zone id (eql's is a client-only
+  // position request), so only the flag is knowable here; names resolve at
+  // zone-in via setZoneByName, which lowers it again.
+  void beginZoning();
 
  public slots:
   void saveZoneState(void);

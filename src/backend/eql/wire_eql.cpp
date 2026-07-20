@@ -82,9 +82,12 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_PlayerProfile", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(eql, &EqlDispatch::profile));
+    // eql's OP_ZoneChange is 484B and carries no zone id, so it cannot use
+    // Live's 100B zoneChangeStruct (SZC_Match would drop it) nor ZoneMgr::
+    // zoneChange, which decodes that struct. It only raises the zoning flag.
     wire("OP_ZoneChange", SP_Zone, DIR_Client | DIR_Server,
-         "zoneChangeStruct", SZC_Match,
-         seqBind(ms.zoneMgr, &ZoneMgr::zoneChange));
+         "uint8_t", SZC_None,
+         seqBind(eql, &EqlDispatch::zoneChange));
     // EQ Legends OP_NewZone (0x1dbf) S>C: the authoritative current zone, carried
     // as packed short + long name text (parsed in EqlDispatch). Fires once per
     // zone-in, AFTER the profile + bulk spawn list — EqlDispatch::newZone drives

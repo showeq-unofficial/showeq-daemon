@@ -143,6 +143,22 @@ void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
     m_player->setMoneyCoins(out.platinum, out.gold, out.silver, out.copper);
 }
 
+void EqlDispatch::zoneChange(const uint8_t*, size_t, uint8_t)
+{
+    // eql's OP_ZoneChange is a 484B CLIENT request carrying the player's
+    // position and no zone id at all, so unlike Live there is nothing to decode
+    // — only the zoning flag is knowable. Zone identity arrives later via
+    // OP_NewZone -> setZoneByName, which also lowers the flag.
+    //
+    // The flag gates SpawnShell's stale-zone handlers. On eql only
+    // npcMoveUpdate and the ground-item pair are wired behind it, and the bulk
+    // spawn stream is NOT (OP_ZoneEntry -> EqlDispatch::spawn -> upsertSpawn is
+    // unguarded), so raising it suppresses stale movement without touching the
+    // zone's spawn list. Measured over one 26-minute capture: 29 of 3880
+    // OP_NpcMoveUpdate and 0 of 23 OP_GroundSpawn fall inside the windows.
+    m_zoneMgr->beginZoning();
+}
+
 void EqlDispatch::moneyUpdate(const uint8_t* data, size_t len, uint8_t dir)
 {
     // OP_MoneyUpdate (0x6414) S>C: the authoritative carried purse. Broadcast at

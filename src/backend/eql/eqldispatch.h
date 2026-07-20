@@ -49,6 +49,9 @@ public:
     // OP_ClientUpdate (0x7171) S>C, 28B: OTHER spawns' position broadcast
     // (19-bit ×8 packed) — drives SpawnShell::moveSpawn, like OP_MobUpdate.
     void playerUpdateOther(const uint8_t* data, size_t len, uint8_t dir);
+    // OP_ZoneChange S>C/C>S: eql's is client-only and carries position but no
+    // zone id, so it can only raise the zoning flag.
+    void zoneChange(const uint8_t* data, size_t len, uint8_t dir);
     // OP_NewZone (0x1dbf) S>C: packed null-terminated short/long zone names.
     void newZone(const uint8_t* data, size_t len, uint8_t dir);
     // OP_ZoneEntry (0x4606) S>C: null-terminated name + fixed spawn block

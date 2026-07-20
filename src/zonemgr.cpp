@@ -517,6 +517,14 @@ void ZoneMgr::zoneChange(const uint8_t* data, size_t len, uint8_t dir)
     saveZoneState();
 }
 
+void ZoneMgr::beginZoning()
+{
+  m_zone_exp_multiplier = defaultZoneExperienceMultiplier;
+  m_zoning = true;
+  if (showeq_params->saveZoneState)
+    saveZoneState();
+}
+
 void ZoneMgr::zoneNew(const uint8_t* data, size_t len, uint8_t dir)
 {
   auto out = seq::rust::decode_new_zone(
