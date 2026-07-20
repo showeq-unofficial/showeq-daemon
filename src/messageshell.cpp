@@ -326,17 +326,20 @@ void MessageShell::lootDrops(const uint8_t* data, size_t len, uint8_t dir)
     return;
   QStringList names;
   QVector<uint32_t> icons;
+  QVector<uint32_t> itemIds;
   names.reserve(static_cast<int>(out.items.size()));
   icons.reserve(static_cast<int>(out.items.size()));
+  itemIds.reserve(static_cast<int>(out.items.size()));
   for (const auto& it : out.items)
   {
     names.push_back(QString::fromUtf8(it.name.data(), it.name.size()));
     icons.push_back(it.icon);
+    itemIds.push_back(it.item_id);
   }
   emit lootDropsReceived(out.corpse_id,
                          QString::fromUtf8(out.corpse_name.data(),
                                            out.corpse_name.size()),
-                         names, icons);
+                         names, icons, itemIds);
 }
 
 void MessageShell::simpleMessage(const uint8_t* data, size_t len, uint8_t dir)

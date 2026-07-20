@@ -157,7 +157,8 @@ class MessageShell : public QObject
    // forwards to clients as seq.v1.InspectAnswer.
    void inspectReceived(const inspectDataStruct* data);
    void lootDropsReceived(uint32_t corpseId, const QString& corpseName,
-                          const QStringList& names, const QVector<uint32_t>& icons);
+                          const QStringList& names, const QVector<uint32_t>& icons,
+                          const QVector<uint32_t>& itemIds);
    void lootTransactionReceived(uint32_t corpseId, uint32_t itemId,
                                 uint32_t quantity, uint32_t coinCopper);
 

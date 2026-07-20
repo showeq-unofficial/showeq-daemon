@@ -436,9 +436,9 @@ void SessionAdapter::connectPerBox()
                 this,
                 SLOT(onInspectAnswer(const inspectDataStruct*)));
         connect(m_messageShell,
-                SIGNAL(lootDropsReceived(uint32_t, const QString&, const QStringList&, const QVector<uint32_t>&)),
+                SIGNAL(lootDropsReceived(uint32_t, const QString&, const QStringList&, const QVector<uint32_t>&, const QVector<uint32_t>&)),
                 this,
-                SLOT(onLootDrops(uint32_t, const QString&, const QStringList&, const QVector<uint32_t>&)));
+                SLOT(onLootDrops(uint32_t, const QString&, const QStringList&, const QVector<uint32_t>&, const QVector<uint32_t>&)));
         connect(m_messageShell,
                 SIGNAL(lootTransactionReceived(uint32_t, uint32_t, uint32_t, uint32_t)),
                 this,
@@ -1299,7 +1299,8 @@ void SessionAdapter::onInspectAnswer(const inspectDataStruct* data)
 
 void SessionAdapter::onLootDrops(uint32_t corpseId, const QString& corpseName,
                                  const QStringList& names,
-                                 const QVector<uint32_t>& icons)
+                                 const QVector<uint32_t>& icons,
+                                 const QVector<uint32_t>& itemIds)
 {
     seq::v1::Envelope env;
     auto* ld = env.mutable_loot_drops();
@@ -1310,6 +1311,7 @@ void SessionAdapter::onLootDrops(uint32_t corpseId, const QString& corpseName,
         auto* it = ld->add_items();
         it->set_name(names[i].toStdString());
         it->set_icon(i < icons.size() ? icons[i] : 0u);
+        it->set_item_id(i < itemIds.size() ? itemIds[i] : 0u);
     }
     sendOrBuffer(std::move(env));
 }
