@@ -649,6 +649,9 @@ void SessionAdapter::sendSnapshot()
     seq::v1::Envelope env;
     auto* snap = env.mutable_snapshot();
     snap->set_session_id(m_sessionId.toStdString());
+    // Backend data namespace (compile-time per SEQ_TARGET) so clients can keep
+    // per-backend data (loot DB, etc.) apart: ".showeq" (Live) / ".showeq/eql".
+    snap->set_data_namespace(SEQ_DATA_NAMESPACE);
     if (m_zoneMgr) {
         snap->set_zone_short(m_zoneMgr->shortZoneName().toStdString());
         snap->set_zone_long(m_zoneMgr->longZoneName().toStdString());
