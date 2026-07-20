@@ -311,31 +311,24 @@ void SpellShell::buff(const uint8_t* data, size_t size, uint8_t dir)
   int duration = 0;
   uint8_t slot = 0xff;
   if (compact) {
-    // Slots 0-14 are the real buff window; 0xff marks a scribe/bar refresh.
-    if (out.slot == 0xff)
-      return;
-    if (out.change_type == 1) {         // faded / clicked off
-      if (item) deleteSpell(item);
-      return;
-    }
-    if (out.change_type != 4)           // only apply acts; other codes are no-ops
-      return;
-    if (item)
-    {
-      // Already tracked: OP_BuffList carries REMAINING time, which a full
-      // duration recompute would reset to full. Stamp the slot only.
-      item->setBuffSlot(out.slot);
-      emit changeSpell(item);
-      return;
-    }
-    // New entry. This server tiers spells, but each tier is its own spell id
-    // with its own DB row (43 "Yaulp II", 44 "Yaulp III", ...), so the wire's
-    // spellId already selects the right tier and the level-scaled formula is
-    // correct for it. Note this is a FULL duration, not remaining time —
-    // OP_BuffList replaces it with the server's value on the next refresh.
-    slot = out.slot;
-    if (spell) duration = spell->calcDuration(m_player->level()) * 6;
-    if (duration <= 0) return;
+    // DECODE-ONLY, deliberately. This record is not buff state: spell 665
+    // "Drifting Death" arrives here as {slot 1, changeType 4} while the chat log
+    // for the same capture reads "a greater kobold has taken 196 damage from
+    // your Drifting Death" — a DoT cast ON A MOB, which cannot occupy the
+    // player's buff window. Field 0 therefore looks like the spell GEM slot cast
+    // from, not a buff slot, and the record looks like cast activity.
+    //
+    // Acting on it either way is unsafe: adding would show spells cast on others
+    // as buffs on the player, and treating changeType 1 as a fade would delete a
+    // genuine buff of the same spell id. Legacy showeq's buffChange does exactly
+    // this (unconditional m_player attribution, add on 4 / delete on 1) and has
+    // the same flaw. OP_BuffList remains the authoritative buff source and is
+    // unaffected.
+    //
+    // Identifying it needs a targeted capture: cast a known spell from a known
+    // gem and check whether field 0 tracks the gem, and whether a buff received
+    // from someone else ever appears here at all.
+    return;
   } else if (out.form == 0) {
     if (item) deleteSpell(item);
     return;
