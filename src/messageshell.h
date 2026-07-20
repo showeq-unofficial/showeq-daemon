@@ -69,6 +69,10 @@ class MessageShell : public QObject
    void formattedMessageEQL(const uint8_t* cmsg, size_t, uint8_t);
    void lootMessage(const uint8_t* lmsg, size_t, uint8_t);
    void lootDrops(const uint8_t* data, size_t, uint8_t);
+   // OP_LootTransaction: server confirmation of a corpse-loot action. Carries
+   // the auto-sell proceeds as a binary field, so the amount never has to be
+   // recovered from message wording.
+   void lootTransaction(const uint8_t* data, size_t, uint8_t);
    void simpleMessage(const uint8_t* cmsg, size_t, uint8_t);
    void specialMessage(const uint8_t* smsg, size_t, uint8_t);
    // EQ Legends UCS cross-zone chat: one raw port-9877 server->client payload
@@ -145,18 +149,17 @@ class MessageShell : public QObject
    // for cross-zone channels that don't map to a fixed MessageType; empty for
    // the typed channels enumerated in `channel`. Defaulted so the existing
    // typed-channel emitters below stay 5-arg.
-   // coinCopper carries sale proceeds stated in the message text (see
-   // ChatMessage.coin_copper); defaulted so the non-loot emitters stay short.
    void chatMessage(uint32_t channel, const QString& from,
                     const QString& target, const QString& text,
-                    uint32_t chatColor, const QString& channelName = QString(),
-                    uint32_t coinCopper = 0);
+                    uint32_t chatColor, const QString& channelName = QString());
 
    // Emitted when OP_InspectAnswer arrives. SessionAdapter listens and
    // forwards to clients as seq.v1.InspectAnswer.
    void inspectReceived(const inspectDataStruct* data);
    void lootDropsReceived(uint32_t corpseId, const QString& corpseName,
                           const QStringList& names, const QVector<uint32_t>& icons);
+   void lootTransactionReceived(uint32_t corpseId, uint32_t itemId,
+                                uint32_t quantity, uint32_t coinCopper);
 
  protected:
    Messages* m_messages;

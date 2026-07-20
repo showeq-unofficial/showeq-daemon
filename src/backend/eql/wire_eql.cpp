@@ -249,6 +249,10 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     // 0x4d77 is NOT money — deliberately unwired (see OP_Unknown4 in the toml).
     // The real money opcode is 0x6414; the id rotated in the 2026-07-14 patch,
     // which is why feeding 0x4d77 to money_copper put junk in the coin readout.
+    // OP_LootTransaction: subcode-7 confirmation carries the auto-sell coin.
+    wire("OP_LootTransaction", SP_Zone, DIR_Server,
+         "uint8_t", SZC_None,
+         seqBind(ms.messageShell, &MessageShell::lootTransaction));
     wire("OP_MoneyUpdate", SP_Zone, DIR_Server,
          "uint8_t", SZC_None,
          seqBind(eql, &EqlDispatch::moneyUpdate));

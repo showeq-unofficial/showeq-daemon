@@ -281,31 +281,6 @@ void MessageShell::formattedMessageEQL(const uint8_t* data, size_t len, uint8_t 
                    text, out.message_color);
 }
 
-// "... and sold it for 3 gold, 5 silver and 7 copper." -> total copper, or 0
-// when the line carries no sale. eql auto-sells looted items and reports the
-// proceeds ONLY here, so this text is the sole between-zone income signal.
-static int64_t soldCoinFromText(const QString& text)
-{
-  const int at = text.indexOf(QLatin1String(" and sold it for "));
-  if (at < 0)
-    return 0;
-  static const QRegularExpression rx(
-      QStringLiteral("(\\d+)\\s+(platinum|gold|silver|copper)"));
-  int64_t total = 0;
-  auto it = rx.globalMatch(text.mid(at));
-  while (it.hasNext())
-  {
-    const QRegularExpressionMatch m = it.next();
-    const int64_t n = m.captured(1).toLongLong();
-    const QString denom = m.captured(2);
-    total += n * (denom == QLatin1String("platinum") ? 1000
-                  : denom == QLatin1String("gold")   ? 100
-                  : denom == QLatin1String("silver") ? 10
-                                                     : 1);
-  }
-  return total;
-}
-
 // OP_LootMessage (0x7d46): eql personal auto-loot text (links already reduced to
 // the item name by the parser).
 void MessageShell::lootMessage(const uint8_t* data, size_t len, uint8_t dir)
@@ -317,13 +292,27 @@ void MessageShell::lootMessage(const uint8_t* data, size_t len, uint8_t dir)
   if (!out.ok || out.message.empty())
     return;
   const QString text = QString::fromUtf8(out.message.data(), out.message.size());
-  const int64_t coin = soldCoinFromText(text);
-  if (coin > 0)
-    m_player->adjustMoney(coin);
   m_messages->addMessage(MT_General, text);
   emit chatMessage(static_cast<uint32_t>(MT_General), QString(), QString(),
-                   text, out.message_color, QString(),
-                   static_cast<uint32_t>(coin));
+                   text, out.message_color);
+}
+
+void MessageShell::lootTransaction(const uint8_t* data, size_t len, uint8_t dir)
+{
+  // Only the server's subcode-7 confirmation decodes; the parser rejects the
+  // other subcodes on this id. coin_copper is the sale proceeds on servers that
+  // auto-sell looted items, and 0 when the loot produced none. This replaced
+  // matching the amount out of the loot message's English text.
+  if (dir == DIR_Client)
+    return;
+  auto out = seq::rust::decode_loot_transaction(
+      rust::Slice<const uint8_t>{data, len});
+  if (!out.ok)
+    return;
+  if (out.coin_copper > 0)
+    m_player->adjustMoney((int64_t)out.coin_copper);
+  emit lootTransactionReceived(out.corpse_id, out.item_id, out.quantity,
+                               out.coin_copper);
 }
 
 // OP_LootDrops (0x6768): corpse loot window -> LootDrops proto (via SessionAdapter).

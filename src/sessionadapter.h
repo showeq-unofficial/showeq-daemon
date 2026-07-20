@@ -143,8 +143,10 @@ private slots:
     void onChatMessage(uint32_t channel, const QString& from,
                        const QString& target, const QString& text,
                        uint32_t chatColor,
-                       const QString& channelName = QString(),
-                       uint32_t coinCopper = 0);
+                       const QString& channelName = QString());
+    // Emits a seq.v1.LootTransaction envelope per completed corpse-loot.
+    void onLootTransaction(uint32_t corpseId, uint32_t itemId,
+                           uint32_t quantity, uint32_t coinCopper);
     // Re-emits the full group state on any GroupMgr add/remove/clear.
     void onGroupChanged();
     // Re-emits the full active-buff list on any SpellShell change.
