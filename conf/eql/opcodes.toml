@@ -641,7 +641,10 @@ updated = "2026-07-19"
 comment = "S>C, two shapes ride this id. (a) 24B COMPACT record {u32 field0@0, u32 spellId@4, u32=1@8, u32 changeType@12, 0, 0}, changeType 4/1. DECODED BUT DELIBERATELY NOT APPLIED — it is probably NOT buff state. In one fixture it carries {1, 665, 4} for \"Drifting Death\" while that capture's chat reads \"a greater kobold has taken 196 damage from your Drifting Death\", i.e. a DoT cast ON A MOB, which cannot sit in the player's buff window; another record is {8, 3579} \"Share Form of the Great Wolf\", also player-cast. So field0 looks like the spell GEM slot cast from, not a buff slot, and values >=15 (15, 331..339 seen) are something else again. Applying it would show spells cast on others as buffs on the player, and treating changeType 1 as a fade would delete a real buff of the same spell id. Legacy showeq buffChange does apply it (unconditional player attribution, add on 4 / delete on 1) and carries that flaw. TO IDENTIFY: cast a known spell from a known gem and see whether field0 tracks the gem, and whether a buff received FROM someone else ever appears here. OP_BuffList/2/3 remain the authoritative buff source. (b) older variable-length forms: 13b fade {u32 spawnID, u32 spellID, u16=0x0001, u8=0, u8 slot, u8=0}; 30b self-buff add; 34/51/53/59b embedded blocks; 85b 3-block. Pre-patch OP_Buff 0x55b9 no longer fires."
 
   [[zone.payloads]]
-  dir           = "server"
+  # Fires BOTH ways — the client half is memorize/forget; only the server broadcast is decoded, so the wire() binding stays DIR_Server.
+  # Declaring server-only here left the client packets matching no payload,
+  # which logs "doesn't match" for every one of them.
+  dir           = "both"
   typename      = "uint8_t"
   sizechecktype = "none"
 
@@ -810,7 +813,10 @@ updated = "2026-07-19"
 comment = "Subcode-multiplexed corpse-loot channel; the client requests a loot action and the server confirms. Subcodes (u16@0) seen in a 26min capture: 3 (C 2B / S 6B request+ack, purpose unknown), 6 (C 25B, the loot request), 5 (S 16B, layout unmapped), 7 (S 36B, the confirmation, decoded). The 36B confirmation echoes the request body and appends the proceeds: {u16 subcode=7@0, u16=1@2, u32 itemId@4, u32 slot@8, u32 corpseId@12, u32 quantity@16, u32 requestSeq@20, u16@24, u32 coinCopper@26, u8[6]=0@30}. WIRE-VERIFIED: across 24 confirmations the 18 non-zero @26 values matched exactly and in full the 18 amounts the server separately stated as English text (\"...and sold it for 3 gold, 5 silver and 7 copper\" = 357), and all 18 distinct corpseIds are spawns that both died and appear as a loot_drops corpse id. Decoded by parse_loot_transaction -> EqlDispatch::lootTransaction -> Player::adjustMoney + proto LootTransaction; this replaced parsing the sale wording out of OP_LootMessage. NOTE legacy showeq maps this id as a death/combat record (deathRecordEQLStruct {sourceId, skillOrDamage, targetId, combatSeq}) and discards it. That reading does not survive the capture: the record is client-initiated, every target was looted rather than merely killed, its trailing field is coin, and its \"always 1\" field @16 also takes the value 2. Kills are covered separately by OP_Death (0x36bf): 47 fires -> 47 spawn_killed, versus 24 of these."
 
   [[zone.payloads]]
-  dir           = "server"
+  # Fires BOTH ways — the client half is the loot REQUEST (subcodes 3/6); only the server confirmation is decoded, so the wire() binding stays DIR_Server.
+  # Declaring server-only here left the client packets matching no payload,
+  # which logs "doesn't match" for every one of them.
+  dir           = "both"
   typename      = "uint8_t"
   sizechecktype = "none"
 
