@@ -256,12 +256,17 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
     // undershoots by however much MANA the player has on gear / AAs.
     // Floor the reported max to whatever the live OP_ManaChange tells
     // us — current > max is impossible in EQ, so observed current is
-    // a strictly better lower bound than our calculated max. Same
-    // pattern for HP, which also lives behind a calcMaxHP() approx.
+    // a strictly better lower bound than our calculated max.
+    //
+    // HP is NOT the same case: there is no calcMaxHP anywhere: maxHP() is the
+    // stored m_maxHP, written only from the wire (eql's stat-sync wide form via
+    // setVitals, live's OP_HPUpdate) and deliberately saved/restored across
+    // Player::update so a percentage spawn record can't clobber it. So this max
+    // is already exact and the guard below is only a floor against a stale max.
     const uint16_t curHP = mp.HP();
-    const uint16_t calcHPMax = mp.maxHP();
+    const uint16_t wireHPMax = mp.maxHP();
     out->set_hp_cur(curHP);
-    out->set_hp_max(curHP > calcHPMax ? curHP : calcHPMax);
+    out->set_hp_max(curHP > wireHPMax ? curHP : wireHPMax);
 
     const uint16_t curMana = mp.getMana();
     out->set_mana_cur(curMana);
