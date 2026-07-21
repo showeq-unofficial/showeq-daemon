@@ -108,6 +108,7 @@ void fillSpawn(seq::v1::Spawn* out, const Item& it,
         out->set_hp_max(sp->maxHP());
         out->set_guild_id(sp->guildID());
         out->set_guild_server_id(sp->guildServerID());
+        out->set_guild_tag(sp->guildTag().toStdString());
         out->set_is_gm(sp->gm() != 0);
         out->set_locked(sp->locked());
         out->set_filter_flags(sp->filterFlags());

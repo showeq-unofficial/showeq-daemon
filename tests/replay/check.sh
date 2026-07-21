@@ -38,6 +38,13 @@ detect_target() {
 }
 TARGET="${SEQ_CHECK_TARGET:-$(detect_target)}"
 GOLDEN_DIR="${REPLAY_DIR}/${TARGET}"
+# Mirrors the compiled SEQ_DATA_NAMESPACE: live is flat at ~/.showeq, other
+# targets nest under it.
+if [[ "${TARGET}" == "live" ]]; then
+    GUILD_CACHE="${HOME}/.showeq/tmp/guilds2.dat"
+else
+    GUILD_CACHE="${HOME}/.showeq/${TARGET}/tmp/guilds2.dat"
+fi
 echo "tier-2 target=${TARGET} (from ${BUILD_DIR##*/}/CMakeCache.txt); fixtures in ${GOLDEN_DIR#${REPLAY_DIR}/}/"
 
 # Pin the map package so the goldens' embedded map geometry is deterministic.
@@ -107,6 +114,12 @@ for vpk in "${vpks[@]}"; do
     check="${TMPDIR_RUN}/${name}.pbstream"
     log="${TMPDIR_RUN}/${name}.log"
     PORT=$((PORT+1))
+
+    # GuildMgr persists learned guild id→name pairs to guilds2.dat and reloads
+    # them at startup, so a warm cache resolves spawn guild tags earlier than a
+    # cold one and shifts the envelope stream. Clear it per fixture so goldens
+    # always encode the cold path and reproduce on a fresh clone / in CI.
+    rm -f "${GUILD_CACHE}"
 
     if ! "${DAEMON}" \
             --replay "${vpk}" \

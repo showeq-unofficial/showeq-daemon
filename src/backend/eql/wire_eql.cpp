@@ -26,6 +26,7 @@
 #include "eqldispatch.h"        // backend/eql (same-dir include)
 #include "everquest.h"
 #include "group.h"
+#include "guild.h"
 #include "itemcache.h"
 #include "messageshell.h"
 #include "packet.h"        // EQStreamPairs, SP_World / SP_Zone
@@ -151,6 +152,18 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
         wire("OP_ZoneServerInfo", SP_World, DIR_Server,
              "zoneServerInfoStruct", SZC_Match,
              seqBind(m_zoneServerMgr, &ZoneServerMgr::zoneServerInfo));
+        // Guild id→name, feeding spawn guild tags via GuildMgr::guildTagUpdated.
+        // The eql wire is byte-identical to the stock structs (verified across
+        // 15 captured payloads: the list is u32 name_len + name + u32 count +
+        // count×{u32 guildId, u32 serverId, cstring}), so the shared NetStream
+        // handlers parse it directly — no eql decoder. Global, not per-box: the
+        // guild map is daemon-wide and persists to guilds2.dat.
+        wire("OP_GuildsInZoneList", SP_Zone, DIR_Server,
+             "guildsInZoneListStruct", SZC_None,
+             seqBind(m_guildMgr, &GuildMgr::guildsInZoneList));
+        wire("OP_NewGuildInZone", SP_Zone, DIR_Server,
+             "newGuildInZoneStruct", SZC_None,
+             seqBind(m_guildMgr, &GuildMgr::newGuildInZone));
     }
 
     // --- SpawnShell: spawn lifecycle + positions.

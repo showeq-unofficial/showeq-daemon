@@ -799,7 +799,8 @@ void SpawnShell::upsertSpawn(uint16_t id, const QString& name, const QString& la
                              int16_t x, int16_t y, int16_t z, uint16_t heading,
                              uint8_t level, uint8_t curHpPct, uint8_t maxHpPct,
                              uint16_t race, uint8_t classVal, uint16_t deity,
-                             uint16_t guildID, uint8_t npc, uint32_t classMask)
+                             uint16_t guildID, uint16_t guildServerID, uint8_t npc,
+                             uint32_t classMask)
 {
   // The player's own spawn is owned by Player, never a spawns[] entry. (On eql the
   // self-id is adopted in EqlDispatch::consumeSelfSpawn before this is reached; on
@@ -827,6 +828,11 @@ void SpawnShell::upsertSpawn(uint16_t id, const QString& name, const QString& la
     spawn->setClassMask(classMask);   // EQL multiclass (bit N = class N); 0 on live
     spawn->setDeity(deity);
     spawn->setGuildID(guildID);
+    spawn->setGuildServerID(guildServerID);
+    // Resolves to "" until the guild id→name map learns this guild; the
+    // GuildMgr::guildTagUpdated → updateGuildTag slot back-fills spawns that
+    // were added before their OP_NewGuildInZone arrived.
+    spawn->setGuildTag(m_guildMgr->guildIdToName(guildID, guildServerID));
     spawn->setNPC(npc);
   };
 

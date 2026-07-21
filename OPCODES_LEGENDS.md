@@ -123,10 +123,50 @@ The position channel rotated id (0x7171→0x5188) **and** wire size in both dire
 - **`0x2b30`** — a **zone-stream** C>S 2400B XML `<SystemFingerprint …>` hardware-
   attestation blob, NOT the world OP_SendLoginInfo handshake. Wrong stream + wrong shape.
 
+### ✅ Guild-in-zone tier WIRED (2026-07-20) — spawn guild tags
+
+`OP_GuildsInZoneList 0x3959` + `OP_NewGuildInZone 0x6c4c` now feed `GuildMgr`, which
+resolves a spawn's `(guildID, guildServerID)` into a guild name. Both were already
+content-confirmed in the 07-14 re-map; this entry is the wiring + verification.
+
+**Wire is byte-identical to the stock Live structs — no eql decoder needed.** Confirmed by
+`--dump-payload` across 15 payloads in 4 post-07/14 captures:
+
+| opcode | layout | evidence |
+|--------|--------|----------|
+| `OP_NewGuildInZone` | `u32 guildId, u32 serverId, cstring name` | 30B payload = 8 + 21-char name + NUL; sizes 13/23/26/30 all fit exactly |
+| `OP_GuildsInZoneList` | `u32 name_len, name (no NUL), u32 count, count×{u32 guildId, u32 serverId, cstring}` | `count` matched the actual entry count in every sample (0,1,2,3,6,7); 12B = the empty case (4+4+4) |
+
+`serverId` is a constant `13` in every capture so far. Unguilded spawns carry
+`guildID 0xFFFF` (not 0) — `guildIdToName` misses the map and returns `""`, so the
+sentinel is harmless today, but it does reach proto consumers as `guild_id: 65535`.
+
+**Wiring only — the whole downstream chain already existed** (`GuildMgr` handlers, its
+`guildTagUpdated` signal, and `SpawnShell::updateGuildTag`'s back-fill). Three gaps closed:
+`wire_eql.cpp` binds the two opcodes under `wireGlobalSinks` (the guild map is daemon-wide
+and persists to `guilds2.dat`); `SpawnShell::upsertSpawn` gained `guildServerID` (the Rust
+parser and cxx bridge already decoded it — the daemon was dropping it, so every eql spawn
+keyed as server 0 and could never resolve); and `upsertSpawn` now resolves the tag at all,
+which the eql path never did. New proto `Spawn.guild_tag = 25` carries the resolved name.
+
+Verified on replay: 6 of 10 eql fixtures resolve tags (48 in `eql-fighting`), and the
+back-fill count matches exactly — `eql-locref` +1 spawn re-add / 1 tag, `eql-spin360`
++2 / 2, `eql-fighting` +12 back-filled of 48 (the rest resolve at spawn time).
+`eql-group` resolves 0 correctly: its one guilded spawn is guild 101, never named on the
+wire in that capture.
+
+**Golden determinism:** `guilds2.dat` persists and reloads, so a warm cache resolves tags
+earlier than a cold one and shifts the envelope stream (two individually-stable states,
+12 envelopes apart on `eql-fighting`). `check.sh` now deletes the cache per fixture so
+goldens always encode the cold path and reproduce on a fresh clone / in CI.
+
 ### Still open
 
 Ambiguous small-payload clusters (4B / 8B / 12B / 24B), the chat trio, spell casts,
-group/guild, and the rest of the ~40 unmapped opcodes — see the WIP doc. The new
+and the rest of the ~40 unmapped opcodes — see the WIP doc. Remaining guild work is the
+roster tier (`OP_GuildMemberList 0x591d`, `OP_GuildMemberUpdate 0x0717`,
+`OP_GuildMOTD 0x5924` — all present in captures, none wired), which needs new proto
+roster/MOTD messages and a popout-only web panel. The new
 OP_FormattedMessage (`0x3c0a`) was handled separately (addendum-11 work against the
 pre-patch fixtures — left as-is). Next: resolve the clusters → finish the table →
 record a golden for `eqlegends-patch20260714` once the table is stable → check.sh.
