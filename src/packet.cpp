@@ -587,7 +587,10 @@ void EQPacket::processPlaybackPackets (void)
   int timein = mTime();
 
   long version = PACKETVERSION;
-  
+  // Set when Playback() reports nothing left, i.e. the loop ended by draining
+  // rather than by exhausting its wallclock budget.
+  bool drained = false;
+
   // decode packets from the playback buffer
   do
   {
@@ -618,11 +621,22 @@ void EQPacket::processPlaybackPackets (void)
       }
     }
     else
+    {
+      // Playback returned nothing: the source is genuinely drained for now.
+      drained = true;
       break;
+    }
   } while ( (mTime() - timein) < 100);
 
-  // check if we've reached the end of the recording
-  if (m_vPacket->endOfData())
+  // Only conclude playback when the loop actually drained the source. The
+  // `while` above is a WALLCLOCK budget, so it can also exit with packets still
+  // pending — and endOfData() may already be true at that point (the reader has
+  // consumed the file while dispatch lags behind). Treating that as finished
+  // quits mid-tail, losing however many packets the budget cut off, which
+  // varies run to run. Recording a 300MB capture lost ~0.1% of its envelopes
+  // this way, intermittently, producing a golden that was a strict prefix of a
+  // good one.
+  if (drained && m_vPacket->endOfData())
   {
     seqInfo("End of playback file '%s' reached."
 	    "Playback Finished!",
