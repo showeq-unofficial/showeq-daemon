@@ -349,14 +349,12 @@ void SessionAdapter::connectPerBox()
             this,         &SessionAdapter::onSpawnConsidered);
     connect(m_spawnShell, &SpawnShell::targetSpawn,
             this,         &SessionAdapter::onTargetSpawn);
-    // Player emits its own changeItem on per-tick position/heading updates
-    // (player.cpp:932 — tSpawnChangedPosition); SpawnShell forwards a few
-    // bigger transitions but not the per-tick movement. Connect both so
-    // the player marker tracks live.
-    if (m_player) {
-        connect(m_player, &Player::changeItem,
-                this,     &SessionAdapter::onChangeItem);
-    }
+    // NOTE: do NOT also connect Player::changeItem directly here. SpawnShell's
+    // ctor forwards Player::changeItem straight into SpawnShell::changeItem
+    // (spawnshell.cpp), which the connect above already subscribes to — a second
+    // direct connect made every player update arrive twice, emitting two byte-
+    // identical SpawnUpdated envelopes back to back (roughly half of all self
+    // spawn updates in a replayed zone session were such duplicates).
     // `killSpawn`, `zoneBegin`, `zoneChanged` each have same-name slots on
     // their source classes (SpawnShell::killSpawn(const uint8_t*), etc.),
     // which confuses the compile-time &Class::member form. Fall back to
