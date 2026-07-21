@@ -152,19 +152,26 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
         wire("OP_ZoneServerInfo", SP_World, DIR_Server,
              "zoneServerInfoStruct", SZC_Match,
              seqBind(m_zoneServerMgr, &ZoneServerMgr::zoneServerInfo));
-        // Guild id→name, feeding spawn guild tags via GuildMgr::guildTagUpdated.
-        // The eql wire is byte-identical to the stock structs (verified across
-        // 15 captured payloads: the list is u32 name_len + name + u32 count +
-        // count×{u32 guildId, u32 serverId, cstring}), so the shared NetStream
-        // handlers parse it directly — no eql decoder. Global, not per-box: the
-        // guild map is daemon-wide and persists to guilds2.dat.
-        wire("OP_GuildsInZoneList", SP_Zone, DIR_Server,
-             "guildsInZoneListStruct", SZC_None,
-             seqBind(m_guildMgr, &GuildMgr::guildsInZoneList));
-        wire("OP_NewGuildInZone", SP_Zone, DIR_Server,
-             "newGuildInZoneStruct", SZC_None,
-             seqBind(m_guildMgr, &GuildMgr::newGuildInZone));
     }
+
+    // Guild id→name, feeding spawn guild tags via GuildMgr::guildTagUpdated.
+    // The eql wire is byte-identical to the stock structs (verified across 15
+    // captured payloads: the list is u32 name_len + name + u32 count +
+    // count×{u32 guildId, u32 serverId, cstring}), so the shared NetStream
+    // handlers parse it directly — no eql decoder.
+    //
+    // Per-box, NOT gated on wireGlobalSinks, even though GuildMgr itself is
+    // daemon-wide: the roster is re-sent on every zone-in, and each zone-in
+    // opens a fresh box, so gating this would silently drop every guild after
+    // the first zone. Unlike the sinks above it publishes no envelope of its
+    // own — it fills a map that ignores keys it already holds — so wiring it on
+    // every box duplicates no output.
+    wire("OP_GuildsInZoneList", SP_Zone, DIR_Server,
+         "guildsInZoneListStruct", SZC_None,
+         seqBind(m_guildMgr, &GuildMgr::guildsInZoneList));
+    wire("OP_NewGuildInZone", SP_Zone, DIR_Server,
+         "newGuildInZoneStruct", SZC_None,
+         seqBind(m_guildMgr, &GuildMgr::newGuildInZone));
 
     // --- SpawnShell: spawn lifecycle + positions.
     // eql ground-item defs are makeDropStruct/none (variable name field);
