@@ -882,7 +882,11 @@ void SpawnShell::updateSpawnHP(uint16_t id, int32_t curHp, int32_t maxHp)
   if (item == NULL)
     return;
   Spawn* spawn = (Spawn*)item;
-  spawn->setHP(curHp);
+  // A dying spawn reports negative current HP on the wire (-1, -2, -9 observed
+  // on eql's stat-sync channel). Spawn stores int32 but proto hp_cur is uint32,
+  // so passing it through publishes ~4.29 billion to the client. Below 0 just
+  // means dead.
+  spawn->setHP(curHp < 0 ? 0 : curHp);
   spawn->setMaxHP(maxHp);
   item->updateLastChanged();
   emit changeItem(item, tSpawnChangedHP);
