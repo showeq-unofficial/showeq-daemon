@@ -1310,3 +1310,23 @@ name via backend-only `stanceName`/`invocationName` tables → `Player::setStanc
 125→Recover). The capture is mid-session, so `player_stats` may not re-emit after the
 stance packets (setStance fires no signal — the value surfaces on the next
 stat-driven `PlayerStats`); in a live session that is near-immediate.
+
+**Scope confirmed 2026-07-20 — SELF ONLY, not a group/zone broadcast**
+(`eql-group-stance.vpk`, two grouped characters, one capture-scoped client IP).
+In the 21s between the client's own last swap and the group disband, the grouped
+partner swapped stance + invocation while the client decoded 620 packets
+(577 S>C, no silent second) and logged **zero** `0x0fab`/`0x3b12` fires. Positive
+control: the client's own swaps 4s earlier echoed 1:1 with their C>S requests.
+
+Swept the same window for a *different* carrier and found none:
+- 12 distinct unknown S>C opcodes fired; only `0x7167` and `0x334e` have the
+  right shape (8B). Both are ambient — normalized per 100 S>C they run
+  **higher** in a grouped-but-no-swaps control window (2.2 / 2.5) than in the
+  partner-swap window (1.7 / 1.4) — and across 161 fires their second u32 only
+  ever takes `{4, 32, 64}` (a bitmask), never an ability id in 117–135.
+- `OP_SpawnAppearance2` (the obvious state-broadcast carrier) never carries a
+  stance id either: types seen are 1/5/6/8/16/22/26/36/41/43 with unrelated values.
+
+Remaining gap: this cannot exhaustively disprove a stance field buried in a
+high-frequency per-spawn opcode, but every structurally plausible carrier is
+ruled out. **Do not build group-member stance display on this opcode.**
