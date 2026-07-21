@@ -25,6 +25,10 @@
 #include <cstddef>
 #include <cstdint>
 
+// For rust::Box<EqlSelfTracker> — the one piece of decoder state the dispatch
+// owns rather than re-deriving per packet.
+#include "seq-bridge-cxx/lib.h"
+
 class QString;
 class ZoneMgr;
 class SpawnShell;
@@ -96,9 +100,11 @@ public:
 private:
     // True if (name,id) is the local player's own ZoneEntry — adopt/re-home the
     // self-id from it and keep it (and its per-zone phantom twin) out of the spawn
-    // list. eql sends the self's ZoneEntry twice per zone under fresh ids; this is
-    // an eql-only wire quirk, so the decision lives here, not in core.
+    // list. The decision itself lives in the Rust backend (m_selfTracker); this
+    // only applies the verdict to Player.
     bool consumeSelfSpawn(const QString& name, uint16_t id);
+    // Push a resolved set of self vitals onto Player (no-op when empty).
+    void applySelfVitals(const seq::rust::SelfStat& v);
 
     ZoneMgr*    m_zoneMgr;
     SpawnShell* m_spawnShell;
@@ -114,6 +120,12 @@ private:
     // Gates enterWorld(): the initial login's OP_EnterWorld precedes any zone, so
     // it must not reset; every LATER OP_EnterWorld is a genuine re-entry.
     bool        m_sessionEstablished = false;
+    // eql session identity, owned by the Rust backend: which spawn id is us, its
+    // per-zone phantom twin, and any vitals that arrived before the id carrying
+    // them could be attributed. Stateful by necessity — see
+    // seq_backend_eql::self_track. Keeping it there rather than here means scry
+    // and any other host inherit the quirk instead of re-deriving it.
+    rust::Box<seq::rust::EqlSelfTracker> m_selfTracker;
 };
 
 #endif // SEQ_BACKEND_EQL_EQLDISPATCH_H

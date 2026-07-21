@@ -80,7 +80,27 @@ EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* playe
     , m_spawnShell(spawnShell)
     , m_player(player)
     , m_dbStrings(dbStrings)
+    , m_selfTracker(seq::rust::eql_self_tracker_new())
 {
+}
+
+void EqlDispatch::applySelfVitals(const seq::rust::SelfStat& v)
+{
+    if (!m_player || !(v.has_hp || v.has_mana || v.has_end))
+        return;
+    Player::Vitals out;
+    out.haveHP = v.has_hp;
+    out.hpCur = (uint32_t)v.hp_cur;
+    out.hpMax = (uint32_t)v.hp_max;
+    out.haveMana = v.has_mana;
+    out.manaCur = (uint32_t)v.mana_cur;
+    out.manaMax = (uint32_t)v.mana_max;
+    out.haveEnd = v.has_end;
+    out.endCur = (uint32_t)v.end_cur;
+    out.endMax = (uint32_t)v.end_max;
+    // A wide zero-max packet would blank the bars — drop those stats.
+    if (out.haveHP && out.hpMax == 0) out.haveHP = false;
+    m_player->setVitals(out);
 }
 
 void EqlDispatch::profile(const uint8_t* data, size_t len, uint8_t dir)
@@ -291,6 +311,7 @@ void EqlDispatch::death(const uint8_t* data, size_t len, uint8_t dir)
         // EQL broadcasts no lingering player-corpse spawn, so we fabricate none.
         m_awaitingRespawnFromId = out.spawn_id;
         m_player->setID(0);
+        m_selfTracker->reset();   // new id pair follows; drop the old one
         return;
     }
 
@@ -329,6 +350,7 @@ void EqlDispatch::enterWorld(const uint8_t*, size_t, uint8_t dir)
     const uint32_t oldId = (uint32_t)m_player->id();
     m_spawnShell->clear();
     m_player->setID(0);
+    m_selfTracker->reset();   // ditto: the re-entry issues a fresh id pair
     m_awaitingRespawnFromId = oldId;
 }
 
@@ -382,26 +404,26 @@ bool EqlDispatch::consumeSelfSpawn(const QString& name, uint16_t id)
     // moves and a static phantom the client hides — each under a fresh per-zone id
     // (the phantom's is a few higher). Neither should become a spawns[] entry: the
     // self is owned by Player, whose identity comes from OP_PlayerProfile and whose
-    // position/heading come from the C>S self-report. We adopt the FIRST self-named
-    // record of a zone (== the live copy: it's first on the wire in every capture,
-    // /loc-confirmed to be the one that moves) and swallow the rest.
-    if (id == 0 || name.isEmpty() || name != m_player->realName())
+    // position/heading come from the C>S self-report.
+    //
+    // Which record is which (and the batch window that separates a twin from a
+    // zone change) is decided by the Rust backend, so every host shares one
+    // implementation. We only apply the verdict.
+    const uint8_t routing = m_selfTracker->observe_spawn(
+        m_player->realName().toStdString(), name.toStdString(), id);
+    if (routing == 0)
         return false;   // not us — let it through to the spawn list
 
-    // Adopt when we have no self-id yet (fresh login / post-death sever) or the id
-    // jumped zones (a stale id is hundreds/thousands off — the live+phantom pair of
-    // one zone stays within a few ids). Re-homing runs playerChangedID, which drops
-    // any stray copy from the list and re-snapshots the client. A later record
-    // within kSameBatch of the current self-id is the phantom twin — just swallow it.
-    constexpr int kSameBatch = 16;
-    if (m_player->id() == 0 ||
-        std::abs(static_cast<int>(id) - static_cast<int>(m_player->id())) > kSameBatch)
+    // Re-homing runs playerChangedID, which drops any stray copy from the list
+    // and re-snapshots the client. The twin is simply swallowed.
+    if (routing == 1)
         m_player->setPlayerID(id);
-    else if (id != m_player->id())
-        // The near-id twin. eql keys the self's MOVEMENT to the adopted id but its
-        // PROFILE/BUFF data (OP_BuffList, profile) to this second id — remember it
-        // so that character data routes to the player instead of a dropped spawn.
-        m_player->setAltId(id);
+
+    // eql keys the self's stats to the twin id, and the stat packet carrying the
+    // real maxima can arrive BEFORE the record that identifies that id — in some
+    // zone-ins it is the only one that ever carries them. The tracker holds such
+    // vitals until the id resolves; this is where they land.
+    applySelfVitals(m_selfTracker->take_pending_vitals());
     return true;
 }
 
@@ -540,59 +562,20 @@ void EqlDispatch::statSync(const uint8_t* data, size_t len, uint8_t dir)
     if (!out.ok)
         return;
 
-    // HP. The Legends server sends the player their own real cur/max via the
-    // wide form and other spawns a narrow percent (max=100). The daemon surfaces
-    // the player's vitals through the Player object (→ player_stats), NOT through
-    // m_spawns — the player is never a m_spawns entry here (unlike legacy SEQ,
-    // where the f-patch routes to m_spawns.value(spawnId)). So split by id: the
-    // player's HP → Player::setHealth; every other spawn's HP → updateSpawnHP.
+    // Attribution is the backend's job: eql keys the self's stats to the phantom
+    // twin id rather than the adopted movement id, and the packet carrying the
+    // real maxima can precede the record that identifies that id. The tracker
+    // resolves both cases (holding early vitals until consumeSelfSpawn drains
+    // them); here we only route the verdict.
+    //
+    // Non-self HP goes to the spawn list as before. The player is never an
+    // m_spawns entry (unlike legacy SEQ, where the f-patch routes to
+    // m_spawns.value(spawnId)) — their vitals reach the client via player_stats.
     // Guard max>0 so a wide zero-max packet can't blank an HP bar.
-    // eql keys the self's stats to the PHANTOM twin id, not the adopted movement
-    // id (see consumeSelfSpawn) — accept either or every self max is dropped.
-    const auto isSelf = [&](uint32_t id) {
-        return m_player && id != 0 &&
-               (id == (uint32_t)m_player->id() || id == (uint32_t)m_player->altId());
-    };
-
-    // One packet carries up to three stats; collect them and apply in a single
-    // call so the client gets one player_stats envelope instead of three.
-    Player::Vitals self;
-
-    if (out.has_hp && out.hp_max > 0)
-    {
-        if (isSelf(out.spawn_id))
-        {
-            self.haveHP = true;
-            self.hpCur = (uint32_t)out.hp_cur;
-            self.hpMax = (uint32_t)out.hp_max;
-        }
-        else
-            m_spawnShell->updateSpawnHP((uint16_t)out.spawn_id,
-                                        (int32_t)out.hp_cur, (int32_t)out.hp_max);
-    }
-
-    // Mana → the player only, and only from the wide (real cur/max) form; the
-    // narrow percent form has no useful max. OP_ManaChange also fires here, but
-    // only on a cast and with no max, so this is the max source and the only
-    // one that tracks regen.
-    if (out.has_mana && out.wide && isSelf(out.spawn_id))
-    {
-        self.haveMana = true;
-        self.manaCur = (uint32_t)out.mana_cur;
-        self.manaMax = (uint32_t)out.mana_max;
-    }
-
-    // Endurance → the player only, wide form. Legends drives endurance through
-    // this channel (the standalone OP_EndUpdate opcode id is unknown/ffff, so it
-    // never fires), and it moves constantly as skills/abilities consume it —
-    // surface it as the stock End bar (player_stats.endurance_cur/max).
-    if (out.has_end && out.wide && isSelf(out.spawn_id))
-    {
-        self.haveEnd = true;
-        self.endCur = (uint32_t)out.end_cur;
-        self.endMax = (uint32_t)out.end_max;
-    }
-
-    if (m_player)
-        m_player->setVitals(self);
+    const auto verdict = m_selfTracker->observe_stat_sync(out);
+    if (verdict.is_self)
+        applySelfVitals(verdict);
+    else if (out.has_hp && out.hp_max > 0)
+        m_spawnShell->updateSpawnHP((uint16_t)out.spawn_id,
+                                    (int32_t)out.hp_cur, (int32_t)out.hp_max);
 }
