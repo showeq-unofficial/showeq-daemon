@@ -70,6 +70,16 @@ public:
 	  const char* name = "player");
   virtual ~Player();
 
+  // One wire packet's worth of self vitals; see setVitals(). Declared out here
+  // rather than beside setVitals because moc rejects type declarations inside a
+  // `slots:` section.
+  struct Vitals
+  {
+     bool haveHP = false;    uint32_t hpCur = 0,   hpMax = 0;
+     bool haveMana = false;  uint32_t manaCur = 0, manaMax = 0;
+     bool haveEnd = false;   uint32_t endCur = 0,  endMax = 0;
+  };
+
  public slots:
    void clear();
    void reset();
@@ -85,15 +95,15 @@ public:
    void loadProfile(const playerProfileStruct& player);
    void increaseSkill(const uint8_t* skilli);
    void manaChange(const uint8_t* mana);
-   // Neutral primitives: set the player's current+max HP/mana/endurance and emit
-   // the stock hpChanged/manaChanged/endChanged displays. Used where self vitals
-   // arrive as real cur/max already decoded (the eql 0x2735 stat-sync channel —
-   // the player is not a m_spawns entry there, so its vitals surface via
-   // player_stats, not spawn_updated). Unused on live/test (endurance there comes
-   // from the standalone OP_EndUpdate via updateEndurance()).
-   void setHealth(uint32_t cur, uint32_t max);
-   void setMana(uint32_t cur, uint32_t max);
-   void setEndurance(uint32_t cur, uint32_t max);
+   // Neutral primitive: apply whichever of the self's current+max HP/mana/endurance
+   // arrived in ONE wire packet, then emit a single vitalsChanged(). Used where self
+   // vitals arrive as real cur/max already decoded (the eql 0x2735 stat-sync channel,
+   // which multiplexes all three into one packet — the player is not a m_spawns entry
+   // there, so its vitals surface via player_stats, not spawn_updated). Applying them
+   // together is what keeps one packet to one player_stats envelope; three separate
+   // setters emitted three near-identical full snapshots. Unused on live/test
+   // (endurance there comes from the standalone OP_EndUpdate via updateEndurance()).
+   void setVitals(const Vitals& v);
    void updateExp(const uint8_t* exp);
    void updateAltExp(const uint8_t* altexp);
    void updateLevel(const uint8_t* levelup);
@@ -308,6 +318,9 @@ public:
    void endChanged             ( uint32_t cur, uint32_t max );
    void moneyChanged           ( uint32_t copper );
   void hpChanged(int16_t, int16_t);
+  // One packet's worth of self vitals landed (see setVitals) — coalesces what
+  // would otherwise be up to three hp/mana/endChanged emissions.
+  void vitalsChanged();
   void changedID(uint16_t oldPlayerID, uint16_t newPlayerID);
   void posChanged(int16_t x, int16_t y, int16_t z,
 		  int16_t deltaX, int16_t deltaY, int16_t deltaZ,

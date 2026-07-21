@@ -657,52 +657,42 @@ void Player::manaChange(const uint8_t* data)
     savePlayerState();
 }
 
-void Player::setHealth(uint32_t cur, uint32_t max)
+void Player::setVitals(const Vitals& v)
 {
-  // Neutral primitive: set the player's current+max HP from already-decoded
-  // cur/max and emit the stock displays (mirrors updateNpcHP's effect on the
-  // Player object so player_stats carries hp_cur/hp_max). Used by the eql
-  // 0x2735 stat-sync channel, where self HP arrives as real cur/max.
-  m_curHP = cur;
-  m_maxHP = max;
-  m_validHP = true;
+  // Neutral primitive: apply one wire packet's self vitals from already-decoded
+  // cur/max values. Used by the eql 0x2735 stat-sync channel, which multiplexes
+  // HP/mana/endurance into a single packet.
+  //
+  // Deliberately does NOT emit changeItem(tSpawnChangedHP): the player's vitals
+  // reach the client via player_stats, and the self spawn record can't express
+  // them anyway (SpawnUpdated carries hp_cur but no hp_max, and the self record
+  // is added with no HP at all — so a spawn-sourced ratio is meaningless).
+  if (!v.haveHP && !v.haveMana && !v.haveEnd)
+    return;
 
-  updateLastChanged();
+  if (v.haveHP)
+  {
+    m_curHP = v.hpCur;
+    m_maxHP = v.hpMax;
+    m_validHP = true;
+    updateLastChanged();
+  }
 
-  emit changeItem(this, tSpawnChangedHP);
+  if (v.haveMana)
+  {
+    m_mana = v.manaCur;
+    m_maxMana = v.manaMax;
+    m_wireMaxMana = v.manaMax;   // authoritative eql wire max — calcMaxMana can't clobber it
+    m_validMana = true;
+  }
 
-  emit hpChanged(m_curHP, m_maxHP);
+  if (v.haveEnd)
+  {
+    m_enduranceCur = v.endCur;
+    m_enduranceMax = v.endMax;
+  }
 
-  if (showeq_params->savePlayerState)
-    savePlayerState();
-}
-
-void Player::setMana(uint32_t cur, uint32_t max)
-{
-  // Neutral primitive: set the player's current+max mana and emit the stock
-  // manaChanged display, now with a real max. Used by the eql 0x2735 stat-sync
-  // channel; coexists with manaChange() (OP_ManaChange) — last writer wins.
-  m_mana = cur;
-  m_maxMana = max;
-  m_wireMaxMana = max;   // authoritative eql wire max — calcMaxMana can't clobber it
-  m_validMana = true;
-
-  emit manaChanged(m_mana, m_maxMana);
-
-  if (showeq_params->savePlayerState)
-    savePlayerState();
-}
-
-void Player::setEndurance(uint32_t cur, uint32_t max)
-{
-  // Neutral primitive: set the player's current+max endurance and emit the stock
-  // endChanged display. Used by the eql 0x2735 stat-sync channel, where the
-  // player's endurance arrives as real cur/max (Legends has no standalone
-  // OP_EndUpdate). Same effect as updateEndurance(), minus the wire decode.
-  m_enduranceCur = cur;
-  m_enduranceMax = max;
-
-  emit endChanged(m_enduranceCur, m_enduranceMax);
+  emit vitalsChanged();
 
   if (showeq_params->savePlayerState)
     savePlayerState();

@@ -553,10 +553,18 @@ void EqlDispatch::statSync(const uint8_t* data, size_t len, uint8_t dir)
                (id == (uint32_t)m_player->id() || id == (uint32_t)m_player->altId());
     };
 
+    // One packet carries up to three stats; collect them and apply in a single
+    // call so the client gets one player_stats envelope instead of three.
+    Player::Vitals self;
+
     if (out.has_hp && out.hp_max > 0)
     {
         if (isSelf(out.spawn_id))
-            m_player->setHealth((uint32_t)out.hp_cur, (uint32_t)out.hp_max);
+        {
+            self.haveHP = true;
+            self.hpCur = (uint32_t)out.hp_cur;
+            self.hpMax = (uint32_t)out.hp_max;
+        }
         else
             m_spawnShell->updateSpawnHP((uint16_t)out.spawn_id,
                                         (int32_t)out.hp_cur, (int32_t)out.hp_max);
@@ -567,12 +575,23 @@ void EqlDispatch::statSync(const uint8_t* data, size_t len, uint8_t dir)
     // only on a cast and with no max, so this is the max source and the only
     // one that tracks regen.
     if (out.has_mana && out.wide && isSelf(out.spawn_id))
-        m_player->setMana((uint32_t)out.mana_cur, (uint32_t)out.mana_max);
+    {
+        self.haveMana = true;
+        self.manaCur = (uint32_t)out.mana_cur;
+        self.manaMax = (uint32_t)out.mana_max;
+    }
 
     // Endurance → the player only, wide form. Legends drives endurance through
     // this channel (the standalone OP_EndUpdate opcode id is unknown/ffff, so it
     // never fires), and it moves constantly as skills/abilities consume it —
     // surface it as the stock End bar (player_stats.endurance_cur/max).
     if (out.has_end && out.wide && isSelf(out.spawn_id))
-        m_player->setEndurance((uint32_t)out.end_cur, (uint32_t)out.end_max);
+    {
+        self.haveEnd = true;
+        self.endCur = (uint32_t)out.end_cur;
+        self.endMax = (uint32_t)out.end_max;
+    }
+
+    if (m_player)
+        m_player->setVitals(self);
 }
