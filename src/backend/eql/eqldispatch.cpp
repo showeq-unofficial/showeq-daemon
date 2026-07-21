@@ -546,9 +546,16 @@ void EqlDispatch::statSync(const uint8_t* data, size_t len, uint8_t dir)
     // where the f-patch routes to m_spawns.value(spawnId)). So split by id: the
     // player's HP → Player::setHealth; every other spawn's HP → updateSpawnHP.
     // Guard max>0 so a wide zero-max packet can't blank an HP bar.
+    // eql keys the self's stats to the PHANTOM twin id, not the adopted movement
+    // id (see consumeSelfSpawn) — accept either or every self max is dropped.
+    const auto isSelf = [&](uint32_t id) {
+        return m_player && id != 0 &&
+               (id == (uint32_t)m_player->id() || id == (uint32_t)m_player->altId());
+    };
+
     if (out.has_hp && out.hp_max > 0)
     {
-        if (m_player && out.spawn_id == (uint32_t)m_player->id())
+        if (isSelf(out.spawn_id))
             m_player->setHealth((uint32_t)out.hp_cur, (uint32_t)out.hp_max);
         else
             m_spawnShell->updateSpawnHP((uint16_t)out.spawn_id,
@@ -559,15 +566,13 @@ void EqlDispatch::statSync(const uint8_t* data, size_t len, uint8_t dir)
     // narrow percent form has no useful max. OP_ManaChange also fires here, but
     // only on a cast and with no max, so this is the max source and the only
     // one that tracks regen.
-    if (out.has_mana && out.wide && m_player &&
-        out.spawn_id == (uint32_t)m_player->id())
+    if (out.has_mana && out.wide && isSelf(out.spawn_id))
         m_player->setMana((uint32_t)out.mana_cur, (uint32_t)out.mana_max);
 
     // Endurance → the player only, wide form. Legends drives endurance through
     // this channel (the standalone OP_EndUpdate opcode id is unknown/ffff, so it
     // never fires), and it moves constantly as skills/abilities consume it —
     // surface it as the stock End bar (player_stats.endurance_cur/max).
-    if (out.has_end && out.wide && m_player &&
-        out.spawn_id == (uint32_t)m_player->id())
+    if (out.has_end && out.wide && isSelf(out.spawn_id))
         m_player->setEndurance((uint32_t)out.end_cur, (uint32_t)out.end_max);
 }
