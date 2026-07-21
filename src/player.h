@@ -133,7 +133,7 @@ public:
    // Exact, gear+buff-inclusive max mana from the eql stat-sync wide form
    // (OP_HPUpdate 0xa5c0) — the server's own value, so it tracks equip/unequip
    // and buffs. 0 on Live, which never sends max mana.
-   uint16_t wireMaxMana() const { return m_wireMaxMana; }
+   uint32_t wireMaxMana() const { return m_wireMaxMana; }
    // Fallback when the wire max is absent (Live): highest current-mana ever
    // seen. You can't hold more current than your max, so this equals the exact
    // max once the player has regen'd to full (beats the calcMaxMana estimate).
@@ -362,7 +362,9 @@ public:
   QString m_stance;           // EQL active stance name (resolved); empty if none
   QString m_invocation;       // EQL active invocation name (resolved); empty if none
   uint16_t m_observedMaxMana = 0;   // peak current mana = exact max once full
-  uint16_t m_wireMaxMana = 0;       // eql: exact gear+buff max from stat-sync wide form
+  // eql: exact gear+buff max from stat-sync wide form. uint32 not uint16 —
+  // the wide form carries 64-bit values and setMana takes uint32.
+  uint32_t m_wireMaxMana = 0;
   uint32_t m_money = 0;   // carried coin as total copper (eql OP_PlayerProfile)
   uint16_t m_fatigue;
   uint32_t m_enduranceCur;

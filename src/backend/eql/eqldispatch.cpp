@@ -556,8 +556,9 @@ void EqlDispatch::statSync(const uint8_t* data, size_t len, uint8_t dir)
     }
 
     // Mana → the player only, and only from the wide (real cur/max) form; the
-    // narrow percent form has no useful max. Plays the role of Live's absent
-    // OP_ManaChange on the Legends wire.
+    // narrow percent form has no useful max. OP_ManaChange also fires here, but
+    // only on a cast and with no max, so this is the max source and the only
+    // one that tracks regen.
     if (out.has_mana && out.wide && m_player &&
         out.spawn_id == (uint32_t)m_player->id())
         m_player->setMana((uint32_t)out.mana_cur, (uint32_t)out.mana_max);

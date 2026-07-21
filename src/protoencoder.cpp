@@ -269,7 +269,7 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
     // clobbers) — prefer it, exact, and it fixes the long-standing off-by-one.
     // Fall back to the observed current-mana peak, then the estimate, only when
     // no wire max ever arrived (Live never sends max mana).
-    uint16_t maxMana = mp.wireMaxMana();
+    uint32_t maxMana = mp.wireMaxMana();
     if (maxMana == 0) {
       maxMana = mp.observedMaxMana();
       if (curMana > maxMana) maxMana = curMana;
