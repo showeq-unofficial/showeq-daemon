@@ -318,7 +318,7 @@ id      = "0fab"
 name    = "OP_Stance"
 priority = 4
 updated = "2026-07-16"
-comment = "EQ Legends active-stance echo (S>C, 4B activateAbilityStruct {u32 abilityId}). One stance active at a time; the server echoes this on each swap (authoritative). Ability ids (stable eqgame.exe GetAbilityName enum): 117 Offense, 118 Defense, 119 Evasive, 120 Balanced, 121 Mage Hunter, 122 Striker, 123 Berserker, 124 Ranged, 135 Channeler. Decoded by decode_activate_ability -> EqlDispatch::stance -> Player::setStance -> PlayerStats.stance. Size eql-owned in seq-backend-eql size_overrides(activateAbilityStruct=4). The C>S 4B copy is the client's activation request (echoed authoritatively S>C); acked uint8_t/none so it doesn't warn. See OPCODES_LEGENDS.md"
+comment = "EQ Legends active-stance echo (S>C, 4B activateAbilityStruct {u32 abilityId}). One stance active at a time; the server echoes this on each swap (authoritative). Ability ids (stable eqgame.exe GetAbilityName enum): 117 Offense, 118 Defense, 119 Evasive, 120 Balanced, 121 Mage Hunter, 122 Striker, 123 Berserker, 124 Ranged, 135 Channeler. Decoded by decode_activate_ability -> EqlDispatch::stance -> Player::setStance -> PlayerStats.stance. Size eql-owned in seq-backend-eql size_overrides(activateAbilityStruct=4). The C>S activation request is VARIABLE size: 4B, or 9B (ability id + u32 + trailing zero). Our 7/16 + 7/17 captures saw only the 4B form; an external 2026-07-20 capture saw ~half at 9B. It is acked uint8_t/none precisely so that variance never warns — do NOT size-match the client dir. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "server"
@@ -335,7 +335,7 @@ id      = "3b12"
 name    = "OP_Invocation"
 priority = 4
 updated = "2026-07-16"
-comment = "EQ Legends active-invocation echo (S>C, 4B activateAbilityStruct {u32 abilityId}). One invocation active at a time; the server echoes this on each swap (authoritative). Ability ids (stable eqgame.exe GetAbilityName enum): 125 Recover, 126 Empower, 127 Inversion, 128 Spell Blade, 129 Over Channel, 130 Inviolable, 131 Divine, 132 Chained, 133 Arcane Mastery, 134 Unyielding. Decoded by decode_activate_ability -> EqlDispatch::invocation -> Player::setInvocation -> PlayerStats.invocation. Same 4B struct as OP_Stance; opcode id picks stance vs invocation. The C>S 4B copy is the client's activation request (echoed authoritatively S>C); acked uint8_t/none so it doesn't warn. See OPCODES_LEGENDS.md"
+comment = "EQ Legends active-invocation echo (S>C, 4B activateAbilityStruct {u32 abilityId}). One invocation active at a time; the server echoes this on each swap (authoritative). Ability ids (stable eqgame.exe GetAbilityName enum): 125 Recover, 126 Empower, 127 Inversion, 128 Spell Blade, 129 Over Channel, 130 Inviolable, 131 Divine, 132 Chained, 133 Arcane Mastery, 134 Unyielding. Decoded by decode_activate_ability -> EqlDispatch::invocation -> Player::setInvocation -> PlayerStats.invocation. Same 4B struct as OP_Stance; opcode id picks stance vs invocation. The C>S activation request is VARIABLE size: 4B, or 9B (ability id + u32 + trailing zero). Our 7/16 + 7/17 captures saw only the 4B form; an external 2026-07-20 capture saw ~half at 9B. It is acked uint8_t/none precisely so that variance never warns — do NOT size-match the client dir. See OPCODES_LEGENDS.md"
 
   [[zone.payloads]]
   dir           = "server"
@@ -933,7 +933,7 @@ id      = "2255"
 name    = "OP_ManaChange"
 priority = 5
 updated = "2026-07-14"
-comment = "Resource update after spell/ability use (S>C, 20b): {i32 curMana, i32 curEndurance, i32 spellOrAbilityId, u8[8]}. Fires once per cast or combat ability; spellId@8 cross-refs OP_CastSpell. field4 = current endurance, NOT max mana (legacy label wrong) — confirmed 2026-05-26 by cross-ref against OP_EndUpdate cur. EQ Legends id=0x07c9 confirmed 2026-07-08 by value-match (curMana 282-930, endurance ~800, spellId 445/821 cross-ref OP_Action) — byte-identical to manaDecrementStruct; lights up the already-wired Player::manaChange. See OPCODES_LEGENDS.md."
+comment = "Resource update after spell/ability use (S>C, 20b): {i32 curMana, i32 curEndurance, i32 spellOrAbilityId, u8[8]}. Fires once per cast or combat ability; spellId@8 cross-refs OP_CastSpell. field4 = current endurance, NOT max mana (legacy label wrong) — confirmed 2026-05-26 by cross-ref against OP_EndUpdate cur. EQ Legends id=0x2255, re-confirmed post-remap 2026-07-20 against 7/14+ captures ONLY: eql-fighting 467 fires all S>C all 20B, eqlegends-patch20260714 1 fire S>C 20B — byte-identical to manaDecrementStruct; lights up the already-wired Player::manaChange. Carries CURRENT mana only, NO max — the stat-sync wide form is the only max source. (Pre-remap id was 0x07c9, dead since the 2026-07-14 rotation; the 2026-07-08 value-match established the struct semantics, not this id.) See OPCODES_LEGENDS.md."
 
   [[zone.payloads]]
   dir           = "server"
