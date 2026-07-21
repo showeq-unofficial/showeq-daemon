@@ -72,7 +72,7 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     // capture, so it lives as long as this box's stream dispatchers reference
     // it — no QObject parent needed.
     auto eql = std::make_shared<EqlDispatch>(ms.zoneMgr, ms.spawnShell, ms.player,
-                                             m_dbStrings);
+                                             m_dbStrings, ms.guildShell);
 
     // --- ZoneMgr: zone transitions + player profile.
     // (EQ Legends has no separate c2s OP_ZoneEntry: the 4606 c2s 92B is a
@@ -172,6 +172,11 @@ void DaemonApp::wireBoxPipeline(EQPacketStream* worldC2S, EQPacketStream* worldS
     wire("OP_NewGuildInZone", SP_Zone, DIR_Server,
          "newGuildInZoneStruct", SZC_None,
          seqBind(m_guildMgr, &GuildMgr::newGuildInZone));
+    // The roster is per-character (GuildShell lives in the ManagerSet), so it
+    // wires per-box like the rest of the box pipeline.
+    wire("OP_GuildMemberList", SP_Zone, DIR_Server,
+         "uint8_t", SZC_None,
+         seqBind(eql, &EqlDispatch::guildMemberList));
 
     // --- SpawnShell: spawn lifecycle + positions.
     // eql ground-item defs are makeDropStruct/none (variable name field);

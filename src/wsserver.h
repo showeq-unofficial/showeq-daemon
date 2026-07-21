@@ -14,6 +14,7 @@ class CombatRouter;
 class DateTimeMgr;
 class FilterMgr;
 class GroupMgr;
+class GuildShell;
 class IEnvelopeSink;
 class ItemCache;
 class MapData;
@@ -54,7 +55,8 @@ public:
     // Called by DaemonApp after the state managers are constructed. The
     // pointers must outlive the WsServer; they're not owned.
     void setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
-                  MessageShell* ms, GroupMgr* gm, SpellShell* sps,
+                  MessageShell* ms, GroupMgr* gm, GuildShell* gus,
+                  SpellShell* sps,
                   CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
                   PrefsBroker* pb, SpawnMonitor* sm, ItemCache* ic,
                   DateTimeMgr* dtm, ZoneServerMgr* zsm,
@@ -119,6 +121,7 @@ private:
     MapData*       m_mapData       = nullptr;
     MessageShell*  m_messageShell  = nullptr;
     GroupMgr*      m_groupMgr      = nullptr;
+    GuildShell*    m_guildShell    = nullptr;
     SpellShell*    m_spellShell    = nullptr;
     CombatRouter*  m_combatRouter  = nullptr;
     CategoryMgr*   m_categoryMgr   = nullptr;

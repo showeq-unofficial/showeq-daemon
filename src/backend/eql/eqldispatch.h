@@ -34,12 +34,19 @@ class ZoneMgr;
 class SpawnShell;
 class Player;
 class DbStrings;
+class GuildShell;
 
 class EqlDispatch
 {
 public:
     EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player,
-                DbStrings* dbStrings);
+                DbStrings* dbStrings, GuildShell* guildShell);
+
+    // OP_GuildMemberList S>C: the full guild roster. The eql wire diverges from
+    // the stock struct (wider header, multiclass bitmask in the class slot, a
+    // rank field, a trailing zone id), so it is decoded in seq-backend-eql and
+    // applied through GuildShell's neutral setRoster().
+    void guildMemberList(const uint8_t* data, size_t len, uint8_t dir);
 
     // OP_PlayerProfile (0x62f0) S>C: identity header (race/class/level).
     void profile(const uint8_t* data, size_t len, uint8_t dir);
@@ -110,6 +117,7 @@ private:
     SpawnShell* m_spawnShell;
     Player*     m_player;
     DbStrings*  m_dbStrings;   // AA titleSID -> name (dbstr type-1); may be empty
+    GuildShell* m_guildShell;
     // Last regular-exp permille seen (−1 = unseeded); a decrease is a ding.
     int64_t     m_lastExp = -1;
     // While awaiting the in-zone respawn after the local player's own death,

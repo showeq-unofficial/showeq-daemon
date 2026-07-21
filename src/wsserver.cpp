@@ -77,7 +77,8 @@ WsServer::~WsServer()
 }
 
 void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
-                        MessageShell* ms, GroupMgr* gm, SpellShell* sps,
+                        MessageShell* ms, GroupMgr* gm, GuildShell* gus,
+                        SpellShell* sps,
                         CombatRouter* cr, CategoryMgr* cm, FilterMgr* fm,
                         PrefsBroker* pb, SpawnMonitor* sm, ItemCache* ic,
                         DateTimeMgr* dtm, ZoneServerMgr* zsm,
@@ -89,6 +90,7 @@ void WsServer::setState(SpawnShell* ss, ZoneMgr* zm, Player* p, MapData* md,
     m_mapData       = md;
     m_messageShell  = ms;
     m_groupMgr      = gm;
+    m_guildShell    = gus;
     m_spellShell    = sps;
     m_combatRouter  = cr;
     m_categoryMgr   = cm;
@@ -269,6 +271,7 @@ SessionAdapter* WsServer::makeAdapter(IEnvelopeSink* sink, QObject* parent)
 {
     auto* adapter = new SessionAdapter(sink, m_spawnShell, m_zoneMgr, m_player,
                               m_mapData, m_messageShell, m_groupMgr,
+                              m_guildShell,
                               m_spellShell, m_combatRouter, m_categoryMgr,
                               m_filterMgr, m_prefsBroker, m_spawnMonitor,
                               m_itemCache, m_dateTimeMgr, m_zoneServerMgr,

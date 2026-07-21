@@ -22,6 +22,7 @@
 #include "filesink.h"
 #include "filtermgr.h"
 #include "group.h"
+#include "guildshell.h"
 #include "guild.h"
 #include "itemcache.h"
 #include "mapcore.h"
@@ -245,6 +246,7 @@ bool DaemonApp::start()
     m_spawnShell   = active.spawnShell;
     m_spawnMonitor = active.spawnMonitor;
     m_groupMgr     = active.groupMgr;
+    m_guildShell   = active.guildShell;
     m_messageShell = active.messageShell;
     m_spellShell   = active.spellShell;
     m_combatRouter = active.combatRouter;
@@ -352,7 +354,7 @@ bool DaemonApp::start()
 
     // Let the WebSocket server hand these to each SessionAdapter it spawns.
     m_ws->setState(m_spawnShell, m_zoneMgr, m_player, m_mapData.get(),
-                   m_messageShell, m_groupMgr, m_spellShell,
+                   m_messageShell, m_groupMgr, m_guildShell, m_spellShell,
                    m_combatRouter, m_categoryMgr, m_filterMgr,
                    m_prefsBroker, m_spawnMonitor, m_itemCache,
                    m_dateTimeMgr, m_zoneServerMgr,
@@ -372,7 +374,8 @@ bool DaemonApp::start()
         m_goldenAdapter = new SessionAdapter(m_goldenSink.get(),
                                              m_spawnShell, m_zoneMgr, m_player,
                                              m_mapData.get(), m_messageShell,
-                                             m_groupMgr, m_spellShell,
+                                             m_groupMgr, m_guildShell,
+                                             m_spellShell,
                                              m_combatRouter, m_categoryMgr,
                                              m_filterMgr, m_prefsBroker,
                                              m_spawnMonitor, m_itemCache,
@@ -702,6 +705,11 @@ ManagerSet DaemonApp::buildManagerSet()
     // the zone and fillGroupUpdate dereferences freed Spawns (UAF crash).
     connect(ms.spawnShell, SIGNAL(clearItems()),
             ms.groupMgr,   SLOT(clear()));
+
+    // GuildShell holds THIS character's guild roster (the daemon-global
+    // GuildMgr only maps guild ids to names). Populated by the backend that
+    // decodes a roster opcode; inert where none is wired.
+    ms.guildShell = new GuildShell(ms.zoneMgr, this, "guildShell");
 
     // MessageShell parses chat / system / NPC text into structured
     // signals. Needs the global MessageFilters + Messages.

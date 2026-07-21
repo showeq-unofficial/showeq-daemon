@@ -25,6 +25,7 @@ extern "C" { // pcap headers aren't c++-clean
 #include "envelopesink.h"
 #include "filtermgr.h"
 #include "group.h"
+#include "guildshell.h"
 #include "itemcache.h"
 #include "itempacket.h"
 #include "mapcore.h"
@@ -52,6 +53,7 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
                                MapData*       mapData,
                                MessageShell*  messageShell,
                                GroupMgr*      groupMgr,
+                               GuildShell*    guildShell,
                                SpellShell*    spellShell,
                                CombatRouter*  combatRouter,
                                CategoryMgr*   categoryMgr,
@@ -71,6 +73,7 @@ SessionAdapter::SessionAdapter(IEnvelopeSink* sink,
     , m_mapData(mapData)
     , m_messageShell(messageShell)
     , m_groupMgr(groupMgr)
+    , m_guildShell(guildShell)
     , m_spellShell(spellShell)
     , m_combatRouter(combatRouter)
     , m_categoryMgr(categoryMgr)
@@ -446,6 +449,12 @@ void SessionAdapter::connectPerBox()
                 SLOT(onLootTransaction(uint32_t, uint32_t, uint32_t, uint32_t)));
     }
 
+    if (m_guildShell) {
+        // The roster replaces wholesale, so only the terminal loaded() matters —
+        // connecting added() too would emit one full roster envelope per member.
+        connect(m_guildShell, SIGNAL(loaded()), this, SLOT(sendGuildRoster()));
+    }
+
     if (m_groupMgr) {
         connect(m_groupMgr, SIGNAL(added(const QString&, const Spawn*)),
                 this,       SLOT(onGroupChanged()));
@@ -532,6 +541,7 @@ void SessionAdapter::startStreaming()
             m_player       = ns->player;
             m_messageShell = ns->messageShell;
             m_groupMgr     = ns->groupMgr;
+            m_guildShell   = ns->guildShell;
             m_spellShell   = ns->spellShell;
             m_combatRouter = ns->combatRouter;
             m_spawnMonitor = ns->spawnMonitor;
@@ -601,6 +611,12 @@ void SessionAdapter::startStreaming()
     // Initial GroupUpdate (all 6 slots, may all be empty).
     if (m_groupMgr) {
         sendGroupUpdate();
+    }
+    // Initial GuildRoster. Only when one has actually arrived — the roster is
+    // sent on request, so an empty envelope here would claim "no guild" for
+    // every session that simply hasn't asked yet.
+    if (m_guildShell && !m_guildShell->members().isEmpty()) {
+        sendGuildRoster();
     }
     // Initial BuffsUpdate (may be an empty list before login).
     if (m_spellShell) {
@@ -1014,6 +1030,14 @@ void SessionAdapter::sendGroupUpdate()
     if (!m_groupMgr) return;
     seq::v1::Envelope env;
     seq::encode::fillGroupUpdate(env.mutable_group(), *m_groupMgr);
+    sendOrBuffer(std::move(env));
+}
+
+void SessionAdapter::sendGuildRoster()
+{
+    if (!m_guildShell) return;
+    seq::v1::Envelope env;
+    seq::encode::fillGuildRoster(env.mutable_guild_roster(), *m_guildShell);
     sendOrBuffer(std::move(env));
 }
 

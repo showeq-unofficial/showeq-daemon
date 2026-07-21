@@ -24,6 +24,7 @@
 
 #include "dbstrings.h"
 #include "diagnosticmessages.h"
+#include "guildshell.h"
 #include "packetcommon.h"   // DIR_Client / DIR_Server
 #include "player.h"
 #include "spawnshell.h"
@@ -75,13 +76,49 @@ QString invocationName(uint32_t id)
 }
 
 EqlDispatch::EqlDispatch(ZoneMgr* zoneMgr, SpawnShell* spawnShell, Player* player,
-                         DbStrings* dbStrings)
+                         DbStrings* dbStrings, GuildShell* guildShell)
     : m_zoneMgr(zoneMgr)
     , m_spawnShell(spawnShell)
     , m_player(player)
     , m_dbStrings(dbStrings)
+    , m_guildShell(guildShell)
     , m_selfTracker(seq::rust::eql_self_tracker_new())
 {
+}
+
+void EqlDispatch::guildMemberList(const uint8_t* data, size_t len, uint8_t dir)
+{
+    // OP_GuildMemberList S>C: the whole roster, authoritative and replacing.
+    // Decoded in Rust because the eql layout diverges from the stock struct on
+    // three counts — a header one field wider, the multiclass bitmask sitting in
+    // the class slot, and a trailing zone id live never read.
+    if (dir != DIR_Server || !m_guildShell)
+        return;
+    auto rows = seq::rust::decode_guild_roster(rust::Slice<const uint8_t>{data, len});
+    // Empty means the parse failed its end-of-payload canary (or the guild is
+    // empty). Either way, don't wipe a good roster over it.
+    if (rows.empty())
+        return;
+
+    QVector<GuildRosterEntry> out;
+    out.reserve(int(rows.size()));
+    for (const auto& r : rows)
+    {
+        GuildRosterEntry e;
+        e.name       = latin1(r.name);
+        e.level      = (uint8_t)r.level;
+        e.classVal   = r.primary_class;
+        e.classMask  = r.class_mask;
+        e.guildRank  = r.rank;
+        e.lastOn     = r.last_on;
+        e.banker     = r.banker;
+        e.alt        = r.alt;
+        e.fullMember = r.full_member;
+        e.publicNote = latin1(r.public_note);
+        e.zoneId     = r.zone_id;
+        out.append(e);
+    }
+    m_guildShell->setRoster(rows[0].guild_id, out);
 }
 
 void EqlDispatch::applySelfVitals(const seq::rust::SelfStat& v)

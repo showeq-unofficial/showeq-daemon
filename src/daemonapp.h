@@ -32,6 +32,7 @@ class FilterMgr;
 class ItemCache;
 class OpcodeStatsLogger;
 class GroupMgr;
+class GuildShell;
 class GuildMgr;
 class MapData;
 class MessageFilters;
@@ -274,6 +275,7 @@ private:
     SpawnMonitor*                   m_spawnMonitor  = nullptr;
     SpellShell*                     m_spellShell    = nullptr;
     GroupMgr*                       m_groupMgr      = nullptr;
+    GuildShell*                     m_guildShell    = nullptr;
     CategoryMgr*                    m_categoryMgr   = nullptr;
     ItemCache*                      m_itemCache     = nullptr;
     MessageFilters*                 m_messageFilters = nullptr;

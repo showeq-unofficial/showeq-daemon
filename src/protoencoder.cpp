@@ -7,6 +7,7 @@
 #include "filter.h"
 #include "filtermgr.h"
 #include "group.h"
+#include "guildshell.h"
 #include "itemcache.h"
 #include "itempacket.h"
 #include "mapcore.h"
@@ -346,6 +347,32 @@ void fillPlayerStats(seq::v1::PlayerStats* out, const Player& p)
         const QString nm = p.aaName(aa.abilityId);
         if (!nm.isEmpty())
             e->set_name(nm.toStdString());
+    }
+}
+
+void fillGuildRoster(seq::v1::GuildRoster* out, GuildShell& gs)
+{
+    out->set_guild_id(gs.guildId());
+    // GuildShell keys members by name in a QHash, so emit in name order —
+    // otherwise the row order flips with the hash seed and tier-2 goldens flap.
+    QStringList names = gs.members().keys();
+    names.sort();
+    for (const QString& name : names) {
+        const GuildMember* gm = gs.members().value(name, nullptr);
+        if (!gm)
+            continue;
+        auto* m = out->add_members();
+        m->set_name(gm->name().toStdString());
+        m->set_level(gm->level());
+        m->set_class_(gm->classVal());
+        m->set_class_mask(gm->classMask());
+        m->set_rank(gm->guildRank());
+        m->set_last_on(uint32_t(gm->lastOn()));
+        m->set_banker(gm->bankRank() != 0);
+        m->set_alt(gm->altRank() != 0);
+        m->set_full_member(gm->memberRank() != 0);
+        m->set_public_note(gm->publicNote().toStdString());
+        m->set_zone_id(gm->zoneId());
     }
 }
 

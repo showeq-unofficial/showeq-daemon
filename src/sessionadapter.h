@@ -16,6 +16,7 @@ class CombatRouter;
 class DateTimeMgr;
 class FilterMgr;
 class GroupMgr;
+class GuildShell;
 class Item;
 class ItemCache;
 class MapData;
@@ -59,6 +60,7 @@ public:
                    MapData*       mapData,
                    MessageShell*  messageShell,
                    GroupMgr*      groupMgr,
+                   GuildShell*    guildShell,
                    SpellShell*    spellShell,
                    CombatRouter*  combatRouter,
                    CategoryMgr*   categoryMgr,
@@ -149,6 +151,9 @@ private slots:
                            uint32_t quantity, uint32_t coinCopper);
     // Re-emits the full group state on any GroupMgr add/remove/clear.
     void onGroupChanged();
+    // Re-emits the whole roster; it is replaced wholesale, never diffed, so
+    // GuildShell::loaded() connects straight here.
+    void sendGuildRoster();
     // Re-emits the full active-buff list on any SpellShell change.
     void onBuffsChanged();
     void onEffectsChanged();
@@ -249,6 +254,7 @@ private:
     MapData*                     m_mapData      = nullptr;
     MessageShell*                m_messageShell = nullptr;
     GroupMgr*                    m_groupMgr     = nullptr;
+    GuildShell*                  m_guildShell   = nullptr;
     SpellShell*                  m_spellShell   = nullptr;
     CombatRouter*                m_combatRouter = nullptr;
     CategoryMgr*                 m_categoryMgr  = nullptr;

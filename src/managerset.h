@@ -25,6 +25,7 @@ class Player;
 class SpawnShell;
 class SpellShell;
 class GroupMgr;
+class GuildShell;
 class MessageShell;
 class CombatRouter;
 class SpawnMonitor;
@@ -35,6 +36,9 @@ struct ManagerSet {
     SpawnShell*   spawnShell   = nullptr;
     SpellShell*   spellShell   = nullptr;
     GroupMgr*     groupMgr     = nullptr;
+    // The roster of THIS character's guild — per-box, unlike the daemon-global
+    // GuildMgr, which only maps guild ids to names server-wide.
+    GuildShell*   guildShell   = nullptr;
     MessageShell* messageShell = nullptr;
     CombatRouter* combatRouter = nullptr;
     SpawnMonitor* spawnMonitor = nullptr;

@@ -99,6 +99,27 @@ GuildMember::GuildMember(NetStream& netStream)
   netStream.skipBytes(6);
 }
 
+GuildMember::GuildMember(const GuildRosterEntry& e)
+  : m_name(e.name),
+    m_banker(e.banker),
+    m_level(e.level),
+    m_class(e.classVal),
+    m_classMask(e.classMask),
+    m_guildRank(e.guildRank),
+    m_lastOn(time_t(e.lastOn)),
+    m_guildTributeOn(0),
+    m_guildTrophyOn(0),
+    m_guildTributeDonated(0),
+    m_guildTributeLastDonation(0),
+    m_alt(e.alt),
+    m_fullmember(e.fullMember),
+    m_publicNote(e.publicNote),
+    m_zoneId(e.zoneId),
+    // No backend sends a roster instance id; zoneId alone locates a member.
+    m_zoneInstance(0)
+{
+}
+
 GuildMember::~GuildMember()
 {
 }
@@ -250,6 +271,36 @@ void GuildShell::dumpMembers(QTextStream& out)
   }
 }
 
+
+void GuildShell::setRoster(uint32_t guildId, const QVector<GuildRosterEntry>& rows)
+{
+  // Same shape as guildMemberList() below — the roster is authoritative and
+  // replaces wholesale — but from already-decoded rows, so a backend whose wire
+  // diverges from the stock struct decodes in its own parser and still lands
+  // here. Signals fire in the same order, so subscribers can't tell them apart.
+  emit cleared();
+  qDeleteAll(m_members);
+  m_members.clear();
+  m_maxNameLength = 0;
+  m_guildId = guildId;
+
+  for (const GuildRosterEntry& e : rows)
+  {
+    if (e.name.isEmpty())
+      continue;   // keyed by name; an unnamed row would collide on ""
+    GuildMember* member = new GuildMember(e);
+    m_members.insert(member->name(), member);
+    if (size_t(member->name().length()) > m_maxNameLength)
+      m_maxNameLength = member->name().length();
+    emit added(member);
+  }
+
+  // Count only — a roster is a list of character names, so nothing identifying
+  // goes to the log.
+  seqInfo("GuildShell: roster for guild %u — %d members",
+          m_guildId, int(m_members.count()));
+  emit loaded();
+}
 
 void GuildShell::guildMemberList(const uint8_t* data, size_t len)
 {

@@ -160,13 +160,52 @@ earlier than a cold one and shifts the envelope stream (two individually-stable 
 12 envelopes apart on `eql-fighting`). `check.sh` now deletes the cache per fixture so
 goldens always encode the cold path and reproduce on a fresh clone / in CI.
 
+### ✅ Guild ROSTER tier WIRED (2026-07-21) — `OP_GuildMemberList 0x591d`
+
+The roster now decodes into `GuildShell` and ships as a new `GuildRoster` proto message.
+Unlike guild-in-zone, the eql wire here **diverges from the stock struct**, so the shared
+NetStream walk cannot be reused — the parser lives in `seq-backend-eql/guild_roster.rs`
+and reaches core through a neutral `GuildShell::setRoster()`.
+
+Layout (per the legends branch `guildshell.cpp`, byte-verified against a captured
+122-byte 2-member roster):
+
+```
+header  LPText requesterName, u32 guildId, u32 unknown, u16, u32 count
+record  LPText name, u32 level, u32 bankerFlag, u32 classMask, u32 rank,
+        u32 lastOn, u8 tributeOn, u8 trophyOn, u32 tributeDonated,
+        u32 tributeLastDonation, u8 fullMember, LPText publicNote,
+        u16 zoneId, 4 unread
+```
+
+`LPText` = u32 length + unterminated bytes. Three divergences from live: the header is a
+field wider (`u32+u32+u16`, not `u32+u32+u8` — that single byte desynced the whole stock
+parse), the class slot holds the **multiclass bitmask** (bit N = class N; display the
+lowest set bit), and each record ends with a `u16` zone id live left unread (0 = offline).
+`bankerFlag` packs two flags: 0 none, 1 banker, 2 alt, 3 alt banker.
+
+**Validation:** both captured records land with zero slack — record 1 ends exactly where
+record 2's length prefix begins, record 2 exactly on the payload length. The parser
+enforces that end-of-payload landing as a canary and returns nothing if the walk drifts,
+so a layout change fails loudly instead of surfacing a half-read roster. Replay-verified
+on 3 fixtures: guild 454, 2 members, level 24, masks `0x4006`/`0x0502`, ranks 1/2, one in
+zone 50 and one offline.
+
+Roster rows are emitted **sorted by name** — `GuildShell` keys members in a QHash, whose
+order is seed-dependent and would flap tier-2 goldens.
+
+`GuildShell` was dead code before this (compiled, never instantiated); it now lives in
+`ManagerSet` because a roster is per-character, unlike the daemon-global `GuildMgr`.
+
 ### Still open
 
 Ambiguous small-payload clusters (4B / 8B / 12B / 24B), the chat trio, spell casts,
-and the rest of the ~40 unmapped opcodes — see the WIP doc. Remaining guild work is the
-roster tier (`OP_GuildMemberList 0x591d`, `OP_GuildMemberUpdate 0x0717`,
-`OP_GuildMOTD 0x5924` — all present in captures, none wired), which needs new proto
-roster/MOTD messages and a popout-only web panel. The new
+and the rest of the ~40 unmapped opcodes — see the WIP doc. Remaining guild work:
+`OP_GuildMOTD 0x5924` (656B, stock `guildMOTDStruct`, present in 8 of 10 fixtures) and
+the popout-only web panel. **`OP_GuildMemberUpdate 0x0717` is deliberately NOT wired** —
+the legends branch found its zone/lastOn tail is uninitialized server memory (a logoff
+sends a garbage zone like 5376), so only the roster is authoritative for zone/lastOn and
+the update's sole trustworthy field is rank. The new
 OP_FormattedMessage (`0x3c0a`) was handled separately (addendum-11 work against the
 pre-patch fixtures — left as-is). Next: resolve the clusters → finish the table →
 record a golden for `eqlegends-patch20260714` once the table is stable → check.sh.

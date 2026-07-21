@@ -43,10 +43,33 @@ struct GuildMemberUpdate;
 
 //----------------------------------------------------------------------
 // GuildMember
+// Target-neutral roster row: the caller has already decoded the wire, so no
+// Legends types reach core. Mirrors what seq-backend-eql's roster parser
+// recovers; see GuildShell::setRoster().
+struct GuildRosterEntry
+{
+  QString  name;
+  uint8_t  level = 0;
+  // Backends that send a class id put it here directly; eql sends a multiclass
+  // bitmask and the caller resolves its lowest set bit.
+  uint8_t  classVal = 0;
+  uint32_t classMask = 0;   // 0 where the backend has no multiclass concept
+  uint32_t guildRank = 0;   // 0 member, 1 officer, 2 leader
+  uint32_t lastOn = 0;      // unix seconds, 0 = never
+  uint8_t  banker = 0;
+  uint8_t  alt = 0;
+  uint32_t fullMember = 0;
+  QString  publicNote;
+  uint16_t zoneId = 0;      // 0 = offline
+};
+
 class GuildMember
 {
  public:
   GuildMember(NetStream& netStream);
+  // Build from already-decoded fields (the eql path, whose wire diverges from
+  // the stock struct the NetStream ctor above walks).
+  explicit GuildMember(const GuildRosterEntry& e);
   ~GuildMember();
 
   void update(const GuildMemberUpdate* gmu);
@@ -56,6 +79,8 @@ class GuildMember
   uint8_t classVal() const { return m_class; }
   QString classString() const;
   uint32_t guildRank() const { return m_guildRank; }
+  // EQL multiclass bitmask (bit N = class N); 0 on backends without one.
+  uint32_t classMask() const { return m_classMask; }
   const QString& guildRankString() const;
   uint32_t bankRank() const { return m_banker; }
   const QString& bankRankString() const;
@@ -73,6 +98,7 @@ class GuildMember
   uint8_t m_banker; // 0 = no, 1 = banker
   uint8_t m_level;
   uint8_t m_class;
+  uint32_t m_classMask = 0; // EQL multiclass bitmask; 0 elsewhere
   uint32_t m_guildRank; // 0 = member, 1 = officer, 2 = leader
   time_t m_lastOn;
   uint8_t m_guildTributeOn; // 0 = off, 1 = on
@@ -106,6 +132,13 @@ class GuildShell : public QObject
   
   QString zoneString(uint16_t zoneid) const;
 
+  // Neutral roster-apply primitive: replace the whole roster from already-decoded
+  // rows. Used by backends whose wire diverges from the stock struct the
+  // guildMemberList() slot below walks (eql). Emits the same cleared/added/loaded
+  // signals, so downstream sees no difference. Unused on live/test.
+  void setRoster(uint32_t guildId, const QVector<GuildRosterEntry>& rows);
+  uint32_t guildId() const { return m_guildId; }
+
  public slots:
   void guildMemberList(const uint8_t* data, size_t len);
   void guildMemberUpdate(const uint8_t* data, size_t len);
@@ -122,6 +155,7 @@ class GuildShell : public QObject
   GuildMemberDict m_members;
   size_t m_maxNameLength;
   ZoneMgr* m_zoneMgr;
+  uint32_t m_guildId = 0;
 };
 
 #endif // _GUILDSHELL_H_
