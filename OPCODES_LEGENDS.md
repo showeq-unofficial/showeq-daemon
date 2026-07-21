@@ -1330,3 +1330,23 @@ Swept the same window for a *different* carrier and found none:
 Remaining gap: this cannot exhaustively disprove a stance field buried in a
 high-frequency per-spawn opcode, but every structurally plausible carrier is
 ruled out. **Do not build group-member stance display on this opcode.**
+
+**C>S request size — 4B here, 9B reported externally (2026-07-20)**
+
+An external report has ~half of C>S activation requests arriving as 9B
+(ability id + an extra u32 + a trailing zero), which warns on a size-matched
+client payload. We cannot reproduce it. `eql-stance-sweep.vpk` cycled every
+stance and invocation the character had — **16 distinct abilities, 16 requests,
+all 4B**, matching the 7/16 and 7/17 captures:
+
+- stance `0x0fab`: 117, 118, 119, 120, 121, 122, 124, 135
+- invocation `0x3b12`: 125, 126, 127, 128, 129, 131, 133, 134
+
+So the 9B form is **not ability-specific** across the 16 tested. Untested (the
+character lacks them): 123 Berserker, 130 Inviolable, 132 Chained. Next
+hypotheses are client build and input method (hotbar vs menu vs slash command)
+— worth asking how the swaps were performed before hunting further.
+
+Regardless of cause, the client payload stays `uint8_t`/`sizechecktype=none`:
+we never decode the request, so the variance costs nothing and a size-match
+would only reintroduce the warnings.
